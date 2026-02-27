@@ -44,3 +44,7 @@ prisma/migrations/
 # Database
 .sqlite
 .sqlite-journal
+
+# Generated data files (regenerated during build from JSON)
+# src/data/contacts.ts
+# src/data/contact-details.ts
