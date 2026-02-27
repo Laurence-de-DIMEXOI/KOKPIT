@@ -1,0 +1,50 @@
+{
+  "name": "kokpit",
+  "version": "0.1.0",
+  "description": "KÒKPIT - Modern SaaS Platform",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/node": "^22.0.0",
+    "tailwindcss": "^3.3.6",
+    "postcss": "^8.4.32",
+    "autoprefixer": "^10.4.16",
+    "prisma": "^5.7.0",
+    "@prisma/client": "^5.7.0",
+    "next-auth": "^4.24.0",
+    "bcryptjs": "^2.4.3",
+    "@types/bcryptjs": "^2.4.6",
+    "otplib": "^12.0.1",
+    "qrcode": "^1.5.3",
+    "@types/qrcode": "^1.5.5",
+    "zod": "^3.22.4",
+    "resend": "^3.0.0",
+    "twilio": "^4.10.0",
+    "bullmq": "^5.6.0",
+    "ioredis": "^5.3.2",
+    "recharts": "^2.10.3",
+    "lucide-react": "^0.469.0",
+    "date-fns": "^2.30.0",
+    "papaparse": "^5.4.1",
+    "@types/papaparse": "^5.3.14",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.2.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
+  }
+}

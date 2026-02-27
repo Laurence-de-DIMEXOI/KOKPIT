@@ -1,0 +1,500 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+  MARKETING
+  COMMERCIAL
+  DIRECTION
+  ADMIN
+}
+
+enum LeadStatut {
+  NOUVEAU
+  EN_COURS
+  DEVIS
+  VENTE
+  PERDU
+}
+
+enum LeadSource {
+  META_ADS
+  GOOGLE_ADS
+  SITE_WEB
+  GLIDE
+  SALON
+  FORMULAIRE
+  DIRECT
+}
+
+enum LeadPriorite {
+  HAUTE
+  NORMALE
+  BASSE
+}
+
+enum LifecycleStage {
+  PROSPECT
+  LEAD
+  CLIENT
+  INACTIF
+}
+
+enum Plateforme {
+  META
+  GOOGLE
+  EMAIL
+  SMS
+  SALON
+  AUTRE
+}
+
+enum DevisStatut {
+  EN_ATTENTE
+  ENVOYE
+  ACCEPTE
+  REFUSE
+  EXPIRE
+}
+
+enum EvenementType {
+  CREATION_LEAD
+  EMAIL_ENVOYE
+  SMS_ENVOYE
+  APPEL
+  NOTE
+  DEVIS_CREE
+  VENTE
+  RELANCE
+  CHANGEMENT_STATUT
+  VISITE_WEB
+}
+
+enum WorkflowTrigger {
+  NOUVEAU_LEAD
+  LEAD_INACTIF
+  DEVIS_NON_FACTURE
+  POST_ACHAT
+  SLA_DEPASSE
+}
+
+enum ActionType {
+  EMAIL
+  SMS
+  NOTIFICATION
+  TACHE
+  CHANGEMENT_STATUT
+  DELAI
+}
+
+enum WorkflowLogStatut {
+  PLANIFIE
+  EN_COURS
+  TERMINE
+  ERREUR
+}
+
+enum EmailStatut {
+  ENVOYE
+  OUVERT
+  CLIQUE
+  BOUNCE
+  ERREUR
+}
+
+enum CampagneEmailStatut {
+  BROUILLON
+  PLANIFIE
+  EN_COURS
+  TERMINE
+}
+
+enum CoutType {
+  SALON
+  AGENCE
+  PRINT
+  AUTRE
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  nom             String
+  prenom          String
+  passwordHash    String
+  totpSecret      String?
+  role            Role
+  showroomId      String?
+  actif           Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  showroom        Showroom? @relation(fields: [showroomId], references: [id], onDelete: SetNull)
+  leadsAssignes   Lead[]    @relation("LeadCommercial")
+  evenements      Evenement[] @relation("EvenementAuteur")
+  auditLogs       AuditLog[] @relation("AuditLogUser")
+
+  @@index([showroomId])
+}
+
+model Showroom {
+  id              String    @id @default(cuid())
+  nom             String
+  adresse         String?
+  emailNotif      String?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  users           User[]
+  contacts        Contact[]
+  leads           Lead[]
+
+  @@index([nom])
+}
+
+model Contact {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  telephone           String?
+  nom                 String
+  prenom              String
+  adresse             String?
+  ville               String?
+  codePostal          String?
+  showroomId          String?
+  sourcePremiere      String?
+  lifecycleStage      LifecycleStage @default(PROSPECT)
+  rgpdEmailConsent    Boolean   @default(false)
+  rgpdSmsConsent      Boolean   @default(false)
+  rgpdConsentDate     DateTime?
+  rgpdConsentSource   String?
+  sellsyContactId     String?   @unique
+  scoreRfm            Int?
+  recence             Int?
+  frequence           Int?
+  montant             Float?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  showroom            Showroom? @relation(fields: [showroomId], references: [id], onDelete: SetNull)
+  leads               Lead[]
+  devis               Devis[]
+  ventes              Vente[]
+  evenements          Evenement[]
+  clickEvents         ClickEvent[]
+  emailLogs           EmailLog[]
+  smsLogs             SmsLog[]
+  workflowLogs        WorkflowLog[]
+
+  @@index([telephone])
+  @@index([sellsyContactId])
+  @@index([showroomId])
+}
+
+model Lead {
+  id                  String    @id @default(cuid())
+  contactId           String
+  showroomId          String?
+  commercialId        String?
+  statut              LeadStatut @default(NOUVEAU)
+  source              LeadSource
+  campagneId          String?
+  produitsDemandes    Json?
+  utmSource           String?
+  utmMedium           String?
+  utmCampaign         String?
+  utmContent          String?
+  utmTerm             String?
+  gclid               String?
+  metaClickId         String?
+  attributionDate     DateTime?
+  slaDeadline         DateTime
+  premiereActionAt    DateTime?
+  priorite            LeadPriorite @default(NORMALE)
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  showroom            Showroom? @relation(fields: [showroomId], references: [id], onDelete: SetNull)
+  commercial          User?     @relation("LeadCommercial", fields: [commercialId], references: [id], onDelete: SetNull)
+  campagne            Campagne? @relation(fields: [campagneId], references: [id], onDelete: SetNull)
+  devis               Devis[]
+  evenements          Evenement[]
+  workflowLogs        WorkflowLog[]
+
+  @@index([contactId])
+  @@index([commercialId])
+  @@index([statut])
+  @@index([campagneId])
+  @@index([createdAt])
+}
+
+model Campagne {
+  id                  String    @id @default(cuid())
+  nom                 String
+  plateforme          Plateforme
+  coutTotal           Float     @default(0)
+  dateDebut           DateTime?
+  dateFin             DateTime?
+  metaCampaignId      String?
+  metaAdsetId         String?
+  metaAdId            String?
+  googleCampaignId    String?
+  actif               Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  leads               Lead[]
+  coutsOffline        CoutOffline[]
+
+  @@index([nom])
+  @@index([plateforme])
+}
+
+model Devis {
+  id                  String    @id @default(cuid())
+  leadId              String?
+  contactId           String
+  sellsyQuoteId       String?   @unique
+  montant             Float
+  statut              DevisStatut @default(EN_ATTENTE)
+  dateEnvoi           DateTime?
+  dateRelance         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  vente               Vente?
+
+  @@index([leadId])
+  @@index([contactId])
+  @@index([statut])
+}
+
+model Vente {
+  id                  String    @id @default(cuid())
+  devisId             String?   @unique
+  contactId           String
+  sellsyInvoiceId     String?   @unique
+  montant             Float
+  dateVente           DateTime
+  produits            Json?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  devis               Devis?    @relation(fields: [devisId], references: [id], onDelete: SetNull)
+  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([dateVente])
+}
+
+model Evenement {
+  id                  String    @id @default(cuid())
+  contactId           String?
+  leadId              String?
+  type                EvenementType
+  description         String
+  metadata            Json?
+  auteurId            String?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  contact             Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  auteur              User?     @relation("EvenementAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+
+  @@index([contactId])
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model ClickEvent {
+  id                  String    @id @default(cuid())
+  contactId           String?
+  utmSource           String?
+  utmMedium           String?
+  utmCampaign         String?
+  utmContent          String?
+  utmTerm             String?
+  gclid               String?
+  metaClickId         String?
+  pageUrl             String?
+  referrer            String?
+  ipHash              String?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  contact             Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([contactId])
+  @@index([createdAt])
+}
+
+model Workflow {
+  id                  String    @id @default(cuid())
+  nom                 String
+  triggerType         WorkflowTrigger
+  conditions          Json?
+  actif               Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  actions             WorkflowAction[]
+  logs                WorkflowLog[]
+
+  @@index([triggerType])
+  @@index([actif])
+}
+
+model WorkflowAction {
+  id                  String    @id @default(cuid())
+  workflowId          String
+  ordre               Int
+  typeAction          ActionType
+  config              Json
+  delaiHeures         Int?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  workflow            Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  logs                WorkflowLog[] @relation("WorkflowActionLog")
+
+  @@index([workflowId])
+  @@index([ordre])
+}
+
+model WorkflowLog {
+  id                  String    @id @default(cuid())
+  workflowId          String
+  actionId            String?
+  contactId           String?
+  leadId              String?
+  statut              WorkflowLogStatut @default(PLANIFIE)
+  resultat            Json?
+  executeAt           DateTime
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  workflow            Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  action              WorkflowAction? @relation("WorkflowActionLog", fields: [actionId], references: [id], onDelete: SetNull)
+  contact             Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([workflowId])
+  @@index([contactId])
+  @@index([createdAt])
+}
+
+model EmailCampaign {
+  id                  String    @id @default(cuid())
+  nom                 String
+  objet               String
+  contenuHtml         String
+  segmentFilter       Json?
+  statut              CampagneEmailStatut @default(BROUILLON)
+  dateEnvoiPlanifie   DateTime?
+  nbEnvoyes           Int       @default(0)
+  nbOuverts           Int       @default(0)
+  nbClics             Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  emailLogs           EmailLog[] @relation("EmailCampaignLog")
+
+  @@index([statut])
+}
+
+model EmailLog {
+  id                  String    @id @default(cuid())
+  contactId           String
+  campaignId          String?
+  objet               String
+  statut              EmailStatut
+  resendId            String?
+  sentAt              DateTime
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign            EmailCampaign? @relation("EmailCampaignLog", fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([contactId])
+  @@index([campaignId])
+  @@index([sentAt])
+}
+
+model SmsLog {
+  id                  String    @id @default(cuid())
+  contactId           String
+  message             String
+  statut              String
+  twilioSid           String?
+  sentAt              DateTime
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([sentAt])
+}
+
+model AuditLog {
+  id                  String    @id @default(cuid())
+  userId              String?
+  action              String
+  entite              String
+  entiteId            String?
+  details             Json?
+  ipAddress           String?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  user                User?     @relation("AuditLogUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CoutOffline {
+  id                  String    @id @default(cuid())
+  campagneId          String
+  description         String
+  montant             Float
+  type                CoutType
+  date                DateTime
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  campagne            Campagne  @relation(fields: [campagneId], references: [id], onDelete: Cascade)
+
+  @@index([campagneId])
+  @@index([date])
+}

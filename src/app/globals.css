@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Sneat Light Theme with Yellow Accent */
+  --background: #F5F6F7;
+  --background-dark: #F0F1F3;
+  --card-bg: #FFFFFF;
+  --card-border: #E8EAED;
+  --primary: #F4B400;
+  --danger: #FF3E1D;
+  --success: #71DD37;
+  --info: #03C3EC;
+  --warning: #FFAB00;
+  --text-primary: #32475C;
+  --text-secondary: #8592A3;
+  --text-heading: #1F2937;
+  --input-bg: #FFFFFF;
+  --input-border: #D9DCE3;
+  --radius-card: 0.75rem;
+  --radius-input: 0.5rem;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F0F1F3;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D9DCE3;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #BFCAE1;
+}
+
+/* Firefox Scrollbar */
+* {
+  scrollbar-color: #D9DCE3 #F0F1F3;
+  scrollbar-width: thin;
+}
+
+/* Typography */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-heading);
+  font-weight: 600;
+  letter-spacing: -0.75px;
+}
+
+h1 {
+  font-size: 2.5rem;
+  line-height: 3rem;
+}
+
+h2 {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+
+h4 {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+}
+
+h5 {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+h6 {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+p {
+  color: var(--text-primary);
+  line-height: 1.5rem;
+}
+
+/* Form Elements */
+input,
+textarea,
+select {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-input);
+  padding: 0.875rem 1.125rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(244, 180, 0, 0.1), 0 2px 8px rgba(50, 71, 92, 0.08);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background-color: #F5F6F7;
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Links */
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+/* Code blocks */
+code,
+pre {
+  background-color: #F0F1F3;
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-input);
+  padding: 0.5rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+}
+
+pre {
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+/* Selection color */
+::selection {
+  background-color: var(--primary);
+  color: white;
+}
+
+::-moz-selection {
+  background-color: var(--primary);
+  color: white;
+}
