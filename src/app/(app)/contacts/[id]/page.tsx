@@ -1,17 +1,15 @@
-"use client";
-
-import { useState } from "react";
 import { contactsData } from "@/data/contacts";
 import { contactDetailsData } from "@/data/contact-details";
 import { ArrowLeft, CheckCircle2, Circle } from "lucide-react";
 import Link from "next/link";
 
 interface ContactDetailsPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function ContactDetailsPage({ params }: ContactDetailsPageProps) {
-  const contact = contactsData.find(c => c.id === params.id);
+export default async function ContactDetailsPage({ params }: ContactDetailsPageProps) {
+  const { id } = await params;
+  const contact = contactsData.find(c => c.id === id);
   const details = contact ? contactDetailsData[contact.email] : null;
 
   if (!contact) {
