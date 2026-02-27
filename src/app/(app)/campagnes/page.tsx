@@ -2,185 +2,213 @@
 
 import { useState, useEffect } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
-import { DollarSign, TrendingUp, BarChart3, Target } from "lucide-react";
+import { BarChart3, TrendingUp, DollarSign, Users, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 
 interface Campaign {
   id: string;
-  nom: string;
-  plateforme: string;
-  cout: number;
-  demandes: number;
-  devis: number;
-  ventes: number;
-  ca: number;
-  roi: number;
-  statut: string;
+  name: string;
+  status: "ACTIVE" | "PAUSED" | "ARCHIVED" | "DELETED";
+  spend?: number;
+  impressions?: number;
+  clicks?: number;
+  conversions?: number;
+  roas?: number;
+  budget?: number;
+  startDate?: string;
+  endDate?: string;
+  cpc?: number;
+  ctr?: number;
+  metaCampaignId: string;
 }
 
 export default function CampagnesPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [stats, setStats] = useState({
-    totalCost: 0,
-    totalRevenue: 0,
-    avgROI: 0,
-    totalLeads: 0,
-  });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch("/api/campaigns");
-        const result = await response.json();
-
-        const campaignsArray = Array.isArray(result) ? result : result.data || [];
-
-        setCampaigns(campaignsArray);
-
-        const totalCost = campaignsArray.reduce((acc: number, c: Campaign) => acc + (c.cout || 0), 0);
-        const totalRevenue = campaignsArray.reduce((acc: number, c: Campaign) => acc + (c.ca || 0), 0);
-        const avgROI = campaignsArray.reduce((acc: number, c: Campaign) => acc + (c.roi || 0), 0) / (campaignsArray.length || 1);
-        const totalLeads = campaignsArray.reduce((acc: number, c: Campaign) => acc + (c.demandes || 0), 0);
-
-        setStats({
-          totalCost,
-          totalRevenue,
-          avgROI: Math.round(avgROI),
-          totalLeads,
-        });
-      } catch (error) {
-        console.error("Erreur:", error);
-        setCampaigns([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    loadCampaigns();
   }, []);
+
+  const loadCampaigns = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/meta/campaigns");
+      if (res.ok) {
+        const data = await res.json();
+        setCampaigns(data.campaigns || []);
+      } else {
+        const err = await res.json();
+        setError(err.error || "Erreur lors du chargement");
+      }
+    } catch (err: any) {
+      setError(err.message || "Erreur réseau");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    await loadCampaigns();
+    setSyncing(false);
+  };
+
+  const totalSpend = campaigns.reduce((sum, c) => sum + (c.spend || 0), 0);
+  const totalImpressions = campaigns.reduce((sum, c) => sum + (c.impressions || 0), 0);
+  const totalClicks = campaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
+  const totalConversions = campaigns.reduce((sum, c) => sum + (c.conversions || 0), 0);
+  const avgRoas =
+    campaigns.length > 0
+      ? campaigns.reduce((sum, c) => sum + (c.roas || 0), 0) / campaigns.length
+      : 0;
+
+  const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
+    ACTIVE: { label: "Active", bg: "bg-[#71DD37]/10", text: "text-[#71DD37]" },
+    PAUSED: { label: "En pause", bg: "bg-[#FFAB00]/10", text: "text-[#FFAB00]" },
+    ARCHIVED: { label: "Archivée", bg: "bg-[#8592A3]/10", text: "text-[#8592A3]" },
+    DELETED: { label: "Supprimée", bg: "bg-[#FF3E1D]/10", text: "text-[#FF3E1D]" },
+  };
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-cockpit-heading mb-2">
-            Campagnes
-          </h1>
-          <p className="text-cockpit-secondary">
-            Gérez vos campagnes marketing
-          </p>
+          <h1 className="text-3xl font-bold text-cockpit-heading mb-2">Campagnes</h1>
+          <p className="text-cockpit-secondary">{campaigns.length} campagnes Facebook / Instagram</p>
         </div>
-        <button className="bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity">
-          + Nouvelle campagne
+        <button
+          onClick={handleSync}
+          disabled={syncing || loading}
+          className="flex items-center gap-2 bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+        >
+          {syncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+          {syncing ? "Synchronisation..." : "Synchroniser depuis Meta"}
         </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-4 gap-8">
         <KPICard
-          title="Dépenses totales"
-          value={`${(stats.totalCost / 1000).toFixed(1)}k €`}
+          title="Budget total"
+          value={`€${totalSpend.toFixed(2)}`}
           icon={<DollarSign className="w-7 h-7" />}
-          bgColor="bg-cockpit-danger"
+          bgColor="bg-cockpit-yellow"
         />
         <KPICard
-          title="Chiffre d'affaires"
-          value={`${(stats.totalRevenue / 1000).toFixed(1)}k €`}
-          change={{ value: 15, direction: "up" }}
+          title="Impressions"
+          value={totalImpressions.toLocaleString("fr-FR")}
+          icon={<Users className="w-7 h-7" />}
+          bgColor="bg-cockpit-info"
+        />
+        <KPICard
+          title="Clics"
+          value={totalClicks.toLocaleString("fr-FR")}
           icon={<TrendingUp className="w-7 h-7" />}
           bgColor="bg-cockpit-success"
         />
         <KPICard
-          title="ROI moyen"
-          value={`${stats.avgROI}%`}
-          change={{ value: 8, direction: "up" }}
+          title="Conversions"
+          value={totalConversions.toLocaleString("fr-FR")}
           icon={<BarChart3 className="w-7 h-7" />}
           bgColor="bg-cockpit-warning"
         />
-        <KPICard
-          title="Total demandes"
-          value={stats.totalLeads}
-          change={{ value: 12, direction: "up" }}
-          icon={<Target className="w-7 h-7" />}
-          bgColor="bg-cockpit-info"
-        />
       </div>
 
-      {/* Table */}
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-cockpit-dark border-b border-cockpit">
-              <tr>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">
-                  NOM
-                </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">
-                  PLATEFORME
-                </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">
-                  COÛT
-                </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">
-                  DEMANDES
-                </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">
-                  DEVIS
-                </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">
-                  CA
-                </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">
-                  ROI
-                </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">
-                  STATUT
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cockpit">
-              {campaigns.length > 0 ? (
-                campaigns.map((campaign) => (
-                  <tr key={campaign.id} className="hover:bg-cockpit-dark transition-colors">
-                    <td className="px-8 py-4 text-cockpit-primary font-medium">
-                      {campaign.nom}
-                    </td>
-                    <td className="px-8 py-4 text-cockpit-secondary text-sm">
-                      {campaign.plateforme}
-                    </td>
-                    <td className="px-8 py-4 text-cockpit-primary font-medium">
-                      {campaign.cout?.toFixed(2) || 0} €
-                    </td>
-                    <td className="px-8 py-4 text-cockpit-primary font-medium">
-                      {campaign.demandes}
-                    </td>
-                    <td className="px-8 py-4 text-cockpit-primary font-medium">
-                      {campaign.devis}
-                    </td>
-                    <td className="px-8 py-4 text-cockpit-primary font-medium">
-                      {campaign.ca?.toFixed(2) || 0} €
-                    </td>
-                    <td className="px-8 py-4 text-cockpit-success font-bold">
-                      {campaign.roi}%
-                    </td>
-                    <td className="px-8 py-4">
-                      <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-cockpit-success/10 text-cockpit-success">
-                        {campaign.statut}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={8} className="px-8 py-8 text-center text-cockpit-secondary">
-                    {loading ? "Chargement..." : "Aucune campagne"}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {error && (
+        <div className="flex items-center gap-3 p-4 bg-[#FF3E1D]/10 border border-[#FF3E1D]/30 rounded-lg">
+          <AlertCircle className="w-5 h-5 text-[#FF3E1D] flex-shrink-0" />
+          <p className="text-sm text-[#FF3E1D]">{error}</p>
         </div>
-      </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-cockpit-yellow" />
+        </div>
+      )}
+
+      {!loading && campaigns.length > 0 && (
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-cockpit-dark border-b border-cockpit">
+                <tr>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">NOM</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">STATUT</th>
+                  <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">BUDGET</th>
+                  <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">DÉPENSES</th>
+                  <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">IMPRESSIONS</th>
+                  <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">CLICS</th>
+                  <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">CTR</th>
+                  <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">CPC</th>
+                  <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">CONVERSIONS</th>
+                  <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">ROAS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-cockpit">
+                {campaigns.map((c) => {
+                  const status = statusConfig[c.status] || statusConfig.PAUSED;
+                  return (
+                    <tr key={c.id} className="hover:bg-cockpit-dark transition-colors">
+                      <td className="px-8 py-4">
+                        <span className="font-medium text-cockpit-primary">{c.name}</span>
+                      </td>
+                      <td className="px-8 py-4">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-8 py-4 text-right text-sm text-cockpit-secondary">
+                        €{c.budget ? (c.budget / 100).toFixed(2) : "-"}
+                      </td>
+                      <td className="px-8 py-4 text-right text-sm font-medium text-cockpit-primary">
+                        €{c.spend?.toFixed(2) || "-"}
+                      </td>
+                      <td className="px-8 py-4 text-right text-sm text-cockpit-secondary">
+                        {c.impressions?.toLocaleString("fr-FR") || "-"}
+                      </td>
+                      <td className="px-8 py-4 text-right text-sm text-cockpit-secondary">
+                        {c.clicks?.toLocaleString("fr-FR") || "-"}
+                      </td>
+                      <td className="px-8 py-4 text-right text-sm text-cockpit-secondary">
+                        {c.ctr?.toFixed(2) || "-"}%
+                      </td>
+                      <td className="px-8 py-4 text-right text-sm text-cockpit-secondary">
+                        €{c.cpc?.toFixed(2) || "-"}
+                      </td>
+                      <td className="px-8 py-4 text-right text-sm font-medium text-cockpit-primary">
+                        {c.conversions || "-"}
+                      </td>
+                      <td className="px-8 py-4 text-right text-sm font-medium text-cockpit-primary">
+                        {c.roas?.toFixed(2) || "-"}x
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!loading && campaigns.length === 0 && !error && (
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-12 text-center">
+          <BarChart3 className="w-16 h-16 mx-auto mb-4 text-cockpit-secondary opacity-50" />
+          <h3 className="text-lg font-semibold text-cockpit-heading mb-2">Aucune campagne trouvée</h3>
+          <p className="text-cockpit-secondary mb-6">
+            Clique sur "Synchroniser depuis Meta" pour importer tes campagnes Facebook et Instagram
+          </p>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
+          >
+            Synchroniser maintenant
+          </button>
+        </div>
+      )}
     </div>
   );
 }

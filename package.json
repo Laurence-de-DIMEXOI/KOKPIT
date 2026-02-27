@@ -10,7 +10,8 @@
     "lint": "next lint",
     "db:migrate": "prisma migrate dev",
     "db:seed": "npx tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:import-glide": "npx tsx prisma/import-glide-excel.ts"
   },
   "dependencies": {
     "next": "^15.1.0",

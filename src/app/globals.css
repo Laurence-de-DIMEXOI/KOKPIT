@@ -192,3 +192,9 @@ pre {
   background-color: var(--primary);
   color: white;
 }
+
+/* Drawer slide-in animation */
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}

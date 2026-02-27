@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import Link from "next/link";
+import { useState, useMemo, useCallback } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { Users } from "lucide-react";
 import { contactsData } from "@/data/contacts";
+import { ContactPreviewDrawer } from "@/components/contacts/contact-preview-drawer";
 
 const ITEMS_PER_PAGE = 25;
+
+type ContactItem = typeof contactsData[0];
 
 export default function ContactsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [selectedContact, setSelectedContact] = useState<ContactItem | null>(null);
 
   const filtered = useMemo(() =>
     contactsData.filter(c =>
@@ -21,6 +24,14 @@ export default function ContactsPage() {
 
   const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+
+  const handleContactClick = useCallback((contact: ContactItem) => {
+    setSelectedContact(contact);
+  }, []);
+
+  const handleCloseDrawer = useCallback(() => {
+    setSelectedContact(null);
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -58,11 +69,15 @@ export default function ContactsPage() {
             </thead>
             <tbody className="divide-y divide-cockpit">
               {paged.map(c => (
-                <tr key={c.id} className="hover:bg-cockpit-dark transition-colors">
+                <tr
+                  key={c.id}
+                  className="hover:bg-cockpit-dark transition-colors cursor-pointer"
+                  onClick={() => handleContactClick(c)}
+                >
                   <td className="px-8 py-4">
-                    <Link href={`/contacts/${c.id}`} className="text-cockpit-yellow font-medium hover:underline">
+                    <span className="text-cockpit-yellow font-medium hover:underline">
                       {c.nom}
-                    </Link>
+                    </span>
                   </td>
                   <td className="px-8 py-4 text-cockpit-secondary text-sm">{c.email}</td>
                   <td className="px-8 py-4 text-cockpit-secondary text-sm">{c.telephone}</td>
@@ -83,6 +98,13 @@ export default function ContactsPage() {
           </div>
         </div>
       </div>
+
+      {/* Drawer d'aperçu du contact */}
+      <ContactPreviewDrawer
+        contact={selectedContact}
+        isOpen={selectedContact !== null}
+        onClose={handleCloseDrawer}
+      />
     </div>
   );
 }

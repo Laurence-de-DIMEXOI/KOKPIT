@@ -185,6 +185,13 @@ model Contact {
   rgpdSmsConsent      Boolean   @default(false)
   rgpdConsentDate     DateTime?
   rgpdConsentSource   String?
+  // Consentements Glideapps
+  consentOffre        Boolean   @default(false)
+  consentNewsletter   Boolean   @default(false)
+  consentInvitation   Boolean   @default(false)
+  consentDevis        Boolean   @default(false)
+  // Glideapps sync
+  glideRowId          String?   @unique
   sellsyContactId     String?   @unique
   scoreRfm            Int?
   recence             Int?
@@ -204,9 +211,11 @@ model Contact {
   emailLogs           EmailLog[]
   smsLogs             SmsLog[]
   workflowLogs        WorkflowLog[]
+  demandesPrix        DemandePrix[]
 
   @@index([telephone])
   @@index([sellsyContactId])
+  @@index([glideRowId])
   @@index([showroomId])
 }
 
@@ -497,4 +506,22 @@ model CoutOffline {
 
   @@index([campagneId])
   @@index([date])
+}
+
+model DemandePrix {
+  id                  String    @id @default(cuid())
+  contactId           String
+  meuble              String
+  message             String?
+  glideRowId          String?   @unique
+  showroom            String?
+  modePaiement        String?
+  dateDemande         DateTime?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([dateDemande])
 }
