@@ -3,7 +3,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface LeadsChartProps {
-  data: Array<{
+  data?: Array<{
     source: string;
     count: number;
   }>;
