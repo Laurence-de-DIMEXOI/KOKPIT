@@ -74,7 +74,6 @@ async function findCommercialByShowroom(showroom: string | null) {
         role: "COMMERCIAL",
         showroom: {
           contains: showroom,
-          mode: "insensitive",
         },
       },
     });
