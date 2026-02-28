@@ -8,6 +8,7 @@ interface Campaign {
   id: string;
   name: string;
   status: "ACTIVE" | "PAUSED" | "ARCHIVED" | "DELETED";
+  channel?: "META" | "GOOGLE_ADS" | "OFFLINE" | "OTHER";
   spend?: number;
   impressions?: number;
   clicks?: number;
@@ -44,7 +45,12 @@ export default function CampagnesPage() {
       const res = await fetch("/api/meta/campaigns");
       if (res.ok) {
         const data = await res.json();
-        setCampaigns(data.campaigns || []);
+        // Assigner le canal META par défaut à toutes les campagnes
+        const campaignsWithChannel = (data.campaigns || []).map((c: Campaign) => ({
+          ...c,
+          channel: c.channel || "META",
+        }));
+        setCampaigns(campaignsWithChannel);
       } else {
         const err = await res.json();
         setError(err.error || "Erreur lors du chargement");
@@ -123,6 +129,13 @@ export default function CampagnesPage() {
     PAUSED: { label: "En pause", bg: "bg-[#FFAB00]/10", text: "text-[#FFAB00]" },
     ARCHIVED: { label: "Archivée", bg: "bg-[#8592A3]/10", text: "text-[#8592A3]" },
     DELETED: { label: "Supprimée", bg: "bg-[#FF3E1D]/10", text: "text-[#FF3E1D]" },
+  };
+
+  const channelConfig: Record<string, { label: string; bg: string; text: string }> = {
+    META: { label: "Meta", bg: "bg-[#1877F2]/10", text: "text-[#1877F2]" },
+    GOOGLE_ADS: { label: "Google Ads", bg: "bg-[#EA4335]/10", text: "text-[#EA4335]" },
+    OFFLINE: { label: "Offline", bg: "bg-[#34A853]/10", text: "text-[#34A853]" },
+    OTHER: { label: "Autre", bg: "bg-[#9AA0A6]/10", text: "text-[#9AA0A6]" },
   };
 
   return (
@@ -231,6 +244,7 @@ export default function CampagnesPage() {
               <thead className="bg-cockpit-dark border-b border-cockpit">
                 <tr>
                   <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">NOM</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">CANAL</th>
                   <th className="px-8 py-4 text-left text-sm font-semibold text-cockpit-heading">STATUT</th>
                   <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">BUDGET</th>
                   <th className="px-8 py-4 text-right text-sm font-semibold text-cockpit-heading">DÉPENSES</th>
@@ -245,10 +259,16 @@ export default function CampagnesPage() {
               <tbody className="divide-y divide-cockpit">
                 {filteredCampaigns.map((c) => {
                   const status = statusConfig[c.status] || statusConfig.PAUSED;
+                  const channel = channelConfig[c.channel || "META"] || channelConfig.META;
                   return (
                     <tr key={c.id} className="hover:bg-cockpit-dark transition-colors">
                       <td className="px-8 py-4">
                         <span className="font-medium text-cockpit-primary">{c.name}</span>
+                      </td>
+                      <td className="px-8 py-4">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${channel.bg} ${channel.text}`}>
+                          {channel.label}
+                        </span>
                       </td>
                       <td className="px-8 py-4">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>
