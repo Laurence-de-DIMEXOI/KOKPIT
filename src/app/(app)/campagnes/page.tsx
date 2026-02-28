@@ -56,13 +56,21 @@ export default function CampagnesPage() {
     setSyncing(false);
   };
 
-  const totalSpend = campaigns.reduce((sum, c) => sum + (c.spend || 0), 0);
-  const totalImpressions = campaigns.reduce((sum, c) => sum + (c.impressions || 0), 0);
-  const totalClicks = campaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
-  const totalConversions = campaigns.reduce((sum, c) => sum + (c.conversions || 0), 0);
+  // Filtrer les campagnes à partir du 1er janvier 2026
+  const filteredCampaigns = campaigns.filter((c) => {
+    if (!c.startDate) return false;
+    const campaignDate = new Date(c.startDate);
+    const minDate = new Date("2026-01-01");
+    return campaignDate >= minDate;
+  });
+
+  const totalSpend = filteredCampaigns.reduce((sum, c) => sum + (c.spend || 0), 0);
+  const totalImpressions = filteredCampaigns.reduce((sum, c) => sum + (c.impressions || 0), 0);
+  const totalClicks = filteredCampaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
+  const totalConversions = filteredCampaigns.reduce((sum, c) => sum + (c.conversions || 0), 0);
   const avgRoas =
-    campaigns.length > 0
-      ? campaigns.reduce((sum, c) => sum + (c.roas || 0), 0) / campaigns.length
+    filteredCampaigns.length > 0
+      ? filteredCampaigns.reduce((sum, c) => sum + (c.roas || 0), 0) / filteredCampaigns.length
       : 0;
 
   const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
@@ -77,7 +85,7 @@ export default function CampagnesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-cockpit-heading mb-2">Campagnes</h1>
-          <p className="text-cockpit-secondary">{campaigns.length} campagnes Facebook / Instagram</p>
+          <p className="text-cockpit-secondary">{filteredCampaigns.length} campagnes Facebook / Instagram (à partir du 1er janvier 2026)</p>
         </div>
         <button
           onClick={handleSync}
@@ -129,7 +137,7 @@ export default function CampagnesPage() {
         </div>
       )}
 
-      {!loading && campaigns.length > 0 && (
+      {!loading && filteredCampaigns.length > 0 && (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -148,7 +156,7 @@ export default function CampagnesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
-                {campaigns.map((c) => {
+                {filteredCampaigns.map((c) => {
                   const status = statusConfig[c.status] || statusConfig.PAUSED;
                   return (
                     <tr key={c.id} className="hover:bg-cockpit-dark transition-colors">
@@ -193,7 +201,7 @@ export default function CampagnesPage() {
         </div>
       )}
 
-      {!loading && campaigns.length === 0 && !error && (
+      {!loading && filteredCampaigns.length === 0 && !error && campaigns.length === 0 && (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-12 text-center">
           <BarChart3 className="w-16 h-16 mx-auto mb-4 text-cockpit-secondary opacity-50" />
           <h3 className="text-lg font-semibold text-cockpit-heading mb-2">Aucune campagne trouvée</h3>
@@ -207,6 +215,19 @@ export default function CampagnesPage() {
           >
             Synchroniser maintenant
           </button>
+        </div>
+      )}
+
+      {!loading && filteredCampaigns.length === 0 && !error && campaigns.length > 0 && (
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-12 text-center">
+          <BarChart3 className="w-16 h-16 mx-auto mb-4 text-cockpit-secondary opacity-50" />
+          <h3 className="text-lg font-semibold text-cockpit-heading mb-2">Aucune campagne depuis le 1er janvier 2026</h3>
+          <p className="text-cockpit-secondary mb-4">
+            {campaigns.length} campagne{campaigns.length > 1 ? "s" : ""} disponible{campaigns.length > 1 ? "s" : ""}, mais aucune n'a démarré à partir du 1er janvier 2026
+          </p>
+          <p className="text-cockpit-secondary text-sm">
+            Vous avez des campagnes plus anciennes synchronisées avec Meta.
+          </p>
         </div>
       )}
     </div>
