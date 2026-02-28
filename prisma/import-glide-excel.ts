@@ -168,11 +168,14 @@ async function main() {
   const showroomCache = new Map<string, string>();
   for (const [, data] of contactMap) {
     if (data.showroom && !showroomCache.has(data.showroom)) {
-      const sr = await prisma.showroom.upsert({
+      let sr = await prisma.showroom.findFirst({
         where: { nom: data.showroom },
-        create: { nom: data.showroom },
-        update: {},
       });
+      if (!sr) {
+        sr = await prisma.showroom.create({
+          data: { nom: data.showroom },
+        });
+      }
       showroomCache.set(data.showroom, sr.id);
     }
   }
