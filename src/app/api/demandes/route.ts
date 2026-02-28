@@ -48,17 +48,9 @@ export async function GET(request: NextRequest) {
       prisma.lead.count({ where: leadsQuery }),
     ]);
 
-    // Récupérer les demandes de prix sans Lead associé (non converties)
+    // Récupérer toutes les demandes de prix
     const [demandesPrix, totalDemandesPrix] = await Promise.all([
       prisma.demandePrix.findMany({
-        where: {
-          // Exclure les demandes qui ont déjà un lead associé
-          NOT: {
-            lead: {
-              some: {},
-            },
-          },
-        },
         include: {
           contact: true,
         },
@@ -66,15 +58,7 @@ export async function GET(request: NextRequest) {
         take: limit,
         skip: offset,
       }),
-      prisma.demandePrix.count({
-        where: {
-          NOT: {
-            lead: {
-              some: {},
-            },
-          },
-        },
-      }),
+      prisma.demandePrix.count(),
     ]);
 
     // Formater les réponses
