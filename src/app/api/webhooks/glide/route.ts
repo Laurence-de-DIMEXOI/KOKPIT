@@ -68,13 +68,22 @@ async function findCommercialByShowroom(showroom: string | null) {
   if (!showroom) return null;
 
   try {
-    // Chercher un user avec le rôle COMMERCIAL et le showroom spécifié
+    // Chercher le showroom par nom
+    const showroomData = await prisma.showroom.findFirst({
+      where: {
+        nom: {
+          contains: showroom,
+        },
+      },
+    });
+
+    if (!showroomData) return null;
+
+    // Chercher un commercial assigné à ce showroom
     const commercial = await prisma.user.findFirst({
       where: {
         role: "COMMERCIAL",
-        showroom: {
-          contains: showroom,
-        },
+        showroomId: showroomData.id,
       },
     });
     return commercial;
@@ -274,6 +283,10 @@ export async function POST(request: NextRequest) {
     // Chercher le commercial assigné basé sur le showroom
     const commercial = await findCommercialByShowroom(showroom);
 
+    // Calculer la deadline SLA (72h à partir de maintenant)
+    const now = new Date();
+    const slaDeadline = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+
     // Créer automatiquement un Lead depuis la demande de prix
     const lead = await prisma.lead.create({
       data: {
@@ -282,6 +295,7 @@ export async function POST(request: NextRequest) {
         statut: "NOUVEAU",
         notes: `Demande de prix: ${meuble}${message ? ` - ${message}` : ""}`,
         commercialId: commercial?.id || null,
+        slaDeadline,
       },
     });
 
