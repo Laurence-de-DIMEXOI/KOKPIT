@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { LeadsChart } from "@/components/dashboard/leads-chart";
-import { Users, TrendingUp, FileText, Activity } from "lucide-react";
+import { Users, TrendingUp, FileText, Activity, RefreshCw, Loader2 } from "lucide-react";
 
 interface DashboardStats {
   totalLeads: number;
@@ -21,27 +21,44 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const params = new URLSearchParams({
-          vue: session?.user?.role || "ADMIN",
-        });
+  const fetchStats = async (showLoader = true) => {
+    if (showLoader) setRefreshing(true);
+    try {
+      const params = new URLSearchParams({
+        vue: session?.user?.role || "ADMIN",
+      });
 
-        const response = await fetch(`/api/dashboard/stats?${params}`);
-        const data = await response.json();
-        setStats(data);
-      } catch (error) {
-        console.error("Erreur lors du chargement des stats:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (session?.user) {
-      fetchStats();
+      const response = await fetch(`/api/dashboard/stats?${params}`);
+      const data = await response.json();
+      setStats(data);
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error("Erreur lors du chargement des stats:", error);
+    } finally {
+      setLoading(false);
+      if (showLoader) setRefreshing(false);
     }
+  };
+
+  // Charger au montage
+  useEffect(() => {
+    if (session?.user) {
+      fetchStats(true);
+    }
+  }, [session]);
+
+  // Polling automatique chaque 10 secondes (sans loader)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (session?.user) {
+        fetchStats(false);
+      }
+    }, 10000); // 10 secondes
+
+    return () => clearInterval(interval);
   }, [session]);
 
   if (loading) {
@@ -55,13 +72,33 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-cockpit-heading mb-2">
-          Tableau de bord
-        </h1>
-        <p className="text-cockpit-secondary">
-          Bienvenue, {session?.user?.prenom}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-cockpit-heading mb-2">
+            Tableau de bord
+          </h1>
+          <p className="text-cockpit-secondary">
+            Bienvenue, {session?.user?.prenom}
+          </p>
+        </div>
+        <button
+          onClick={() => fetchStats(true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-4 py-3 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50"
+        >
+          {refreshing ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <RefreshCw className="w-5 h-5" />
+          )}
+          Actualiser
+        </button>
+      </div>
+
+      {/* Auto-refresh indicator */}
+      <div className="flex items-center gap-2 text-xs text-cockpit-secondary">
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+        Mise à jour auto toutes les 10s • Dernière: {lastUpdate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
       </div>
 
       {/* KPI Cards */}
