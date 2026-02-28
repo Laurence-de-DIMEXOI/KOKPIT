@@ -147,27 +147,39 @@ export async function GET(request: NextRequest) {
 
     // Synchroniser dans la base de données
     for (const campaign of campaigns) {
-      await prisma.campagne.upsert({
+      // Find existing campaign by metaCampaignId
+      const existing = await prisma.campagne.findFirst({
         where: { metaCampaignId: campaign.metaCampaignId },
-        create: {
-          nom: campaign.name,
-          plateforme: "META",
-          coutTotal: campaign.spend || 0,
-          dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
-          dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
-          metaCampaignId: campaign.metaCampaignId,
-          metaAdsetId: campaign.metaAdsetId,
-          metaAdId: campaign.metaAdId,
-          actif: campaign.status === "ACTIVE",
-        },
-        update: {
-          nom: campaign.name,
-          coutTotal: campaign.spend || 0,
-          dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
-          dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
-          actif: campaign.status === "ACTIVE",
-        },
       });
+
+      if (existing) {
+        // Update existing campaign
+        await prisma.campagne.update({
+          where: { id: existing.id },
+          data: {
+            nom: campaign.name,
+            coutTotal: campaign.spend || 0,
+            dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
+            dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
+            actif: campaign.status === "ACTIVE",
+          },
+        });
+      } else {
+        // Create new campaign
+        await prisma.campagne.create({
+          data: {
+            nom: campaign.name,
+            plateforme: "META",
+            coutTotal: campaign.spend || 0,
+            dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
+            dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
+            metaCampaignId: campaign.metaCampaignId,
+            metaAdsetId: campaign.metaAdsetId,
+            metaAdId: campaign.metaAdId,
+            actif: campaign.status === "ACTIVE",
+          },
+        });
+      }
     }
 
     return NextResponse.json({

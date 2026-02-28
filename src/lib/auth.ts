@@ -83,7 +83,7 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  strategy: "jwt",
+  // strategy: "jwt", // Removed - not a valid NextAuthOptions property
   pages: {
     signIn: "/login",
   },
@@ -91,10 +91,10 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
-        token.showroomId = user.showroomId || null;
-        token.nom = user.nom;
-        token.prenom = user.prenom;
+        token.role = (user as any).role;
+        token.showroomId = (user as any).showroomId || null;
+        token.nom = (user as any).nom;
+        token.prenom = (user as any).prenom;
       }
       return token;
     },

@@ -66,7 +66,7 @@ export async function attributeLead(
   await prisma.lead.update({
     where: { id: leadId },
     data: {
-      campaigneId: lastClick.campaigneId,
+      campagneId: lastClick.campaigneId,
       utmSource: lastClick.utmSource,
       utmMedium: lastClick.utmMedium,
       utmCampaign: lastClick.utmCampaign,

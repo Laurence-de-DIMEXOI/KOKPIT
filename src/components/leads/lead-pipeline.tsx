@@ -92,10 +92,10 @@ export function LeadPipeline({ leads, onCardClick }: LeadPipelineProps) {
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
-                    <span className={`font-medium ${calculateSLAColor(lead.sla_deadline)}`}>
+                    <span className={`font-medium ${calculateSLAColor(lead.slaDeadline)}`}>
                       SLA
                     </span>
-                    <span className="text-gray-500">{lead.commercial_name}</span>
+                    <span className="text-gray-500">{lead.commercial?.nom}</span>
                   </div>
                 </div>
               ))}

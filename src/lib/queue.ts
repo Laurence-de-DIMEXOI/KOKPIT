@@ -1,12 +1,4 @@
-import { Queue, Worker, QueueScheduler } from "bullmq";
-import redis from "redis";
-
-const redisClient = redis.createClient({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD,
-  db: parseInt(process.env.REDIS_DB || "0"),
-});
+import { Queue, Worker } from "bullmq";
 
 const redisConnection = {
   host: process.env.REDIS_HOST || "localhost",
@@ -57,11 +49,11 @@ export function createWorker(
 /**
  * Create queue schedulers for recurring jobs
  */
-export function createQueueScheduler(queueName: string): QueueScheduler {
-  return new QueueScheduler(queueName, {
-    connection: redisConnection,
-  });
-}
+// export function createQueueScheduler(queueName: string): QueueScheduler {
+//   return new QueueScheduler(queueName, {
+//     connection: redisConnection,
+//   });
+// }
 
 // Queue events helpers
 export async function getQueueStats(queueName: string) {
@@ -70,7 +62,7 @@ export async function getQueueStats(queueName: string) {
   });
 
   const counts = await queue.getJobCounts();
-  const stats = await queue.getMetrics("jobs");
+  const stats = await queue.getMetrics("completed");
 
   return { counts, stats };
 }
@@ -81,7 +73,7 @@ export async function getQueueStats(queueName: string) {
 export async function cleanQueueJobs(
   queueName: string,
   millisecondsOlderThan: number = 3600000 // 1 hour default
-): Promise<number> {
+): Promise<string[]> {
   const queue = new Queue(queueName, {
     connection: redisConnection,
   });

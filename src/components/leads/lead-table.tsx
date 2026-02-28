@@ -162,7 +162,7 @@ export function LeadTable({
         </thead>
         <tbody className="divide-y divide-gray-100">
           {leads.map((lead) => {
-            const slaStatus = calculateSLAStatus(lead.sla_deadline);
+            const slaStatus = calculateSLAStatus(lead.slaDeadline);
             return (
               <tr
                 key={lead.id}
@@ -187,10 +187,10 @@ export function LeadTable({
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="text-sm font-medium text-gray-900">{lead.showroom}</span>
+                  <span className="text-sm font-medium text-gray-900">{lead.showroom?.nom}</span>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="text-sm text-gray-600">{lead.commercial_name}</span>
+                  <span className="text-sm text-gray-600">{lead.commercial?.nom}</span>
                 </td>
                 <td className="px-6 py-4">
                   <span
@@ -207,7 +207,7 @@ export function LeadTable({
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="text-sm text-gray-600">{formatDate(lead.created_at)}</span>
+                  <span className="text-sm text-gray-600">{formatDate(lead.createdAt)}</span>
                 </td>
                 <td className="px-6 py-4">
                   <span className={`text-sm font-medium ${prioriteColors[lead.priorite]}`}>

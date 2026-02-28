@@ -7,7 +7,7 @@ interface TimelineEvent {
   id: string;
   type: string;
   description: string;
-  created_at: string;
+  createdAt: string;
   user_name?: string;
 }
 
@@ -87,7 +87,7 @@ export function ContactTimeline({ events, onLoadMore, hasMore = false }: Contact
                       </span>
                       <p className="text-sm font-medium text-gray-900">{event.description}</p>
                     </div>
-                    <p className="text-xs text-gray-500 ml-8">{formatDate(event.created_at)}</p>
+                    <p className="text-xs text-gray-500 ml-8">{formatDate(event.createdAt)}</p>
                     {event.user_name && (
                       <p className="text-xs text-gray-600 ml-8">par {event.user_name}</p>
                     )}

@@ -390,7 +390,7 @@ export async function GET(request: NextRequest) {
             },
           });
 
-          const showroomVentes = ventes.filter((v) => v.devis.lead.showroomId === s.id);
+          const showroomVentes = ventes.filter((v) => v.devis?.lead?.showroomId === s.id);
           const showroomCa = showroomVentes.reduce((sum, v) => sum + v.montant, 0);
 
           return {

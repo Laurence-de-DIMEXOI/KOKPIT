@@ -195,7 +195,7 @@ export const devisSchema = z.object({
     .positive("Le montant doit être positif"),
   statut: z
     .nativeEnum(DevisStatut)
-    .default(DevisStatut.BROUILLON),
+    .default(DevisStatut.EN_ATTENTE),
 });
 
 export type DevisInput = z.infer<typeof devisSchema>;

@@ -39,10 +39,10 @@ export function ContactCard({ contact }: ContactCardProps) {
             <div className="flex items-center gap-2 mt-1">
               <span
                 className={`px-2.5 py-1 rounded text-xs font-semibold ${
-                  stageColors[contact.lifecycle_stage]
+                  stageColors[contact.lifecycleStage]
                 }`}
               >
-                {stageLabels[contact.lifecycle_stage] || contact.lifecycle_stage}
+                {stageLabels[contact.lifecycleStage] || contact.lifecycleStage}
               </span>
               {rfmScore && (
                 <span className="px-2.5 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-700">
@@ -96,7 +96,7 @@ export function ContactCard({ contact }: ContactCardProps) {
           </div>
         </div>
         <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2.5 py-1 rounded">
-          {contact.showroom}
+          {contact.showroomId}
         </span>
       </div>
     </div>

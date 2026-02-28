@@ -85,7 +85,7 @@ export function ContactDrawer({ contact, onClose }: ContactDrawerProps) {
                   </div>
                   <div>
                     <p className="text-gray-600">Showroom</p>
-                    <p className="font-medium text-gray-900">{contact.showroom}</p>
+                    <p className="font-medium text-gray-900">{contact.showroomId}</p>
                   </div>
                 </div>
               </div>
@@ -111,7 +111,7 @@ export function ContactDrawer({ contact, onClose }: ContactDrawerProps) {
           )}
 
           {activeTab === 'timeline' && (
-            <ContactTimeline events={contact.events || []} />
+            <ContactTimeline events={contact.evenements || []} />
           )}
 
           {activeTab === 'demandes' && (
@@ -125,7 +125,7 @@ export function ContactDrawer({ contact, onClose }: ContactDrawerProps) {
                         <p className="text-xs text-gray-600 mt-1">{lead.statut}</p>
                       </div>
                       <span className="text-xs text-gray-500">
-                        {new Date(lead.created_at).toLocaleDateString('fr-FR')}
+                        {new Date(lead.createdAt).toLocaleDateString('fr-FR')}
                       </span>
                     </div>
                   </div>
