@@ -154,6 +154,20 @@ export async function GET(request: NextRequest) {
         where: { metaCampaignId: campaign.metaCampaignId },
       });
 
+      // Cache des métriques Meta dans metaInsights
+      const metaInsights = {
+        spend: campaign.spend || 0,
+        impressions: campaign.impressions || 0,
+        clicks: campaign.clicks || 0,
+        conversions: campaign.conversions || 0,
+        roas: campaign.roas || 0,
+        cpc: campaign.cpc || 0,
+        ctr: campaign.ctr || 0,
+        budget: campaign.budget || 0,
+        status: campaign.status,
+        syncedAt: new Date().toISOString(),
+      };
+
       if (existing) {
         // Update existing campaign
         await prisma.campagne.update({
@@ -164,6 +178,7 @@ export async function GET(request: NextRequest) {
             dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
             dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
             actif: campaign.status === "ACTIVE",
+            metaInsights,
           },
         });
       } else {
@@ -179,6 +194,7 @@ export async function GET(request: NextRequest) {
             metaAdsetId: campaign.metaAdsetId,
             metaAdId: campaign.metaAdId,
             actif: campaign.status === "ACTIVE",
+            metaInsights,
           },
         });
       }

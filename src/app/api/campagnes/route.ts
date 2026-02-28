@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     const skip = (filters.page - 1) * filters.limit;
 
-    // Get campaigns with leads count
+    // Get campaigns with leads count and cached Meta insights
     const [campagnes, total] = await Promise.all([
       prisma.campagne.findMany({
         where,
@@ -101,6 +101,9 @@ export async function GET(request: NextRequest) {
         const costTotal = campagne.coutTotal + (campagne.coutsOffline.reduce((sum, c) => sum + c.montant, 0) || 0);
         const roi = costTotal > 0 ? ((caTotal - costTotal) / costTotal) * 100 : 0;
 
+        // Inclure les métriques Meta cachées si disponibles
+        const metaInsights = (campagne as any).metaInsights as any;
+
         return {
           ...campagne,
           leads: undefined,
@@ -113,6 +116,7 @@ export async function GET(request: NextRequest) {
             cpl: cpl.toFixed(2),
             roi: roi.toFixed(2),
           },
+          metaInsights: metaInsights || null,
         };
       })
     );

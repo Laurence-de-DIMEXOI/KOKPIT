@@ -53,7 +53,13 @@ interface GlidePayload {
 }
 
 function isTruthy(val: any): boolean {
-  return val === true || val === 1 || val === "1" || val === "true";
+  if (val === null || val === undefined || val === "" || val === 0) return false;
+  if (val === true || val === 1) return true;
+  if (typeof val === "string") {
+    const lower = val.toLowerCase().trim();
+    return ["true", "1", "yes", "oui", "on", "checked", "vrai"].includes(lower);
+  }
+  return Boolean(val);
 }
 
 function cleanPhone(phone: string | null | undefined): string | null {

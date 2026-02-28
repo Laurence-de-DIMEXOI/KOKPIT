@@ -34,23 +34,41 @@ export default function CampagnesPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
 
+  // Charger depuis le cache Prisma au mount (rapide)
   useEffect(() => {
-    loadCampaigns();
+    loadFromCache();
   }, []);
 
-  const loadCampaigns = async () => {
+  const loadFromCache = async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/meta/campaigns");
+      const res = await fetch("/api/campagnes?limit=100");
       if (res.ok) {
         const data = await res.json();
-        // Assigner le canal META par défaut à toutes les campagnes
-        const campaignsWithChannel = (data.campaigns || []).map((c: Campaign) => ({
-          ...c,
-          channel: c.channel || "META",
-        }));
-        setCampaigns(campaignsWithChannel);
+        const campagnes = data.campagnes || [];
+        // Transformer les données Prisma en format Campaign
+        const mapped: Campaign[] = campagnes.map((c: any) => {
+          const insights = c.metaInsights || {};
+          return {
+            id: c.id,
+            name: c.nom,
+            status: insights.status || (c.actif ? "ACTIVE" : "PAUSED"),
+            channel: c.plateforme || "META",
+            spend: insights.spend ?? c.coutTotal ?? 0,
+            impressions: insights.impressions ?? 0,
+            clicks: insights.clicks ?? 0,
+            conversions: insights.conversions ?? 0,
+            roas: insights.roas ?? 0,
+            budget: insights.budget ?? 0,
+            startDate: c.dateDebut,
+            endDate: c.dateFin,
+            cpc: insights.cpc ?? 0,
+            ctr: insights.ctr ?? 0,
+            metaCampaignId: c.metaCampaignId || c.id,
+          };
+        });
+        setCampaigns(mapped);
       } else {
         const err = await res.json();
         setError(err.error || "Erreur lors du chargement");
@@ -62,10 +80,28 @@ export default function CampagnesPage() {
     }
   };
 
+  // Sync depuis Meta API (lent, uniquement au clic)
   const handleSync = async () => {
     setSyncing(true);
-    await loadCampaigns();
-    setSyncing(false);
+    setError("");
+    try {
+      const res = await fetch("/api/meta/campaigns");
+      if (res.ok) {
+        const data = await res.json();
+        const campaignsWithChannel = (data.campaigns || []).map((c: Campaign) => ({
+          ...c,
+          channel: c.channel || "META",
+        }));
+        setCampaigns(campaignsWithChannel);
+      } else {
+        const err = await res.json();
+        setError(err.error || "Erreur lors de la synchronisation");
+      }
+    } catch (err: any) {
+      setError(err.message || "Erreur réseau");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   // Filtrer les campagnes à partir du 1er janvier 2026
