@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
     const createdStart = searchParams.get("created_start") || "";
     const createdEnd = searchParams.get("created_end") || "";
 
-    const embed = ["amounts"];
     const needsSearch = !!(status || createdStart || createdEnd);
 
     let result;
@@ -29,9 +28,9 @@ export async function GET(request: NextRequest) {
         if (createdEnd) filters.created.end = createdEnd;
       }
 
-      result = await searchEstimates({ filters, limit, offset, embed });
+      result = await searchEstimates({ filters, limit, offset });
     } else {
-      result = await listEstimates({ limit, offset, embed });
+      result = await listEstimates({ limit, offset });
     }
 
     return NextResponse.json({

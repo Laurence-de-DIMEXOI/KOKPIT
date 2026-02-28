@@ -10,18 +10,15 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const status = searchParams.get("status") || "";
 
-    const embed = ["amounts"];
-
     let result;
     if (status) {
       result = await searchOrders({
         filters: { status: status.split(",") },
         limit,
         offset,
-        embed,
       });
     } else {
-      result = await listOrders({ limit, offset, embed });
+      result = await listOrders({ limit, offset });
     }
 
     return NextResponse.json({
