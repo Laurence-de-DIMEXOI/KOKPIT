@@ -21,6 +21,7 @@ interface Estimate {
   contact?: { id: number; name?: string };
   company?: { id: number; name?: string };
   amounts?: { total?: string; total_excl_tax?: string };
+  pdf_link?: string;
 }
 
 const PIPELINE_COLUMNS = [
@@ -46,11 +47,11 @@ function classifyStatus(status: string | undefined): string {
     s.includes("valid")
   )
     return "accepted";
+  if (s.includes("cancel") || s.includes("annul")) return "cancelled";
   if (
     s.includes("refus") ||
     s.includes("lost") ||
-    s.includes("perdu") ||
-    s.includes("cancel")
+    s.includes("perdu")
   )
     return "refused";
   if (s.includes("invoic") || s.includes("factur")) return "invoiced";
@@ -65,7 +66,7 @@ export default function PipelinePage() {
   const fetchEstimates = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/sellsy/estimates?limit=100");
+      const res = await fetch("/api/sellsy/estimates?limit=500");
       const data = await res.json();
       setEstimates(data.estimates || []);
     } catch (error) {
@@ -80,9 +81,14 @@ export default function PipelinePage() {
     fetchEstimates();
   }, []);
 
+  // Exclure les annulés du pipeline
+  const activeEstimates = estimates.filter(
+    (e) => classifyStatus(e.status) !== "cancelled"
+  );
+
   const groupedEstimates = PIPELINE_COLUMNS.reduce(
     (acc, col) => {
-      acc[col.key] = estimates.filter(
+      acc[col.key] = activeEstimates.filter(
         (e) => classifyStatus(e.status) === col.key
       );
       return acc;
@@ -107,7 +113,7 @@ export default function PipelinePage() {
             Pipeline Devis
           </h1>
           <p className="text-cockpit-secondary text-sm">
-            {estimates.length} devis Sellsy
+            {activeEstimates.length} devis Sellsy
           </p>
         </div>
         <button
@@ -130,7 +136,7 @@ export default function PipelinePage() {
           {PIPELINE_COLUMNS.map((col) => {
             const colEstimates = groupedEstimates[col.key] || [];
             const totalAmount = colEstimates.reduce(
-              (sum, e) => sum + (parseFloat(e.amounts?.total || "0") || 0),
+              (sum, e) => sum + (Number(e.amounts?.total ?? "0") || 0),
               0
             );
 
@@ -163,6 +169,7 @@ export default function PipelinePage() {
                     <div
                       key={est.id}
                       className="bg-cockpit-card rounded-lg border border-cockpit p-3 hover:border-cockpit-info/40 transition-colors cursor-pointer"
+                      onClick={() => est.pdf_link && window.open(est.pdf_link, '_blank')}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <p className="text-sm font-medium text-cockpit-primary truncate flex-1">
@@ -178,7 +185,7 @@ export default function PipelinePage() {
                       <div className="flex items-center gap-1 text-cockpit-heading">
                         <Euro className="w-3 h-3" />
                         <span className="text-xs font-semibold">
-                          {parseFloat(est.amounts?.total || "0").toLocaleString(
+                          {(Number(est.amounts?.total ?? "0")).toLocaleString(
                             "fr-FR",
                             { minimumFractionDigits: 2 }
                           )}

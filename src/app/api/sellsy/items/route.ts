@@ -5,13 +5,17 @@ import { listItems, searchItems } from "@/lib/sellsy";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const limit = parseInt(searchParams.get("limit") || "500", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const search = searchParams.get("search") || "";
+    const isArchived = searchParams.get("is_archived") || "false";
 
     let result;
-    if (search) {
-      result = await searchItems({ name: search });
+    if (search || isArchived === "false") {
+      const filters: any = {};
+      if (search) filters.name = search;
+      if (isArchived === "false") filters.is_archived = false;
+      result = await searchItems(filters);
     } else {
       result = await listItems({ limit, offset });
     }

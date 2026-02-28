@@ -23,34 +23,27 @@ interface SellsyOrder {
   contact?: { id: number; name?: string };
   company?: { id: number; name?: string };
   amounts?: { total?: string; total_excl_tax?: string };
+  pdf_link?: string;
 }
 
 function statusBadge(status: string | undefined) {
   const s = (status || "").toLowerCase();
-  if (s.includes("invoic") || s.includes("factur"))
-    return {
-      label: "Facturé",
-      cls: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-    };
-  if (s.includes("accept") || s.includes("valid") || s.includes("deliver"))
-    return {
-      label: "Validé",
-      cls: "bg-cockpit-success/15 text-cockpit-success border-cockpit-success/30",
-    };
-  if (s.includes("draft") || s.includes("brouillon"))
-    return {
-      label: "Brouillon",
-      cls: "bg-gray-500/15 text-gray-400 border-gray-500/30",
-    };
-  if (s.includes("cancel") || s.includes("annul"))
-    return {
-      label: "Annulé",
-      cls: "bg-red-500/15 text-red-400 border-red-500/30",
-    };
-  return {
-    label: status || "—",
-    cls: "bg-cockpit-info/15 text-cockpit-info border-cockpit-info/30",
-  };
+  if (s === "draft") return { label: "Brouillon", cls: "bg-gray-500/15 text-gray-400 border-gray-500/30" };
+  if (s === "sent") return { label: "Envoyé", cls: "bg-cockpit-info/15 text-cockpit-info border-cockpit-info/30" };
+  if (s === "read") return { label: "Lu", cls: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" };
+  if (s === "accepted") return { label: "Accepté", cls: "bg-cockpit-success/15 text-cockpit-success border-cockpit-success/30" };
+  if (s === "expired") return { label: "Expiré", cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" };
+  if (s === "advanced") return { label: "Avancé", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" };
+  if (s === "invoiced") return { label: "Facturé", cls: "bg-purple-500/15 text-purple-400 border-purple-500/30" };
+  if (s === "partialinvoiced") return { label: "Fact. partielle", cls: "bg-purple-500/15 text-purple-300 border-purple-500/30" };
+  if (s === "cancelled") return { label: "Annulé", cls: "bg-red-500/15 text-red-400 border-red-500/30" };
+  return { label: status || "—", cls: "bg-cockpit-info/15 text-cockpit-info border-cockpit-info/30" };
+}
+
+function getOrderAmount(order: SellsyOrder): number {
+  const val = order.amounts?.total ?? "0";
+  const num = Number(val);
+  return isNaN(num) ? 0 : num;
 }
 
 export default function CommandesPage() {
@@ -92,7 +85,7 @@ export default function CommandesPage() {
     : orders;
 
   const totalAmount = filteredOrders.reduce(
-    (sum, o) => sum + (parseFloat(o.amounts?.total || "0") || 0),
+    (sum, o) => sum + getOrderAmount(o),
     0
   );
 
@@ -191,12 +184,13 @@ export default function CommandesPage() {
               return (
                 <tr
                   key={order.id}
-                  className="hover:bg-cockpit-dark/50 transition-colors"
+                  className="hover:bg-cockpit-dark/50 transition-colors cursor-pointer"
+                  onClick={() => order.pdf_link && window.open(order.pdf_link, '_blank')}
                 >
                   <td className="p-4">
                     <p className="text-sm font-medium text-cockpit-primary">
-                      {order.subject ||
-                        order.number ||
+                      {order.number ||
+                        order.subject ||
                         `Commande #${order.id}`}
                     </p>
                     {order.reference && order.subject && (
@@ -219,7 +213,7 @@ export default function CommandesPage() {
                   </td>
                   <td className="p-4 text-right">
                     <span className="text-sm font-semibold text-cockpit-heading">
-                      {parseFloat(order.amounts?.total || "0").toLocaleString("fr-FR", {
+                      {getOrderAmount(order).toLocaleString("fr-FR", {
                         style: "currency",
                         currency: "EUR",
                       })}
@@ -246,13 +240,14 @@ export default function CommandesPage() {
           return (
             <div
               key={order.id}
-              className="bg-cockpit-card rounded-lg border border-cockpit p-4"
+              className="bg-cockpit-card rounded-lg border border-cockpit p-4 cursor-pointer"
+              onClick={() => order.pdf_link && window.open(order.pdf_link, '_blank')}
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-cockpit-heading truncate">
-                    {order.subject ||
-                      order.number ||
+                    {order.number ||
+                      order.subject ||
                       `Commande #${order.id}`}
                   </p>
                   <p className="text-xs text-cockpit-secondary">
@@ -269,7 +264,7 @@ export default function CommandesPage() {
                 <div className="flex items-center gap-1">
                   <Euro className="w-3.5 h-3.5 text-cockpit-heading" />
                   <span className="text-sm font-bold text-cockpit-heading">
-                    {parseFloat(order.amounts?.total || "0").toLocaleString("fr-FR", {
+                    {getOrderAmount(order).toLocaleString("fr-FR", {
                       minimumFractionDigits: 2,
                     })}
                   </span>

@@ -30,7 +30,7 @@ export default function CataloguePage() {
   const fetchItems = async (query?: string) => {
     setRefreshing(true);
     try {
-      const params = new URLSearchParams({ limit: "100" });
+      const params = new URLSearchParams({ limit: "500", is_archived: "false" });
       if (query) params.set("search", query);
       const res = await fetch(`/api/sellsy/items?${params}`);
       const data = await res.json();
@@ -138,10 +138,12 @@ export default function CataloguePage() {
 
             <div className="flex items-center justify-between pt-3 border-t border-cockpit">
               <div className="flex items-center gap-1">
-                <Euro className="w-4 h-4 text-cockpit-heading" />
                 <span className="text-base font-bold text-cockpit-heading">
-                  {parseFloat(item.unit_amount || "0").toLocaleString("fr-FR", {
+                  {(Number(item.unit_amount) || 0).toLocaleString("fr-FR", {
+                    style: "currency",
+                    currency: "EUR",
                     minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
                   })}
                 </span>
               </div>

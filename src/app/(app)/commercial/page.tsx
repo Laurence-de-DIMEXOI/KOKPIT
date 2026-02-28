@@ -38,6 +38,7 @@ interface EstimateRow {
   created?: string;
   company_name?: string;
   amounts?: SellsyAmounts;
+  pdf_link?: string;
 }
 
 interface OrderRow {
@@ -49,6 +50,7 @@ interface OrderRow {
   created?: string;
   company_name?: string;
   amounts?: SellsyAmounts;
+  pdf_link?: string;
 }
 
 // ===== DATE HELPERS =====
@@ -140,11 +142,14 @@ function getPreviousPeriodDates(period: Period): {
 
 function getAmount(row: { amounts?: SellsyAmounts }): number {
   if (!row.amounts) return 0;
-  return (
-    parseFloat(row.amounts.total || "0") ||
-    parseFloat(row.amounts.total_excl_tax || "0") ||
-    0
-  );
+  const val = row.amounts.total ?? row.amounts.total_excl_tax ?? "0";
+  const num = Number(val);
+  return isNaN(num) ? 0 : num;
+}
+
+function isCancelled(row: { status?: string }): boolean {
+  const s = (row.status || "").toLowerCase();
+  return s === "cancelled" || s === "annulé" || s === "annule";
 }
 
 function filterByPeriod<T extends { created?: string; date?: string }>(
@@ -171,8 +176,8 @@ function formatCurrency(amount: number): string {
   return amount.toLocaleString("fr-FR", {
     style: "currency",
     currency: "EUR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 }
 
@@ -280,38 +285,44 @@ export default function CommercialDashboardPage() {
   const prevEstimates = filterByPeriod(allEstimates, prevStart, prevEnd);
   const prevOrders = filterByPeriod(allOrders, prevStart, prevEnd);
 
-  const estimatesAmount = periodEstimates.reduce(
+  // Exclure les annulés des calculs de CA
+  const activeEstimates = periodEstimates.filter((e) => !isCancelled(e));
+  const activeOrders = periodOrders.filter((o) => !isCancelled(o));
+  const prevActiveEstimates = prevEstimates.filter((e) => !isCancelled(e));
+  const prevActiveOrders = prevOrders.filter((o) => !isCancelled(o));
+
+  const estimatesAmount = activeEstimates.reduce(
     (sum, e) => sum + getAmount(e),
     0
   );
-  const ordersAmount = periodOrders.reduce(
+  const ordersAmount = activeOrders.reduce(
     (sum, o) => sum + getAmount(o),
     0
   );
-  const prevEstimatesAmount = prevEstimates.reduce(
+  const prevEstimatesAmount = prevActiveEstimates.reduce(
     (sum, e) => sum + getAmount(e),
     0
   );
-  const prevOrdersAmount = prevOrders.reduce(
+  const prevOrdersAmount = prevActiveOrders.reduce(
     (sum, o) => sum + getAmount(o),
     0
   );
 
   const conversionRate =
-    periodEstimates.length > 0
-      ? Math.round((periodOrders.length / periodEstimates.length) * 100)
+    activeEstimates.length > 0
+      ? Math.round((activeOrders.length / activeEstimates.length) * 100)
       : 0;
   const prevConversionRate =
-    prevEstimates.length > 0
-      ? Math.round((prevOrders.length / prevEstimates.length) * 100)
+    prevActiveEstimates.length > 0
+      ? Math.round((prevActiveOrders.length / prevActiveEstimates.length) * 100)
       : 0;
 
   // Global totals (all time, from pagination)
   const totalEstimatesAllTime = allEstimates.length;
   const totalOrdersAllTime = allOrders.length;
 
-  // Top 5 for lists
-  const recentEstimates = [...periodEstimates]
+  // Top 5 for lists (also exclude cancelled)
+  const recentEstimates = [...activeEstimates]
     .sort(
       (a, b) =>
         new Date(b.date || b.created || "").getTime() -
@@ -319,7 +330,7 @@ export default function CommercialDashboardPage() {
     )
     .slice(0, 5);
 
-  const recentOrders = [...periodOrders]
+  const recentOrders = [...activeOrders]
     .sort(
       (a, b) =>
         new Date(b.date || b.created || "").getTime() -
@@ -392,11 +403,11 @@ export default function CommercialDashboardPage() {
             <FileText className="w-5 h-5 text-cockpit-info" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
-            {periodEstimates.length}
+            {activeEstimates.length}
           </p>
           <VariationBadge
-            current={periodEstimates.length}
-            previous={prevEstimates.length}
+            current={activeEstimates.length}
+            previous={prevActiveEstimates.length}
           />
         </div>
 
@@ -408,11 +419,11 @@ export default function CommercialDashboardPage() {
             <ShoppingCart className="w-5 h-5 text-cockpit-success" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
-            {periodOrders.length}
+            {activeOrders.length}
           </p>
           <VariationBadge
-            current={periodOrders.length}
-            previous={prevOrders.length}
+            current={activeOrders.length}
+            previous={prevActiveOrders.length}
           />
         </div>
 
@@ -510,7 +521,7 @@ export default function CommercialDashboardPage() {
               Derniers devis
             </h3>
             <span className="text-xs bg-cockpit-info/10 text-cockpit-info px-2 py-1 rounded-full font-semibold">
-              {periodEstimates.length} sur la période
+              {activeEstimates.length} sur la période
             </span>
           </div>
           {recentEstimates.length > 0 ? (
@@ -522,7 +533,7 @@ export default function CommercialDashboardPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-cockpit-primary truncate">
-                      {est.subject || est.number || `Devis #${est.id}`}
+                      {est.number || est.subject || `Devis #${est.id}`}
                     </p>
                     <p className="text-xs text-cockpit-secondary">
                       {est.company_name || est.status || "—"}
@@ -530,9 +541,14 @@ export default function CommercialDashboardPage() {
                         ` • ${new Date(est.date).toLocaleDateString("fr-FR")}`}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
+                  <a
+                    href={est.pdf_link || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap hover:text-cockpit-info transition-colors"
+                  >
                     {formatCurrency(getAmount(est))}
-                  </p>
+                  </a>
                 </div>
               ))}
             </div>
@@ -550,7 +566,7 @@ export default function CommercialDashboardPage() {
               Dernières commandes
             </h3>
             <span className="text-xs bg-cockpit-success/10 text-cockpit-success px-2 py-1 rounded-full font-semibold">
-              {periodOrders.length} sur la période
+              {activeOrders.length} sur la période
             </span>
           </div>
           {recentOrders.length > 0 ? (
@@ -562,8 +578,8 @@ export default function CommercialDashboardPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-cockpit-primary truncate">
-                      {order.subject ||
-                        order.number ||
+                      {order.number ||
+                        order.subject ||
                         `Commande #${order.id}`}
                     </p>
                     <p className="text-xs text-cockpit-secondary">
@@ -572,9 +588,14 @@ export default function CommercialDashboardPage() {
                         ` • ${new Date(order.date).toLocaleDateString("fr-FR")}`}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
+                  <a
+                    href={order.pdf_link || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap hover:text-cockpit-info transition-colors"
+                  >
                     {formatCurrency(getAmount(order))}
-                  </p>
+                  </a>
                 </div>
               ))}
             </div>
