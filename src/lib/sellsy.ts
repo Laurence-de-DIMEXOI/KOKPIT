@@ -202,14 +202,14 @@ export async function searchItems(filters: {
 export async function listEstimates(params?: {
   limit?: number;
   offset?: number;
-  embed?: string[];
+  order?: string;
+  direction?: string;
 }): Promise<SellsyListResponse<SellsyEstimate>> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.offset) searchParams.set("offset", String(params.offset));
-  if (params?.embed) {
-    params.embed.forEach((e) => searchParams.append("embed[]", e));
-  }
+  if (params?.order) searchParams.set("order", params.order);
+  if (params?.direction) searchParams.set("direction", params.direction);
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyEstimate>>(
@@ -232,14 +232,14 @@ export async function searchEstimates(params: {
   };
   limit?: number;
   offset?: number;
-  embed?: string[];
+  order?: string;
+  direction?: string;
 }): Promise<SellsyListResponse<SellsyEstimate>> {
   const searchParams = new URLSearchParams();
   if (params.limit) searchParams.set("limit", String(params.limit));
   if (params.offset) searchParams.set("offset", String(params.offset));
-  if (params.embed) {
-    params.embed.forEach((e) => searchParams.append("embed[]", e));
-  }
+  if (params.order) searchParams.set("order", params.order);
+  if (params.direction) searchParams.set("direction", params.direction);
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyEstimate>>(
@@ -256,14 +256,14 @@ export async function searchEstimates(params: {
 export async function listOrders(params?: {
   limit?: number;
   offset?: number;
-  embed?: string[];
+  order?: string;
+  direction?: string;
 }): Promise<SellsyListResponse<SellsyOrder>> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.offset) searchParams.set("offset", String(params.offset));
-  if (params?.embed) {
-    params.embed.forEach((e) => searchParams.append("embed[]", e));
-  }
+  if (params?.order) searchParams.set("order", params.order);
+  if (params?.direction) searchParams.set("direction", params.direction);
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyOrder>>(
@@ -283,14 +283,14 @@ export async function searchOrders(params: {
   };
   limit?: number;
   offset?: number;
-  embed?: string[];
+  order?: string;
+  direction?: string;
 }): Promise<SellsyListResponse<SellsyOrder>> {
   const searchParams = new URLSearchParams();
   if (params.limit) searchParams.set("limit", String(params.limit));
   if (params.offset) searchParams.set("offset", String(params.offset));
-  if (params.embed) {
-    params.embed.forEach((e) => searchParams.append("embed[]", e));
-  }
+  if (params.order) searchParams.set("order", params.order);
+  if (params.direction) searchParams.set("direction", params.direction);
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyOrder>>(

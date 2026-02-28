@@ -16,9 +16,16 @@ export async function GET(request: NextRequest) {
         filters: { status: status.split(",") },
         limit,
         offset,
+        order: "created",
+        direction: "desc",
       });
     } else {
-      result = await listOrders({ limit, offset });
+      result = await listOrders({
+        limit,
+        offset,
+        order: "created",
+        direction: "desc",
+      });
     }
 
     return NextResponse.json({

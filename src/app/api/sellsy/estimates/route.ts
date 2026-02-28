@@ -28,9 +28,20 @@ export async function GET(request: NextRequest) {
         if (createdEnd) filters.created.end = createdEnd;
       }
 
-      result = await searchEstimates({ filters, limit, offset });
+      result = await searchEstimates({
+        filters,
+        limit,
+        offset,
+        order: "created",
+        direction: "desc",
+      });
     } else {
-      result = await listEstimates({ limit, offset });
+      result = await listEstimates({
+        limit,
+        offset,
+        order: "created",
+        direction: "desc",
+      });
     }
 
     return NextResponse.json({

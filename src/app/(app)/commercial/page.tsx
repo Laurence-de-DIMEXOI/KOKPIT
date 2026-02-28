@@ -23,10 +23,10 @@ import clsx from "clsx";
 type Period = "today" | "week" | "month" | "year";
 
 interface SellsyAmounts {
-  total_raw_excl_tax?: number;
-  total_after_discount_excl_tax?: number;
-  total_excl_tax?: number;
-  total_incl_tax?: number;
+  total?: string;
+  total_raw_excl_tax?: string;
+  total_after_discount_excl_tax?: string;
+  total_excl_tax?: string;
 }
 
 interface EstimateRow {
@@ -141,9 +141,8 @@ function getPreviousPeriodDates(period: Period): {
 function getAmount(row: { amounts?: SellsyAmounts }): number {
   if (!row.amounts) return 0;
   return (
-    row.amounts.total_incl_tax ??
-    row.amounts.total_excl_tax ??
-    row.amounts.total_raw_excl_tax ??
+    parseFloat(row.amounts.total || "0") ||
+    parseFloat(row.amounts.total_excl_tax || "0") ||
     0
   );
 }
@@ -239,9 +238,14 @@ export default function CommercialDashboardPage() {
   const fetchAll = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Fetch all data in parallel (with amounts embed via API routes)
+      // Use year start as created_start to get recent data (API sorts desc)
+      const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+
+      // Fetch estimates with date filter, orders sorted desc, and products count
       const [estRes, ordRes, itemsRes] = await Promise.all([
-        fetch("/api/sellsy/estimates?limit=100"),
+        fetch(
+          `/api/sellsy/estimates?limit=100&created_start=${encodeURIComponent(yearStart)}`
+        ),
         fetch("/api/sellsy/orders?limit=100"),
         fetch("/api/sellsy/items?limit=1"),
       ]);

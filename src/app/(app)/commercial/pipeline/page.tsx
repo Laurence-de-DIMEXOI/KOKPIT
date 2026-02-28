@@ -11,13 +11,16 @@ import {
 
 interface Estimate {
   id: number;
+  number?: string;
   reference?: string;
   subject?: string;
   status?: string;
-  total?: string;
+  date?: string;
   created?: string;
+  company_name?: string;
   contact?: { id: number; name?: string };
   company?: { id: number; name?: string };
+  amounts?: { total?: string; total_excl_tax?: string };
 }
 
 const PIPELINE_COLUMNS = [
@@ -127,7 +130,7 @@ export default function PipelinePage() {
           {PIPELINE_COLUMNS.map((col) => {
             const colEstimates = groupedEstimates[col.key] || [];
             const totalAmount = colEstimates.reduce(
-              (sum, e) => sum + (parseFloat(e.total || "0") || 0),
+              (sum, e) => sum + (parseFloat(e.amounts?.total || "0") || 0),
               0
             );
 
@@ -163,21 +166,19 @@ export default function PipelinePage() {
                     >
                       <div className="flex items-start justify-between mb-2">
                         <p className="text-sm font-medium text-cockpit-primary truncate flex-1">
-                          {est.subject ||
-                            est.reference ||
-                            `Devis #${est.id}`}
+                          {est.subject || est.number || `Devis #${est.id}`}
                         </p>
                         <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0 ml-1" />
                       </div>
-                      {(est.company?.name || est.contact?.name) && (
+                      {(est.company_name || est.company?.name) && (
                         <p className="text-xs text-cockpit-secondary truncate mb-2">
-                          {est.company?.name || est.contact?.name}
+                          {est.company_name || est.company?.name}
                         </p>
                       )}
                       <div className="flex items-center gap-1 text-cockpit-heading">
                         <Euro className="w-3 h-3" />
                         <span className="text-xs font-semibold">
-                          {parseFloat(est.total || "0").toLocaleString(
+                          {parseFloat(est.amounts?.total || "0").toLocaleString(
                             "fr-FR",
                             { minimumFractionDigits: 2 }
                           )}

@@ -13,13 +13,16 @@ import {
 
 interface SellsyOrder {
   id: number;
+  number?: string;
   reference?: string;
   subject?: string;
   status?: string;
-  total?: string;
+  date?: string;
   created?: string;
+  company_name?: string;
   contact?: { id: number; name?: string };
   company?: { id: number; name?: string };
+  amounts?: { total?: string; total_excl_tax?: string };
 }
 
 function statusBadge(status: string | undefined) {
@@ -84,12 +87,12 @@ export default function CommandesPage() {
         (o) =>
           (o.subject || "").toLowerCase().includes(search.toLowerCase()) ||
           (o.reference || "").toLowerCase().includes(search.toLowerCase()) ||
-          (o.company?.name || "").toLowerCase().includes(search.toLowerCase())
+          (o.company_name || o.company?.name || "").toLowerCase().includes(search.toLowerCase())
       )
     : orders;
 
   const totalAmount = filteredOrders.reduce(
-    (sum, o) => sum + (parseFloat(o.total || "0") || 0),
+    (sum, o) => sum + (parseFloat(o.amounts?.total || "0") || 0),
     0
   );
 
@@ -193,7 +196,7 @@ export default function CommandesPage() {
                   <td className="p-4">
                     <p className="text-sm font-medium text-cockpit-primary">
                       {order.subject ||
-                        order.reference ||
+                        order.number ||
                         `Commande #${order.id}`}
                     </p>
                     {order.reference && order.subject && (
@@ -204,7 +207,7 @@ export default function CommandesPage() {
                   </td>
                   <td className="p-4">
                     <p className="text-sm text-cockpit-primary">
-                      {order.company?.name || order.contact?.name || "—"}
+                      {order.company_name || order.company?.name || "—"}
                     </p>
                   </td>
                   <td className="p-4">
@@ -216,7 +219,7 @@ export default function CommandesPage() {
                   </td>
                   <td className="p-4 text-right">
                     <span className="text-sm font-semibold text-cockpit-heading">
-                      {parseFloat(order.total || "0").toLocaleString("fr-FR", {
+                      {parseFloat(order.amounts?.total || "0").toLocaleString("fr-FR", {
                         style: "currency",
                         currency: "EUR",
                       })}
@@ -249,11 +252,11 @@ export default function CommandesPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-cockpit-heading truncate">
                     {order.subject ||
-                      order.reference ||
+                      order.number ||
                       `Commande #${order.id}`}
                   </p>
                   <p className="text-xs text-cockpit-secondary">
-                    {order.company?.name || order.contact?.name || "—"}
+                    {order.company_name || order.company?.name || "—"}
                   </p>
                 </div>
                 <span
@@ -266,7 +269,7 @@ export default function CommandesPage() {
                 <div className="flex items-center gap-1">
                   <Euro className="w-3.5 h-3.5 text-cockpit-heading" />
                   <span className="text-sm font-bold text-cockpit-heading">
-                    {parseFloat(order.total || "0").toLocaleString("fr-FR", {
+                    {parseFloat(order.amounts?.total || "0").toLocaleString("fr-FR", {
                       minimumFractionDigits: 2,
                     })}
                   </span>
