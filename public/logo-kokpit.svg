@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180" fill="none">
+  <!-- Dashboard arc -->
+  <path d="M40 110 Q120 20 200 110" stroke="#1B2A4A" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <!-- Tick marks on arc -->
+  <line x1="52" y1="95" x2="62" y2="85" stroke="#1B2A4A" stroke-width="4" stroke-linecap="round"/>
+  <line x1="75" y1="72" x2="83" y2="60" stroke="#1B2A4A" stroke-width="4" stroke-linecap="round"/>
+  <line x1="157" y1="60" x2="165" y2="72" stroke="#1B2A4A" stroke-width="4" stroke-linecap="round"/>
+  <line x1="178" y1="85" x2="188" y2="95" stroke="#1B2A4A" stroke-width="4" stroke-linecap="round"/>
+  <!-- Needle / Arrow (golden) -->
+  <polygon points="120,42 113,72 120,66 127,72" fill="#D4A843"/>
+  <!-- Needle base -->
+  <rect x="112" y="72" width="16" height="5" rx="2" fill="#D4A843"/>
+  <!-- Text: KŌKPIT -->
+  <text x="120" y="128" text-anchor="middle" font-family="'Inter','Helvetica Neue',Arial,sans-serif" font-size="30" font-weight="800" letter-spacing="3" fill="#1B2A4A">KŌKPIT</text>
+  <!-- Subtitle -->
+  <text x="120" y="150" text-anchor="middle" font-family="'Inter','Helvetica Neue',Arial,sans-serif" font-size="13" font-weight="400" fill="#6B7280">Le SaaS Péi</text>
+</svg>

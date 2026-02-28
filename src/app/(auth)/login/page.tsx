@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Loader2, LogIn, Mail, Lock } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,51 +42,82 @@ export default function LoginPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Connexion</h2>
-        <p className="text-gray-600">
-          Connectez-vous à votre compte KÒKPIT
+    <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+      {/* Heading */}
+      <div className="text-center sm:text-left">
+        <h2 className="text-xl sm:text-2xl font-bold text-cockpit-heading mb-1">
+          Connexion
+        </h2>
+        <p className="text-cockpit-secondary text-sm">
+          Accédez à votre espace KÒKPIT
         </p>
       </div>
 
+      {/* Error banner */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800 text-sm font-medium">{error}</p>
+        <div className="p-3 sm:p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <p className="text-red-400 text-sm font-medium">{error}</p>
         </div>
       )}
 
-      <Input
-        label="Email"
-        type="email"
-        placeholder="vous@example.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
+      {/* Email field */}
+      <div>
+        <label className="block text-sm font-medium text-cockpit-primary mb-1.5">
+          Email
+        </label>
+        <div className="relative">
+          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
+          <input
+            type="email"
+            placeholder="vous@exemple.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full bg-cockpit-dark border border-cockpit rounded-lg pl-10 pr-4 py-3 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/40 focus:border-cockpit-yellow/50 transition-all"
+          />
+        </div>
+      </div>
 
-      <Input
-        label="Mot de passe"
-        type="password"
-        placeholder="••••••••"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
+      {/* Password field */}
+      <div>
+        <label className="block text-sm font-medium text-cockpit-primary mb-1.5">
+          Mot de passe
+        </label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
+          <input
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full bg-cockpit-dark border border-cockpit rounded-lg pl-10 pr-4 py-3 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/40 focus:border-cockpit-yellow/50 transition-all"
+          />
+        </div>
+      </div>
 
-      <Button
+      {/* Submit button */}
+      <button
         type="submit"
-        size="lg"
-        loading={loading}
-        className="w-full"
+        disabled={loading}
+        className="w-full flex items-center justify-center gap-2 bg-cockpit-yellow text-cockpit-dark font-bold py-3 px-4 rounded-lg hover:bg-cockpit-yellow/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed text-sm sm:text-base"
       >
-        Se connecter
-      </Button>
+        {loading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <LogIn className="w-5 h-5" />
+        )}
+        {loading ? "Connexion..." : "Se connecter"}
+      </button>
 
-      <div className="pt-4 border-t border-gray-200 text-center">
-        <p className="text-gray-600 text-sm">
-          Besoin d'aide ?{" "}
-          <a href="#" className="text-yellow-cockpit font-semibold hover:underline">
+      {/* Footer link */}
+      <div className="pt-4 border-t border-cockpit text-center">
+        <p className="text-cockpit-secondary text-xs sm:text-sm">
+          Besoin d&apos;aide ?{" "}
+          <a
+            href="mailto:support@dimexoi.fr"
+            className="text-cockpit-yellow font-semibold hover:underline"
+          >
             Contacter le support
           </a>
         </p>

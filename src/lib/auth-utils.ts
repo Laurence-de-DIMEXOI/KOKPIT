@@ -12,7 +12,11 @@ export type Module =
   | "devis"
   | "ventes"
   | "analytique"
-  | "parametres";
+  | "parametres"
+  | "dashboard-commercial"
+  | "pipeline"
+  | "catalogue"
+  | "commandes";
 
 const roleModuleAccess: Record<Role, Module[]> = {
   ADMIN: [
@@ -26,6 +30,10 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "ventes",
     "analytique",
     "parametres",
+    "dashboard-commercial",
+    "pipeline",
+    "catalogue",
+    "commandes",
   ],
   MARKETING: [
     "dashboard",
@@ -35,8 +43,21 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "emailing",
     "automatisations",
   ],
-  COMMERCIAL: ["dashboard", "leads", "contacts", "devis", "ventes"],
-  DIRECTION: ["dashboard", "campagnes", "analytique"],
+  COMMERCIAL: [
+    "dashboard-commercial",
+    "pipeline",
+    "catalogue",
+    "commandes",
+    "leads",
+    "contacts",
+  ],
+  DIRECTION: [
+    "dashboard",
+    "dashboard-commercial",
+    "campagnes",
+    "pipeline",
+    "analytique",
+  ],
 };
 
 export function getCurrentUser(session: Session | null) {
