@@ -7,7 +7,7 @@ import { Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2 } from "lucid
 
 interface Demande {
   id: string;
-  type: "LEAD" | "DEMANDE_PRIX";
+  type: "DEMANDE_PRIX";
   nom: string;
   prenom: string;
   email: string;
@@ -84,8 +84,8 @@ export default function LeadsPage() {
     return colors[statut] || { bg: "bg-gray-100", text: "text-gray-600" };
   };
 
-  const getTypeIcon = (type: string) => {
-    return type === "DEMANDE_PRIX" ? "📋" : "👤";
+  const getTypeIcon = () => {
+    return "📋"; // Demande de prix
   };
 
   const nomComplet = (demande: Demande) => {
@@ -98,10 +98,10 @@ export default function LeadsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-cockpit-heading mb-2">
-            Demandes
+            Demandes de Prix
           </h1>
           <p className="text-cockpit-secondary">
-            Gérez vos demandes clients et demandes de prix
+            Gérez les demandes de prix en provenance de Glide
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -193,7 +193,7 @@ export default function LeadsPage() {
                   return (
                     <tr key={demande.id} className="hover:bg-cockpit-dark transition-colors">
                       <td className="px-8 py-4 text-center text-lg">
-                        {getTypeIcon(demande.type)}
+                        {getTypeIcon()}
                       </td>
                       <td className="px-8 py-4">
                         <div className="font-medium text-cockpit-primary">

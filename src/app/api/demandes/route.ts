@@ -3,52 +3,20 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/demandes
- * Récupère toutes les demandes: Leads + DemandePrix avec infos de contact
+ * Récupère SEULEMENT les demandes de prix (DemandePrix)
+ * Les Leads sont créés automatiquement mais affichés dans Contacts (pas ici pour éviter les doublons)
  *
  * Query params:
- * - source: "GLIDE" | "ALL" (défaut: "ALL")
- * - statut: "NOUVEAU" | "EN_COURS" | "DEVIS" | "VENTE" | "PERDU"
  * - limit: nombre de résultats (défaut: 100)
  * - offset: pagination (défaut: 0)
  */
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const source = url.searchParams.get("source") || "ALL";
-    const statut = url.searchParams.get("statut");
     const limit = parseInt(url.searchParams.get("limit") || "100", 10);
     const offset = parseInt(url.searchParams.get("offset") || "0", 10);
 
-    // Récupérer les leads
-    const leadsQuery: any = {};
-    if (source === "GLIDE") {
-      leadsQuery.source = "GLIDE";
-    }
-    if (statut) {
-      leadsQuery.statut = statut;
-    }
-
-    const [leads, totalLeads] = await Promise.all([
-      prisma.lead.findMany({
-        where: leadsQuery,
-        include: {
-          contact: true,
-          commercial: {
-            select: {
-              id: true,
-              email: true,
-              nom: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.lead.count({ where: leadsQuery }),
-    ]);
-
-    // Récupérer toutes les demandes de prix
+    // Récupérer SEULEMENT les demandes de prix
     const [demandesPrix, totalDemandesPrix] = await Promise.all([
       prisma.demandePrix.findMany({
         include: {
@@ -61,28 +29,7 @@ export async function GET(request: NextRequest) {
       prisma.demandePrix.count(),
     ]);
 
-    // Formater les réponses
-    const formattedLeads = leads.map((lead) => ({
-      id: lead.id,
-      type: "LEAD",
-      nom: lead.contact.nom,
-      prenom: lead.contact.prenom,
-      email: lead.contact.email,
-      telephone: lead.contact.telephone,
-      source: lead.source,
-      statut: lead.statut,
-      notes: lead.notes,
-      meuble: lead.notes?.split(":")?.[1]?.trim() || "Non spécifié",
-      message: null,
-      showroom: null,
-      modePaiement: null,
-      assigneA: lead.commercial?.nom || "Non assigné",
-      assigneEmail: lead.commercial?.email || null,
-      dateCreation: lead.createdAt.toISOString(),
-      dateDemande: null,
-      glideRowId: null,
-    }));
-
+    // Formater les demandes de prix
     const formattedDemandesPrix = demandesPrix.map((demande) => ({
       id: demande.id,
       type: "DEMANDE_PRIX",
@@ -103,25 +50,17 @@ export async function GET(request: NextRequest) {
       glideRowId: demande.glideRowId,
     }));
 
-    // Combiner et trier par date de création décroissante
-    const toutes = [...formattedLeads, ...formattedDemandesPrix].sort(
-      (a, b) =>
-        new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime()
-    );
-
     return NextResponse.json({
       success: true,
-      data: toutes,
+      data: formattedDemandesPrix,
       pagination: {
-        total: totalLeads + totalDemandesPrix,
+        total: totalDemandesPrix,
         limit,
         offset,
-        count: toutes.length,
+        count: formattedDemandesPrix.length,
       },
       stats: {
-        totalLeads,
         totalDemandesPrix,
-        totalDemandes: totalLeads + totalDemandesPrix,
       },
     });
   } catch (error: any) {
