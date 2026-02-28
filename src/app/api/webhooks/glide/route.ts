@@ -94,16 +94,18 @@ async function findCommercialByShowroom(showroom: string | null) {
 }
 
 /**
- * Envoyer un email de notification au commercial via Brevo
+ * Envoyer un email de notification via Brevo
+ * Utilisé pour notifier commerciaux et autres destinataires
  */
-async function sendEmailToCommercial(
-  commercialEmail: string,
-  commercialName: string,
+async function sendEmailNotification(
+  recipientEmail: string,
+  recipientName: string,
   contactNom: string,
   contactPrenom: string,
   meuble: string,
   telephone: string | null,
-  email: string
+  email: string,
+  showroom: string | null = null
 ) {
   try {
     const brevoApiKey = process.env.BREVO_API_KEY;
@@ -114,6 +116,7 @@ async function sendEmailToCommercial(
 
     const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@dimexoi.fr";
     const nomComplet = `${contactPrenom} ${contactNom}`.trim();
+    const showroomText = showroom ? `<p><strong>Showroom:</strong> ${showroom}</p>` : "";
 
     const emailContent = `
 <!DOCTYPE html>
@@ -126,19 +129,20 @@ async function sendEmailToCommercial(
   <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
     <h2 style="color: #f59e0b;">Nouvelle demande de prix - KÒKPIT</h2>
 
-    <p>Bonjour ${commercialName},</p>
+    <p>Bonjour ${recipientName},</p>
 
     <p>Une nouvelle demande de prix a été reçue via Glideapps.</p>
 
     <div style="background-color: #f9fafb; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0;">
       <p><strong>Contact:</strong> ${nomComplet}</p>
       <p><strong>Meuble:</strong> ${meuble}</p>
+      ${showroomText}
       <p><strong>Téléphone:</strong> ${telephone || "Non fourni"}</p>
       <p><strong>Email:</strong> ${email}</p>
     </div>
 
     <p style="margin-top: 30px;">
-      <a href="https://kokpit.dimexoi.fr/leads" style="background-color: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+      <a href="https://kokpit.dimexoi.fr/demandes" style="background-color: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
         Voir dans KÒKPIT
       </a>
     </p>
@@ -166,8 +170,8 @@ async function sendEmailToCommercial(
         },
         to: [
           {
-            email: commercialEmail,
-            name: commercialName,
+            email: recipientEmail,
+            name: recipientName,
           },
         ],
         subject: `📧 Nouvelle demande de prix: ${meuble}`,
@@ -179,7 +183,7 @@ async function sendEmailToCommercial(
       const error = await response.text();
       console.error("Erreur Brevo:", error);
     } else {
-      console.log("Email envoyé avec succès au commercial");
+      console.log(`Email envoyé avec succès à ${recipientEmail}`);
     }
   } catch (error) {
     console.error("Erreur lors de l'envoi de l'email:", error);
@@ -316,16 +320,38 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Envoyer un email de notification au commercial assigné
+    // Envoyer les emails de notification
+
+    // 1. Email au commercial assigné (si existe)
     if (commercial) {
-      await sendEmailToCommercial(
+      await sendEmailNotification(
         commercial.email,
         commercial.nom || "Collègue",
         nom,
         prenom,
         meuble,
         telephone,
-        email
+        email,
+        showroom
+      );
+    }
+
+    // 2. Email à contact@dimexoi.fr si showroom est Saint-Pierre (Sud)
+    const isSudShowroom = showroom && (
+      showroom.toLowerCase().includes("saint-pierre") ||
+      showroom.toLowerCase().includes("sud")
+    );
+
+    if (isSudShowroom) {
+      await sendEmailNotification(
+        "contact@dimexoi.fr",
+        "Équipe DIMEXOI",
+        nom,
+        prenom,
+        meuble,
+        telephone,
+        email,
+        showroom
       );
     }
 
@@ -336,6 +362,7 @@ export async function POST(request: NextRequest) {
       demandePrixId: demande.id,
       leadId: lead.id,
       assignedTo: commercial?.email || "non assigné",
+      sudNotification: isSudShowroom ? "Notifié contact@dimexoi.fr" : false,
     });
   } catch (error: any) {
     console.error("Webhook Glide error:", error);
