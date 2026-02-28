@@ -11133,4 +11133,3 @@ export const contactsData = [
     "demandes": 1
   }
 ];
-export type Contact = typeof contactsData[0];

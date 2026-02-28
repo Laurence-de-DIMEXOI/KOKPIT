@@ -43,6 +43,14 @@ export async function GET(request: NextRequest) {
           demandesPrix: {
             orderBy: { dateDemande: "desc" },
           },
+          leads: {
+            include: {
+              commercial: {
+                select: { id: true, nom: true, email: true },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
           _count: {
             select: { demandesPrix: true, leads: true, devis: true },
           },
