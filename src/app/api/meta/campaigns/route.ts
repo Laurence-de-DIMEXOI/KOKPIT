@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const META_API_VERSION = "v19.0";
-const META_API_URL = `https://graph.instagram.com/${META_API_VERSION}`;
+const META_API_URL = `https://graph.facebook.com/${META_API_VERSION}`;
 
 interface MetaCampaign {
   id: string;
