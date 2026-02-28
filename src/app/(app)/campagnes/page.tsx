@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
-import { BarChart3, TrendingUp, DollarSign, Users, RefreshCw, Loader2, AlertCircle } from "lucide-react";
+import { BarChart3, TrendingUp, DollarSign, Users, RefreshCw, Loader2, AlertCircle, ChevronDown } from "lucide-react";
 
 interface Campaign {
   id: string;
@@ -21,11 +21,17 @@ interface Campaign {
   metaCampaignId: string;
 }
 
+type SortBy = "date" | "spend" | "impressions" | "clicks" | "roas";
+type SortOrder = "asc" | "desc";
+
 export default function CampagnesPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [sortBy, setSortBy] = useState<SortBy>("date");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
 
   useEffect(() => {
     loadCampaigns();
@@ -57,11 +63,50 @@ export default function CampagnesPage() {
   };
 
   // Filtrer les campagnes à partir du 1er janvier 2026
-  const filteredCampaigns = campaigns.filter((c) => {
+  let filteredCampaigns = campaigns.filter((c) => {
     if (!c.startDate) return false;
     const campaignDate = new Date(c.startDate);
     const minDate = new Date("2026-01-01");
     return campaignDate >= minDate;
+  });
+
+  // Appliquer le filtre de statut
+  if (selectedStatus !== "ALL") {
+    filteredCampaigns = filteredCampaigns.filter((c) => c.status === selectedStatus);
+  }
+
+  // Appliquer le tri
+  filteredCampaigns = [...filteredCampaigns].sort((a, b) => {
+    let aVal: number | string = 0;
+    let bVal: number | string = 0;
+
+    switch (sortBy) {
+      case "date":
+        aVal = a.startDate ? new Date(a.startDate).getTime() : 0;
+        bVal = b.startDate ? new Date(b.startDate).getTime() : 0;
+        break;
+      case "spend":
+        aVal = a.spend || 0;
+        bVal = b.spend || 0;
+        break;
+      case "impressions":
+        aVal = a.impressions || 0;
+        bVal = b.impressions || 0;
+        break;
+      case "clicks":
+        aVal = a.clicks || 0;
+        bVal = b.clicks || 0;
+        break;
+      case "roas":
+        aVal = a.roas || 0;
+        bVal = b.roas || 0;
+        break;
+    }
+
+    if (typeof aVal === "number" && typeof bVal === "number") {
+      return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
+    }
+    return 0;
   });
 
   const totalSpend = filteredCampaigns.reduce((sum, c) => sum + (c.spend || 0), 0);
@@ -95,6 +140,48 @@ export default function CampagnesPage() {
           {syncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
           {syncing ? "Synchronisation..." : "Synchroniser depuis Meta"}
         </button>
+      </div>
+
+      {/* Filtres et tri */}
+      <div className="flex gap-4">
+        <div className="relative">
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="appearance-none bg-cockpit-card border border-cockpit px-4 py-2 rounded-lg text-sm text-cockpit-primary cursor-pointer pr-8"
+          >
+            <option value="ALL">Tous les statuts</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PAUSED">En pause</option>
+            <option value="ARCHIVED">Archivée</option>
+            <option value="DELETED">Supprimée</option>
+          </select>
+          <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
+        </div>
+
+        <div className="flex gap-2">
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              className="appearance-none bg-cockpit-card border border-cockpit px-4 py-2 rounded-lg text-sm text-cockpit-primary cursor-pointer pr-8"
+            >
+              <option value="date">Trier par date</option>
+              <option value="spend">Trier par budget</option>
+              <option value="impressions">Trier par impressions</option>
+              <option value="clicks">Trier par clics</option>
+              <option value="roas">Trier par ROAS</option>
+            </select>
+            <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
+          </div>
+
+          <button
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            className="bg-cockpit-card border border-cockpit px-4 py-2 rounded-lg text-sm text-cockpit-primary hover:bg-cockpit-dark transition-colors"
+          >
+            {sortOrder === "asc" ? "↑ Croissant" : "↓ Décroissant"}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-8">
