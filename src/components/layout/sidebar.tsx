@@ -18,22 +18,129 @@ import {
   Package,
   FileText,
   TrendingUp,
+  ChevronDown,
+  Briefcase,
+  BarChart3,
+  CreditCard,
+  Building2,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Module } from "@/lib/auth-utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-type Space = "marketing" | "commercial";
+// ===== SPACES CONFIGURATION =====
+// Pour ajouter un nouveau volet : ajouter ici + ajouter les navItems correspondants
+
+interface SpaceConfig {
+  key: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string; // tailwind color token
+  bgActive: string;
+  textActive: string;
+  borderActive: string;
+  /** Module required to see this space */
+  requiredModule: Module;
+}
+
+const SPACES: SpaceConfig[] = [
+  {
+    key: "commercial",
+    label: "Commercial",
+    icon: Briefcase,
+    color: "cockpit-info",
+    bgActive: "bg-cockpit-info/15",
+    textActive: "text-cockpit-info",
+    borderActive: "border-cockpit-info/30",
+    requiredModule: "dashboard-commercial",
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    icon: BarChart3,
+    color: "cockpit-yellow",
+    bgActive: "bg-cockpit-yellow/15",
+    textActive: "text-cockpit-yellow",
+    borderActive: "border-cockpit-yellow/30",
+    requiredModule: "dashboard",
+  },
+  // ── Futurs volets ──
+  // {
+  //   key: "achat",
+  //   label: "Achat",
+  //   icon: CreditCard,
+  //   color: "cockpit-warning",
+  //   bgActive: "bg-cockpit-warning/15",
+  //   textActive: "text-cockpit-warning",
+  //   borderActive: "border-cockpit-warning/30",
+  //   requiredModule: "dashboard-achat",
+  // },
+  // {
+  //   key: "administration",
+  //   label: "Administration",
+  //   icon: Building2,
+  //   color: "purple-400",
+  //   bgActive: "bg-purple-400/15",
+  //   textActive: "text-purple-400",
+  //   borderActive: "border-purple-400/30",
+  //   requiredModule: "dashboard-admin",
+  // },
+];
+
+// ===== NAV ITEMS =====
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   module: Module;
-  space: Space;
+  space: string;
 }
 
 const navItems: NavItem[] = [
+  // ── Commercial ──
+  {
+    label: "Dashboard",
+    href: "/commercial",
+    icon: TrendingUp,
+    module: "dashboard-commercial",
+    space: "commercial",
+  },
+  {
+    label: "Pipeline Devis",
+    href: "/commercial/pipeline",
+    icon: FileText,
+    module: "pipeline",
+    space: "commercial",
+  },
+  {
+    label: "Catalogue",
+    href: "/commercial/catalogue",
+    icon: Package,
+    module: "catalogue",
+    space: "commercial",
+  },
+  {
+    label: "Commandes",
+    href: "/commercial/commandes",
+    icon: ShoppingCart,
+    module: "commandes",
+    space: "commercial",
+  },
+  {
+    label: "Demandes",
+    href: "/leads",
+    icon: Inbox,
+    module: "leads",
+    space: "commercial",
+  },
+  {
+    label: "Contacts",
+    href: "/contacts",
+    icon: Users,
+    module: "contacts",
+    space: "commercial",
+  },
   // ── Marketing ──
   {
     label: "Tableau de bord",
@@ -84,62 +191,139 @@ const navItems: NavItem[] = [
     module: "parametres",
     space: "marketing",
   },
-  // ── Commercial ──
-  {
-    label: "Dashboard",
-    href: "/commercial",
-    icon: TrendingUp,
-    module: "dashboard-commercial",
-    space: "commercial",
-  },
-  {
-    label: "Pipeline Devis",
-    href: "/commercial/pipeline",
-    icon: FileText,
-    module: "pipeline",
-    space: "commercial",
-  },
-  {
-    label: "Catalogue",
-    href: "/commercial/catalogue",
-    icon: Package,
-    module: "catalogue",
-    space: "commercial",
-  },
-  {
-    label: "Commandes",
-    href: "/commercial/commandes",
-    icon: ShoppingCart,
-    module: "commandes",
-    space: "commercial",
-  },
-  // Shared items visible in Commercial space too
-  {
-    label: "Demandes",
-    href: "/leads",
-    icon: Inbox,
-    module: "leads",
-    space: "commercial",
-  },
-  {
-    label: "Contacts",
-    href: "/contacts",
-    icon: Users,
-    module: "contacts",
-    space: "commercial",
-  },
 ];
 
-function detectSpace(pathname: string): Space {
+// ===== DETECT SPACE FROM URL =====
+
+function detectSpace(pathname: string): string {
   if (pathname.startsWith("/commercial")) return "commercial";
-  return "marketing";
+  // Future: if (pathname.startsWith("/achat")) return "achat";
+  // Future: if (pathname.startsWith("/administration")) return "administration";
+  return "commercial"; // Default to commercial (first space)
 }
+
+// ===== SPACE SELECTOR COMPONENT =====
+
+function SpaceSelector({
+  spaces,
+  activeSpace,
+  onSelect,
+}: {
+  spaces: SpaceConfig[];
+  activeSpace: string;
+  onSelect: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const current = spaces.find((s) => s.key === activeSpace) || spaces[0];
+  const CurrentIcon = current.icon;
+
+  // Close on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  // If only one space accessible, show it as a static label
+  if (spaces.length <= 1) {
+    return (
+      <div className="px-3 lg:px-4 pt-4 pb-2">
+        <div
+          className={clsx(
+            "flex items-center gap-2.5 px-3 py-2.5 rounded-lg border",
+            current.bgActive,
+            current.textActive,
+            current.borderActive
+          )}
+        >
+          <CurrentIcon className="w-4 h-4" />
+          <span className="text-xs font-bold uppercase tracking-wider">
+            {current.label}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 lg:px-4 pt-4 pb-2" ref={ref}>
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen(!open)}
+        className={clsx(
+          "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all",
+          current.bgActive,
+          current.textActive,
+          current.borderActive,
+          "hover:opacity-90"
+        )}
+      >
+        <CurrentIcon className="w-4 h-4" />
+        <span className="text-xs font-bold uppercase tracking-wider flex-1 text-left">
+          {current.label}
+        </span>
+        <ChevronDown
+          className={clsx(
+            "w-3.5 h-3.5 transition-transform",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="mt-1.5 bg-cockpit-card border border-cockpit rounded-lg overflow-hidden shadow-cockpit-lg">
+          {spaces.map((space) => {
+            const Icon = space.icon;
+            const isActive = space.key === activeSpace;
+            return (
+              <button
+                key={space.key}
+                onClick={() => {
+                  onSelect(space.key);
+                  setOpen(false);
+                }}
+                className={clsx(
+                  "w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-all",
+                  isActive
+                    ? clsx(space.bgActive, space.textActive)
+                    : "text-cockpit-secondary hover:text-cockpit-primary hover:bg-cockpit-dark/50"
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  {space.label}
+                </span>
+                {isActive && (
+                  <div
+                    className={clsx(
+                      "ml-auto w-1.5 h-1.5 rounded-full",
+                      `bg-${space.color}`
+                    )}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== MAIN SIDEBAR =====
 
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeSpace, setActiveSpace] = useState<Space>(() =>
+  const [activeSpace, setActiveSpace] = useState<string>(() =>
     detectSpace(typeof window !== "undefined" ? window.location.pathname : "/")
   );
 
@@ -150,6 +334,11 @@ export function Sidebar() {
     setActiveSpace(detectSpace(pathname));
   }, [pathname]);
 
+  // Spaces visible to this user
+  const visibleSpaces = SPACES.filter((s) =>
+    userRole ? canAccessModule(userRole, s.requiredModule) : false
+  );
+
   // Filter nav items by current space AND role access
   const filteredNavItems = navItems.filter(
     (item) =>
@@ -157,14 +346,9 @@ export function Sidebar() {
       (userRole ? canAccessModule(userRole, item.module) : false)
   );
 
-  // Check if user can see the other space
-  const canSeeMarketing = userRole
-    ? canAccessModule(userRole, "dashboard")
-    : false;
-  const canSeeCommercial = userRole
-    ? canAccessModule(userRole, "dashboard-commercial")
-    : false;
-  const showSpaceToggle = canSeeMarketing && canSeeCommercial;
+  // Get current space config for accent color
+  const currentSpace =
+    visibleSpaces.find((s) => s.key === activeSpace) || SPACES[0];
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -216,34 +400,13 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Space Toggle */}
-      {showSpaceToggle && (
-        <div className="px-3 lg:px-4 pt-4 pb-2">
-          <div className="flex bg-cockpit-dark rounded-lg border border-cockpit p-1">
-            <button
-              onClick={() => setActiveSpace("marketing")}
-              className={clsx(
-                "flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-all",
-                activeSpace === "marketing"
-                  ? "bg-cockpit-yellow/15 text-cockpit-yellow border border-cockpit-yellow/30"
-                  : "text-cockpit-secondary hover:text-cockpit-primary"
-              )}
-            >
-              Marketing
-            </button>
-            <button
-              onClick={() => setActiveSpace("commercial")}
-              className={clsx(
-                "flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-all",
-                activeSpace === "commercial"
-                  ? "bg-cockpit-info/15 text-cockpit-info border border-cockpit-info/30"
-                  : "text-cockpit-secondary hover:text-cockpit-primary"
-              )}
-            >
-              Commercial
-            </button>
-          </div>
-        </div>
+      {/* Space Selector */}
+      {visibleSpaces.length > 0 && (
+        <SpaceSelector
+          spaces={visibleSpaces}
+          activeSpace={activeSpace}
+          onSelect={setActiveSpace}
+        />
       )}
 
       {/* Navigation Items */}
@@ -255,10 +418,6 @@ export function Sidebar() {
                 ? pathname === "/commercial"
                 : pathname.startsWith(item.href);
             const Icon = item.icon;
-            const accentColor =
-              activeSpace === "commercial"
-                ? "cockpit-info"
-                : "cockpit-yellow";
 
             return (
               <li key={`${item.space}-${item.href}`}>
@@ -268,8 +427,10 @@ export function Sidebar() {
                     "flex items-center gap-3 lg:gap-4 px-3 lg:px-4 py-3 lg:py-4 rounded-input transition-all relative",
                     isActive
                       ? clsx(
-                          `bg-${accentColor}/15 border border-${accentColor}/30`,
-                          `text-${accentColor}`
+                          currentSpace.bgActive,
+                          "border",
+                          currentSpace.borderActive,
+                          currentSpace.textActive
                         )
                       : clsx(
                           "text-cockpit-primary",
@@ -281,7 +442,7 @@ export function Sidebar() {
                     <div
                       className={clsx(
                         "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full",
-                        `bg-${accentColor}`
+                        `bg-${currentSpace.color}`
                       )}
                     />
                   )}
