@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import {
   FileText,
@@ -11,85 +11,317 @@ import {
   RefreshCw,
   Loader2,
   Euro,
+  Calendar,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
 } from "lucide-react";
+import clsx from "clsx";
 
-interface CommercialStats {
-  totalEstimates: number;
-  totalOrders: number;
-  totalProducts: number;
-  estimatesAmount: number;
-  ordersAmount: number;
-  conversionRate: number;
+// ===== TYPES =====
+
+type Period = "today" | "week" | "month" | "year";
+
+interface SellsyAmounts {
+  total_raw_excl_tax?: number;
+  total_after_discount_excl_tax?: number;
+  total_excl_tax?: number;
+  total_incl_tax?: number;
 }
+
+interface EstimateRow {
+  id: number;
+  number?: string;
+  subject?: string;
+  status?: string;
+  date?: string;
+  created?: string;
+  company_name?: string;
+  amounts?: SellsyAmounts;
+}
+
+interface OrderRow {
+  id: number;
+  number?: string;
+  subject?: string;
+  status?: string;
+  date?: string;
+  created?: string;
+  company_name?: string;
+  amounts?: SellsyAmounts;
+}
+
+// ===== DATE HELPERS =====
+
+function getPeriodDates(period: Period): { start: string; end: string } {
+  const now = new Date();
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  let start: Date;
+
+  switch (period) {
+    case "today":
+      start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case "week": {
+      start = new Date(now);
+      const day = start.getDay();
+      const diff = day === 0 ? 6 : day - 1; // Lundi = début de semaine
+      start.setDate(start.getDate() - diff);
+      start.setHours(0, 0, 0, 0);
+      break;
+    }
+    case "month":
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case "year":
+      start = new Date(now.getFullYear(), 0, 1);
+      break;
+  }
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+}
+
+function getPreviousPeriodDates(period: Period): {
+  start: string;
+  end: string;
+} {
+  const now = new Date();
+
+  switch (period) {
+    case "today": {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        start: new Date(
+          yesterday.getFullYear(),
+          yesterday.getMonth(),
+          yesterday.getDate()
+        ).toISOString(),
+        end: new Date(
+          yesterday.getFullYear(),
+          yesterday.getMonth(),
+          yesterday.getDate(),
+          23,
+          59,
+          59,
+          999
+        ).toISOString(),
+      };
+    }
+    case "week": {
+      const start = new Date(now);
+      const day = start.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      start.setDate(start.getDate() - diff - 7);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+    case "month": {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+    case "year": {
+      const start = new Date(now.getFullYear() - 1, 0, 1);
+      const end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+  }
+}
+
+function getAmount(row: { amounts?: SellsyAmounts }): number {
+  if (!row.amounts) return 0;
+  return (
+    row.amounts.total_incl_tax ??
+    row.amounts.total_excl_tax ??
+    row.amounts.total_raw_excl_tax ??
+    0
+  );
+}
+
+function filterByPeriod<T extends { created?: string; date?: string }>(
+  items: T[],
+  start: string,
+  end: string
+): T[] {
+  const s = new Date(start).getTime();
+  const e = new Date(end).getTime();
+  return items.filter((item) => {
+    const d = new Date(item.date || item.created || "").getTime();
+    return d >= s && d <= e;
+  });
+}
+
+const PERIOD_LABELS: Record<Period, string> = {
+  today: "Aujourd'hui",
+  week: "Cette semaine",
+  month: "Ce mois-ci",
+  year: "Cette année",
+};
+
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
+// ===== VARIATION BADGE =====
+
+function VariationBadge({
+  current,
+  previous,
+  isCurrency,
+}: {
+  current: number;
+  previous: number;
+  isCurrency?: boolean;
+}) {
+  if (previous === 0 && current === 0) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-cockpit-secondary">
+        <Minus className="w-3 h-3" />—
+      </span>
+    );
+  }
+
+  const pct =
+    previous === 0 ? (current > 0 ? 100 : 0) : Math.round(((current - previous) / previous) * 100);
+
+  const isUp = pct > 0;
+  const isNeutral = pct === 0;
+
+  return (
+    <span
+      className={clsx(
+        "flex items-center gap-0.5 text-xs font-semibold",
+        isNeutral && "text-cockpit-secondary",
+        isUp && "text-cockpit-success",
+        !isUp && !isNeutral && "text-red-400"
+      )}
+    >
+      {isNeutral ? (
+        <Minus className="w-3 h-3" />
+      ) : isUp ? (
+        <ArrowUpRight className="w-3 h-3" />
+      ) : (
+        <ArrowDownRight className="w-3 h-3" />
+      )}
+      {isNeutral ? "—" : `${pct > 0 ? "+" : ""}${pct}%`}
+    </span>
+  );
+}
+
+// ===== COMPOSANT PRINCIPAL =====
 
 export default function CommercialDashboardPage() {
   const { data: session } = useSession();
-  const [stats, setStats] = useState<CommercialStats | null>(null);
+  const [period, setPeriod] = useState<Period>("month");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [recentEstimates, setRecentEstimates] = useState<any[]>([]);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
-  const fetchStats = async () => {
+  // Raw data from Sellsy
+  const [allEstimates, setAllEstimates] = useState<EstimateRow[]>([]);
+  const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
+  const [totalProducts, setTotalProducts] = useState(0);
+
+  const fetchAll = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [estimatesRes, ordersRes, itemsRes] = await Promise.all([
-        fetch("/api/sellsy/estimates?limit=10"),
-        fetch("/api/sellsy/orders?limit=10"),
+      // Fetch all data in parallel (with amounts embed via API routes)
+      const [estRes, ordRes, itemsRes] = await Promise.all([
+        fetch("/api/sellsy/estimates?limit=100"),
+        fetch("/api/sellsy/orders?limit=100"),
         fetch("/api/sellsy/items?limit=1"),
       ]);
 
-      const estimatesData = await estimatesRes.json();
-      const ordersData = await ordersRes.json();
+      const estData = await estRes.json();
+      const ordData = await ordRes.json();
       const itemsData = await itemsRes.json();
 
-      const estimates = estimatesData.estimates || [];
-      const orders = ordersData.orders || [];
-
-      // Calculate totals from paginated results
-      const totalEstimates = estimatesData.pagination?.total || estimates.length;
-      const totalOrders = ordersData.pagination?.total || orders.length;
-      const totalProducts = itemsData.pagination?.total || 0;
-
-      // Sum amounts
-      const estimatesAmount = estimates.reduce(
-        (sum: number, e: any) => sum + (parseFloat(e.total) || 0),
-        0
-      );
-      const ordersAmount = orders.reduce(
-        (sum: number, o: any) => sum + (parseFloat(o.total) || 0),
-        0
-      );
-
-      const conversionRate =
-        totalEstimates > 0
-          ? Math.round((totalOrders / totalEstimates) * 100)
-          : 0;
-
-      setStats({
-        totalEstimates,
-        totalOrders,
-        totalProducts,
-        estimatesAmount,
-        ordersAmount,
-        conversionRate,
-      });
-
-      setRecentEstimates(estimates.slice(0, 5));
-      setRecentOrders(orders.slice(0, 5));
+      setAllEstimates(estData.estimates || []);
+      setAllOrders(ordData.orders || []);
+      setTotalProducts(itemsData.pagination?.total || 0);
     } catch (error) {
-      console.error("Erreur chargement stats commerciales:", error);
+      console.error("Erreur chargement données Sellsy:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (session?.user) {
-      fetchStats();
+      fetchAll();
     }
-  }, [session]);
+  }, [session, fetchAll]);
+
+  // Computed stats filtered by period
+  const { start, end } = getPeriodDates(period);
+  const { start: prevStart, end: prevEnd } = getPreviousPeriodDates(period);
+
+  const periodEstimates = filterByPeriod(allEstimates, start, end);
+  const periodOrders = filterByPeriod(allOrders, start, end);
+  const prevEstimates = filterByPeriod(allEstimates, prevStart, prevEnd);
+  const prevOrders = filterByPeriod(allOrders, prevStart, prevEnd);
+
+  const estimatesAmount = periodEstimates.reduce(
+    (sum, e) => sum + getAmount(e),
+    0
+  );
+  const ordersAmount = periodOrders.reduce(
+    (sum, o) => sum + getAmount(o),
+    0
+  );
+  const prevEstimatesAmount = prevEstimates.reduce(
+    (sum, e) => sum + getAmount(e),
+    0
+  );
+  const prevOrdersAmount = prevOrders.reduce(
+    (sum, o) => sum + getAmount(o),
+    0
+  );
+
+  const conversionRate =
+    periodEstimates.length > 0
+      ? Math.round((periodOrders.length / periodEstimates.length) * 100)
+      : 0;
+  const prevConversionRate =
+    prevEstimates.length > 0
+      ? Math.round((prevOrders.length / prevEstimates.length) * 100)
+      : 0;
+
+  // Global totals (all time, from pagination)
+  const totalEstimatesAllTime = allEstimates.length;
+  const totalOrdersAllTime = allOrders.length;
+
+  // Top 5 for lists
+  const recentEstimates = [...periodEstimates]
+    .sort(
+      (a, b) =>
+        new Date(b.date || b.created || "").getTime() -
+        new Date(a.date || a.created || "").getTime()
+    )
+    .slice(0, 5);
+
+  const recentOrders = [...periodOrders]
+    .sort(
+      (a, b) =>
+        new Date(b.date || b.created || "").getTime() -
+        new Date(a.date || a.created || "").getTime()
+    )
+    .slice(0, 5);
 
   if (loading) {
     return (
@@ -101,86 +333,166 @@ export default function CommercialDashboardPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">
-            Espace Commercial
-          </h1>
-          <p className="text-cockpit-secondary text-sm sm:text-base">
-            Vue d&apos;ensemble Sellsy
-          </p>
+      {/* Header + Period Filter */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">
+              Espace Commercial
+            </h1>
+            <p className="text-cockpit-secondary text-sm sm:text-base">
+              Données Sellsy en temps réel
+            </p>
+          </div>
+          <button
+            onClick={fetchAll}
+            disabled={refreshing}
+            className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+          >
+            {refreshing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Synchroniser
+          </button>
         </div>
-        <button
-          onClick={fetchStats}
-          disabled={refreshing}
-          className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
-        >
-          {refreshing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4" />
-          )}
-          Synchroniser
-        </button>
+
+        {/* Period tabs */}
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={clsx(
+                "px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all border",
+                period === p
+                  ? "bg-cockpit-info/15 text-cockpit-info border-cockpit-info/30"
+                  : "bg-cockpit-card text-cockpit-secondary border-cockpit hover:text-cockpit-primary hover:border-cockpit-info/20"
+              )}
+            >
+              <Calendar className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-        <KPICard
-          title="Devis"
-          value={stats?.totalEstimates ?? 0}
-          icon={<FileText className="w-7 h-7" />}
-          bgColor="bg-cockpit-info"
-        />
-        <KPICard
-          title="Commandes"
-          value={stats?.totalOrders ?? 0}
-          icon={<ShoppingCart className="w-7 h-7" />}
-          bgColor="bg-cockpit-success"
-        />
-        <KPICard
-          title="Produits"
-          value={stats?.totalProducts ?? 0}
-          icon={<Package className="w-7 h-7" />}
-          bgColor="bg-cockpit-warning"
-        />
-        <KPICard
-          title="Conversion"
-          value={`${stats?.conversionRate ?? 0}%`}
-          icon={<TrendingUp className="w-7 h-7" />}
-          bgColor="bg-cockpit-yellow"
-        />
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+              Devis
+            </p>
+            <FileText className="w-5 h-5 text-cockpit-info" />
+          </div>
+          <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
+            {periodEstimates.length}
+          </p>
+          <VariationBadge
+            current={periodEstimates.length}
+            previous={prevEstimates.length}
+          />
+        </div>
+
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+              Commandes
+            </p>
+            <ShoppingCart className="w-5 h-5 text-cockpit-success" />
+          </div>
+          <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
+            {periodOrders.length}
+          </p>
+          <VariationBadge
+            current={periodOrders.length}
+            previous={prevOrders.length}
+          />
+        </div>
+
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+              Produits
+            </p>
+            <Package className="w-5 h-5 text-cockpit-warning" />
+          </div>
+          <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
+            {totalProducts}
+          </p>
+          <span className="text-xs text-cockpit-secondary">Catalogue</span>
+        </div>
+
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+              Conversion
+            </p>
+            <TrendingUp className="w-5 h-5 text-cockpit-yellow" />
+          </div>
+          <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
+            {conversionRate}%
+          </p>
+          <VariationBadge
+            current={conversionRate}
+            previous={prevConversionRate}
+          />
+        </div>
       </div>
 
-      {/* Amounts row */}
+      {/* Amount Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Euro className="w-5 h-5 text-cockpit-info" />
-            <h3 className="text-sm font-semibold text-cockpit-secondary">
-              Montant Devis (derniers)
-            </h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-cockpit-info/10 flex items-center justify-center">
+                <Euro className="w-5 h-5 text-cockpit-info" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-cockpit-secondary">
+                  CA Devis
+                </h3>
+                <p className="text-xs text-cockpit-secondary">
+                  {PERIOD_LABELS[period]}
+                </p>
+              </div>
+            </div>
+            <VariationBadge
+              current={estimatesAmount}
+              previous={prevEstimatesAmount}
+              isCurrency
+            />
           </div>
-          <p className="text-2xl font-bold text-cockpit-heading">
-            {(stats?.estimatesAmount ?? 0).toLocaleString("fr-FR", {
-              style: "currency",
-              currency: "EUR",
-            })}
+          <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
+            {formatCurrency(estimatesAmount)}
           </p>
         </div>
+
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Euro className="w-5 h-5 text-cockpit-success" />
-            <h3 className="text-sm font-semibold text-cockpit-secondary">
-              Montant Commandes (dernières)
-            </h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-cockpit-success/10 flex items-center justify-center">
+                <Euro className="w-5 h-5 text-cockpit-success" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-cockpit-secondary">
+                  CA Commandes
+                </h3>
+                <p className="text-xs text-cockpit-secondary">
+                  {PERIOD_LABELS[period]}
+                </p>
+              </div>
+            </div>
+            <VariationBadge
+              current={ordersAmount}
+              previous={prevOrdersAmount}
+              isCurrency
+            />
           </div>
-          <p className="text-2xl font-bold text-cockpit-heading">
-            {(stats?.ordersAmount ?? 0).toLocaleString("fr-FR", {
-              style: "currency",
-              currency: "EUR",
-            })}
+          <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
+            {formatCurrency(ordersAmount)}
           </p>
         </div>
       </div>
@@ -189,74 +501,110 @@ export default function CommercialDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Recent Estimates */}
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
-          <h3 className="text-lg font-bold text-cockpit-heading mb-4">
-            Derniers devis
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-cockpit-heading">
+              Derniers devis
+            </h3>
+            <span className="text-xs bg-cockpit-info/10 text-cockpit-info px-2 py-1 rounded-full font-semibold">
+              {periodEstimates.length} sur la période
+            </span>
+          </div>
           {recentEstimates.length > 0 ? (
             <div className="space-y-3">
-              {recentEstimates.map((est: any) => (
+              {recentEstimates.map((est) => (
                 <div
                   key={est.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-cockpit-primary truncate">
-                      {est.subject || est.reference || `Devis #${est.id}`}
+                      {est.subject || est.number || `Devis #${est.id}`}
                     </p>
                     <p className="text-xs text-cockpit-secondary">
-                      {est.status || "—"}
+                      {est.company_name || est.status || "—"}
+                      {est.date &&
+                        ` • ${new Date(est.date).toLocaleDateString("fr-FR")}`}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-cockpit-heading ml-3">
-                    {parseFloat(est.total || 0).toLocaleString("fr-FR", {
-                      style: "currency",
-                      currency: "EUR",
-                    })}
+                  <p className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
+                    {formatCurrency(getAmount(est))}
                   </p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-cockpit-secondary text-sm">
-              Aucun devis récent
+            <p className="text-cockpit-secondary text-sm py-4 text-center">
+              Aucun devis sur cette période
             </p>
           )}
         </div>
 
         {/* Recent Orders */}
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
-          <h3 className="text-lg font-bold text-cockpit-heading mb-4">
-            Dernières commandes
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-cockpit-heading">
+              Dernières commandes
+            </h3>
+            <span className="text-xs bg-cockpit-success/10 text-cockpit-success px-2 py-1 rounded-full font-semibold">
+              {periodOrders.length} sur la période
+            </span>
+          </div>
           {recentOrders.length > 0 ? (
             <div className="space-y-3">
-              {recentOrders.map((order: any) => (
+              {recentOrders.map((order) => (
                 <div
                   key={order.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-cockpit-primary truncate">
-                      {order.subject || order.reference || `Commande #${order.id}`}
+                      {order.subject ||
+                        order.number ||
+                        `Commande #${order.id}`}
                     </p>
                     <p className="text-xs text-cockpit-secondary">
-                      {order.status || "—"}
+                      {order.company_name || order.status || "—"}
+                      {order.date &&
+                        ` • ${new Date(order.date).toLocaleDateString("fr-FR")}`}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-cockpit-heading ml-3">
-                    {parseFloat(order.total || 0).toLocaleString("fr-FR", {
-                      style: "currency",
-                      currency: "EUR",
-                    })}
+                  <p className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
+                    {formatCurrency(getAmount(order))}
                   </p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-cockpit-secondary text-sm">
-              Aucune commande récente
+            <p className="text-cockpit-secondary text-sm py-4 text-center">
+              Aucune commande sur cette période
             </p>
           )}
+        </div>
+      </div>
+
+      {/* Summary footer */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-cockpit-yellow/10 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-cockpit-yellow" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-cockpit-heading">
+                Volume total chargé
+              </p>
+              <p className="text-xs text-cockpit-secondary">
+                {totalEstimatesAllTime} devis • {totalOrdersAllTime} commandes •{" "}
+                {totalProducts} produits
+              </p>
+            </div>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-cockpit-yellow">
+            {formatCurrency(estimatesAmount + ordersAmount)}
+            <span className="text-sm font-normal text-cockpit-secondary ml-2">
+              {PERIOD_LABELS[period]}
+            </span>
+          </p>
         </div>
       </div>
     </div>

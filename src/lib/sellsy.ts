@@ -106,6 +106,16 @@ export interface SellsyItem {
   updated: string;
 }
 
+export interface SellsyAmounts {
+  total_raw_excl_tax: number;
+  total_after_discount_excl_tax: number;
+  total_excl_tax: number;
+  total_incl_tax: number;
+  total_tax: number;
+  total_packaging?: number;
+  total_shipping?: number;
+}
+
 export interface SellsyEstimate {
   id: number;
   number: string;
@@ -117,11 +127,10 @@ export interface SellsyEstimate {
   company_name: string;
   currency: string;
   created: string;
-  amounts?: {
-    total_raw_excl_tax: number;
-    total_after_discount_excl_tax: number;
-    total_excl_tax: number;
-    total_incl_tax: number;
+  amounts?: SellsyAmounts;
+  _embed?: {
+    company?: { id: number; name: string };
+    contact?: { id: number; first_name: string; last_name: string };
   };
 }
 
@@ -137,19 +146,23 @@ export interface SellsyOrder {
   company_name: string;
   currency: string;
   created: string;
-  amounts?: {
-    total_raw_excl_tax: number;
-    total_after_discount_excl_tax: number;
-    total_excl_tax: number;
-    total_incl_tax: number;
-    total_packaging: number;
-    total_shipping: number;
+  amounts?: SellsyAmounts;
+  _embed?: {
+    company?: { id: number; name: string };
+    contact?: { id: number; first_name: string; last_name: string };
   };
 }
 
 interface SellsyListResponse<T> {
   data: T[];
   pagination: SellsyPagination;
+}
+
+// ===== DATE RANGE HELPERS =====
+
+export interface DateRange {
+  start: string; // ISO 8601 datetime
+  end: string;
 }
 
 // ===== PRODUITS =====
@@ -189,10 +202,14 @@ export async function searchItems(filters: {
 export async function listEstimates(params?: {
   limit?: number;
   offset?: number;
+  embed?: string[];
 }): Promise<SellsyListResponse<SellsyEstimate>> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.offset) searchParams.set("offset", String(params.offset));
+  if (params?.embed) {
+    params.embed.forEach((e) => searchParams.append("embed[]", e));
+  }
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyEstimate>>(
@@ -200,18 +217,38 @@ export async function listEstimates(params?: {
   );
 }
 
-export async function getEstimate(id: number): Promise<{ data: SellsyEstimate }> {
+export async function getEstimate(
+  id: number
+): Promise<{ data: SellsyEstimate }> {
   return sellsyFetch<{ data: SellsyEstimate }>(`/estimates/${id}`);
 }
 
-export async function searchEstimates(filters: {
-  status?: string[];
-  contact_id?: number;
+export async function searchEstimates(params: {
+  filters: {
+    status?: string[];
+    contact_id?: number;
+    created?: DateRange;
+    date?: { start?: string; end?: string };
+  };
+  limit?: number;
+  offset?: number;
+  embed?: string[];
 }): Promise<SellsyListResponse<SellsyEstimate>> {
-  return sellsyFetch<SellsyListResponse<SellsyEstimate>>("/estimates/search", {
-    method: "POST",
-    body: JSON.stringify({ filters }),
-  });
+  const searchParams = new URLSearchParams();
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  if (params.offset) searchParams.set("offset", String(params.offset));
+  if (params.embed) {
+    params.embed.forEach((e) => searchParams.append("embed[]", e));
+  }
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyEstimate>>(
+    `/estimates/search${qs ? `?${qs}` : ""}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ filters: params.filters }),
+    }
+  );
 }
 
 // ===== BONS DE COMMANDE (ORDERS) =====
@@ -219,10 +256,14 @@ export async function searchEstimates(filters: {
 export async function listOrders(params?: {
   limit?: number;
   offset?: number;
+  embed?: string[];
 }): Promise<SellsyListResponse<SellsyOrder>> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.offset) searchParams.set("offset", String(params.offset));
+  if (params?.embed) {
+    params.embed.forEach((e) => searchParams.append("embed[]", e));
+  }
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyOrder>>(
@@ -234,15 +275,31 @@ export async function getOrder(id: number): Promise<{ data: SellsyOrder }> {
   return sellsyFetch<{ data: SellsyOrder }>(`/orders/${id}`);
 }
 
-export async function searchOrders(filters: {
-  status?: string[];
-  order_status?: string[];
-  contact_id?: number;
+export async function searchOrders(params: {
+  filters: {
+    status?: string[];
+    order_status?: string[];
+    contact_id?: number;
+  };
+  limit?: number;
+  offset?: number;
+  embed?: string[];
 }): Promise<SellsyListResponse<SellsyOrder>> {
-  return sellsyFetch<SellsyListResponse<SellsyOrder>>("/orders/search", {
-    method: "POST",
-    body: JSON.stringify({ filters }),
-  });
+  const searchParams = new URLSearchParams();
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  if (params.offset) searchParams.set("offset", String(params.offset));
+  if (params.embed) {
+    params.embed.forEach((e) => searchParams.append("embed[]", e));
+  }
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyOrder>>(
+    `/orders/search${qs ? `?${qs}` : ""}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ filters: params.filters }),
+    }
+  );
 }
 
 // ===== UTILITAIRE DE TEST =====

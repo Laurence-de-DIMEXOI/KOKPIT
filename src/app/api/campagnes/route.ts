@@ -6,9 +6,18 @@ import { campagneSchema } from "@/lib/validators";
 import { z } from "zod";
 
 const filterSchema = z.object({
-  page: z.coerce.number().positive().default(1),
-  limit: z.coerce.number().min(1).max(100).default(20),
-  plateforme: z.string().optional(),
+  page: z.preprocess(
+    (v) => (v === null || v === undefined || v === "" ? undefined : v),
+    z.coerce.number().positive().default(1)
+  ),
+  limit: z.preprocess(
+    (v) => (v === null || v === undefined || v === "" ? undefined : v),
+    z.coerce.number().min(1).max(100).default(20)
+  ),
+  plateforme: z.preprocess(
+    (v) => (v === null || v === undefined || v === "" ? undefined : v),
+    z.string().optional()
+  ),
 });
 
 // GET - List campaigns with computed metrics
