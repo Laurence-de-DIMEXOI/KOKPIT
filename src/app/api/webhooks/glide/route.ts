@@ -61,6 +61,123 @@ function cleanPhone(phone: string | null | undefined): string | null {
   return String(phone).replace(/\s+/g, "").replace(/^0/, "+262");
 }
 
+/**
+ * Trouver le commercial assigné basé sur le showroom
+ */
+async function findCommercialByShowroom(showroom: string | null) {
+  if (!showroom) return null;
+
+  try {
+    // Chercher un user avec le rôle COMMERCIAL et le showroom spécifié
+    const commercial = await prisma.user.findFirst({
+      where: {
+        role: "COMMERCIAL",
+        showroom: {
+          contains: showroom,
+          mode: "insensitive",
+        },
+      },
+    });
+    return commercial;
+  } catch (error) {
+    console.warn("Erreur lors de la recherche du commercial:", error);
+    return null;
+  }
+}
+
+/**
+ * Envoyer un email de notification au commercial via Brevo
+ */
+async function sendEmailToCommercial(
+  commercialEmail: string,
+  commercialName: string,
+  contactNom: string,
+  contactPrenom: string,
+  meuble: string,
+  telephone: string | null,
+  email: string
+) {
+  try {
+    const brevoApiKey = process.env.BREVO_API_KEY;
+    if (!brevoApiKey) {
+      console.warn("BREVO_API_KEY non configuré, email non envoyé");
+      return;
+    }
+
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@dimexoi.fr";
+    const nomComplet = `${contactPrenom} ${contactNom}`.trim();
+
+    const emailContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nouvelle demande de prix</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    <h2 style="color: #f59e0b;">Nouvelle demande de prix - KÒKPIT</h2>
+
+    <p>Bonjour ${commercialName},</p>
+
+    <p>Une nouvelle demande de prix a été reçue via Glideapps.</p>
+
+    <div style="background-color: #f9fafb; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0;">
+      <p><strong>Contact:</strong> ${nomComplet}</p>
+      <p><strong>Meuble:</strong> ${meuble}</p>
+      <p><strong>Téléphone:</strong> ${telephone || "Non fourni"}</p>
+      <p><strong>Email:</strong> ${email}</p>
+    </div>
+
+    <p style="margin-top: 30px;">
+      <a href="https://kokpit.dimexoi.fr/leads" style="background-color: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+        Voir dans KÒKPIT
+      </a>
+    </p>
+
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+    <p style="font-size: 12px; color: #666;">
+      Cet email a été envoyé automatiquement par KÒKPIT - Aucune réponse n'est nécessaire
+    </p>
+  </div>
+</body>
+</html>
+    `.trim();
+
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": brevoApiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "KÒKPIT",
+          email: senderEmail,
+        },
+        to: [
+          {
+            email: commercialEmail,
+            name: commercialName,
+          },
+        ],
+        subject: `📧 Nouvelle demande de prix: ${meuble}`,
+        htmlContent: emailContent,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("Erreur Brevo:", error);
+    } else {
+      console.log("Email envoyé avec succès au commercial");
+    }
+  } catch (error) {
+    console.error("Erreur lors de l'envoi de l'email:", error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Vérification du secret (optionnel mais recommandé)
@@ -155,6 +272,20 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Chercher le commercial assigné basé sur le showroom
+    const commercial = await findCommercialByShowroom(showroom);
+
+    // Créer automatiquement un Lead depuis la demande de prix
+    const lead = await prisma.lead.create({
+      data: {
+        contactId: contact.id,
+        source: "GLIDE",
+        statut: "NOUVEAU",
+        notes: `Demande de prix: ${meuble}${message ? ` - ${message}` : ""}`,
+        commercialId: commercial?.id || null,
+      },
+    });
+
     // Créer un événement pour traçabilité
     await prisma.evenement.create({
       data: {
@@ -166,15 +297,32 @@ export async function POST(request: NextRequest) {
           meuble,
           glideRowId,
           demandePrixId: demande.id,
+          leadId: lead.id,
+          assignedTo: commercial?.email || "non assigné",
         },
       },
     });
+
+    // Envoyer un email de notification au commercial assigné
+    if (commercial) {
+      await sendEmailToCommercial(
+        commercial.email,
+        commercial.nom || "Collègue",
+        nom,
+        prenom,
+        meuble,
+        telephone,
+        email
+      );
+    }
 
     return NextResponse.json({
       success: true,
       action: "created",
       contactId: contact.id,
       demandePrixId: demande.id,
+      leadId: lead.id,
+      assignedTo: commercial?.email || "non assigné",
     });
   } catch (error: any) {
     console.error("Webhook Glide error:", error);
