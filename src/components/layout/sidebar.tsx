@@ -18,15 +18,12 @@ import {
   Package,
   FileText,
   TrendingUp,
-  ChevronDown,
   Briefcase,
   BarChart3,
-  CreditCard,
-  Building2,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Module } from "@/lib/auth-utils";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 // ===== SPACES CONFIGURATION =====
 // Pour ajouter un nouveau volet : ajouter ici + ajouter les navItems correspondants
@@ -35,11 +32,10 @@ interface SpaceConfig {
   key: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  color: string; // tailwind color token
+  color: string;
   bgActive: string;
   textActive: string;
   borderActive: string;
-  /** Module required to see this space */
   requiredModule: Module;
 }
 
@@ -65,29 +61,12 @@ const SPACES: SpaceConfig[] = [
     requiredModule: "dashboard",
   },
   // ── Futurs volets ──
-  // {
-  //   key: "achat",
-  //   label: "Achat",
-  //   icon: CreditCard,
-  //   color: "cockpit-warning",
-  //   bgActive: "bg-cockpit-warning/15",
-  //   textActive: "text-cockpit-warning",
-  //   borderActive: "border-cockpit-warning/30",
-  //   requiredModule: "dashboard-achat",
-  // },
-  // {
-  //   key: "administration",
-  //   label: "Administration",
-  //   icon: Building2,
-  //   color: "purple-400",
-  //   bgActive: "bg-purple-400/15",
-  //   textActive: "text-purple-400",
-  //   borderActive: "border-purple-400/30",
-  //   requiredModule: "dashboard-admin",
-  // },
+  // { key: "achat", label: "Achat", icon: CreditCard, ... requiredModule: "dashboard-achat" },
+  // { key: "administration", label: "Admin", icon: Building2, ... requiredModule: "dashboard-admin" },
 ];
 
 // ===== NAV ITEMS =====
+// space-specific items only (pas Demandes/Contacts qui sont transversaux)
 
 interface NavItem {
   label: string;
@@ -97,7 +76,7 @@ interface NavItem {
   space: string;
 }
 
-const navItems: NavItem[] = [
+const spaceNavItems: NavItem[] = [
   // ── Commercial ──
   {
     label: "Dashboard",
@@ -127,40 +106,12 @@ const navItems: NavItem[] = [
     module: "commandes",
     space: "commercial",
   },
-  {
-    label: "Demandes",
-    href: "/leads",
-    icon: Inbox,
-    module: "leads",
-    space: "commercial",
-  },
-  {
-    label: "Contacts",
-    href: "/contacts",
-    icon: Users,
-    module: "contacts",
-    space: "commercial",
-  },
   // ── Marketing ──
   {
     label: "Tableau de bord",
     href: "/dashboard",
     icon: LayoutDashboard,
     module: "dashboard",
-    space: "marketing",
-  },
-  {
-    label: "Demandes",
-    href: "/leads",
-    icon: Inbox,
-    module: "leads",
-    space: "marketing",
-  },
-  {
-    label: "Contacts",
-    href: "/contacts",
-    icon: Users,
-    module: "contacts",
     space: "marketing",
   },
   {
@@ -193,128 +144,25 @@ const navItems: NavItem[] = [
   },
 ];
 
+// Items transversaux — affichés en permanence quel que soit le volet
+interface TransversalItem {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  module: Module;
+}
+
+const transversalItems: TransversalItem[] = [
+  { label: "Demandes", href: "/leads", icon: Inbox, module: "leads" },
+  { label: "Contacts", href: "/contacts", icon: Users, module: "contacts" },
+];
+
 // ===== DETECT SPACE FROM URL =====
 
 function detectSpace(pathname: string): string {
   if (pathname.startsWith("/commercial")) return "commercial";
   // Future: if (pathname.startsWith("/achat")) return "achat";
-  // Future: if (pathname.startsWith("/administration")) return "administration";
-  return "commercial"; // Default to commercial (first space)
-}
-
-// ===== SPACE SELECTOR COMPONENT =====
-
-function SpaceSelector({
-  spaces,
-  activeSpace,
-  onSelect,
-}: {
-  spaces: SpaceConfig[];
-  activeSpace: string;
-  onSelect: (key: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const current = spaces.find((s) => s.key === activeSpace) || spaces[0];
-  const CurrentIcon = current.icon;
-
-  // Close on click outside
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
-
-  // If only one space accessible, show it as a static label
-  if (spaces.length <= 1) {
-    return (
-      <div className="px-3 lg:px-4 pt-4 pb-2">
-        <div
-          className={clsx(
-            "flex items-center gap-2.5 px-3 py-2.5 rounded-lg border",
-            current.bgActive,
-            current.textActive,
-            current.borderActive
-          )}
-        >
-          <CurrentIcon className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-wider">
-            {current.label}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-3 lg:px-4 pt-4 pb-2" ref={ref}>
-      {/* Trigger */}
-      <button
-        onClick={() => setOpen(!open)}
-        className={clsx(
-          "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all",
-          current.bgActive,
-          current.textActive,
-          current.borderActive,
-          "hover:opacity-90"
-        )}
-      >
-        <CurrentIcon className="w-4 h-4" />
-        <span className="text-xs font-bold uppercase tracking-wider flex-1 text-left">
-          {current.label}
-        </span>
-        <ChevronDown
-          className={clsx(
-            "w-3.5 h-3.5 transition-transform",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-
-      {/* Dropdown */}
-      {open && (
-        <div className="mt-1.5 bg-cockpit-card border border-cockpit rounded-lg overflow-hidden shadow-cockpit-lg">
-          {spaces.map((space) => {
-            const Icon = space.icon;
-            const isActive = space.key === activeSpace;
-            return (
-              <button
-                key={space.key}
-                onClick={() => {
-                  onSelect(space.key);
-                  setOpen(false);
-                }}
-                className={clsx(
-                  "w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-all",
-                  isActive
-                    ? clsx(space.bgActive, space.textActive)
-                    : "text-cockpit-secondary hover:text-cockpit-primary hover:bg-cockpit-dark/50"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="text-xs font-bold uppercase tracking-wider">
-                  {space.label}
-                </span>
-                {isActive && (
-                  <div
-                    className={clsx(
-                      "ml-auto w-1.5 h-1.5 rounded-full",
-                      `bg-${space.color}`
-                    )}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+  return "commercial";
 }
 
 // ===== MAIN SIDEBAR =====
@@ -339,11 +187,16 @@ export function Sidebar() {
     userRole ? canAccessModule(userRole, s.requiredModule) : false
   );
 
-  // Filter nav items by current space AND role access
-  const filteredNavItems = navItems.filter(
+  // Space-specific nav items
+  const filteredNavItems = spaceNavItems.filter(
     (item) =>
       item.space === activeSpace &&
       (userRole ? canAccessModule(userRole, item.module) : false)
+  );
+
+  // Transversal items filtered by role
+  const filteredTransversal = transversalItems.filter((item) =>
+    userRole ? canAccessModule(userRole, item.module) : false
   );
 
   // Get current space config for accent color
@@ -367,30 +220,70 @@ export function Sidebar() {
     };
   }, [mobileOpen]);
 
+  // Helper to render a nav link
+  const renderNavLink = (
+    item: { href: string; label: string; icon: React.ComponentType<{ className?: string }> },
+    key: string,
+    accentSpace: SpaceConfig
+  ) => {
+    const isActive =
+      item.href === "/commercial"
+        ? pathname === "/commercial"
+        : pathname.startsWith(item.href);
+    const Icon = item.icon;
+
+    return (
+      <li key={key}>
+        <Link
+          href={item.href}
+          className={clsx(
+            "flex items-center gap-3 lg:gap-4 px-3 lg:px-4 py-2.5 lg:py-3 rounded-input transition-all relative",
+            isActive
+              ? clsx(
+                  accentSpace.bgActive,
+                  "border",
+                  accentSpace.borderActive,
+                  accentSpace.textActive
+                )
+              : "text-cockpit-primary hover:text-cockpit-heading hover:bg-cockpit-dark/80"
+          )}
+        >
+          {isActive && (
+            <div
+              className={clsx(
+                "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full",
+                `bg-${accentSpace.color}`
+              )}
+            />
+          )}
+          <Icon className="w-5 h-5 flex-shrink-0" />
+          <span className="font-medium text-sm">{item.label}</span>
+        </Link>
+      </li>
+    );
+  };
+
   const sidebarContent = (
     <>
       {/* Brand Section */}
-      <div className="p-6 lg:p-8 border-b border-cockpit">
-        <div className="flex items-center gap-4">
+      <div className="p-5 lg:p-6 border-b border-cockpit">
+        <div className="flex items-center gap-3">
           <div
             className={clsx(
-              "w-10 h-10 lg:w-12 lg:h-12 rounded-xl",
+              "w-10 h-10 rounded-xl",
               "border-2 border-cockpit-yellow",
               "flex items-center justify-center",
               "bg-cockpit-yellow/10"
             )}
           >
-            <span className="text-cockpit-yellow font-bold text-lg lg:text-xl">
-              K
-            </span>
+            <span className="text-cockpit-yellow font-bold text-lg">K</span>
           </div>
           <div>
-            <h1 className="text-cockpit-heading font-bold text-base lg:text-lg">
+            <h1 className="text-cockpit-heading font-bold text-base">
               KÒKPIT
             </h1>
             <p className="text-cockpit-secondary text-xs">Le SaaS Peï</p>
           </div>
-          {/* Close button on mobile */}
           <button
             onClick={() => setMobileOpen(false)}
             className="ml-auto lg:hidden p-2 text-cockpit-secondary hover:text-cockpit-heading"
@@ -400,73 +293,92 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Space Selector */}
-      {visibleSpaces.length > 0 && (
-        <SpaceSelector
-          spaces={visibleSpaces}
-          activeSpace={activeSpace}
-          onSelect={setActiveSpace}
-        />
-      )}
-
-      {/* Navigation Items */}
-      <nav className="flex-1 overflow-y-auto py-4 lg:py-6 px-3 lg:px-4">
-        <ul className="space-y-1 lg:space-y-2">
-          {filteredNavItems.map((item) => {
-            const isActive =
-              item.href === "/commercial"
-                ? pathname === "/commercial"
-                : pathname.startsWith(item.href);
-            const Icon = item.icon;
-
-            return (
-              <li key={`${item.space}-${item.href}`}>
-                <Link
-                  href={item.href}
+      {/* Space Tabs — onglets horizontaux */}
+      {visibleSpaces.length > 1 && (
+        <div className="px-3 lg:px-4 pt-3 pb-1">
+          <div className="flex gap-1 overflow-x-auto">
+            {visibleSpaces.map((space) => {
+              const Icon = space.icon;
+              const isActive = space.key === activeSpace;
+              return (
+                <button
+                  key={space.key}
+                  onClick={() => setActiveSpace(space.key)}
                   className={clsx(
-                    "flex items-center gap-3 lg:gap-4 px-3 lg:px-4 py-3 lg:py-4 rounded-input transition-all relative",
+                    "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
                     isActive
-                      ? clsx(
-                          currentSpace.bgActive,
-                          "border",
-                          currentSpace.borderActive,
-                          currentSpace.textActive
-                        )
-                      : clsx(
-                          "text-cockpit-primary",
-                          "hover:text-cockpit-heading hover:bg-cockpit-dark/80"
-                        )
+                      ? clsx(space.bgActive, space.textActive, "border", space.borderActive)
+                      : "text-cockpit-secondary hover:text-cockpit-primary hover:bg-cockpit-dark/50 border border-transparent"
                   )}
                 >
-                  {isActive && (
-                    <div
-                      className={clsx(
-                        "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full",
-                        `bg-${currentSpace.color}`
-                      )}
-                    />
-                  )}
-                  <Icon className="w-5 h-5 lg:w-6 lg:h-6 flex-shrink-0" />
-                  <span className="font-medium text-sm">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
+                  <Icon className="w-3.5 h-3.5" />
+                  {space.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Single space label when only 1 is visible */}
+      {visibleSpaces.length === 1 && (
+        <div className="px-3 lg:px-4 pt-3 pb-1">
+          <div
+            className={clsx(
+              "flex items-center gap-2 px-3 py-2 rounded-lg border",
+              currentSpace.bgActive,
+              currentSpace.textActive,
+              currentSpace.borderActive
+            )}
+          >
+            {(() => {
+              const Icon = currentSpace.icon;
+              return <Icon className="w-3.5 h-3.5" />;
+            })()}
+            <span className="text-xs font-bold">{currentSpace.label}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation — space-specific items */}
+      <nav className="flex-1 overflow-y-auto pt-2 pb-4 px-3 lg:px-4">
+        <ul className="space-y-0.5">
+          {filteredNavItems.map((item) =>
+            renderNavLink(item, `${item.space}-${item.href}`, currentSpace)
+          )}
         </ul>
+
+        {/* Separator + Transversal items */}
+        {filteredTransversal.length > 0 && (
+          <>
+            <div className="my-3 flex items-center gap-2 px-3">
+              <div className="flex-1 h-px bg-cockpit/60" />
+              <span className="text-[10px] font-semibold text-cockpit-secondary uppercase tracking-widest">
+                Transversal
+              </span>
+              <div className="flex-1 h-px bg-cockpit/60" />
+            </div>
+            <ul className="space-y-0.5">
+              {filteredTransversal.map((item) =>
+                renderNavLink(item, `transversal-${item.href}`, currentSpace)
+              )}
+            </ul>
+          </>
+        )}
       </nav>
 
       {/* User Info Footer */}
       {session?.user && (
-        <div className="border-t border-cockpit p-4 lg:p-6">
-          <div className="flex items-center gap-3 lg:gap-4">
+        <div className="border-t border-cockpit p-4 lg:p-5">
+          <div className="flex items-center gap-3">
             <div
               className={clsx(
-                "w-10 h-10 lg:w-12 lg:h-12 rounded-full",
+                "w-10 h-10 rounded-full",
                 "bg-cockpit-yellow/15 flex items-center justify-center",
                 "flex-shrink-0"
               )}
             >
-              <span className="text-cockpit-yellow font-semibold text-sm lg:text-base">
+              <span className="text-cockpit-yellow font-semibold text-sm">
                 {session.user.prenom?.[0]}
                 {session.user.nom?.[0]}
               </span>

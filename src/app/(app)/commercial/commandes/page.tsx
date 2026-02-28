@@ -33,7 +33,7 @@ function statusBadge(status: string | undefined) {
   if (s === "read") return { label: "Lu", cls: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" };
   if (s === "accepted") return { label: "Accepté", cls: "bg-cockpit-success/15 text-cockpit-success border-cockpit-success/30" };
   if (s === "expired") return { label: "Expiré", cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" };
-  if (s === "advanced") return { label: "Avancé", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" };
+  if (s === "advanced") return { label: "Acompte", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" };
   if (s === "invoiced") return { label: "Facturé", cls: "bg-purple-500/15 text-purple-400 border-purple-500/30" };
   if (s === "partialinvoiced") return { label: "Fact. partielle", cls: "bg-purple-500/15 text-purple-300 border-purple-500/30" };
   if (s === "cancelled") return { label: "Annulé", cls: "bg-red-500/15 text-red-400 border-red-500/30" };
@@ -41,7 +41,10 @@ function statusBadge(status: string | undefined) {
 }
 
 function getOrderAmount(order: SellsyOrder): number {
-  const val = order.amounts?.total ?? "0";
+  if (!order.amounts) return 0;
+  const a = order.amounts as Record<string, any>;
+  // Sellsy can return amounts under different field names
+  const val = a.total ?? a.total_incl_tax ?? a.total_excl_tax ?? a.total_raw_excl_tax ?? a.total_after_discount_excl_tax ?? "0";
   const num = Number(val);
   return isNaN(num) ? 0 : num;
 }

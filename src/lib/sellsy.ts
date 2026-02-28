@@ -264,6 +264,8 @@ export async function listOrders(params?: {
   if (params?.offset) searchParams.set("offset", String(params.offset));
   if (params?.order) searchParams.set("order", params.order);
   if (params?.direction) searchParams.set("direction", params.direction);
+  // Include amounts embed for orders
+  searchParams.append("embed[]", "amounts");
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyOrder>>(

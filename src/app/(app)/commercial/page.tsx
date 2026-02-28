@@ -142,7 +142,8 @@ function getPreviousPeriodDates(period: Period): {
 
 function getAmount(row: { amounts?: SellsyAmounts }): number {
   if (!row.amounts) return 0;
-  const val = row.amounts.total ?? row.amounts.total_excl_tax ?? "0";
+  const a = row.amounts as Record<string, any>;
+  const val = a.total ?? a.total_incl_tax ?? a.total_excl_tax ?? a.total_raw_excl_tax ?? "0";
   const num = Number(val);
   return isNaN(num) ? 0 : num;
 }

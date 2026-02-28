@@ -29,32 +29,43 @@ const PIPELINE_COLUMNS = [
   { key: "sent", label: "Envoyé", color: "border-cockpit-info" },
   { key: "read", label: "Lu", color: "border-cockpit-warning" },
   { key: "accepted", label: "Accepté", color: "border-cockpit-success" },
+  { key: "advanced", label: "Acompte", color: "border-blue-500" },
   { key: "refused", label: "Refusé", color: "border-red-500" },
   { key: "invoiced", label: "Facturé", color: "border-purple-500" },
+  { key: "partialinvoiced", label: "Fact. partielle", color: "border-purple-400" },
+  { key: "expired", label: "Expiré", color: "border-orange-500" },
 ];
 
+// Sellsy API v2 status values exactes pour estimates :
+// draft, sent, read, accepted, advanced, refused, cancelled, invoiced, partialinvoiced, expired
 function classifyStatus(status: string | undefined): string {
   if (!status) return "draft";
-  const s = status.toLowerCase();
+  const s = status.toLowerCase().trim();
+  // Match exact Sellsy statuses first
+  const exactMap: Record<string, string> = {
+    draft: "draft",
+    sent: "sent",
+    read: "read",
+    accepted: "accepted",
+    advanced: "advanced",
+    refused: "refused",
+    cancelled: "cancelled",
+    invoiced: "invoiced",
+    partialinvoiced: "partialinvoiced",
+    expired: "expired",
+  };
+  if (exactMap[s]) return exactMap[s];
+  // Fallback fuzzy match for edge cases
   if (s.includes("draft") || s.includes("brouillon")) return "draft";
   if (s.includes("sent") || s.includes("envoy")) return "sent";
-  if (s.includes("read") || s.includes("lu") || s.includes("open"))
-    return "read";
-  if (
-    s.includes("accept") ||
-    s.includes("won") ||
-    s.includes("gagn") ||
-    s.includes("valid")
-  )
-    return "accepted";
+  if (s.includes("read") || s.includes("lu")) return "read";
+  if (s.includes("accept") || s.includes("won") || s.includes("valid")) return "accepted";
+  if (s.includes("advanced") || s.includes("avanc")) return "advanced";
   if (s.includes("cancel") || s.includes("annul")) return "cancelled";
-  if (
-    s.includes("refus") ||
-    s.includes("lost") ||
-    s.includes("perdu")
-  )
-    return "refused";
+  if (s.includes("refus") || s.includes("lost") || s.includes("perdu")) return "refused";
+  if (s.includes("partial")) return "partialinvoiced";
   if (s.includes("invoic") || s.includes("factur")) return "invoiced";
+  if (s.includes("expir")) return "expired";
   return "draft";
 }
 
