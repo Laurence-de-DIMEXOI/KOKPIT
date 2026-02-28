@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upsert du contact
+    // Upsert du contact (créer ou mettre à jour si email existe déjà)
     const contact = await prisma.contact.upsert({
       where: { email },
       create: {
@@ -246,13 +246,16 @@ export async function POST(request: NextRequest) {
         consentDevis,
       },
       update: {
-        // Mettre à jour le téléphone s'il n'existait pas
+        // Mettre à jour les infos du contact (si fournies)
+        ...(nom ? { nom } : {}),
+        ...(prenom ? { prenom } : {}),
         ...(telephone ? { telephone } : {}),
-        // Les consentements ne passent jamais de true à false
-        ...(consentOffre ? { consentOffre: true } : {}),
-        ...(consentNewsletter ? { consentNewsletter: true } : {}),
-        ...(consentInvitation ? { consentInvitation: true } : {}),
-        ...(consentDevis ? { consentDevis: true } : {}),
+        // Mettre à jour les consentements selon ce qui est coché
+        // true → true (activer), false → false (désactiver si décoché)
+        consentOffre,
+        consentNewsletter,
+        consentInvitation,
+        consentDevis,
       },
     });
 
