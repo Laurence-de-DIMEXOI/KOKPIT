@@ -14,7 +14,7 @@ const updateLeadSchema = z.object({
 // GET - Retrieve single lead with all relations
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,8 +25,10 @@ export async function GET(
       );
     }
 
+    const { id } = await params;
+
     const lead = await prisma.lead.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         contact: true,
         showroom: true,
@@ -58,7 +60,7 @@ export async function GET(
 // PATCH - Update lead
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -69,12 +71,14 @@ export async function PATCH(
       );
     }
 
+    const { id } = await params;
+
     const body = await request.json();
     const updates = updateLeadSchema.parse(body);
 
     // Get current lead to track changes
     const currentLead = await prisma.lead.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!currentLead) {
@@ -93,7 +97,7 @@ export async function PATCH(
 
     // Update lead
     const updatedLead = await prisma.lead.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...updates,
         premiereActionAt,
@@ -109,7 +113,7 @@ export async function PATCH(
     if (statusChanged) {
       await prisma.evenement.create({
         data: {
-          leadId: params.id,
+          leadId: id,
           contactId: currentLead.contactId,
           type: "CHANGEMENT_STATUT",
           description: `Statut changé: ${currentLead.statut} → ${updates.statut}`,
@@ -126,7 +130,7 @@ export async function PATCH(
     if (updates.notes || updates.priorite) {
       await prisma.evenement.create({
         data: {
-          leadId: params.id,
+          leadId: id,
           contactId: currentLead.contactId,
           type: "NOTE",
           description: updates.notes || `Priorité changée: ${updates.priorite}`,
@@ -154,7 +158,7 @@ export async function PATCH(
 // DELETE - Not allowed (leads shouldn't be deleted)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return NextResponse.json(
     { error: "Les leads ne peuvent pas être supprimés" },
