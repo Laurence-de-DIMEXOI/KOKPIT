@@ -30,6 +30,7 @@ interface FetchResult {
   id: string;
   name: string;
   status: "ACTIVE" | "PAUSED" | "ARCHIVED" | "DELETED";
+  channel: "META" | "GOOGLE_ADS" | "OFFLINE" | "OTHER";
   spend?: number;
   impressions?: number;
   clicks?: number;
@@ -108,6 +109,7 @@ async function fetchMetaCampaigns(accessToken: string): Promise<FetchResult[]> {
           id: campaign.id,
           name: campaign.name,
           status: campaign.status,
+          channel: "META",
           metaCampaignId: campaign.id,
           spend,
           impressions,
