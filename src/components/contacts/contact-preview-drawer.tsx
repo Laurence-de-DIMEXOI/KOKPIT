@@ -171,12 +171,12 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
       <div className="fixed inset-0 bg-black/40 z-40 transition-opacity" onClick={onClose} />
 
       <div
-        className="fixed top-0 right-0 bottom-0 w-[520px] bg-white z-50 flex flex-col shadow-2xl"
+        className="fixed top-0 right-0 bottom-0 w-full sm:w-[420px] lg:w-[520px] bg-white z-50 flex flex-col shadow-2xl"
         style={{ animation: "slideIn 0.25s ease-out" }}
       >
         {/* Header */}
-        <div className="flex items-center gap-4 p-6 border-b border-[#E8EAED] bg-[#F5F6F7]">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#F4B400] to-[#FFAB00] flex items-center justify-center text-lg font-bold text-white shadow-md flex-shrink-0">
+        <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 border-b border-[#E8EAED] bg-[#F5F6F7]">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-[#F4B400] to-[#FFAB00] flex items-center justify-center text-base sm:text-lg font-bold text-white shadow-md flex-shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0">

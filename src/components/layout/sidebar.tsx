@@ -12,9 +12,12 @@ import {
   Zap,
   Mail,
   Settings,
+  Menu,
+  X,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Module } from "@/lib/auth-utils";
+import { useState, useEffect } from "react";
 
 interface NavItem {
   label: string;
@@ -71,6 +74,7 @@ const navItems: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const userRole = session?.user?.role as any;
 
@@ -78,35 +82,53 @@ export function Sidebar() {
     userRole ? canAccessModule(userRole, item.module) : false
   );
 
-  return (
-    <div className={clsx(
-      "fixed left-0 top-0 h-screen w-[280px]",
-      "bg-cockpit-dark border-r border-cockpit",
-      "flex flex-col"
-    )}>
+  // Fermer le menu mobile quand on change de page
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Empêcher le scroll du body quand le menu mobile est ouvert
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  const sidebarContent = (
+    <>
       {/* Brand Section */}
-      <div className={clsx(
-        "p-8 border-b border-cockpit"
-      )}>
+      <div className="p-6 lg:p-8 border-b border-cockpit">
         <div className="flex items-center gap-4">
           <div className={clsx(
-            "w-12 h-12 rounded-xl",
+            "w-10 h-10 lg:w-12 lg:h-12 rounded-xl",
             "border-2 border-cockpit-yellow",
             "flex items-center justify-center",
             "bg-cockpit-yellow/10"
           )}>
-            <span className="text-cockpit-yellow font-bold text-xl">K</span>
+            <span className="text-cockpit-yellow font-bold text-lg lg:text-xl">K</span>
           </div>
           <div>
-            <h1 className="text-cockpit-heading font-bold text-lg">KÒKPIT</h1>
+            <h1 className="text-cockpit-heading font-bold text-base lg:text-lg">KÒKPIT</h1>
             <p className="text-cockpit-secondary text-xs">Le SaaS Peï</p>
           </div>
+          {/* Bouton fermer sur mobile */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="ml-auto lg:hidden p-2 text-cockpit-secondary hover:text-cockpit-heading"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 overflow-y-auto py-8 px-4">
-        <ul className="space-y-2">
+      <nav className="flex-1 overflow-y-auto py-6 lg:py-8 px-3 lg:px-4">
+        <ul className="space-y-1 lg:space-y-2">
           {filteredNavItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             const Icon = item.icon;
@@ -116,7 +138,7 @@ export function Sidebar() {
                 <Link
                   href={item.href}
                   className={clsx(
-                    "flex items-center gap-4 px-4 py-4 rounded-input transition-all relative",
+                    "flex items-center gap-3 lg:gap-4 px-3 lg:px-4 py-3 lg:py-4 rounded-input transition-all relative",
                     isActive
                       ? clsx(
                           "bg-cockpit-yellow/15 border border-cockpit-yellow/30",
@@ -131,7 +153,7 @@ export function Sidebar() {
                   {isActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-cockpit-yellow rounded-full" />
                   )}
-                  <Icon className="w-6 h-6 flex-shrink-0" />
+                  <Icon className="w-5 h-5 lg:w-6 lg:h-6 flex-shrink-0" />
                   <span className="font-medium text-sm">{item.label}</span>
                 </Link>
               </li>
@@ -142,16 +164,14 @@ export function Sidebar() {
 
       {/* User Info Footer */}
       {session?.user && (
-        <div className={clsx(
-          "border-t border-cockpit p-6"
-        )}>
-          <div className="flex items-center gap-4">
+        <div className="border-t border-cockpit p-4 lg:p-6">
+          <div className="flex items-center gap-3 lg:gap-4">
             <div className={clsx(
-              "w-12 h-12 rounded-full",
+              "w-10 h-10 lg:w-12 lg:h-12 rounded-full",
               "bg-cockpit-yellow/15 flex items-center justify-center",
               "flex-shrink-0"
             )}>
-              <span className="text-cockpit-yellow font-semibold text-base">
+              <span className="text-cockpit-yellow font-semibold text-sm lg:text-base">
                 {session.user.prenom?.[0]}
                 {session.user.nom?.[0]}
               </span>
@@ -167,6 +187,55 @@ export function Sidebar() {
           </div>
         </div>
       )}
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Bouton hamburger mobile - visible uniquement sur mobile */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className={clsx(
+          "fixed top-4 left-4 z-50 lg:hidden",
+          "p-2 rounded-lg",
+          "bg-cockpit-dark border border-cockpit",
+          "text-cockpit-primary hover:text-cockpit-heading",
+          "transition-colors",
+          mobileOpen && "hidden"
+        )}
+      >
+        <Menu className="w-6 h-6" />
+      </button>
+
+      {/* Overlay mobile */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar mobile (drawer) */}
+      <div className={clsx(
+        "fixed left-0 top-0 h-screen w-[280px] z-50",
+        "bg-cockpit-dark border-r border-cockpit",
+        "flex flex-col",
+        "lg:hidden",
+        "transition-transform duration-300 ease-in-out",
+        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        {sidebarContent}
+      </div>
+
+      {/* Sidebar desktop - toujours visible sur lg+ */}
+      <div className={clsx(
+        "hidden lg:flex",
+        "fixed left-0 top-0 h-screen w-[280px]",
+        "bg-cockpit-dark border-r border-cockpit",
+        "flex-col"
+      )}>
+        {sidebarContent}
+      </div>
+    </>
   );
 }

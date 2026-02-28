@@ -70,26 +70,26 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-cockpit-heading mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1 sm:mb-2">
             Tableau de bord
           </h1>
-          <p className="text-cockpit-secondary">
+          <p className="text-cockpit-secondary text-sm sm:text-base">
             Bienvenue, {session?.user?.prenom}
           </p>
         </div>
         <button
           onClick={() => fetchStats(true)}
           disabled={refreshing}
-          className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-4 py-3 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm sm:text-base"
         >
           {refreshing ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
           ) : (
-            <RefreshCw className="w-5 h-5" />
+            <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
           )}
           Actualiser
         </button>
@@ -102,7 +102,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
         <KPICard
           title="Demandes totales"
           value={stats?.totalLeads ?? 0}
@@ -133,9 +133,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
         <LeadsChart />
-        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-12">
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6 lg:p-12">
           <h3 className="text-lg font-bold text-cockpit-heading mb-6">
             Entonnoir de conversion
           </h3>
@@ -148,7 +148,7 @@ export default function DashboardPage() {
       </div>
 
       {/* SLA Alerts */}
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-12">
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6 lg:p-12">
         <h3 className="text-lg font-bold text-cockpit-heading mb-6">
           Aucune alerte SLA
         </h3>

@@ -26,18 +26,18 @@ export default async function ContactDetailsPage({ params }: ContactDetailsPageP
   }
 
   return (
-    <div className="space-y-8">
-      <Link href="/contacts" className="flex items-center gap-2 text-cockpit-yellow hover:opacity-80">
-        <ArrowLeft className="w-5 h-5" /> Retour aux contacts
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+      <Link href="/contacts" className="flex items-center gap-2 text-cockpit-yellow hover:opacity-80 text-sm">
+        <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" /> Retour aux contacts
       </Link>
 
       <div>
-        <h1 className="text-4xl font-bold text-cockpit-heading mb-2">{contact.nom}</h1>
-        <p className="text-cockpit-secondary">{contact.demandes} demande{contact.demandes > 1 ? 's' : ''} de prix</p>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-cockpit-heading mb-1 sm:mb-2">{contact.nom}</h1>
+        <p className="text-cockpit-secondary text-sm">{contact.demandes} demande{contact.demandes > 1 ? 's' : ''} de prix</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-8">
-        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6 lg:p-8">
           <h2 className="text-lg font-bold text-cockpit-heading mb-6">Informations personnelles</h2>
           <div className="space-y-4">
             <div>
@@ -61,8 +61,8 @@ export default async function ContactDetailsPage({ params }: ContactDetailsPageP
           </div>
         </div>
 
-        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8">
-          <h2 className="text-lg font-bold text-cockpit-heading mb-6">Consentements</h2>
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6 lg:p-8">
+          <h2 className="text-base sm:text-lg font-bold text-cockpit-heading mb-4 sm:mb-6">Consentements</h2>
           {details?.consents ? (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
@@ -105,8 +105,8 @@ export default async function ContactDetailsPage({ params }: ContactDetailsPageP
       </div>
 
       {details?.requests && details.requests.length > 0 && (
-        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8">
-          <h2 className="text-lg font-bold text-cockpit-heading mb-6">Meubles demandés ({details.requests.length})</h2>
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6 lg:p-8">
+          <h2 className="text-base sm:text-lg font-bold text-cockpit-heading mb-4 sm:mb-6">Meubles demandés ({details.requests.length})</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-cockpit-dark border-b border-cockpit">
@@ -128,9 +128,9 @@ export default async function ContactDetailsPage({ params }: ContactDetailsPageP
         </div>
       )}
 
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8">
-        <h2 className="text-lg font-bold text-cockpit-heading mb-6">Actions</h2>
-        <button className="bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90">
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6 lg:p-8">
+        <h2 className="text-base sm:text-lg font-bold text-cockpit-heading mb-4 sm:mb-6">Actions</h2>
+        <button className="bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 text-sm sm:text-base w-full sm:w-auto">
           Créer une demande de devis
         </button>
       </div>

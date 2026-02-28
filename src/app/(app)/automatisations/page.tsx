@@ -19,49 +19,47 @@ export default function AutomatisationsPage() {
 
   const getStatusColor = (statut: string) => {
     switch (statut) {
-      case "ACTIF":
-        return "bg-cockpit-success/10 text-cockpit-success";
-      case "INACTIF":
-        return "bg-cockpit-secondary/10 text-cockpit-secondary";
-      case "ERREUR":
-        return "bg-cockpit-danger/10 text-cockpit-danger";
-      default:
-        return "bg-cockpit-warning/10 text-cockpit-warning";
+      case "ACTIF": return "bg-cockpit-success/10 text-cockpit-success";
+      case "INACTIF": return "bg-cockpit-secondary/10 text-cockpit-secondary";
+      case "ERREUR": return "bg-cockpit-danger/10 text-cockpit-danger";
+      default: return "bg-cockpit-warning/10 text-cockpit-warning";
     }
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-cockpit-heading mb-2">Automatisations</h1>
-          <p className="text-cockpit-secondary">Gérez vos workflows et automatisations</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">Automatisations</h1>
+          <p className="text-cockpit-secondary text-sm">Gérez vos workflows et automatisations</p>
         </div>
-        <button className="bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90">+ Nouveau workflow</button>
+        <button className="bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 text-sm sm:text-base w-full sm:w-auto">
+          + Nouveau workflow
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <KPICard title="Total workflows" value={stats.total} icon={<Zap className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
+        <KPICard title="Workflows" value={stats.total} icon={<Zap className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
         <KPICard title="Actifs" value={stats.actifs} icon={<CheckCircle className="w-7 h-7" />} bgColor="bg-cockpit-success" change={{ value: 2, direction: "up" }} />
-        <KPICard title="Taux de réussite" value={`${stats.successRate}%`} icon={<Activity className="w-7 h-7" />} bgColor="bg-cockpit-info" change={{ value: 5, direction: "up" }} />
-        <KPICard title="Actions totales" value={stats.totalActions} icon={<AlertCircle className="w-7 h-7" />} bgColor="bg-cockpit-warning" change={{ value: 3, direction: "up" }} />
+        <KPICard title="Réussite" value={`${stats.successRate}%`} icon={<Activity className="w-7 h-7" />} bgColor="bg-cockpit-info" change={{ value: 5, direction: "up" }} />
+        <KPICard title="Actions" value={stats.totalActions} icon={<AlertCircle className="w-7 h-7" />} bgColor="bg-cockpit-warning" change={{ value: 3, direction: "up" }} />
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {mockWorkflows.map((workflow) => (
-          <div key={workflow.id} className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8 hover:shadow-cockpit-md transition-shadow">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-cockpit-heading mb-2">{workflow.nom}</h3>
-                <p className="text-cockpit-secondary text-sm mb-4">{workflow.description}</p>
-                <div className="flex items-center gap-6 text-sm">
+          <div key={workflow.id} className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6 lg:p-8 hover:shadow-cockpit-md transition-shadow">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-bold text-cockpit-heading mb-1 sm:mb-2">{workflow.nom}</h3>
+                <p className="text-cockpit-secondary text-xs sm:text-sm mb-3 sm:mb-4">{workflow.description}</p>
+                <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm">
                   <span className="text-cockpit-secondary"><span className="font-semibold text-cockpit-primary">{workflow.actions}</span> actions</span>
                   <span className="text-cockpit-secondary">Créé le {new Date(workflow.dateCreation).toLocaleDateString("fr-FR")}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(workflow.statut)}`}>
-                  <CheckCircle className="w-4 h-4" />
+              <div className="flex items-center gap-3 sm:gap-4">
+                <span className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold ${getStatusColor(workflow.statut)}`}>
+                  <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   {workflow.statut}
                 </span>
                 <button className="p-2 hover:bg-cockpit-dark rounded-lg transition-colors">⋮</button>

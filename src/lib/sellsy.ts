@@ -1,190 +1,268 @@
 /**
- * Sellsy API Client
+ * Sellsy API v2 Client
  *
- * This is a placeholder implementation for Sellsy API integration.
- * TODO: Implement full OAuth token management
- * TODO: Add error handling and retry logic
- * TODO: Implement real API calls
+ * OAuth2 Client Credentials flow
+ * Base URL: https://api.sellsy.com/v2
+ * Token URL: https://login.sellsy.com/oauth2/access-tokens
  */
 
-import { prisma } from "./prisma";
+const SELLSY_BASE_URL = "https://api.sellsy.com/v2";
+const SELLSY_TOKEN_URL = "https://login.sellsy.com/oauth2/access-tokens";
 
-export interface SellsyContact {
-  id: string;
-  prenom: string;
-  nom: string;
-  email: string;
-  telephone?: string;
-  adresse?: string;
-  codePostal?: string;
-  ville?: string;
-}
+// Cache du token en mémoire
+let cachedToken: { access_token: string; expires_at: number } | null = null;
 
-export interface SellsyQuote {
-  id: string;
-  numero: string;
-  montant: number;
-  dateCreation: Date;
-  dateLimite?: Date;
-}
+// ===== AUTHENTIFICATION =====
 
-export interface SellsyInvoice {
-  id: string;
-  numero: string;
-  montant: number;
-  dateCreation: Date;
-}
-
-/**
- * Initialize Sellsy OAuth token
- * TODO: Implement full OAuth flow
- */
-function getAccessToken(): string {
-  // TODO: Implement token refresh logic
-  // For now, return from environment
-  return process.env.SELLSY_ACCESS_TOKEN || "";
-}
-
-/**
- * Get a contact from Sellsy
- * TODO: Implement real API call
- */
-export async function getContact(sellsyId: string): Promise<SellsyContact | null> {
-  try {
-    // TODO: Make real API call to Sellsy
-    // const token = getAccessToken();
-    // const response = await fetch(`https://api.sellsy.com/v2/contacts/${sellsyId}`, {
-    //   headers: { Authorization: `Bearer ${token}` },
-    // });
-
-    // For now, return mock data
-    console.log(`TODO: Fetch contact ${sellsyId} from Sellsy API`);
-    return null;
-  } catch (error) {
-    console.error("Error fetching Sellsy contact:", error);
-    return null;
+async function getAccessToken(): Promise<string> {
+  // Vérifier le cache (avec 60s de marge)
+  if (cachedToken && Date.now() < cachedToken.expires_at - 60000) {
+    return cachedToken.access_token;
   }
-}
 
-/**
- * Create a contact in Sellsy
- * TODO: Implement real API call
- */
-export async function createContact(data: Partial<SellsyContact>): Promise<SellsyContact | null> {
-  try {
-    // TODO: Make real API call to Sellsy
-    // const token = getAccessToken();
-    // const response = await fetch("https://api.sellsy.com/v2/contacts", {
-    //   method: "POST",
-    //   headers: {
-    //     Authorization: `Bearer ${token}`,
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify(data),
-    // });
+  const clientId = process.env.SELLSY_CLIENT_ID;
+  const clientSecret = process.env.SELLSY_CLIENT_SECRET;
 
-    console.log("TODO: Create contact in Sellsy API", data);
-    return null;
-  } catch (error) {
-    console.error("Error creating Sellsy contact:", error);
-    return null;
+  if (!clientId || !clientSecret) {
+    throw new Error("SELLSY_CLIENT_ID et SELLSY_CLIENT_SECRET requis");
   }
-}
 
-/**
- * Update a contact in Sellsy
- * TODO: Implement real API call
- */
-export async function updateContact(
-  sellsyId: string,
-  data: Partial<SellsyContact>
-): Promise<SellsyContact | null> {
-  try {
-    // TODO: Make real API call to Sellsy
-    // const token = getAccessToken();
-    // const response = await fetch(`https://api.sellsy.com/v2/contacts/${sellsyId}`, {
-    //   method: "PUT",
-    //   headers: {
-    //     Authorization: `Bearer ${token}`,
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify(data),
-    // });
+  const response = await fetch(SELLSY_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
 
-    console.log(`TODO: Update contact ${sellsyId} in Sellsy API`, data);
-    return null;
-  } catch (error) {
-    console.error("Error updating Sellsy contact:", error);
-    return null;
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Sellsy OAuth error: ${response.status} - ${err}`);
   }
+
+  const data = await response.json();
+  cachedToken = {
+    access_token: data.access_token,
+    expires_at: Date.now() + (data.expires_in || 3600) * 1000,
+  };
+
+  return cachedToken.access_token;
 }
 
-/**
- * Get all quotes for a contact
- * TODO: Implement real API call
- */
-export async function getQuotes(contactSellsyId: string): Promise<SellsyQuote[]> {
-  try {
-    // TODO: Make real API call to Sellsy
-    // const token = getAccessToken();
-    // const response = await fetch(
-    //   `https://api.sellsy.com/v2/contacts/${contactSellsyId}/quotes`,
-    //   { headers: { Authorization: `Bearer ${token}` } }
-    // );
+// ===== HELPER API =====
 
-    console.log(`TODO: Fetch quotes for contact ${contactSellsyId} from Sellsy API`);
-    return [];
-  } catch (error) {
-    console.error("Error fetching Sellsy quotes:", error);
-    return [];
+async function sellsyFetch<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = await getAccessToken();
+
+  const response = await fetch(`${SELLSY_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Sellsy API ${response.status}: ${errorBody}`);
   }
+
+  // 204 No Content
+  if (response.status === 204) return {} as T;
+
+  return response.json();
 }
 
-/**
- * Get all invoices for a contact
- * TODO: Implement real API call
- */
-export async function getInvoices(contactSellsyId: string): Promise<SellsyInvoice[]> {
-  try {
-    // TODO: Make real API call to Sellsy
-    // const token = getAccessToken();
-    // const response = await fetch(
-    //   `https://api.sellsy.com/v2/contacts/${contactSellsyId}/invoices`,
-    //   { headers: { Authorization: `Bearer ${token}` } }
-    // );
+// ===== TYPES =====
 
-    console.log(`TODO: Fetch invoices for contact ${contactSellsyId} from Sellsy API`);
-    return [];
-  } catch (error) {
-    console.error("Error fetching Sellsy invoices:", error);
-    return [];
-  }
+export interface SellsyPagination {
+  limit: number;
+  total: number;
+  count: number;
+  offset: number | string;
 }
 
-/**
- * Sync a local contact to/from Sellsy
- * TODO: Implement real sync logic
- */
-export async function syncContact(contactId: string): Promise<void> {
+export interface SellsyItem {
+  id: number;
+  type: "product" | "service" | "shipping" | "packaging";
+  name: string;
+  reference: string;
+  description: string;
+  reference_price_taxes_exc: number;
+  reference_price_taxes_inc: number;
+  purchase_amount: number;
+  tax_id: number | null;
+  unit_id: number | null;
+  category_id: number | null;
+  currency: string;
+  is_archived: boolean;
+  created: string;
+  updated: string;
+}
+
+export interface SellsyEstimate {
+  id: number;
+  number: string;
+  date: string;
+  due_date: string;
+  status: string;
+  subject: string;
+  contact_id: number;
+  company_name: string;
+  currency: string;
+  created: string;
+  amounts?: {
+    total_raw_excl_tax: number;
+    total_after_discount_excl_tax: number;
+    total_excl_tax: number;
+    total_incl_tax: number;
+  };
+}
+
+export interface SellsyOrder {
+  id: number;
+  number: string;
+  date: string;
+  due_date: string;
+  status: string;
+  order_status: string;
+  subject: string;
+  contact_id: number;
+  company_name: string;
+  currency: string;
+  created: string;
+  amounts?: {
+    total_raw_excl_tax: number;
+    total_after_discount_excl_tax: number;
+    total_excl_tax: number;
+    total_incl_tax: number;
+    total_packaging: number;
+    total_shipping: number;
+  };
+}
+
+interface SellsyListResponse<T> {
+  data: T[];
+  pagination: SellsyPagination;
+}
+
+// ===== PRODUITS =====
+
+export async function listItems(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<SellsyListResponse<SellsyItem>> {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyItem>>(
+    `/items${qs ? `?${qs}` : ""}`
+  );
+}
+
+export async function getItem(id: number): Promise<{ data: SellsyItem }> {
+  return sellsyFetch<{ data: SellsyItem }>(`/items/${id}`);
+}
+
+export async function searchItems(filters: {
+  name?: string;
+  reference?: string;
+  type?: string[];
+  is_archived?: boolean;
+}): Promise<SellsyListResponse<SellsyItem>> {
+  return sellsyFetch<SellsyListResponse<SellsyItem>>("/items/search", {
+    method: "POST",
+    body: JSON.stringify({ filters }),
+  });
+}
+
+// ===== DEVIS (ESTIMATES) =====
+
+export async function listEstimates(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<SellsyListResponse<SellsyEstimate>> {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyEstimate>>(
+    `/estimates${qs ? `?${qs}` : ""}`
+  );
+}
+
+export async function getEstimate(id: number): Promise<{ data: SellsyEstimate }> {
+  return sellsyFetch<{ data: SellsyEstimate }>(`/estimates/${id}`);
+}
+
+export async function searchEstimates(filters: {
+  status?: string[];
+  contact_id?: number;
+}): Promise<SellsyListResponse<SellsyEstimate>> {
+  return sellsyFetch<SellsyListResponse<SellsyEstimate>>("/estimates/search", {
+    method: "POST",
+    body: JSON.stringify({ filters }),
+  });
+}
+
+// ===== BONS DE COMMANDE (ORDERS) =====
+
+export async function listOrders(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<SellsyListResponse<SellsyOrder>> {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyOrder>>(
+    `/orders${qs ? `?${qs}` : ""}`
+  );
+}
+
+export async function getOrder(id: number): Promise<{ data: SellsyOrder }> {
+  return sellsyFetch<{ data: SellsyOrder }>(`/orders/${id}`);
+}
+
+export async function searchOrders(filters: {
+  status?: string[];
+  order_status?: string[];
+  contact_id?: number;
+}): Promise<SellsyListResponse<SellsyOrder>> {
+  return sellsyFetch<SellsyListResponse<SellsyOrder>>("/orders/search", {
+    method: "POST",
+    body: JSON.stringify({ filters }),
+  });
+}
+
+// ===== UTILITAIRE DE TEST =====
+
+export async function testConnection(): Promise<{
+  success: boolean;
+  message: string;
+  itemsCount?: number;
+}> {
   try {
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
-    });
-
-    if (!contact) {
-      console.error(`Contact ${contactId} not found`);
-      return;
-    }
-
-    if (!contact.sellsyContactId) {
-      // TODO: Create contact in Sellsy and get ID
-      console.log(`TODO: Create new contact in Sellsy for ${contactId}`);
-      return;
-    }
-
-    // TODO: Update contact in Sellsy with local data
-    console.log(`TODO: Sync contact ${contactId} with Sellsy ID ${contact.sellsyContactId}`);
-  } catch (error) {
-    console.error("Error syncing contact with Sellsy:", error);
+    const result = await listItems({ limit: 1 });
+    return {
+      success: true,
+      message: `Connecté à Sellsy. ${result.pagination.total} produits trouvés.`,
+      itemsCount: result.pagination.total,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || "Erreur de connexion à Sellsy",
+    };
   }
 }
