@@ -302,6 +302,96 @@ export async function searchOrders(params: {
   );
 }
 
+// ===== ENTREPRISES (COMPANIES) =====
+
+export interface SellsyCompany {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  type: string;
+  status: string;
+  created: string;
+  updated: string;
+  note?: string;
+  website?: string;
+}
+
+export async function listCompanies(params?: {
+  limit?: number;
+  offset?: number;
+  order?: string;
+  direction?: string;
+}): Promise<SellsyListResponse<SellsyCompany>> {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  if (params?.order) searchParams.set("order", params.order);
+  if (params?.direction) searchParams.set("direction", params.direction);
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyCompany>>(
+    `/companies${qs ? `?${qs}` : ""}`
+  );
+}
+
+export async function searchCompanies(params: {
+  filters: {
+    name?: string;
+    created?: DateRange;
+  };
+  limit?: number;
+  offset?: number;
+  order?: string;
+  direction?: string;
+}): Promise<SellsyListResponse<SellsyCompany>> {
+  const searchParams = new URLSearchParams();
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  if (params.offset) searchParams.set("offset", String(params.offset));
+  if (params.order) searchParams.set("order", params.order);
+  if (params.direction) searchParams.set("direction", params.direction);
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyCompany>>(
+    `/companies/search${qs ? `?${qs}` : ""}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ filters: params.filters }),
+    }
+  );
+}
+
+// ===== CONTACTS (PERSONNES) =====
+
+export interface SellsyContact {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  position: string;
+  created: string;
+  updated: string;
+}
+
+export async function listContacts(params?: {
+  limit?: number;
+  offset?: number;
+  order?: string;
+  direction?: string;
+}): Promise<SellsyListResponse<SellsyContact>> {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  if (params?.order) searchParams.set("order", params.order);
+  if (params?.direction) searchParams.set("direction", params.direction);
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyContact>>(
+    `/contacts${qs ? `?${qs}` : ""}`
+  );
+}
+
 // ===== UTILITAIRE DE TEST =====
 
 export async function testConnection(): Promise<{
