@@ -2,42 +2,118 @@
 
 import { useState, useEffect } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
-import { BarChart3, TrendingUp, DollarSign, Users, RefreshCw, Loader2, AlertCircle, ChevronDown } from "lucide-react";
+import {
+  BarChart3,
+  DollarSign,
+  RefreshCw,
+  Loader2,
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  Image,
+  MousePointer,
+  Eye,
+} from "lucide-react";
 
-interface Campaign {
-  id: string;
-  name: string;
-  status: "ACTIVE" | "PAUSED" | "ARCHIVED" | "DELETED";
-  channel?: "META" | "GOOGLE_ADS" | "OFFLINE" | "OTHER";
-  spend?: number;
-  impressions?: number;
-  clicks?: number;
-  conversions?: number;
-  roas?: number;
-  budget?: number;
-  startDate?: string;
-  endDate?: string;
-  cpc?: number;
-  ctr?: number;
-  metaCampaignId: string;
+// ===== TYPES =====
+
+interface MetaInsight {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  cpc: number;
+  ctr: number;
+  costPerResult: number;
+  actions?: Record<string, number>;
 }
 
-type SortBy = "date" | "spend" | "impressions" | "clicks" | "roas";
-type SortOrder = "asc" | "desc";
+interface MetaAd {
+  id: string;
+  name: string;
+  status: string;
+  thumbnailUrl?: string;
+  insights: MetaInsight;
+}
+
+interface MetaAdSet {
+  id: string;
+  name: string;
+  status: string;
+  dailyBudget: number;
+  lifetimeBudget: number;
+  targeting?: string;
+  optimization?: string;
+  insights: MetaInsight;
+  ads: MetaAd[];
+}
+
+interface MetaCampaign {
+  id: string;
+  name: string;
+  status: string;
+  objective?: string;
+  dailyBudget: number;
+  lifetimeBudget: number;
+  startDate?: string;
+  endDate?: string;
+  insights: MetaInsight;
+  adsets: MetaAdSet[];
+}
+
+// ===== HELPERS =====
+
+const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
+  ACTIVE: { label: "Active", bg: "bg-[#71DD37]/10", text: "text-[#71DD37]" },
+  PAUSED: { label: "Pause", bg: "bg-[#FFAB00]/10", text: "text-[#FFAB00]" },
+  ARCHIVED: { label: "Archivée", bg: "bg-[#8592A3]/10", text: "text-[#8592A3]" },
+  DELETED: { label: "Supprimée", bg: "bg-[#FF3E1D]/10", text: "text-[#FF3E1D]" },
+};
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const cfg = statusConfig[status] || statusConfig.PAUSED;
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.bg} ${cfg.text}`}>
+      {cfg.label}
+    </span>
+  );
+};
+
+const fmt = (n: number) => n.toLocaleString("fr-FR");
+const fmtEur = (n: number) =>
+  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
+
+const InsightsCells = ({ i, size = "sm" }: { i: MetaInsight; size?: "sm" | "xs" }) => {
+  const ts = size === "xs" ? "text-[10px]" : "text-xs";
+  return (
+    <>
+      <td className={`px-3 py-2 text-right ${ts} text-cockpit-primary font-medium`}>{fmtEur(i.spend)}</td>
+      <td className={`px-3 py-2 text-right ${ts} text-cockpit-secondary`}>{fmt(i.impressions)}</td>
+      <td className={`px-3 py-2 text-right ${ts} text-cockpit-secondary`}>{fmt(i.clicks)}</td>
+      <td className={`px-3 py-2 text-right ${ts} text-cockpit-secondary hidden xl:table-cell`}>{i.ctr.toFixed(2)}%</td>
+      <td className={`px-3 py-2 text-right ${ts} text-cockpit-secondary hidden xl:table-cell`}>{fmtEur(i.cpc)}</td>
+      <td className={`px-3 py-2 text-right ${ts} text-cockpit-primary font-medium`}>{i.conversions}</td>
+    </>
+  );
+};
+
+// ===== MAIN COMPONENT =====
 
 export default function CampagnesPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
-  const [sortBy, setSortBy] = useState<SortBy>("date");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
+  const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [kpis, setKpis] = useState({
+    totalSpend: 0, totalImpressions: 0, totalClicks: 0, totalConversions: 0,
+    totalCampaigns: 0, totalAdSets: 0, totalAds: 0,
+  });
 
-  // Charger depuis le cache Prisma au mount (rapide)
-  useEffect(() => {
-    loadFromCache();
-  }, []);
+  useEffect(() => { loadFromCache(); }, []);
 
   const loadFromCache = async () => {
     setLoading(true);
@@ -46,40 +122,24 @@ export default function CampagnesPage() {
       const res = await fetch("/api/campagnes?limit=100");
       if (res.ok) {
         const data = await res.json();
-        const campagnes = data.campagnes || [];
-        const mapped: Campaign[] = campagnes.map((c: any) => {
-          const insights = c.metaInsights || {};
+        const mapped: MetaCampaign[] = (data.campagnes || []).map((c: any) => {
+          const ins = c.metaInsights || {};
           return {
-            id: c.id,
-            name: c.nom,
-            status: insights.status || (c.actif ? "ACTIVE" : "PAUSED"),
-            channel: c.plateforme || "META",
-            spend: insights.spend ?? c.coutTotal ?? 0,
-            impressions: insights.impressions ?? 0,
-            clicks: insights.clicks ?? 0,
-            conversions: insights.conversions ?? 0,
-            roas: insights.roas ?? 0,
-            budget: insights.budget ?? 0,
-            startDate: c.dateDebut,
-            endDate: c.dateFin,
-            cpc: insights.cpc ?? 0,
-            ctr: insights.ctr ?? 0,
-            metaCampaignId: c.metaCampaignId || c.id,
+            id: c.metaCampaignId || c.id, name: c.nom,
+            status: ins.status || (c.actif ? "ACTIVE" : "PAUSED"),
+            objective: ins.objective || "", dailyBudget: ins.budget || 0, lifetimeBudget: 0,
+            startDate: c.dateDebut, endDate: c.dateFin,
+            insights: { spend: ins.spend || 0, impressions: ins.impressions || 0, clicks: ins.clicks || 0, conversions: ins.conversions || 0, cpc: ins.cpc || 0, ctr: ins.ctr || 0, costPerResult: 0 },
+            adsets: [],
           };
         });
         setCampaigns(mapped);
-      } else {
-        const err = await res.json();
-        setError(err.error || "Erreur lors du chargement");
+        computeKPIs(mapped);
       }
-    } catch (err: any) {
-      setError(err.message || "Erreur réseau");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  // Sync depuis Meta API (lent, uniquement au clic)
   const handleSync = async () => {
     setSyncing(true);
     setError("");
@@ -87,68 +147,47 @@ export default function CampagnesPage() {
       const res = await fetch("/api/meta/campaigns");
       if (res.ok) {
         const data = await res.json();
-        const campaignsWithChannel = (data.campaigns || []).map((c: Campaign) => ({
-          ...c,
-          channel: c.channel || "META",
-        }));
-        setCampaigns(campaignsWithChannel);
+        setCampaigns(data.campaigns || []);
+        if (data.kpis) {
+          setKpis({
+            totalSpend: data.kpis.totalSpend, totalImpressions: data.kpis.totalImpressions,
+            totalClicks: data.kpis.totalClicks, totalConversions: data.kpis.totalConversions,
+            totalCampaigns: data.kpis.totalCampaigns, totalAdSets: data.kpis.totalAdSets,
+            totalAds: data.kpis.totalAds,
+          });
+        }
       } else {
         const err = await res.json();
-        setError(err.error || "Erreur lors de la synchronisation");
+        setError(err.error || "Erreur sync");
       }
-    } catch (err: any) {
-      setError(err.message || "Erreur réseau");
-    } finally {
-      setSyncing(false);
-    }
+    } catch (err: any) { setError(err.message); }
+    finally { setSyncing(false); }
   };
 
-  // Filtrer les campagnes à partir du 1er janvier 2026
-  let filteredCampaigns = campaigns.filter((c) => {
-    if (!c.startDate) return false;
-    const campaignDate = new Date(c.startDate);
-    const minDate = new Date("2026-01-01");
-    return campaignDate >= minDate;
-  });
-
-  if (selectedStatus !== "ALL") {
-    filteredCampaigns = filteredCampaigns.filter((c) => c.status === selectedStatus);
-  }
-
-  filteredCampaigns = [...filteredCampaigns].sort((a, b) => {
-    let aVal: number = 0;
-    let bVal: number = 0;
-
-    switch (sortBy) {
-      case "date":
-        aVal = a.startDate ? new Date(a.startDate).getTime() : 0;
-        bVal = b.startDate ? new Date(b.startDate).getTime() : 0;
-        break;
-      case "spend": aVal = a.spend || 0; bVal = b.spend || 0; break;
-      case "impressions": aVal = a.impressions || 0; bVal = b.impressions || 0; break;
-      case "clicks": aVal = a.clicks || 0; bVal = b.clicks || 0; break;
-      case "roas": aVal = a.roas || 0; bVal = b.roas || 0; break;
-    }
-    return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
-  });
-
-  const totalSpend = filteredCampaigns.reduce((sum, c) => sum + (c.spend || 0), 0);
-  const totalImpressions = filteredCampaigns.reduce((sum, c) => sum + (c.impressions || 0), 0);
-  const totalClicks = filteredCampaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
-  const totalConversions = filteredCampaigns.reduce((sum, c) => sum + (c.conversions || 0), 0);
-
-  const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
-    ACTIVE: { label: "Active", bg: "bg-[#71DD37]/10", text: "text-[#71DD37]" },
-    PAUSED: { label: "En pause", bg: "bg-[#FFAB00]/10", text: "text-[#FFAB00]" },
-    ARCHIVED: { label: "Archivée", bg: "bg-[#8592A3]/10", text: "text-[#8592A3]" },
-    DELETED: { label: "Supprimée", bg: "bg-[#FF3E1D]/10", text: "text-[#FF3E1D]" },
+  const computeKPIs = (camps: MetaCampaign[]) => {
+    setKpis({
+      totalSpend: Math.round(camps.reduce((s, c) => s + c.insights.spend, 0) * 100) / 100,
+      totalImpressions: camps.reduce((s, c) => s + c.insights.impressions, 0),
+      totalClicks: camps.reduce((s, c) => s + c.insights.clicks, 0),
+      totalConversions: camps.reduce((s, c) => s + c.insights.conversions, 0),
+      totalCampaigns: camps.length,
+      totalAdSets: camps.reduce((s, c) => s + c.adsets.length, 0),
+      totalAds: camps.reduce((s, c) => s + c.adsets.reduce((ss, a) => ss + a.ads.length, 0), 0),
+    });
   };
 
-  const channelConfig: Record<string, { label: string; bg: string; text: string }> = {
-    META: { label: "Meta", bg: "bg-[#1877F2]/10", text: "text-[#1877F2]" },
-    GOOGLE_ADS: { label: "Google Ads", bg: "bg-[#EA4335]/10", text: "text-[#EA4335]" },
-    OFFLINE: { label: "Offline", bg: "bg-[#34A853]/10", text: "text-[#34A853]" },
-    OTHER: { label: "Autre", bg: "bg-[#9AA0A6]/10", text: "text-[#9AA0A6]" },
+  const filteredCampaigns = selectedStatus === "ALL" ? campaigns : campaigns.filter((c) => c.status === selectedStatus);
+
+  const toggleCampaign = (id: string) => {
+    const next = new Set(expandedCampaigns);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setExpandedCampaigns(next);
+  };
+
+  const toggleAdSet = (id: string) => {
+    const next = new Set(expandedAdSets);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setExpandedAdSets(next);
   };
 
   return (
@@ -157,72 +196,41 @@ export default function CampagnesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">Campagnes</h1>
-          <p className="text-cockpit-secondary text-xs sm:text-sm">{filteredCampaigns.length} campagnes Meta (depuis jan. 2026)</p>
+          <p className="text-cockpit-secondary text-xs sm:text-sm">
+            {kpis.totalCampaigns} campagnes · {kpis.totalAdSets} ensembles · {kpis.totalAds} publicités
+          </p>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing || loading}
-          className="flex items-center justify-center gap-2 bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity text-sm w-full sm:w-auto"
-        >
-          {syncing ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />}
+        <button onClick={handleSync} disabled={syncing || loading}
+          className="flex items-center justify-center gap-2 bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm w-full sm:w-auto">
+          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {syncing ? "Sync..." : "Synchroniser Meta"}
         </button>
       </div>
 
-      {/* Filtres et tri */}
-      <div className="flex flex-wrap gap-2 sm:gap-4">
-        <div className="relative">
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="appearance-none bg-cockpit-card border border-cockpit px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm text-cockpit-primary cursor-pointer pr-7 sm:pr-8"
-          >
-            <option value="ALL">Tous</option>
-            <option value="ACTIVE">Active</option>
-            <option value="PAUSED">En pause</option>
-            <option value="ARCHIVED">Archivée</option>
-            <option value="DELETED">Supprimée</option>
-          </select>
-          <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
-        </div>
-
-        <div className="flex gap-2">
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="appearance-none bg-cockpit-card border border-cockpit px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm text-cockpit-primary cursor-pointer pr-7 sm:pr-8"
-            >
-              <option value="date">Date</option>
-              <option value="spend">Budget</option>
-              <option value="impressions">Impressions</option>
-              <option value="clicks">Clics</option>
-              <option value="roas">ROAS</option>
-            </select>
-            <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
-          </div>
-
-          <button
-            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-            className="bg-cockpit-card border border-cockpit px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm text-cockpit-primary hover:bg-cockpit-dark transition-colors"
-          >
-            {sortOrder === "asc" ? "↑" : "↓"}
-          </button>
-        </div>
+      {/* Filter */}
+      <div className="relative inline-block">
+        <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
+          className="appearance-none bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs text-cockpit-primary cursor-pointer pr-7">
+          <option value="ALL">Tous les statuts</option>
+          <option value="ACTIVE">Active</option>
+          <option value="PAUSED">En pause</option>
+          <option value="ARCHIVED">Archivée</option>
+        </select>
+        <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
-        <KPICard title="Budget" value={`€${totalSpend.toFixed(0)}`} icon={<DollarSign className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
-        <KPICard title="Impressions" value={totalImpressions.toLocaleString("fr-FR")} icon={<Users className="w-7 h-7" />} bgColor="bg-cockpit-info" />
-        <KPICard title="Clics" value={totalClicks.toLocaleString("fr-FR")} icon={<TrendingUp className="w-7 h-7" />} bgColor="bg-cockpit-success" />
-        <KPICard title="Conversions" value={totalConversions.toLocaleString("fr-FR")} icon={<BarChart3 className="w-7 h-7" />} bgColor="bg-cockpit-warning" />
+        <KPICard title="Dépenses" value={fmtEur(kpis.totalSpend)} icon={<DollarSign className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
+        <KPICard title="Impressions" value={fmt(kpis.totalImpressions)} icon={<Eye className="w-7 h-7" />} bgColor="bg-cockpit-info" />
+        <KPICard title="Clics" value={fmt(kpis.totalClicks)} icon={<MousePointer className="w-7 h-7" />} bgColor="bg-cockpit-success" />
+        <KPICard title="Conversions" value={fmt(kpis.totalConversions)} icon={<BarChart3 className="w-7 h-7" />} bgColor="bg-cockpit-warning" />
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 p-3 sm:p-4 bg-[#FF3E1D]/10 border border-[#FF3E1D]/30 rounded-lg">
-          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#FF3E1D] flex-shrink-0" />
-          <p className="text-xs sm:text-sm text-[#FF3E1D]">{error}</p>
+        <div className="flex items-center gap-3 p-3 bg-[#FF3E1D]/10 border border-[#FF3E1D]/30 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-[#FF3E1D] flex-shrink-0" />
+          <p className="text-xs text-[#FF3E1D]">{error}</p>
         </div>
       )}
 
@@ -232,129 +240,223 @@ export default function CampagnesPage() {
         </div>
       )}
 
+      {/* HIERARCHY TABLE */}
       {!loading && filteredCampaigns.length > 0 && (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
-          {/* Vue tableau (lg+) */}
-          <div className="hidden lg:block overflow-x-auto">
+          {/* Desktop */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-cockpit-dark border-b border-cockpit">
                 <tr>
-                  <th className="px-4 xl:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">NOM</th>
-                  <th className="px-4 xl:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">DATE</th>
-                  <th className="px-4 xl:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">STATUT</th>
-                  <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">DÉPENSES</th>
-                  <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">IMPRESSIONS</th>
-                  <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">CLICS</th>
-                  <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading hidden xl:table-cell">CTR</th>
-                  <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading hidden xl:table-cell">CPC</th>
-                  <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">CONV.</th>
-                  <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">ROAS</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading w-[40%]">NOM</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading">DÉPENSES</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading">IMPRESSIONS</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading">CLICS</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden xl:table-cell">CTR</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden xl:table-cell">CPC</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading">CONV.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
-                {filteredCampaigns.map((c) => {
-                  const status = statusConfig[c.status] || statusConfig.PAUSED;
+                {filteredCampaigns.map((camp) => {
+                  const isExp = expandedCampaigns.has(camp.id);
+                  const hasAdSets = camp.adsets.length > 0;
                   return (
-                    <tr key={c.id} className="hover:bg-cockpit-dark transition-colors">
-                      <td className="px-4 xl:px-6 py-3">
-                        <span className="font-medium text-cockpit-primary text-sm truncate block max-w-[200px] xl:max-w-none">{c.name}</span>
-                      </td>
-                      <td className="px-4 xl:px-6 py-3 text-xs text-cockpit-secondary whitespace-nowrap">
-                        {c.startDate ? new Date(c.startDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
-                      </td>
-                      <td className="px-4 xl:px-6 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className="px-4 xl:px-6 py-3 text-right text-sm font-medium text-cockpit-primary">€{c.spend?.toFixed(2) || "-"}</td>
-                      <td className="px-4 xl:px-6 py-3 text-right text-xs text-cockpit-secondary">{c.impressions?.toLocaleString("fr-FR") || "-"}</td>
-                      <td className="px-4 xl:px-6 py-3 text-right text-xs text-cockpit-secondary">{c.clicks?.toLocaleString("fr-FR") || "-"}</td>
-                      <td className="px-4 xl:px-6 py-3 text-right text-xs text-cockpit-secondary hidden xl:table-cell">{c.ctr?.toFixed(2) || "-"}%</td>
-                      <td className="px-4 xl:px-6 py-3 text-right text-xs text-cockpit-secondary hidden xl:table-cell">€{c.cpc?.toFixed(2) || "-"}</td>
-                      <td className="px-4 xl:px-6 py-3 text-right text-sm font-medium text-cockpit-primary">{c.conversions || "-"}</td>
-                      <td className="px-4 xl:px-6 py-3 text-right text-sm font-medium text-cockpit-primary">{c.roas?.toFixed(2) || "-"}x</td>
-                    </tr>
+                    <CampaignBlock key={camp.id} campaign={camp} isExpanded={isExp} hasAdSets={hasAdSets}
+                      toggleCampaign={() => toggleCampaign(camp.id)} expandedAdSets={expandedAdSets} toggleAdSet={toggleAdSet} />
                   );
                 })}
               </tbody>
             </table>
           </div>
 
-          {/* Vue cartes (mobile + tablette) */}
-          <div className="lg:hidden divide-y divide-cockpit">
-            {filteredCampaigns.map((c) => {
-              const status = statusConfig[c.status] || statusConfig.PAUSED;
-              const channel = channelConfig[c.channel || "META"] || channelConfig.META;
-              return (
-                <div key={c.id} className="p-4 hover:bg-cockpit-dark transition-colors">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-cockpit-primary text-sm truncate">{c.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${channel.bg} ${channel.text}`}>
-                          {channel.label}
-                        </span>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${status.bg} ${status.text}`}>
-                          {status.label}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-cockpit-yellow">€{c.spend?.toFixed(2) || "0"}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 text-xs">
-                    <div>
-                      <p className="text-cockpit-secondary">Impressions</p>
-                      <p className="text-cockpit-primary font-medium">{c.impressions?.toLocaleString("fr-FR") || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-cockpit-secondary">Clics</p>
-                      <p className="text-cockpit-primary font-medium">{c.clicks?.toLocaleString("fr-FR") || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-cockpit-secondary">Conv.</p>
-                      <p className="text-cockpit-primary font-medium">{c.conversions || "-"}</p>
-                    </div>
-                    <div className="hidden sm:block">
-                      <p className="text-cockpit-secondary">ROAS</p>
-                      <p className="text-cockpit-primary font-medium">{c.roas?.toFixed(2) || "-"}x</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Mobile */}
+          <div className="md:hidden divide-y divide-cockpit">
+            {filteredCampaigns.map((camp) => (
+              <MobileCard key={camp.id} campaign={camp} expanded={expandedCampaigns.has(camp.id)}
+                toggle={() => toggleCampaign(camp.id)} expandedAdSets={expandedAdSets} toggleAdSet={toggleAdSet} />
+            ))}
           </div>
         </div>
       )}
 
-      {!loading && filteredCampaigns.length === 0 && !error && campaigns.length === 0 && (
-        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-6 sm:p-12 text-center">
-          <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-cockpit-secondary opacity-50" />
-          <h3 className="text-base sm:text-lg font-semibold text-cockpit-heading mb-2">Aucune campagne trouvée</h3>
-          <p className="text-cockpit-secondary text-sm mb-6">
-            Clique sur "Synchroniser" pour importer tes campagnes
-          </p>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm"
-          >
+      {/* Empty */}
+      {!loading && filteredCampaigns.length === 0 && !error && (
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8 text-center">
+          <BarChart3 className="w-12 h-12 mx-auto mb-4 text-cockpit-secondary opacity-50" />
+          <h3 className="text-base font-semibold text-cockpit-heading mb-2">Aucune campagne</h3>
+          <p className="text-cockpit-secondary text-sm mb-6">Synchronise pour importer tes campagnes Meta</p>
+          <button onClick={handleSync} disabled={syncing}
+            className="bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm">
             Synchroniser maintenant
           </button>
         </div>
       )}
+    </div>
+  );
+}
 
-      {!loading && filteredCampaigns.length === 0 && !error && campaigns.length > 0 && (
-        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-6 sm:p-12 text-center">
-          <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-cockpit-secondary opacity-50" />
-          <h3 className="text-base sm:text-lg font-semibold text-cockpit-heading mb-2">Aucune campagne depuis jan. 2026</h3>
-          <p className="text-cockpit-secondary text-sm">
-            {campaigns.length} campagne{campaigns.length > 1 ? "s" : ""} plus ancienne{campaigns.length > 1 ? "s" : ""} disponible{campaigns.length > 1 ? "s" : ""}
-          </p>
+// ===== DESKTOP: Campaign + AdSets + Ads rows =====
+
+function CampaignBlock({ campaign, isExpanded, hasAdSets, toggleCampaign, expandedAdSets, toggleAdSet }: {
+  campaign: MetaCampaign; isExpanded: boolean; hasAdSets: boolean;
+  toggleCampaign: () => void; expandedAdSets: Set<string>; toggleAdSet: (id: string) => void;
+}) {
+  return (
+    <>
+      {/* Campaign row */}
+      <tr className="hover:bg-cockpit-dark transition-colors cursor-pointer" onClick={hasAdSets ? toggleCampaign : undefined}>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            {hasAdSets ? (isExpanded ? <ChevronDown className="w-4 h-4 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />) : <span className="w-4" />}
+            <Layers className="w-4 h-4 text-[#1877F2] flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-cockpit-primary truncate">{campaign.name}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <StatusBadge status={campaign.status} />
+                {campaign.objective && <span className="text-[10px] text-cockpit-secondary">{campaign.objective.replace(/_/g, " ")}</span>}
+                {campaign.startDate && <span className="text-[10px] text-cockpit-secondary">{new Date(campaign.startDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</span>}
+                {hasAdSets && <span className="text-[10px] text-cockpit-secondary">{campaign.adsets.length} ensemble{campaign.adsets.length > 1 ? "s" : ""}</span>}
+              </div>
+            </div>
+          </div>
+        </td>
+        <InsightsCells i={campaign.insights} />
+      </tr>
+
+      {/* AdSet rows */}
+      {isExpanded && campaign.adsets.map((adset) => {
+        const isAdSetExp = expandedAdSets.has(adset.id);
+        const hasAds = adset.ads.length > 0;
+        return (
+          <AdSetBlock key={adset.id} adset={adset} isExpanded={isAdSetExp} hasAds={hasAds} toggle={() => toggleAdSet(adset.id)} />
+        );
+      })}
+    </>
+  );
+}
+
+function AdSetBlock({ adset, isExpanded, hasAds, toggle }: {
+  adset: MetaAdSet; isExpanded: boolean; hasAds: boolean; toggle: () => void;
+}) {
+  return (
+    <>
+      <tr className="hover:bg-cockpit-dark/50 transition-colors cursor-pointer bg-cockpit-dark/30" onClick={hasAds ? toggle : undefined}>
+        <td className="px-4 py-2">
+          <div className="flex items-center gap-2 pl-6">
+            {hasAds ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-cockpit-secondary flex-shrink-0" />) : <span className="w-3.5" />}
+            <div className="w-4 h-4 rounded bg-cockpit-info/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-[8px] text-cockpit-info font-bold">AS</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-cockpit-primary truncate">{adset.name}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <StatusBadge status={adset.status} />
+                {adset.targeting && <span className="text-[9px] text-cockpit-secondary truncate max-w-[200px]">{adset.targeting}</span>}
+                {hasAds && <span className="text-[9px] text-cockpit-secondary">{adset.ads.length} pub{adset.ads.length > 1 ? "s" : ""}</span>}
+              </div>
+            </div>
+          </div>
+        </td>
+        <InsightsCells i={adset.insights} size="xs" />
+      </tr>
+
+      {/* Ads rows */}
+      {isExpanded && adset.ads.map((ad) => (
+        <tr key={ad.id} className="hover:bg-cockpit-dark/30 transition-colors bg-cockpit-dark/10">
+          <td className="px-4 py-2">
+            <div className="flex items-center gap-2 pl-14">
+              {ad.thumbnailUrl ? (
+                <img src={ad.thumbnailUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0 border border-cockpit" />
+              ) : (
+                <div className="w-8 h-8 rounded bg-cockpit-dark flex items-center justify-center flex-shrink-0 border border-cockpit">
+                  <Image className="w-3.5 h-3.5 text-cockpit-secondary" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-cockpit-primary truncate">{ad.name}</p>
+                <StatusBadge status={ad.status} />
+              </div>
+            </div>
+          </td>
+          <InsightsCells i={ad.insights} size="xs" />
+        </tr>
+      ))}
+    </>
+  );
+}
+
+// ===== MOBILE =====
+
+function MobileCard({ campaign, expanded, toggle, expandedAdSets, toggleAdSet }: {
+  campaign: MetaCampaign; expanded: boolean; toggle: () => void;
+  expandedAdSets: Set<string>; toggleAdSet: (id: string) => void;
+}) {
+  const hasAdSets = campaign.adsets.length > 0;
+  const cfg = statusConfig[campaign.status] || statusConfig.PAUSED;
+
+  return (
+    <div>
+      <div className="p-4 hover:bg-cockpit-dark transition-colors cursor-pointer" onClick={hasAdSets ? toggle : undefined}>
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {hasAdSets && (expanded ? <ChevronDown className="w-4 h-4 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />)}
+            <p className="font-medium text-cockpit-primary text-sm truncate">{campaign.name}</p>
+          </div>
+          <p className="text-sm font-bold text-cockpit-yellow flex-shrink-0">{fmtEur(campaign.insights.spend)}</p>
         </div>
-      )}
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1877F2]/10 text-[#1877F2]">Meta</span>
+          {hasAdSets && <span className="text-[10px] text-cockpit-secondary">{campaign.adsets.length} ensemble{campaign.adsets.length > 1 ? "s" : ""}</span>}
+        </div>
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div><p className="text-cockpit-secondary">Impr.</p><p className="text-cockpit-primary font-medium">{fmt(campaign.insights.impressions)}</p></div>
+          <div><p className="text-cockpit-secondary">Clics</p><p className="text-cockpit-primary font-medium">{fmt(campaign.insights.clicks)}</p></div>
+          <div><p className="text-cockpit-secondary">Conv.</p><p className="text-cockpit-primary font-medium">{campaign.insights.conversions}</p></div>
+        </div>
+      </div>
+
+      {expanded && campaign.adsets.map((adset) => (
+        <div key={adset.id} className="border-t border-cockpit/50">
+          <div className="p-4 pl-8 bg-cockpit-dark/20 cursor-pointer" onClick={() => toggleAdSet(adset.id)}>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {adset.ads.length > 0 && (expandedAdSets.has(adset.id) ? <ChevronDown className="w-3 h-3 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-cockpit-secondary flex-shrink-0" />)}
+                <p className="text-xs font-medium text-cockpit-primary truncate">{adset.name}</p>
+              </div>
+              <p className="text-xs font-medium text-cockpit-yellow">{fmtEur(adset.insights.spend)}</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-[10px] mt-1">
+              <div><span className="text-cockpit-secondary">Impr. </span><span className="text-cockpit-primary">{fmt(adset.insights.impressions)}</span></div>
+              <div><span className="text-cockpit-secondary">Clics </span><span className="text-cockpit-primary">{fmt(adset.insights.clicks)}</span></div>
+              <div><span className="text-cockpit-secondary">Conv. </span><span className="text-cockpit-primary">{adset.insights.conversions}</span></div>
+            </div>
+          </div>
+
+          {expandedAdSets.has(adset.id) && adset.ads.map((ad) => (
+            <div key={ad.id} className="p-3 pl-14 bg-cockpit-dark/10 border-t border-cockpit/30">
+              <div className="flex items-center gap-2">
+                {ad.thumbnailUrl ? (
+                  <img src={ad.thumbnailUrl} alt="" className="w-8 h-8 rounded object-cover border border-cockpit" />
+                ) : (
+                  <div className="w-8 h-8 rounded bg-cockpit-dark flex items-center justify-center border border-cockpit">
+                    <Image className="w-3 h-3 text-cockpit-secondary" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-cockpit-primary truncate">{ad.name}</p>
+                  <div className="flex gap-3 text-[10px] mt-0.5">
+                    <span className="text-cockpit-secondary">{fmtEur(ad.insights.spend)}</span>
+                    <span className="text-cockpit-secondary">{fmt(ad.insights.clicks)} clics</span>
+                    <span className="text-cockpit-secondary">{ad.insights.conversions} conv.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
