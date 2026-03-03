@@ -20,6 +20,9 @@ import {
   TrendingUp,
   Briefcase,
   BarChart3,
+  Building2,
+  CalendarDays,
+  UserCircle,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Module } from "@/lib/auth-utils";
@@ -60,9 +63,18 @@ const SPACES: SpaceConfig[] = [
     borderActive: "border-cockpit-yellow/30",
     requiredModule: "dashboard",
   },
+  {
+    key: "administration",
+    label: "Administration",
+    icon: Building2,
+    color: "cockpit-success",
+    bgActive: "bg-cockpit-success/15",
+    textActive: "text-cockpit-success",
+    borderActive: "border-cockpit-success/30",
+    requiredModule: "dashboard-admin",
+  },
   // ── Futurs volets ──
   // { key: "achat", label: "Achat", icon: CreditCard, ... requiredModule: "dashboard-achat" },
-  // { key: "administration", label: "Admin", icon: Building2, ... requiredModule: "dashboard-admin" },
 ];
 
 // ===== NAV ITEMS =====
@@ -105,6 +117,28 @@ const spaceNavItems: NavItem[] = [
     icon: ShoppingCart,
     module: "commandes",
     space: "commercial",
+  },
+  // ── Administration ──
+  {
+    label: "Dashboard",
+    href: "/administration",
+    icon: Building2,
+    module: "dashboard-admin",
+    space: "administration",
+  },
+  {
+    label: "Congés & Absences",
+    href: "/administration/conges",
+    icon: CalendarDays,
+    module: "conges",
+    space: "administration",
+  },
+  {
+    label: "Collaborateurs",
+    href: "/administration/collaborateurs",
+    icon: UserCircle,
+    module: "collaborateurs",
+    space: "administration",
   },
   // ── Marketing ──
   {
@@ -161,6 +195,7 @@ const transversalItems: TransversalItem[] = [
 
 function detectSpace(pathname: string): string {
   if (pathname.startsWith("/commercial")) return "commercial";
+  if (pathname.startsWith("/administration")) return "administration";
   // Future: if (pathname.startsWith("/achat")) return "achat";
   return "commercial";
 }

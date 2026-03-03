@@ -16,7 +16,10 @@ export type Module =
   | "dashboard-commercial"
   | "pipeline"
   | "catalogue"
-  | "commandes";
+  | "commandes"
+  | "dashboard-admin"
+  | "conges"
+  | "collaborateurs";
 
 const roleModuleAccess: Record<Role, Module[]> = {
   ADMIN: [
@@ -34,6 +37,9 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "pipeline",
     "catalogue",
     "commandes",
+    "dashboard-admin",
+    "conges",
+    "collaborateurs",
   ],
   MARKETING: [
     "dashboard",
@@ -57,6 +63,9 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "campagnes",
     "pipeline",
     "analytique",
+    "dashboard-admin",
+    "conges",
+    "collaborateurs",
   ],
 };
 
