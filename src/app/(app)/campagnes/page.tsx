@@ -14,6 +14,8 @@ import {
   Image,
   MousePointer,
   Eye,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 
 // ===== TYPES =====
@@ -98,6 +100,68 @@ const InsightsCells = ({ i, size = "sm" }: { i: MetaInsight; size?: "sm" | "xs" 
   );
 };
 
+// Parse cached insights (from Prisma metaInsights JSON) back into MetaCampaign
+function parseCachedCampaign(c: any): MetaCampaign {
+  const ins = c.metaInsights || {};
+
+  // Reconstruct adsets from cache (if present)
+  const cachedAdsets = ins.adsets || [];
+  const adsets: MetaAdSet[] = cachedAdsets.map((as: any) => ({
+    id: as.id,
+    name: as.name,
+    status: as.status,
+    dailyBudget: as.dailyBudget || 0,
+    lifetimeBudget: as.lifetimeBudget || 0,
+    targeting: as.targeting,
+    optimization: as.optimization,
+    insights: {
+      spend: as.insights?.spend || 0,
+      impressions: as.insights?.impressions || 0,
+      clicks: as.insights?.clicks || 0,
+      conversions: as.insights?.conversions || 0,
+      cpc: as.insights?.cpc || 0,
+      ctr: as.insights?.ctr || 0,
+      costPerResult: 0,
+    },
+    ads: (as.ads || []).map((ad: any) => ({
+      id: ad.id,
+      name: ad.name,
+      status: ad.status,
+      thumbnailUrl: ad.thumbnailUrl,
+      insights: {
+        spend: ad.insights?.spend || 0,
+        impressions: ad.insights?.impressions || 0,
+        clicks: ad.insights?.clicks || 0,
+        conversions: ad.insights?.conversions || 0,
+        cpc: ad.insights?.cpc || 0,
+        ctr: ad.insights?.ctr || 0,
+        costPerResult: 0,
+      },
+    })),
+  }));
+
+  return {
+    id: c.metaCampaignId || c.id,
+    name: c.nom,
+    status: ins.status || (c.actif ? "ACTIVE" : "PAUSED"),
+    objective: ins.objective || "",
+    dailyBudget: ins.budget || 0,
+    lifetimeBudget: 0,
+    startDate: c.dateDebut,
+    endDate: c.dateFin,
+    insights: {
+      spend: ins.spend || 0,
+      impressions: ins.impressions || 0,
+      clicks: ins.clicks || 0,
+      conversions: ins.conversions || 0,
+      cpc: ins.cpc || 0,
+      ctr: ins.ctr || 0,
+      costPerResult: 0,
+    },
+    adsets,
+  };
+}
+
 // ===== MAIN COMPONENT =====
 
 export default function CampagnesPage() {
@@ -105,6 +169,7 @@ export default function CampagnesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
@@ -122,19 +187,15 @@ export default function CampagnesPage() {
       const res = await fetch("/api/campagnes?limit=100");
       if (res.ok) {
         const data = await res.json();
-        const mapped: MetaCampaign[] = (data.campagnes || []).map((c: any) => {
-          const ins = c.metaInsights || {};
-          return {
-            id: c.metaCampaignId || c.id, name: c.nom,
-            status: ins.status || (c.actif ? "ACTIVE" : "PAUSED"),
-            objective: ins.objective || "", dailyBudget: ins.budget || 0, lifetimeBudget: 0,
-            startDate: c.dateDebut, endDate: c.dateFin,
-            insights: { spend: ins.spend || 0, impressions: ins.impressions || 0, clicks: ins.clicks || 0, conversions: ins.conversions || 0, cpc: ins.cpc || 0, ctr: ins.ctr || 0, costPerResult: 0 },
-            adsets: [],
-          };
-        });
+        const mapped: MetaCampaign[] = (data.campagnes || []).map(parseCachedCampaign);
         setCampaigns(mapped);
         computeKPIs(mapped);
+
+        // Get last sync time from first campaign with syncedAt
+        const firstWithSync = (data.campagnes || []).find((c: any) => c.metaInsights?.syncedAt);
+        if (firstWithSync) {
+          setSyncedAt(firstWithSync.metaInsights.syncedAt);
+        }
       }
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
@@ -156,9 +217,10 @@ export default function CampagnesPage() {
             totalAds: data.kpis.totalAds,
           });
         }
+        setSyncedAt(new Date().toISOString());
       } else {
         const err = await res.json();
-        setError(err.error || "Erreur sync");
+        setError(err.error || "Erreur sync Meta");
       }
     } catch (err: any) { setError(err.message); }
     finally { setSyncing(false); }
@@ -190,6 +252,14 @@ export default function CampagnesPage() {
     setExpandedAdSets(next);
   };
 
+  // Sort: ACTIVE first, then PAUSED, then ARCHIVED, then by spend desc
+  const statusOrder: Record<string, number> = { ACTIVE: 0, PAUSED: 1, ARCHIVED: 2, DELETED: 3 };
+  const sortedCampaigns = [...filteredCampaigns].sort((a, b) => {
+    const statusDiff = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
+    if (statusDiff !== 0) return statusDiff;
+    return b.insights.spend - a.insights.spend;
+  });
+
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
       {/* Header */}
@@ -199,11 +269,17 @@ export default function CampagnesPage() {
           <p className="text-cockpit-secondary text-xs sm:text-sm">
             {kpis.totalCampaigns} campagnes · {kpis.totalAdSets} ensembles · {kpis.totalAds} publicités
           </p>
+          {syncedAt && (
+            <p className="text-cockpit-secondary text-[10px] flex items-center gap-1 mt-0.5">
+              <Clock className="w-3 h-3" />
+              Dernière sync : {new Date(syncedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
         </div>
         <button onClick={handleSync} disabled={syncing || loading}
           className="flex items-center justify-center gap-2 bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm w-full sm:w-auto">
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {syncing ? "Sync..." : "Synchroniser Meta"}
+          {syncing ? "Sync en cours..." : "Synchroniser Meta"}
         </button>
       </div>
 
@@ -241,7 +317,7 @@ export default function CampagnesPage() {
       )}
 
       {/* HIERARCHY TABLE */}
-      {!loading && filteredCampaigns.length > 0 && (
+      {!loading && sortedCampaigns.length > 0 && (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
           {/* Desktop */}
           <div className="hidden md:block overflow-x-auto">
@@ -258,7 +334,7 @@ export default function CampagnesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
-                {filteredCampaigns.map((camp) => {
+                {sortedCampaigns.map((camp) => {
                   const isExp = expandedCampaigns.has(camp.id);
                   const hasAdSets = camp.adsets.length > 0;
                   return (
@@ -272,7 +348,7 @@ export default function CampagnesPage() {
 
           {/* Mobile */}
           <div className="md:hidden divide-y divide-cockpit">
-            {filteredCampaigns.map((camp) => (
+            {sortedCampaigns.map((camp) => (
               <MobileCard key={camp.id} campaign={camp} expanded={expandedCampaigns.has(camp.id)}
                 toggle={() => toggleCampaign(camp.id)} expandedAdSets={expandedAdSets} toggleAdSet={toggleAdSet} />
             ))}
@@ -281,7 +357,7 @@ export default function CampagnesPage() {
       )}
 
       {/* Empty */}
-      {!loading && filteredCampaigns.length === 0 && !error && (
+      {!loading && sortedCampaigns.length === 0 && !error && (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8 text-center">
           <BarChart3 className="w-12 h-12 mx-auto mb-4 text-cockpit-secondary opacity-50" />
           <h3 className="text-base font-semibold text-cockpit-heading mb-2">Aucune campagne</h3>
@@ -296,27 +372,59 @@ export default function CampagnesPage() {
   );
 }
 
+// ===== LEVEL INDICATOR =====
+
+function LevelIndicator({ level }: { level: "campaign" | "adset" | "ad" }) {
+  const config = {
+    campaign: { icon: <Layers className="w-3.5 h-3.5" />, bg: "bg-[#1877F2]/15", text: "text-[#1877F2]", label: "Campagne" },
+    adset: { icon: null, bg: "bg-cockpit-info/15", text: "text-cockpit-info", label: "Ens." },
+    ad: { icon: <Image className="w-3 h-3" />, bg: "bg-cockpit-warning/15", text: "text-cockpit-warning", label: "Pub" },
+  };
+  const c = config[level];
+  return (
+    <div className={`flex items-center justify-center gap-0.5 px-1.5 py-0.5 rounded ${c.bg} flex-shrink-0`}>
+      {c.icon || <span className={`text-[8px] font-bold ${c.text}`}>{c.label}</span>}
+    </div>
+  );
+}
+
 // ===== DESKTOP: Campaign + AdSets + Ads rows =====
 
 function CampaignBlock({ campaign, isExpanded, hasAdSets, toggleCampaign, expandedAdSets, toggleAdSet }: {
   campaign: MetaCampaign; isExpanded: boolean; hasAdSets: boolean;
   toggleCampaign: () => void; expandedAdSets: Set<string>; toggleAdSet: (id: string) => void;
 }) {
+  const hasData = campaign.insights.spend > 0 || campaign.insights.impressions > 0;
   return (
     <>
       {/* Campaign row */}
-      <tr className="hover:bg-cockpit-dark transition-colors cursor-pointer" onClick={hasAdSets ? toggleCampaign : undefined}>
+      <tr className={`hover:bg-cockpit-dark transition-colors ${hasAdSets ? "cursor-pointer" : ""}`}
+        onClick={hasAdSets ? toggleCampaign : undefined}>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
-            {hasAdSets ? (isExpanded ? <ChevronDown className="w-4 h-4 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />) : <span className="w-4" />}
-            <Layers className="w-4 h-4 text-[#1877F2] flex-shrink-0" />
+            {hasAdSets ? (
+              isExpanded
+                ? <ChevronDown className="w-4 h-4 text-cockpit-yellow flex-shrink-0" />
+                : <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />
+            ) : <span className="w-4" />}
+            <LevelIndicator level="campaign" />
             <div className="min-w-0">
               <p className="text-sm font-medium text-cockpit-primary truncate">{campaign.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <StatusBadge status={campaign.status} />
-                {campaign.objective && <span className="text-[10px] text-cockpit-secondary">{campaign.objective.replace(/_/g, " ")}</span>}
-                {campaign.startDate && <span className="text-[10px] text-cockpit-secondary">{new Date(campaign.startDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</span>}
-                {hasAdSets && <span className="text-[10px] text-cockpit-secondary">{campaign.adsets.length} ensemble{campaign.adsets.length > 1 ? "s" : ""}</span>}
+                {campaign.objective && (
+                  <span className="text-[10px] text-cockpit-secondary">{campaign.objective.replace(/_/g, " ")}</span>
+                )}
+                {campaign.startDate && (
+                  <span className="text-[10px] text-cockpit-secondary">
+                    {new Date(campaign.startDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" })}
+                  </span>
+                )}
+                {hasAdSets && (
+                  <span className="text-[10px] text-cockpit-secondary font-medium">
+                    {campaign.adsets.length} ens. · {campaign.adsets.reduce((s, a) => s + a.ads.length, 0)} pub{campaign.adsets.reduce((s, a) => s + a.ads.length, 0) > 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -341,19 +449,26 @@ function AdSetBlock({ adset, isExpanded, hasAds, toggle }: {
 }) {
   return (
     <>
-      <tr className="hover:bg-cockpit-dark/50 transition-colors cursor-pointer bg-cockpit-dark/30" onClick={hasAds ? toggle : undefined}>
+      <tr className={`hover:bg-cockpit-dark/50 transition-colors bg-cockpit-dark/30 ${hasAds ? "cursor-pointer" : ""}`}
+        onClick={hasAds ? toggle : undefined}>
         <td className="px-4 py-2">
           <div className="flex items-center gap-2 pl-6">
-            {hasAds ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-cockpit-secondary flex-shrink-0" />) : <span className="w-3.5" />}
-            <div className="w-4 h-4 rounded bg-cockpit-info/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-[8px] text-cockpit-info font-bold">AS</span>
-            </div>
+            {hasAds ? (
+              isExpanded
+                ? <ChevronDown className="w-3.5 h-3.5 text-cockpit-yellow flex-shrink-0" />
+                : <ChevronRight className="w-3.5 h-3.5 text-cockpit-secondary flex-shrink-0" />
+            ) : <span className="w-3.5" />}
+            <LevelIndicator level="adset" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-cockpit-primary truncate">{adset.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <StatusBadge status={adset.status} />
-                {adset.targeting && <span className="text-[9px] text-cockpit-secondary truncate max-w-[200px]">{adset.targeting}</span>}
-                {hasAds && <span className="text-[9px] text-cockpit-secondary">{adset.ads.length} pub{adset.ads.length > 1 ? "s" : ""}</span>}
+                {adset.targeting && (
+                  <span className="text-[9px] text-cockpit-secondary truncate max-w-[200px]">{adset.targeting}</span>
+                )}
+                {hasAds && (
+                  <span className="text-[9px] text-cockpit-secondary">{adset.ads.length} pub{adset.ads.length > 1 ? "s" : ""}</span>
+                )}
               </div>
             </div>
           </div>
@@ -397,10 +512,12 @@ function MobileCard({ campaign, expanded, toggle, expandedAdSets, toggleAdSet }:
 
   return (
     <div>
-      <div className="p-4 hover:bg-cockpit-dark transition-colors cursor-pointer" onClick={hasAdSets ? toggle : undefined}>
+      <div className={`p-4 hover:bg-cockpit-dark transition-colors ${hasAdSets ? "cursor-pointer" : ""}`}
+        onClick={hasAdSets ? toggle : undefined}>
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {hasAdSets && (expanded ? <ChevronDown className="w-4 h-4 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />)}
+            <LevelIndicator level="campaign" />
             <p className="font-medium text-cockpit-primary text-sm truncate">{campaign.name}</p>
           </div>
           <p className="text-sm font-bold text-cockpit-yellow flex-shrink-0">{fmtEur(campaign.insights.spend)}</p>
@@ -408,7 +525,11 @@ function MobileCard({ campaign, expanded, toggle, expandedAdSets, toggleAdSet }:
         <div className="flex items-center gap-2 mb-2">
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1877F2]/10 text-[#1877F2]">Meta</span>
-          {hasAdSets && <span className="text-[10px] text-cockpit-secondary">{campaign.adsets.length} ensemble{campaign.adsets.length > 1 ? "s" : ""}</span>}
+          {hasAdSets && (
+            <span className="text-[10px] text-cockpit-secondary">
+              {campaign.adsets.length} ens. · {campaign.adsets.reduce((s, a) => s + a.ads.length, 0)} pubs
+            </span>
+          )}
         </div>
         <div className="grid grid-cols-3 gap-3 text-xs">
           <div><p className="text-cockpit-secondary">Impr.</p><p className="text-cockpit-primary font-medium">{fmt(campaign.insights.impressions)}</p></div>
@@ -419,10 +540,12 @@ function MobileCard({ campaign, expanded, toggle, expandedAdSets, toggleAdSet }:
 
       {expanded && campaign.adsets.map((adset) => (
         <div key={adset.id} className="border-t border-cockpit/50">
-          <div className="p-4 pl-8 bg-cockpit-dark/20 cursor-pointer" onClick={() => toggleAdSet(adset.id)}>
+          <div className={`p-4 pl-8 bg-cockpit-dark/20 ${adset.ads.length > 0 ? "cursor-pointer" : ""}`}
+            onClick={adset.ads.length > 0 ? () => toggleAdSet(adset.id) : undefined}>
             <div className="flex items-center justify-between gap-2 mb-1">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {adset.ads.length > 0 && (expandedAdSets.has(adset.id) ? <ChevronDown className="w-3 h-3 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-cockpit-secondary flex-shrink-0" />)}
+                <LevelIndicator level="adset" />
                 <p className="text-xs font-medium text-cockpit-primary truncate">{adset.name}</p>
               </div>
               <p className="text-xs font-medium text-cockpit-yellow">{fmtEur(adset.insights.spend)}</p>
