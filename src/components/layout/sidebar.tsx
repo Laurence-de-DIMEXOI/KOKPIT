@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import clsx from "clsx";
 import {
@@ -29,7 +29,6 @@ import type { Module } from "@/lib/auth-utils";
 import { useState, useEffect } from "react";
 
 // ===== SPACES CONFIGURATION =====
-// Pour ajouter un nouveau volet : ajouter ici + ajouter les navItems correspondants
 
 interface SpaceConfig {
   key: string;
@@ -40,6 +39,7 @@ interface SpaceConfig {
   textActive: string;
   borderActive: string;
   requiredModule: Module;
+  defaultHref: string; // page par défaut quand on clique sur le service
 }
 
 const SPACES: SpaceConfig[] = [
@@ -52,6 +52,7 @@ const SPACES: SpaceConfig[] = [
     textActive: "text-cockpit-info",
     borderActive: "border-cockpit-info/30",
     requiredModule: "dashboard-commercial",
+    defaultHref: "/commercial",
   },
   {
     key: "marketing",
@@ -62,6 +63,7 @@ const SPACES: SpaceConfig[] = [
     textActive: "text-cockpit-yellow",
     borderActive: "border-cockpit-yellow/30",
     requiredModule: "dashboard",
+    defaultHref: "/dashboard",
   },
   {
     key: "administration",
@@ -72,13 +74,12 @@ const SPACES: SpaceConfig[] = [
     textActive: "text-cockpit-success",
     borderActive: "border-cockpit-success/30",
     requiredModule: "dashboard-admin",
+    defaultHref: "/administration",
   },
-  // ── Futurs volets ──
-  // { key: "achat", label: "Achat", icon: CreditCard, ... requiredModule: "dashboard-achat" },
 ];
 
 // ===== NAV ITEMS =====
-// space-specific items only (pas Demandes/Contacts qui sont transversaux)
+// Chaque service a son propre menu complet
 
 interface NavItem {
   label: string;
@@ -118,27 +119,19 @@ const spaceNavItems: NavItem[] = [
     module: "commandes",
     space: "commercial",
   },
-  // ── Administration ──
   {
-    label: "Dashboard",
-    href: "/administration",
-    icon: Building2,
-    module: "dashboard-admin",
-    space: "administration",
+    label: "Demandes",
+    href: "/leads",
+    icon: Inbox,
+    module: "leads",
+    space: "commercial",
   },
   {
-    label: "Congés & Absences",
-    href: "/administration/conges",
-    icon: CalendarDays,
-    module: "conges",
-    space: "administration",
-  },
-  {
-    label: "Collaborateurs",
-    href: "/administration/collaborateurs",
-    icon: UserCircle,
-    module: "collaborateurs",
-    space: "administration",
+    label: "Contacts",
+    href: "/contacts",
+    icon: Users,
+    module: "contacts",
+    space: "commercial",
   },
   // ── Marketing ──
   {
@@ -176,19 +169,42 @@ const spaceNavItems: NavItem[] = [
     module: "parametres",
     space: "marketing",
   },
-];
-
-// Items transversaux — affichés en permanence quel que soit le volet
-interface TransversalItem {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  module: Module;
-}
-
-const transversalItems: TransversalItem[] = [
-  { label: "Demandes", href: "/leads", icon: Inbox, module: "leads" },
-  { label: "Contacts", href: "/contacts", icon: Users, module: "contacts" },
+  {
+    label: "Demandes",
+    href: "/leads",
+    icon: Inbox,
+    module: "leads",
+    space: "marketing",
+  },
+  {
+    label: "Contacts",
+    href: "/contacts",
+    icon: Users,
+    module: "contacts",
+    space: "marketing",
+  },
+  // ── Administration ──
+  {
+    label: "Dashboard",
+    href: "/administration",
+    icon: Building2,
+    module: "dashboard-admin",
+    space: "administration",
+  },
+  {
+    label: "Congés & Absences",
+    href: "/administration/conges",
+    icon: CalendarDays,
+    module: "conges",
+    space: "administration",
+  },
+  {
+    label: "Collaborateurs",
+    href: "/administration/collaborateurs",
+    icon: UserCircle,
+    module: "collaborateurs",
+    space: "administration",
+  },
 ];
 
 // ===== DETECT SPACE FROM URL =====
@@ -196,25 +212,39 @@ const transversalItems: TransversalItem[] = [
 function detectSpace(pathname: string): string {
   if (pathname.startsWith("/commercial")) return "commercial";
   if (pathname.startsWith("/administration")) return "administration";
-  // Future: if (pathname.startsWith("/achat")) return "achat";
-  return "commercial";
+  // Marketing pages (legacy routes sans préfixe)
+  if (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/campagnes") ||
+    pathname.startsWith("/automatisations") ||
+    pathname.startsWith("/emailing") ||
+    pathname.startsWith("/parametres")
+  ) return "marketing";
+  // /leads et /contacts sont dans Commercial ET Marketing
+  // On garde le space actuel (ne pas changer), fallback commercial
+  return "";
 }
 
 // ===== MAIN SIDEBAR =====
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeSpace, setActiveSpace] = useState<string>(() =>
-    detectSpace(typeof window !== "undefined" ? window.location.pathname : "/")
-  );
+  const [activeSpace, setActiveSpace] = useState<string>(() => {
+    const detected = detectSpace(typeof window !== "undefined" ? window.location.pathname : "/");
+    return detected || "commercial";
+  });
 
   const userRole = session?.user?.role as any;
 
-  // Sync space with current URL
+  // Sync space with current URL (empty = shared page, keep current space)
   useEffect(() => {
-    setActiveSpace(detectSpace(pathname));
+    const detected = detectSpace(pathname);
+    if (detected) {
+      setActiveSpace(detected);
+    }
   }, [pathname]);
 
   // Spaces visible to this user
@@ -227,11 +257,6 @@ export function Sidebar() {
     (item) =>
       item.space === activeSpace &&
       (userRole ? canAccessModule(userRole, item.module) : false)
-  );
-
-  // Transversal items filtered by role
-  const filteredTransversal = transversalItems.filter((item) =>
-    userRole ? canAccessModule(userRole, item.module) : false
   );
 
   // Get current space config for accent color
@@ -255,20 +280,31 @@ export function Sidebar() {
     };
   }, [mobileOpen]);
 
+  // Switch space + navigate to its default page
+  const handleSpaceSwitch = (space: SpaceConfig) => {
+    setActiveSpace(space.key);
+    router.push(space.defaultHref);
+  };
+
+  // Helper: is this href the exact active page?
+  const isNavActive = (href: string): boolean => {
+    // Dashboard pages: exact match only
+    if (href === "/commercial" || href === "/administration" || href === "/dashboard") {
+      return pathname === href;
+    }
+    return pathname.startsWith(href);
+  };
+
   // Helper to render a nav link
   const renderNavLink = (
-    item: { href: string; label: string; icon: React.ComponentType<{ className?: string }> },
-    key: string,
+    item: NavItem,
     accentSpace: SpaceConfig
   ) => {
-    const isActive =
-      item.href === "/commercial"
-        ? pathname === "/commercial"
-        : pathname.startsWith(item.href);
+    const isActive = isNavActive(item.href);
     const Icon = item.icon;
 
     return (
-      <li key={key}>
+      <li key={`${item.space}-${item.href}`}>
         <Link
           href={item.href}
           className={clsx(
@@ -346,31 +382,13 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation — space-specific items */}
+      {/* Navigation — items du service actif */}
       <nav className="flex-1 overflow-y-auto pt-2 pb-4 px-3 lg:px-4">
         <ul className="space-y-0.5">
           {filteredNavItems.map((item) =>
-            renderNavLink(item, `${item.space}-${item.href}`, currentSpace)
+            renderNavLink(item, currentSpace)
           )}
         </ul>
-
-        {/* Separator + Transversal items */}
-        {filteredTransversal.length > 0 && (
-          <>
-            <div className="my-3 flex items-center gap-2 px-3">
-              <div className="flex-1 h-px bg-cockpit/60" />
-              <span className="text-[10px] font-semibold text-cockpit-secondary uppercase tracking-widest">
-                Transversal
-              </span>
-              <div className="flex-1 h-px bg-cockpit/60" />
-            </div>
-            <ul className="space-y-0.5">
-              {filteredTransversal.map((item) =>
-                renderNavLink(item, `transversal-${item.href}`, currentSpace)
-              )}
-            </ul>
-          </>
-        )}
       </nav>
 
       {/* Space Switcher — boutons en bas */}
@@ -386,7 +404,7 @@ export function Sidebar() {
               return (
                 <button
                   key={space.key}
-                  onClick={() => setActiveSpace(space.key)}
+                  onClick={() => handleSpaceSwitch(space)}
                   className={clsx(
                     "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                     isActive
