@@ -11,7 +11,8 @@ import {
   HelpCircle,
   RefreshCw,
   Link2,
-  AlertTriangle,
+  DollarSign,
+  CheckCircle2,
 } from "lucide-react";
 import { ContactPreviewDrawer } from "@/components/contacts/contact-preview-drawer";
 
@@ -19,47 +20,33 @@ const ITEMS_PER_PAGE = 25;
 
 type ContactData = any;
 
-interface SellsyLink {
+interface SellsyDoc {
+  id: number;
+  number: string;
+  date: string;
+  status: string;
+  company_name: string;
+  subject: string;
+  totalHT: number;
+}
+
+interface ContactLink {
+  contactId: string;
   email: string;
+  matchType: "email" | "nom" | "nom_partiel" | "telephone";
+  confidence: "confirmed" | "high" | "medium";
   sellsyContactName?: string;
-  devisCount: number;
-  commandesCount: number;
+  devis: SellsyDoc[];
+  commandes: SellsyDoc[];
   totalDevisHT: number;
   totalCommandesHT: number;
+  totalCA: number;
 }
 
-interface SellsyNameEntry {
-  normalized: string;
-  original: string;
-  devisCount: number;
-  commandesCount: number;
-}
-
-interface SellsyPhoneEntry {
-  phone: string;
-  name: string;
-  email: string;
-}
-
-interface Suggestion {
+interface SellsySuggestion {
   sellsyName: string;
-  matchType: "nom" | "telephone" | "nom_partiel";
-  devisCount: number;
-  commandesCount: number;
-}
-
-// Normaliser un nom pour comparaison
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, "")
-    .trim();
-}
-
-function normalizePhone(phone: string): string {
-  return phone.replace(/[\s\-.()]/g, "").replace(/^(\+262|0262|262)/, "0");
+  matchType: string;
+  confidence: string;
 }
 
 export default function ContactsPage() {
@@ -73,27 +60,42 @@ export default function ContactsPage() {
   );
   const [refreshing, setRefreshing] = useState(false);
 
-  // Sellsy links data
-  const [sellsyLinks, setSellsyLinks] = useState<
-    Record<string, SellsyLink>
+  // Sellsy data
+  const [sellsyLinks, setSellsyLinks] = useState<Record<string, ContactLink>>(
+    {}
+  );
+  const [sellsySuggestions, setSellsySuggestions] = useState<
+    Record<string, SellsySuggestion[]>
   >({});
-  const [sellsyNames, setSellsyNames] = useState<SellsyNameEntry[]>([]);
-  const [sellsyPhones, setSellsyPhones] = useState<SellsyPhoneEntry[]>([]);
-  const [sellsyLoading, setSellsyLoading] = useState(true);
-  const [sellsyStats, setSellsyStats] = useState({
-    totalEstimates: 0,
-    totalOrders: 0,
-    linkedByEmail: 0,
+  const [sellsyKPIs, setSellsyKPIs] = useState({
+    totalLinked: 0,
+    contactsAvecDevis: 0,
+    contactsAvecCommande: 0,
+    totalCA: 0,
+    totalDevisHT: 0,
   });
+  const [sellsyLoading, setSellsyLoading] = useState(true);
 
-  // Charger les contacts API (Supabase)
+  // Search debounce
+  const [searchInput, setSearchInput] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Charger les contacts API
   const fetchContacts = useCallback(
     async (showRefresh = false) => {
       if (showRefresh) setRefreshing(true);
       else setLoading(true);
 
       try {
-        const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
+        const searchParam = search
+          ? `&search=${encodeURIComponent(search)}`
+          : "";
         const response = await fetch(
           `/api/contacts?page=${page}&limit=${ITEMS_PER_PAGE}${searchParam}`
         );
@@ -114,24 +116,23 @@ export default function ContactsPage() {
     fetchContacts();
   }, [fetchContacts]);
 
-  // Charger les liens Sellsy (une seule fois)
+  // Charger les liens Sellsy
   useEffect(() => {
-    const fetchSellsyLinks = async () => {
+    const fetchSellsy = async () => {
       try {
         setSellsyLoading(true);
         const res = await fetch("/api/contacts/sellsy-links");
         const data = await res.json();
         if (data.success) {
           setSellsyLinks(data.links || {});
-          setSellsyNames(data.sellsyNames || []);
-          setSellsyPhones(data.sellsyPhones || []);
-          setSellsyStats(
-            data.stats || {
-              totalEstimates: 0,
-              totalOrders: 0,
-              linkedByEmail: 0,
-            }
-          );
+          setSellsySuggestions(data.suggestions || {});
+          setSellsyKPIs({
+            totalLinked: data.kpis?.totalLinked || 0,
+            contactsAvecDevis: data.kpis?.contactsAvecDevis || 0,
+            contactsAvecCommande: data.kpis?.contactsAvecCommande || 0,
+            totalCA: data.kpis?.totalCA || 0,
+            totalDevisHT: data.kpis?.totalDevisHT || 0,
+          });
         }
       } catch (error) {
         console.error("Erreur Sellsy links:", error);
@@ -139,84 +140,8 @@ export default function ContactsPage() {
         setSellsyLoading(false);
       }
     };
-
-    fetchSellsyLinks();
+    fetchSellsy();
   }, []);
-
-  // Calculer les suggestions pour un contact
-  const getSuggestions = useCallback(
-    (contact: ContactData): Suggestion[] => {
-      const email = contact.email?.toLowerCase();
-      // Si déjà lié par email, pas besoin de suggestion
-      if (email && sellsyLinks[email]) return [];
-
-      const suggestions: Suggestion[] = [];
-      const contactNom = normalizeName(
-        `${contact.prenom || ""} ${contact.nom || ""}`.trim()
-      );
-      const contactNomReverse = normalizeName(
-        `${contact.nom || ""} ${contact.prenom || ""}`.trim()
-      );
-      const contactPhone = contact.telephone
-        ? normalizePhone(contact.telephone)
-        : "";
-
-      // Match par nom exact
-      for (const sn of sellsyNames) {
-        if (sn.normalized === contactNom || sn.normalized === contactNomReverse) {
-          suggestions.push({
-            sellsyName: sn.original,
-            matchType: "nom",
-            devisCount: sn.devisCount,
-            commandesCount: sn.commandesCount,
-          });
-        }
-      }
-
-      // Si pas de match exact, chercher match partiel (le nom de famille apparaît)
-      if (suggestions.length === 0) {
-        const nomFamille = normalizeName(contact.nom || "");
-        if (nomFamille.length >= 3) {
-          for (const sn of sellsyNames) {
-            if (
-              sn.normalized.includes(nomFamille) ||
-              nomFamille.includes(sn.normalized)
-            ) {
-              suggestions.push({
-                sellsyName: sn.original,
-                matchType: "nom_partiel",
-                devisCount: sn.devisCount,
-                commandesCount: sn.commandesCount,
-              });
-            }
-          }
-        }
-      }
-
-      // Match par téléphone
-      if (contactPhone && contactPhone.length >= 8) {
-        for (const sp of sellsyPhones) {
-          if (sp.phone === contactPhone) {
-            // Vérifier que ce n'est pas déjà dans les suggestions
-            const alreadySuggested = suggestions.some(
-              (s) => normalizeName(s.sellsyName) === normalizeName(sp.name)
-            );
-            if (!alreadySuggested) {
-              suggestions.push({
-                sellsyName: sp.name,
-                matchType: "telephone",
-                devisCount: 0,
-                commandesCount: 0,
-              });
-            }
-          }
-        }
-      }
-
-      return suggestions.slice(0, 2); // Max 2 suggestions
-    },
-    [sellsyLinks, sellsyNames, sellsyPhones]
-  );
 
   const totalPages = Math.ceil(totalContacts / ITEMS_PER_PAGE);
 
@@ -228,72 +153,60 @@ export default function ContactsPage() {
     setSelectedContact(null);
   }, []);
 
-  // Debounce search
-  const [searchInput, setSearchInput] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput);
-      setPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  // Format monétaire
+  const formatEuro = (amount: number) => {
+    if (amount === 0) return "0 €";
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "EUR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
-  // Stats
-  const stats = useMemo(
-    () => ({
-      total: totalContacts,
-      prospect: apiContacts.filter(
-        (c: any) => c.lifecycleStage === "PROSPECT"
-      ).length,
-      client: apiContacts.filter((c: any) => c.lifecycleStage === "CLIENT")
-        .length,
-      linkedSellsy: sellsyStats.linkedByEmail,
-    }),
-    [apiContacts, totalContacts, sellsyStats]
-  );
-
-  // Rendu du badge Sellsy pour un contact
-  const renderSellsyBadge = (contact: ContactData) => {
-    const email = contact.email?.toLowerCase();
-    const link = email ? sellsyLinks[email] : null;
-    const suggestions = getSuggestions(contact);
-
+  // Rendu Sellsy badge
+  const renderSellsyCell = (contact: ContactData) => {
     if (sellsyLoading) {
-      return (
-        <span className="text-cockpit-secondary text-xs">...</span>
-      );
+      return <span className="text-cockpit-secondary text-xs">...</span>;
     }
+
+    const link = sellsyLinks[contact.id];
+    const sugs = sellsySuggestions[contact.id];
 
     if (link) {
       return (
-        <div className="flex items-center gap-1.5">
-          {link.devisCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cockpit-info/10 text-cockpit-info">
-              <FileText className="w-3 h-3" />
-              {link.devisCount} devis
-            </span>
-          )}
-          {link.commandesCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cockpit-success/10 text-cockpit-success">
-              <ShoppingCart className="w-3 h-3" />
-              {link.commandesCount} cmd
-            </span>
-          )}
-          {link.devisCount === 0 && link.commandesCount === 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cockpit-yellow/10 text-cockpit-yellow">
-              <Link2 className="w-3 h-3" />
-              Lié
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {link.matchType === "email" && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-cockpit-success">
+                <CheckCircle2 className="w-3 h-3" />
+              </span>
+            )}
+            {link.devis.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cockpit-info/10 text-cockpit-info">
+                <FileText className="w-3 h-3" />
+                {link.devis.length}
+              </span>
+            )}
+            {link.commandes.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cockpit-success/10 text-cockpit-success">
+                <ShoppingCart className="w-3 h-3" />
+                {link.commandes.length}
+              </span>
+            )}
+          </div>
+          {link.totalCA > 0 && (
+            <span className="text-[10px] text-cockpit-success font-semibold">
+              {formatEuro(link.totalCA)}
             </span>
           )}
         </div>
       );
     }
 
-    if (suggestions.length > 0) {
-      const s = suggestions[0];
+    if (sugs && sugs.length > 0) {
       return (
         <div className="group relative">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cockpit-warning/10 text-cockpit-warning cursor-help">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cockpit-warning/10 text-cockpit-warning cursor-help">
             <HelpCircle className="w-3 h-3" />
             Peut-être...
           </span>
@@ -301,7 +214,7 @@ export default function ContactsPage() {
             <p className="text-xs text-cockpit-heading font-semibold mb-1.5">
               Il s&apos;agit peut-être de :
             </p>
-            {suggestions.map((sug, i) => (
+            {sugs.map((sug, i) => (
               <div
                 key={i}
                 className="flex items-center gap-2 text-xs text-cockpit-primary mb-1"
@@ -309,8 +222,9 @@ export default function ContactsPage() {
                 <span className="text-cockpit-yellow font-medium">
                   {sug.sellsyName}
                 </span>
-                <span className="text-cockpit-secondary">
-                  ({sug.matchType === "nom"
+                <span className="text-cockpit-secondary text-[10px]">
+                  (
+                  {sug.matchType === "nom"
                     ? "même nom"
                     : sug.matchType === "telephone"
                     ? "même tél."
@@ -319,20 +233,12 @@ export default function ContactsPage() {
                 </span>
               </div>
             ))}
-            <p className="text-[10px] text-cockpit-secondary mt-2 border-t border-cockpit pt-2">
-              Basé sur{" "}
-              {suggestions[0].matchType === "telephone"
-                ? "le numéro de téléphone"
-                : "le nom du contact"}
-            </p>
           </div>
         </div>
       );
     }
 
-    return (
-      <span className="text-cockpit-secondary text-[10px]">—</span>
-    );
+    return <span className="text-cockpit-secondary text-[10px]">—</span>;
   };
 
   return (
@@ -360,7 +266,7 @@ export default function ContactsPage() {
             )}
             <span className="hidden sm:inline">Actualiser</span>
           </button>
-          <button className="bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 text-sm sm:text-base w-full sm:w-auto">
+          <button className="bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 text-sm">
             + Nouveau
           </button>
         </div>
@@ -369,27 +275,27 @@ export default function ContactsPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
         <KPICard
-          title="Total"
-          value={stats.total}
+          title="Contacts"
+          value={totalContacts}
           icon={<Users className="w-7 h-7" />}
           bgColor="bg-cockpit-yellow"
         />
         <KPICard
-          title="Prospects"
-          value={stats.prospect}
-          icon={<Users className="w-7 h-7" />}
+          title="Liés Sellsy"
+          value={sellsyKPIs.totalLinked}
+          icon={<Link2 className="w-7 h-7" />}
           bgColor="bg-cockpit-info"
         />
         <KPICard
-          title="Clients"
-          value={stats.client}
-          icon={<Users className="w-7 h-7" />}
+          title="Avec commande"
+          value={sellsyKPIs.contactsAvecCommande}
+          icon={<ShoppingCart className="w-7 h-7" />}
           bgColor="bg-cockpit-success"
         />
         <KPICard
-          title="Liés Sellsy"
-          value={stats.linkedSellsy}
-          icon={<Link2 className="w-7 h-7" />}
+          title="CA Généré"
+          value={formatEuro(sellsyKPIs.totalCA)}
+          icon={<DollarSign className="w-7 h-7" />}
           bgColor="bg-cockpit-warning"
         />
       </div>
@@ -408,29 +314,29 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Table desktop / Cards mobile */}
+      {/* Table */}
       <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
-        {/* Vue tableau (desktop md+) */}
+        {/* Desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-cockpit-dark border-b border-cockpit">
               <tr>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">
                   NOM
                 </th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">
                   EMAIL
                 </th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading hidden lg:table-cell">
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
                   TÉLÉPHONE
                 </th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">
                   STAGE
                 </th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">
                   DEMANDES
                 </th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">
                   SELLSY
                 </th>
               </tr>
@@ -438,7 +344,7 @@ export default function ContactsPage() {
             <tbody className="divide-y divide-cockpit">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 lg:px-6 py-12 text-center">
+                  <td colSpan={6} className="px-4 py-12 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin" />
                       Chargement...
@@ -452,20 +358,20 @@ export default function ContactsPage() {
                     className="hover:bg-cockpit-dark transition-colors cursor-pointer"
                     onClick={() => handleContactClick(c)}
                   >
-                    <td className="px-4 lg:px-6 py-3 lg:py-4">
+                    <td className="px-4 lg:px-6 py-3">
                       <span className="text-cockpit-yellow font-medium hover:underline text-sm">
                         {c.prenom} {c.nom}
                       </span>
                     </td>
-                    <td className="px-4 lg:px-6 py-3 lg:py-4 text-cockpit-secondary text-xs lg:text-sm truncate max-w-[200px]">
+                    <td className="px-4 lg:px-6 py-3 text-cockpit-secondary text-xs truncate max-w-[200px]">
                       {c.email}
                     </td>
-                    <td className="px-4 lg:px-6 py-3 lg:py-4 text-cockpit-secondary text-sm hidden lg:table-cell">
+                    <td className="px-4 lg:px-6 py-3 text-cockpit-secondary text-sm hidden lg:table-cell">
                       {c.telephone || "—"}
                     </td>
-                    <td className="px-4 lg:px-6 py-3 lg:py-4">
+                    <td className="px-4 lg:px-6 py-3">
                       <span
-                        className={`inline-block px-2 lg:px-3 py-1 rounded-full text-xs font-semibold ${
+                        className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
                           c.lifecycleStage === "CLIENT"
                             ? "bg-cockpit-success/10 text-cockpit-success"
                             : c.lifecycleStage === "LEAD"
@@ -478,15 +384,15 @@ export default function ContactsPage() {
                         {c.lifecycleStage || "PROSPECT"}
                       </span>
                     </td>
-                    <td className="px-4 lg:px-6 py-3 lg:py-4 text-sm font-medium">
+                    <td className="px-4 lg:px-6 py-3 text-sm font-medium">
                       {(c._count?.demandesPrix || 0) +
                         (c._count?.leads || 0)}
                     </td>
                     <td
-                      className="px-4 lg:px-6 py-3 lg:py-4"
+                      className="px-4 lg:px-6 py-3"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {renderSellsyBadge(c)}
+                      {renderSellsyCell(c)}
                     </td>
                   </tr>
                 ))
@@ -494,7 +400,7 @@ export default function ContactsPage() {
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-4 lg:px-6 py-12 text-center text-cockpit-secondary"
+                    className="px-4 py-12 text-center text-cockpit-secondary"
                   >
                     Aucun contact trouvé
                   </td>
@@ -504,7 +410,7 @@ export default function ContactsPage() {
           </table>
         </div>
 
-        {/* Vue cartes (mobile) */}
+        {/* Mobile */}
         <div className="md:hidden divide-y divide-cockpit">
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-2">
@@ -517,7 +423,7 @@ export default function ContactsPage() {
             apiContacts.map((c: any) => (
               <div
                 key={c.id}
-                className="p-4 hover:bg-cockpit-dark transition-colors cursor-pointer active:bg-cockpit-dark/80"
+                className="p-4 hover:bg-cockpit-dark transition-colors cursor-pointer"
                 onClick={() => handleContactClick(c)}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -528,34 +434,17 @@ export default function ContactsPage() {
                     <p className="text-cockpit-secondary text-xs truncate mt-0.5">
                       {c.email}
                     </p>
-                    {c.telephone && (
-                      <p className="text-cockpit-secondary text-xs mt-0.5">
-                        {c.telephone}
-                      </p>
-                    )}
-                    <div className="mt-2">{renderSellsyBadge(c)}</div>
+                    <div className="mt-2">{renderSellsyCell(c)}</div>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                  <div className="flex flex-col items-end gap-1.5">
                     <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                         c.lifecycleStage === "CLIENT"
                           ? "bg-cockpit-success/10 text-cockpit-success"
-                          : c.lifecycleStage === "LEAD"
-                          ? "bg-cockpit-warning/10 text-cockpit-warning"
                           : "bg-cockpit-info/10 text-cockpit-info"
                       }`}
                     >
                       {c.lifecycleStage || "PROSPECT"}
-                    </span>
-                    <span className="text-xs text-cockpit-secondary">
-                      {(c._count?.demandesPrix || 0) +
-                        (c._count?.leads || 0)}{" "}
-                      demande
-                      {(c._count?.demandesPrix || 0) +
-                        (c._count?.leads || 0) >
-                      1
-                        ? "s"
-                        : ""}
                     </span>
                   </div>
                 </div>
@@ -569,7 +458,7 @@ export default function ContactsPage() {
         </div>
 
         {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between px-4 lg:px-6 py-3 lg:py-4 border-t border-cockpit gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between px-4 lg:px-6 py-3 border-t border-cockpit gap-3">
           <p className="text-xs sm:text-sm text-cockpit-secondary">
             {apiContacts.length > 0
               ? `${(page - 1) * ITEMS_PER_PAGE + 1}-${Math.min(
@@ -582,17 +471,17 @@ export default function ContactsPage() {
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border border-cockpit text-cockpit-primary hover:bg-cockpit-dark disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-cockpit text-cockpit-primary hover:bg-cockpit-dark disabled:opacity-40"
             >
               Précédent
             </button>
-            <span className="px-2 py-1 text-xs sm:text-sm text-cockpit-secondary">
+            <span className="px-2 py-1 text-xs text-cockpit-secondary">
               {page}/{totalPages || 1}
             </span>
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page >= totalPages}
-              className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border border-cockpit text-cockpit-primary hover:bg-cockpit-dark disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-cockpit text-cockpit-primary hover:bg-cockpit-dark disabled:opacity-40"
             >
               Suivant
             </button>
@@ -600,7 +489,7 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Drawer d'aperçu du contact */}
+      {/* Drawer */}
       <ContactPreviewDrawer
         contact={selectedContact}
         isOpen={selectedContact !== null}
