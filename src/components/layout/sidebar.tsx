@@ -90,33 +90,12 @@ interface NavItem {
 }
 
 const spaceNavItems: NavItem[] = [
-  // ── Commercial ──
+  // ── Commercial : flux de vente logique ──
   {
     label: "Dashboard",
     href: "/commercial",
     icon: TrendingUp,
     module: "dashboard-commercial",
-    space: "commercial",
-  },
-  {
-    label: "Pipeline Devis",
-    href: "/commercial/pipeline",
-    icon: FileText,
-    module: "pipeline",
-    space: "commercial",
-  },
-  {
-    label: "Catalogue",
-    href: "/commercial/catalogue",
-    icon: Package,
-    module: "catalogue",
-    space: "commercial",
-  },
-  {
-    label: "Commandes",
-    href: "/commercial/commandes",
-    icon: ShoppingCart,
-    module: "commandes",
     space: "commercial",
   },
   {
@@ -133,7 +112,28 @@ const spaceNavItems: NavItem[] = [
     module: "contacts",
     space: "commercial",
   },
-  // ── Marketing ──
+  {
+    label: "Pipeline Devis",
+    href: "/commercial/pipeline",
+    icon: FileText,
+    module: "pipeline",
+    space: "commercial",
+  },
+  {
+    label: "Commandes",
+    href: "/commercial/commandes",
+    icon: ShoppingCart,
+    module: "commandes",
+    space: "commercial",
+  },
+  {
+    label: "Catalogue",
+    href: "/commercial/catalogue",
+    icon: Package,
+    module: "catalogue",
+    space: "commercial",
+  },
+  // ── Marketing : acquisition → outils → config ──
   {
     label: "Tableau de bord",
     href: "/dashboard",
@@ -149,27 +149,6 @@ const spaceNavItems: NavItem[] = [
     space: "marketing",
   },
   {
-    label: "Automatisations",
-    href: "/automatisations",
-    icon: Zap,
-    module: "automatisations",
-    space: "marketing",
-  },
-  {
-    label: "Emailing",
-    href: "/emailing",
-    icon: Mail,
-    module: "emailing",
-    space: "marketing",
-  },
-  {
-    label: "Paramètres",
-    href: "/parametres",
-    icon: Settings,
-    module: "parametres",
-    space: "marketing",
-  },
-  {
     label: "Demandes",
     href: "/leads",
     icon: Inbox,
@@ -183,7 +162,28 @@ const spaceNavItems: NavItem[] = [
     module: "contacts",
     space: "marketing",
   },
-  // ── Administration ──
+  {
+    label: "Emailing",
+    href: "/emailing",
+    icon: Mail,
+    module: "emailing",
+    space: "marketing",
+  },
+  {
+    label: "Automatisations",
+    href: "/automatisations",
+    icon: Zap,
+    module: "automatisations",
+    space: "marketing",
+  },
+  {
+    label: "Paramètres",
+    href: "/parametres",
+    icon: Settings,
+    module: "parametres",
+    space: "marketing",
+  },
+  // ── Administration : RH logique ──
   {
     label: "Dashboard",
     href: "/administration",
@@ -192,17 +192,17 @@ const spaceNavItems: NavItem[] = [
     space: "administration",
   },
   {
-    label: "Congés & Absences",
-    href: "/administration/conges",
-    icon: CalendarDays,
-    module: "conges",
-    space: "administration",
-  },
-  {
     label: "Collaborateurs",
     href: "/administration/collaborateurs",
     icon: UserCircle,
     module: "collaborateurs",
+    space: "administration",
+  },
+  {
+    label: "Congés & Absences",
+    href: "/administration/conges",
+    icon: CalendarDays,
+    module: "conges",
     space: "administration",
   },
 ];

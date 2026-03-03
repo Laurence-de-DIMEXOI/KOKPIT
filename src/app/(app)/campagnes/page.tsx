@@ -240,6 +240,7 @@ export default function CampagnesPage() {
               <thead className="bg-cockpit-dark border-b border-cockpit">
                 <tr>
                   <th className="px-4 xl:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">NOM</th>
+                  <th className="px-4 xl:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">DATE</th>
                   <th className="px-4 xl:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">STATUT</th>
                   <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">DÉPENSES</th>
                   <th className="px-4 xl:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">IMPRESSIONS</th>
@@ -257,6 +258,9 @@ export default function CampagnesPage() {
                     <tr key={c.id} className="hover:bg-cockpit-dark transition-colors">
                       <td className="px-4 xl:px-6 py-3">
                         <span className="font-medium text-cockpit-primary text-sm truncate block max-w-[200px] xl:max-w-none">{c.name}</span>
+                      </td>
+                      <td className="px-4 xl:px-6 py-3 text-xs text-cockpit-secondary whitespace-nowrap">
+                        {c.startDate ? new Date(c.startDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
                       </td>
                       <td className="px-4 xl:px-6 py-3">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>

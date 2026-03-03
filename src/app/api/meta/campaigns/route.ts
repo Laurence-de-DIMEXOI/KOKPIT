@@ -4,28 +4,6 @@ import { prisma } from "@/lib/prisma";
 const META_API_VERSION = "v19.0";
 const META_API_URL = `https://graph.facebook.com/${META_API_VERSION}`;
 
-interface MetaCampaign {
-  id: string;
-  name: string;
-  status: string;
-  daily_budget?: number;
-  lifetime_budget?: number;
-  start_time?: string;
-  stop_time?: string;
-  special_ad_categories?: string[];
-  insights?: {
-    data: Array<{
-      spend: string;
-      impressions: string;
-      clicks: string;
-      actions?: Array<{
-        action_type: string;
-        value: string;
-      }>;
-    }>;
-  };
-}
-
 interface FetchResult {
   id: string;
   name: string;
@@ -48,15 +26,14 @@ interface FetchResult {
 
 async function fetchMetaCampaigns(accessToken: string): Promise<FetchResult[]> {
   try {
-    // Récupérer les comptes publicitaires - utiliser l'endpoint correct pour le token utilisateur
+    // 1. Récupérer les comptes publicitaires
     const accountsRes = await fetch(
       `${META_API_URL}/me/adaccounts?fields=id,name,account_id&access_token=${accessToken}`
     );
 
     const accountsText = await accountsRes.text();
-
     if (!accountsRes.ok) {
-      console.error("Meta API response:", accountsText);
+      console.error("Meta API accounts response:", accountsText);
       throw new Error(`Meta API error: ${accountsRes.statusText} - ${accountsText}`);
     }
 
@@ -68,55 +45,165 @@ async function fetchMetaCampaigns(accessToken: string): Promise<FetchResult[]> {
       return [];
     }
 
-    const campaigns: FetchResult[] = [];
+    const results: FetchResult[] = [];
 
-    // Pour chaque compte publicitaire
     for (const account of accounts) {
       const accountId = account.id;
 
-      // Récupérer les campagnes
+      // 2. Récupérer les campagnes (métadonnées seulement, PAS les insights inline)
       const campaignsRes = await fetch(
-        `${META_API_URL}/${accountId}/campaigns?fields=id,name,status,daily_budget,lifetime_budget,start_time,stop_time,insights.fields(spend,impressions,clicks,actions)&access_token=${accessToken}`
+        `${META_API_URL}/${accountId}/campaigns?fields=id,name,status,daily_budget,lifetime_budget,start_time,stop_time&limit=50&access_token=${accessToken}`
       );
-
-      if (!campaignsRes.ok) continue;
+      if (!campaignsRes.ok) {
+        console.error("Erreur campagnes:", await campaignsRes.text());
+        continue;
+      }
 
       const campaignsData = await campaignsRes.json();
       const metaCampaigns = campaignsData.data || [];
 
+      // 3. Pour chaque campagne, récupérer les insights avec time_range lifetime
+      //    ET les insights au niveau adset pour fallback
       for (const campaign of metaCampaigns) {
-        const insights = campaign.insights?.data?.[0];
-
-        const spend = insights?.spend ? parseFloat(insights.spend) : 0;
-        const impressions = insights?.impressions ? parseInt(insights.impressions) : 0;
-        const clicks = insights?.clicks ? parseInt(insights.clicks) : 0;
-
-        // Compter les conversions (peuvent être de plusieurs types)
+        let spend = 0;
+        let impressions = 0;
+        let clicks = 0;
         let conversions = 0;
-        if (insights?.actions) {
-          const purchaseAction = insights.actions.find(
-            (a: any) => a.action_type === "purchase"
+
+        // 3a. Insights au niveau campagne avec time_range (toute la durée)
+        const timeRange = JSON.stringify({
+          since: "2024-01-01",
+          until: new Date().toISOString().split("T")[0],
+        });
+
+        try {
+          const insightsRes = await fetch(
+            `${META_API_URL}/${campaign.id}/insights?fields=spend,impressions,clicks,actions,date_start,date_stop&time_range=${encodeURIComponent(timeRange)}&access_token=${accessToken}`
           );
-          conversions = purchaseAction ? parseInt(purchaseAction.value) : 0;
+
+          if (insightsRes.ok) {
+            const insightsData = await insightsRes.json();
+            const insight = insightsData.data?.[0];
+
+            if (insight) {
+              spend = insight.spend ? parseFloat(insight.spend) : 0;
+              impressions = insight.impressions ? parseInt(insight.impressions) : 0;
+              clicks = insight.clicks ? parseInt(insight.clicks) : 0;
+
+              // Conversions : chercher purchase, lead, complete_registration, etc.
+              if (insight.actions) {
+                for (const action of insight.actions) {
+                  if (
+                    action.action_type === "purchase" ||
+                    action.action_type === "lead" ||
+                    action.action_type === "complete_registration" ||
+                    action.action_type === "offsite_conversion.fb_pixel_purchase"
+                  ) {
+                    conversions += parseInt(action.value) || 0;
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Insights campagne ${campaign.id}:`, err);
         }
 
-        // Calculer les métriques
+        // 3b. Si pas de données au niveau campagne, essayer au niveau ad sets
+        if (spend === 0 && impressions === 0) {
+          try {
+            const adsetsRes = await fetch(
+              `${META_API_URL}/${campaign.id}/adsets?fields=id,name,insights.time_range(${encodeURIComponent(timeRange)}).fields(spend,impressions,clicks,actions)&limit=50&access_token=${accessToken}`
+            );
+
+            if (adsetsRes.ok) {
+              const adsetsData = await adsetsRes.json();
+              const adsets = adsetsData.data || [];
+
+              for (const adset of adsets) {
+                const adsetInsight = adset.insights?.data?.[0];
+                if (adsetInsight) {
+                  spend += adsetInsight.spend ? parseFloat(adsetInsight.spend) : 0;
+                  impressions += adsetInsight.impressions ? parseInt(adsetInsight.impressions) : 0;
+                  clicks += adsetInsight.clicks ? parseInt(adsetInsight.clicks) : 0;
+
+                  if (adsetInsight.actions) {
+                    for (const action of adsetInsight.actions) {
+                      if (
+                        action.action_type === "purchase" ||
+                        action.action_type === "lead" ||
+                        action.action_type === "complete_registration"
+                      ) {
+                        conversions += parseInt(action.value) || 0;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Adsets campagne ${campaign.id}:`, err);
+          }
+        }
+
+        // 3c. Si toujours rien, essayer au niveau ads directement
+        if (spend === 0 && impressions === 0) {
+          try {
+            const adsRes = await fetch(
+              `${META_API_URL}/${campaign.id}/ads?fields=id,insights.time_range(${encodeURIComponent(timeRange)}).fields(spend,impressions,clicks,actions)&limit=50&access_token=${accessToken}`
+            );
+
+            if (adsRes.ok) {
+              const adsData = await adsRes.json();
+              const ads = adsData.data || [];
+
+              for (const ad of ads) {
+                const adInsight = ad.insights?.data?.[0];
+                if (adInsight) {
+                  spend += adInsight.spend ? parseFloat(adInsight.spend) : 0;
+                  impressions += adInsight.impressions ? parseInt(adInsight.impressions) : 0;
+                  clicks += adInsight.clicks ? parseInt(adInsight.clicks) : 0;
+
+                  if (adInsight.actions) {
+                    for (const action of adInsight.actions) {
+                      if (
+                        action.action_type === "purchase" ||
+                        action.action_type === "lead" ||
+                        action.action_type === "complete_registration"
+                      ) {
+                        conversions += parseInt(action.value) || 0;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Ads campagne ${campaign.id}:`, err);
+          }
+        }
+
+        // 4. Calculer les métriques dérivées
         const cpc = clicks > 0 ? spend / clicks : 0;
         const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-        const roas = spend > 0 ? (conversions * 50) / spend : 0; // Estimation (ajuste selon ton AOV)
+        const roas = spend > 0 && conversions > 0 ? (conversions * 50) / spend : 0;
 
-        campaigns.push({
+        // Budget en centimes → euros (Meta envoie en centimes)
+        const rawBudget = campaign.daily_budget || campaign.lifetime_budget || 0;
+        const budget = rawBudget > 1000 ? rawBudget / 100 : rawBudget;
+
+        results.push({
           id: campaign.id,
           name: campaign.name,
           status: campaign.status,
           channel: "META",
           metaCampaignId: campaign.id,
-          spend,
+          spend: parseFloat(spend.toFixed(2)),
           impressions,
           clicks,
           conversions,
           roas: parseFloat(roas.toFixed(2)),
-          budget: campaign.daily_budget || campaign.lifetime_budget,
+          budget: parseFloat(budget.toFixed(2)),
           startDate: campaign.start_time,
           endDate: campaign.stop_time,
           cpc: parseFloat(cpc.toFixed(2)),
@@ -125,7 +212,7 @@ async function fetchMetaCampaigns(accessToken: string): Promise<FetchResult[]> {
       }
     }
 
-    return campaigns;
+    return results;
   } catch (error: any) {
     console.error("Erreur lors de la récupération des campagnes Meta:", error);
     throw error;
@@ -144,17 +231,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Récupérer les campagnes depuis Meta
     const campaigns = await fetchMetaCampaigns(accessToken);
 
     // Synchroniser dans la base de données
     for (const campaign of campaigns) {
-      // Find existing campaign by metaCampaignId
       const existing = await prisma.campagne.findFirst({
         where: { metaCampaignId: campaign.metaCampaignId },
       });
 
-      // Cache des métriques Meta dans metaInsights
       const metaInsights = {
         spend: campaign.spend || 0,
         impressions: campaign.impressions || 0,
@@ -169,7 +253,6 @@ export async function GET(request: NextRequest) {
       };
 
       if (existing) {
-        // Update existing campaign
         await prisma.campagne.update({
           where: { id: existing.id },
           data: {
@@ -182,7 +265,6 @@ export async function GET(request: NextRequest) {
           },
         });
       } else {
-        // Create new campaign
         await prisma.campagne.create({
           data: {
             nom: campaign.name,
