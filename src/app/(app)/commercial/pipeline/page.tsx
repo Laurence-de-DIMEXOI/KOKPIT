@@ -7,6 +7,7 @@ import {
   Loader2,
   ChevronRight,
   Euro,
+  AlertCircle,
 } from "lucide-react";
 
 interface Estimate {
@@ -73,15 +74,21 @@ export default function PipelinePage() {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchEstimates = async () => {
     setRefreshing(true);
+    setError(null);
     try {
-      const res = await fetch("/api/sellsy/estimates?limit=500");
+      const res = await fetch("/api/sellsy/estimates?limit=100");
+      if (!res.ok) {
+        throw new Error(`Erreur API: ${res.status}`);
+      }
       const data = await res.json();
       setEstimates(data.estimates || []);
-    } catch (error) {
-      console.error("Erreur chargement devis:", error);
+    } catch (err) {
+      console.error("Erreur chargement devis:", err);
+      setError(err instanceof Error ? err.message : "Erreur lors du chargement des devis");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -111,6 +118,43 @@ export default function PipelinePage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-cockpit-info" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">
+              Pipeline Devis
+            </h1>
+            <p className="text-cockpit-secondary text-sm">
+              {activeEstimates.length} devis Sellsy
+            </p>
+          </div>
+          <button
+            onClick={fetchEstimates}
+            disabled={refreshing}
+            className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+          >
+            {refreshing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Sync Sellsy
+          </button>
+        </div>
+
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-red-400 mb-1">Erreur de chargement</h3>
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        </div>
       </div>
     );
   }

@@ -10,6 +10,9 @@ import {
   Calendar,
   Filter,
 } from "lucide-react";
+import clsx from "clsx";
+
+type Period = "today" | "week" | "month" | "year";
 
 interface SellsyOrder {
   id: number;
@@ -24,6 +27,44 @@ interface SellsyOrder {
   company?: { id: number; name?: string };
   amounts?: { total?: string; total_excl_tax?: string };
   pdf_link?: string;
+}
+
+const PERIOD_LABELS: Record<Period, string> = {
+  today: "Aujourd'hui",
+  week: "Cette semaine",
+  month: "Ce mois-ci",
+  year: "Cette année",
+};
+
+function getPeriodDates(period: Period): { start: Date; end: Date } {
+  const now = new Date();
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+
+  let start: Date;
+
+  switch (period) {
+    case "today":
+      start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case "week": {
+      start = new Date(now);
+      const day = start.getDay();
+      const diff = day === 0 ? 6 : day - 1; // Lundi = début de semaine
+      start.setDate(start.getDate() - diff);
+      start.setHours(0, 0, 0, 0);
+      break;
+    }
+    case "month":
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case "year":
+      start = new Date(now.getFullYear(), 0, 1);
+      break;
+  }
+
+  return { start, end };
 }
 
 function statusBadge(status: string | undefined) {
@@ -56,6 +97,7 @@ export default function CommandesPage() {
   const [search, setSearch] = useState("");
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState("");
+  const [period, setPeriod] = useState<Period>("month");
 
   const fetchOrders = async () => {
     setRefreshing(true);
@@ -78,14 +120,23 @@ export default function CommandesPage() {
     fetchOrders();
   }, [statusFilter]);
 
+  // Filter by period
+  const { start, end } = getPeriodDates(period);
+  const periodFilteredOrders = orders.filter((o) => {
+    const orderDate = o.created ? new Date(o.created) : null;
+    if (!orderDate) return false;
+    return orderDate >= start && orderDate <= end;
+  });
+
+  // Filter by search
   const filteredOrders = search
-    ? orders.filter(
+    ? periodFilteredOrders.filter(
         (o) =>
           (o.subject || "").toLowerCase().includes(search.toLowerCase()) ||
           (o.reference || "").toLowerCase().includes(search.toLowerCase()) ||
           (o.company_name || o.company?.name || "").toLowerCase().includes(search.toLowerCase())
       )
-    : orders;
+    : periodFilteredOrders;
 
   const totalAmount = filteredOrders.reduce(
     (sum, o) => sum + getOrderAmount(o),
@@ -109,7 +160,7 @@ export default function CommandesPage() {
             Bons de Commande
           </h1>
           <p className="text-cockpit-secondary text-sm">
-            {total} commandes Sellsy • Total:{" "}
+            {filteredOrders.length} commandes • Total:{" "}
             {totalAmount.toLocaleString("fr-FR", {
               style: "currency",
               currency: "EUR",
@@ -128,6 +179,25 @@ export default function CommandesPage() {
           )}
           Sync Sellsy
         </button>
+      </div>
+
+      {/* Period Tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={clsx(
+              "px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all border",
+              period === p
+                ? "bg-cockpit-info/15 text-cockpit-info border-cockpit-info/30"
+                : "bg-cockpit-card text-cockpit-secondary border-cockpit hover:text-cockpit-primary hover:border-cockpit-info/20"
+            )}
+          >
+            <Calendar className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+            {PERIOD_LABELS[p]}
+          </button>
+        ))}
       </div>
 
       {/* Search + Filter */}
