@@ -15,7 +15,8 @@ import {
   MousePointer,
   Eye,
   Clock,
-  CheckCircle2,
+  Calendar,
+  Bug,
 } from "lucide-react";
 
 // ===== TYPES =====
@@ -73,6 +74,18 @@ const statusConfig: Record<string, { label: string; bg: string; text: string }> 
   DELETED: { label: "Supprimée", bg: "bg-[#FF3E1D]/10", text: "text-[#FF3E1D]" },
 };
 
+const periodOptions = [
+  { value: "maximum", label: "Toute la période" },
+  { value: "today", label: "Aujourd'hui" },
+  { value: "yesterday", label: "Hier" },
+  { value: "last_7d", label: "7 derniers jours" },
+  { value: "last_30d", label: "30 derniers jours" },
+  { value: "this_month", label: "Ce mois-ci" },
+  { value: "last_month", label: "Mois dernier" },
+  { value: "this_year", label: "Cette année" },
+  { value: "last_year", label: "Année dernière" },
+];
+
 const StatusBadge = ({ status }: { status: string }) => {
   const cfg = statusConfig[status] || statusConfig.PAUSED;
   return (
@@ -100,63 +113,37 @@ const InsightsCells = ({ i, size = "sm" }: { i: MetaInsight; size?: "sm" | "xs" 
   );
 };
 
-// Parse cached insights (from Prisma metaInsights JSON) back into MetaCampaign
 function parseCachedCampaign(c: any): MetaCampaign {
   const ins = c.metaInsights || {};
-
-  // Reconstruct adsets from cache (if present)
   const cachedAdsets = ins.adsets || [];
   const adsets: MetaAdSet[] = cachedAdsets.map((as: any) => ({
-    id: as.id,
-    name: as.name,
-    status: as.status,
-    dailyBudget: as.dailyBudget || 0,
-    lifetimeBudget: as.lifetimeBudget || 0,
-    targeting: as.targeting,
-    optimization: as.optimization,
+    id: as.id, name: as.name, status: as.status,
+    dailyBudget: as.dailyBudget || 0, lifetimeBudget: as.lifetimeBudget || 0,
+    targeting: as.targeting, optimization: as.optimization,
     insights: {
-      spend: as.insights?.spend || 0,
-      impressions: as.insights?.impressions || 0,
-      clicks: as.insights?.clicks || 0,
-      conversions: as.insights?.conversions || 0,
-      cpc: as.insights?.cpc || 0,
-      ctr: as.insights?.ctr || 0,
-      costPerResult: 0,
+      spend: as.insights?.spend || 0, impressions: as.insights?.impressions || 0,
+      clicks: as.insights?.clicks || 0, conversions: as.insights?.conversions || 0,
+      cpc: as.insights?.cpc || 0, ctr: as.insights?.ctr || 0, costPerResult: 0,
     },
     ads: (as.ads || []).map((ad: any) => ({
-      id: ad.id,
-      name: ad.name,
-      status: ad.status,
-      thumbnailUrl: ad.thumbnailUrl,
+      id: ad.id, name: ad.name, status: ad.status, thumbnailUrl: ad.thumbnailUrl,
       insights: {
-        spend: ad.insights?.spend || 0,
-        impressions: ad.insights?.impressions || 0,
-        clicks: ad.insights?.clicks || 0,
-        conversions: ad.insights?.conversions || 0,
-        cpc: ad.insights?.cpc || 0,
-        ctr: ad.insights?.ctr || 0,
-        costPerResult: 0,
+        spend: ad.insights?.spend || 0, impressions: ad.insights?.impressions || 0,
+        clicks: ad.insights?.clicks || 0, conversions: ad.insights?.conversions || 0,
+        cpc: ad.insights?.cpc || 0, ctr: ad.insights?.ctr || 0, costPerResult: 0,
       },
     })),
   }));
 
   return {
-    id: c.metaCampaignId || c.id,
-    name: c.nom,
+    id: c.metaCampaignId || c.id, name: c.nom,
     status: ins.status || (c.actif ? "ACTIVE" : "PAUSED"),
-    objective: ins.objective || "",
-    dailyBudget: ins.budget || 0,
-    lifetimeBudget: 0,
-    startDate: c.dateDebut,
-    endDate: c.dateFin,
+    objective: ins.objective || "", dailyBudget: ins.budget || 0, lifetimeBudget: 0,
+    startDate: c.dateDebut, endDate: c.dateFin,
     insights: {
-      spend: ins.spend || 0,
-      impressions: ins.impressions || 0,
-      clicks: ins.clicks || 0,
-      conversions: ins.conversions || 0,
-      cpc: ins.cpc || 0,
-      ctr: ins.ctr || 0,
-      costPerResult: 0,
+      spend: ins.spend || 0, impressions: ins.impressions || 0,
+      clicks: ins.clicks || 0, conversions: ins.conversions || 0,
+      cpc: ins.cpc || 0, ctr: ins.ctr || 0, costPerResult: 0,
     },
     adsets,
   };
@@ -173,9 +160,11 @@ export default function CampagnesPage() {
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("maximum");
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   const [kpis, setKpis] = useState({
     totalSpend: 0, totalImpressions: 0, totalClicks: 0, totalConversions: 0,
-    totalCampaigns: 0, totalAdSets: 0, totalAds: 0,
+    totalCampaigns: 0, totalAdSets: 0, totalAds: 0, campaignsWithData: 0,
   });
 
   useEffect(() => { loadFromCache(); }, []);
@@ -190,22 +179,20 @@ export default function CampagnesPage() {
         const mapped: MetaCampaign[] = (data.campagnes || []).map(parseCachedCampaign);
         setCampaigns(mapped);
         computeKPIs(mapped);
-
-        // Get last sync time from first campaign with syncedAt
         const firstWithSync = (data.campagnes || []).find((c: any) => c.metaInsights?.syncedAt);
-        if (firstWithSync) {
-          setSyncedAt(firstWithSync.metaInsights.syncedAt);
-        }
+        if (firstWithSync) setSyncedAt(firstWithSync.metaInsights.syncedAt);
       }
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
   };
 
-  const handleSync = async () => {
+  const handleSync = async (period?: string) => {
+    const p = period || selectedPeriod;
     setSyncing(true);
     setError("");
+    setDebugInfo(null);
     try {
-      const res = await fetch("/api/meta/campaigns");
+      const res = await fetch(`/api/meta/campaigns?period=${p}&debug=1`);
       if (res.ok) {
         const data = await res.json();
         setCampaigns(data.campaigns || []);
@@ -214,10 +201,11 @@ export default function CampagnesPage() {
             totalSpend: data.kpis.totalSpend, totalImpressions: data.kpis.totalImpressions,
             totalClicks: data.kpis.totalClicks, totalConversions: data.kpis.totalConversions,
             totalCampaigns: data.kpis.totalCampaigns, totalAdSets: data.kpis.totalAdSets,
-            totalAds: data.kpis.totalAds,
+            totalAds: data.kpis.totalAds, campaignsWithData: data.kpis.campaignsWithData || 0,
           });
         }
         setSyncedAt(new Date().toISOString());
+        if (data.debug) setDebugInfo(data.debug);
       } else {
         const err = await res.json();
         setError(err.error || "Erreur sync Meta");
@@ -235,6 +223,7 @@ export default function CampagnesPage() {
       totalCampaigns: camps.length,
       totalAdSets: camps.reduce((s, c) => s + c.adsets.length, 0),
       totalAds: camps.reduce((s, c) => s + c.adsets.reduce((ss, a) => ss + a.ads.length, 0), 0),
+      campaignsWithData: camps.filter((c) => c.insights.spend > 0 || c.insights.impressions > 0).length,
     });
   };
 
@@ -252,7 +241,6 @@ export default function CampagnesPage() {
     setExpandedAdSets(next);
   };
 
-  // Sort: ACTIVE first, then PAUSED, then ARCHIVED, then by spend desc
   const statusOrder: Record<string, number> = { ACTIVE: 0, PAUSED: 1, ARCHIVED: 2, DELETED: 3 };
   const sortedCampaigns = [...filteredCampaigns].sort((a, b) => {
     const statusDiff = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
@@ -268,31 +256,58 @@ export default function CampagnesPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">Campagnes</h1>
           <p className="text-cockpit-secondary text-xs sm:text-sm">
             {kpis.totalCampaigns} campagnes · {kpis.totalAdSets} ensembles · {kpis.totalAds} publicités
+            {kpis.campaignsWithData > 0 && (
+              <span className="text-cockpit-success ml-1">({kpis.campaignsWithData} avec données)</span>
+            )}
           </p>
           {syncedAt && (
             <p className="text-cockpit-secondary text-[10px] flex items-center gap-1 mt-0.5">
               <Clock className="w-3 h-3" />
-              Dernière sync : {new Date(syncedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              Sync : {new Date(syncedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
         </div>
-        <button onClick={handleSync} disabled={syncing || loading}
+        <button onClick={() => handleSync()} disabled={syncing || loading}
           className="flex items-center justify-center gap-2 bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm w-full sm:w-auto">
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {syncing ? "Sync en cours..." : "Synchroniser Meta"}
         </button>
       </div>
 
-      {/* Filter */}
-      <div className="relative inline-block">
-        <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
-          className="appearance-none bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs text-cockpit-primary cursor-pointer pr-7">
-          <option value="ALL">Tous les statuts</option>
-          <option value="ACTIVE">Active</option>
-          <option value="PAUSED">En pause</option>
-          <option value="ARCHIVED">Archivée</option>
-        </select>
-        <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
+      {/* Filters row */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Period filter */}
+        <div className="relative inline-block">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-cockpit-secondary" />
+            <select
+              value={selectedPeriod}
+              onChange={(e) => {
+                setSelectedPeriod(e.target.value);
+                // Auto-sync when changing period
+                handleSync(e.target.value);
+              }}
+              className="appearance-none bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs text-cockpit-primary cursor-pointer pr-7"
+            >
+              {periodOptions.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Status filter */}
+        <div className="relative inline-block">
+          <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
+            className="appearance-none bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs text-cockpit-primary cursor-pointer pr-7">
+            <option value="ALL">Tous les statuts</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PAUSED">En pause</option>
+            <option value="ARCHIVED">Archivée</option>
+          </select>
+          <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -308,6 +323,46 @@ export default function CampagnesPage() {
           <AlertCircle className="w-4 h-4 text-[#FF3E1D] flex-shrink-0" />
           <p className="text-xs text-[#FF3E1D]">{error}</p>
         </div>
+      )}
+
+      {/* Debug panel (only shows after sync) */}
+      {debugInfo && (
+        <details className="bg-cockpit-card rounded-lg border border-cockpit p-3">
+          <summary className="flex items-center gap-2 cursor-pointer text-xs text-cockpit-secondary">
+            <Bug className="w-3.5 h-3.5" />
+            Diagnostic Meta API
+          </summary>
+          <div className="mt-3 space-y-2 text-[10px] font-mono text-cockpit-secondary">
+            {debugInfo.accounts && (
+              <p>Comptes : {debugInfo.accounts.map((a: any) => `${a.name} (${a.id})`).join(", ")}</p>
+            )}
+            {debugInfo.counts && (
+              <div className="grid grid-cols-3 gap-2">
+                <p>Campagnes: {debugInfo.counts.campaigns}</p>
+                <p>AdSets: {debugInfo.counts.adsets}</p>
+                <p>Ads: {debugInfo.counts.ads}</p>
+                <p>Insights camp.: {debugInfo.counts.campaignInsights}</p>
+                <p>Insights adset: {debugInfo.counts.adsetInsights}</p>
+                <p>Insights ad: {debugInfo.counts.adInsights}</p>
+              </div>
+            )}
+            {debugInfo.errors?.length > 0 && (
+              <div className="text-[#FF3E1D]">
+                {debugInfo.errors.map((e: any, i: number) => (
+                  <p key={i}>{e.step}: {e.message || JSON.stringify(e.body || "").substring(0, 200)}</p>
+                ))}
+              </div>
+            )}
+            {debugInfo.sampleCampaignInsight && (
+              <div>
+                <p className="font-semibold">Exemple insight :</p>
+                <pre className="overflow-x-auto bg-cockpit-dark rounded p-2 mt-1">
+                  {JSON.stringify(debugInfo.sampleCampaignInsight, null, 2).substring(0, 500)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </details>
       )}
 
       {loading && (
@@ -362,7 +417,7 @@ export default function CampagnesPage() {
           <BarChart3 className="w-12 h-12 mx-auto mb-4 text-cockpit-secondary opacity-50" />
           <h3 className="text-base font-semibold text-cockpit-heading mb-2">Aucune campagne</h3>
           <p className="text-cockpit-secondary text-sm mb-6">Synchronise pour importer tes campagnes Meta</p>
-          <button onClick={handleSync} disabled={syncing}
+          <button onClick={() => handleSync()} disabled={syncing}
             className="bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm">
             Synchroniser maintenant
           </button>
@@ -376,28 +431,30 @@ export default function CampagnesPage() {
 
 function LevelIndicator({ level }: { level: "campaign" | "adset" | "ad" }) {
   const config = {
-    campaign: { icon: <Layers className="w-3.5 h-3.5" />, bg: "bg-[#1877F2]/15", text: "text-[#1877F2]", label: "Campagne" },
-    adset: { icon: null, bg: "bg-cockpit-info/15", text: "text-cockpit-info", label: "Ens." },
-    ad: { icon: <Image className="w-3 h-3" />, bg: "bg-cockpit-warning/15", text: "text-cockpit-warning", label: "Pub" },
+    campaign: { bg: "bg-[#1877F2]/15", text: "text-[#1877F2]", label: "Camp." },
+    adset: { bg: "bg-cockpit-info/15", text: "text-cockpit-info", label: "Ens." },
+    ad: { bg: "bg-cockpit-warning/15", text: "text-cockpit-warning", label: "Pub" },
   };
   const c = config[level];
   return (
-    <div className={`flex items-center justify-center gap-0.5 px-1.5 py-0.5 rounded ${c.bg} flex-shrink-0`}>
-      {c.icon || <span className={`text-[8px] font-bold ${c.text}`}>{c.label}</span>}
+    <div className={`flex items-center justify-center px-1.5 py-0.5 rounded ${c.bg} flex-shrink-0`}>
+      {level === "campaign" ? (
+        <Layers className="w-3.5 h-3.5 text-[#1877F2]" />
+      ) : (
+        <span className={`text-[8px] font-bold ${c.text}`}>{c.label}</span>
+      )}
     </div>
   );
 }
 
-// ===== DESKTOP: Campaign + AdSets + Ads rows =====
+// ===== DESKTOP ROWS =====
 
 function CampaignBlock({ campaign, isExpanded, hasAdSets, toggleCampaign, expandedAdSets, toggleAdSet }: {
   campaign: MetaCampaign; isExpanded: boolean; hasAdSets: boolean;
   toggleCampaign: () => void; expandedAdSets: Set<string>; toggleAdSet: (id: string) => void;
 }) {
-  const hasData = campaign.insights.spend > 0 || campaign.insights.impressions > 0;
   return (
     <>
-      {/* Campaign row */}
       <tr className={`hover:bg-cockpit-dark transition-colors ${hasAdSets ? "cursor-pointer" : ""}`}
         onClick={hasAdSets ? toggleCampaign : undefined}>
         <td className="px-4 py-3">
@@ -410,7 +467,7 @@ function CampaignBlock({ campaign, isExpanded, hasAdSets, toggleCampaign, expand
             <LevelIndicator level="campaign" />
             <div className="min-w-0">
               <p className="text-sm font-medium text-cockpit-primary truncate">{campaign.name}</p>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <StatusBadge status={campaign.status} />
                 {campaign.objective && (
                   <span className="text-[10px] text-cockpit-secondary">{campaign.objective.replace(/_/g, " ")}</span>
@@ -422,7 +479,7 @@ function CampaignBlock({ campaign, isExpanded, hasAdSets, toggleCampaign, expand
                 )}
                 {hasAdSets && (
                   <span className="text-[10px] text-cockpit-secondary font-medium">
-                    {campaign.adsets.length} ens. · {campaign.adsets.reduce((s, a) => s + a.ads.length, 0)} pub{campaign.adsets.reduce((s, a) => s + a.ads.length, 0) > 1 ? "s" : ""}
+                    {campaign.adsets.length} ens. · {campaign.adsets.reduce((s, a) => s + a.ads.length, 0)} pubs
                   </span>
                 )}
               </div>
@@ -432,14 +489,10 @@ function CampaignBlock({ campaign, isExpanded, hasAdSets, toggleCampaign, expand
         <InsightsCells i={campaign.insights} />
       </tr>
 
-      {/* AdSet rows */}
-      {isExpanded && campaign.adsets.map((adset) => {
-        const isAdSetExp = expandedAdSets.has(adset.id);
-        const hasAds = adset.ads.length > 0;
-        return (
-          <AdSetBlock key={adset.id} adset={adset} isExpanded={isAdSetExp} hasAds={hasAds} toggle={() => toggleAdSet(adset.id)} />
-        );
-      })}
+      {isExpanded && campaign.adsets.map((adset) => (
+        <AdSetBlock key={adset.id} adset={adset} isExpanded={expandedAdSets.has(adset.id)}
+          hasAds={adset.ads.length > 0} toggle={() => toggleAdSet(adset.id)} />
+      ))}
     </>
   );
 }
@@ -463,12 +516,8 @@ function AdSetBlock({ adset, isExpanded, hasAds, toggle }: {
               <p className="text-xs font-medium text-cockpit-primary truncate">{adset.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <StatusBadge status={adset.status} />
-                {adset.targeting && (
-                  <span className="text-[9px] text-cockpit-secondary truncate max-w-[200px]">{adset.targeting}</span>
-                )}
-                {hasAds && (
-                  <span className="text-[9px] text-cockpit-secondary">{adset.ads.length} pub{adset.ads.length > 1 ? "s" : ""}</span>
-                )}
+                {adset.targeting && <span className="text-[9px] text-cockpit-secondary truncate max-w-[200px]">{adset.targeting}</span>}
+                {hasAds && <span className="text-[9px] text-cockpit-secondary">{adset.ads.length} pub{adset.ads.length > 1 ? "s" : ""}</span>}
               </div>
             </div>
           </div>
@@ -476,7 +525,6 @@ function AdSetBlock({ adset, isExpanded, hasAds, toggle }: {
         <InsightsCells i={adset.insights} size="xs" />
       </tr>
 
-      {/* Ads rows */}
       {isExpanded && adset.ads.map((ad) => (
         <tr key={ad.id} className="hover:bg-cockpit-dark/30 transition-colors bg-cockpit-dark/10">
           <td className="px-4 py-2">
@@ -522,7 +570,7 @@ function MobileCard({ campaign, expanded, toggle, expandedAdSets, toggleAdSet }:
           </div>
           <p className="text-sm font-bold text-cockpit-yellow flex-shrink-0">{fmtEur(campaign.insights.spend)}</p>
         </div>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1877F2]/10 text-[#1877F2]">Meta</span>
           {hasAdSets && (

@@ -55,24 +55,21 @@ interface MetaCampaign {
 
 // ===== HELPERS =====
 
-// Plage large pour couvrir toutes les campagnes (même 2023)
-const TIME_RANGE = JSON.stringify({
-  since: "2023-01-01",
-  until: new Date().toISOString().split("T")[0],
-});
+// Periods mapped to Meta date_preset or custom time_range
+type Period = "today" | "yesterday" | "last_7d" | "last_30d" | "this_month" | "last_month" | "this_year" | "last_year" | "maximum";
+
+function getDateParam(period: Period): string {
+  // Meta supports date_preset values directly
+  // "maximum" = last 37 months (max reportable)
+  return `date_preset=${period}`;
+}
 
 const INSIGHTS_FIELDS =
   "spend,impressions,clicks,actions,cost_per_action_type,cpc,ctr";
 
 const EMPTY_INSIGHT: MetaInsight = {
-  spend: 0,
-  impressions: 0,
-  clicks: 0,
-  conversions: 0,
-  cpc: 0,
-  ctr: 0,
-  costPerResult: 0,
-  actions: {},
+  spend: 0, impressions: 0, clicks: 0, conversions: 0,
+  cpc: 0, ctr: 0, costPerResult: 0, actions: {},
 };
 
 function parseInsight(data: any): MetaInsight {
@@ -91,19 +88,11 @@ function parseInsight(data: any): MetaInsight {
     for (const action of data.actions) {
       const val = parseInt(action.value || "0", 10);
       actions[action.action_type] = val;
-
-      if (
-        [
-          "lead",
-          "purchase",
-          "complete_registration",
-          "offsite_conversion.fb_pixel_purchase",
-          "offsite_conversion.fb_pixel_lead",
-          "onsite_conversion.messaging_first_reply",
-          "contact_total",
-          "submit_application_total",
-        ].includes(action.action_type)
-      ) {
+      if ([
+        "lead", "purchase", "complete_registration",
+        "offsite_conversion.fb_pixel_purchase", "offsite_conversion.fb_pixel_lead",
+        "onsite_conversion.messaging_first_reply", "contact_total", "submit_application_total",
+      ].includes(action.action_type)) {
         conversions += val;
       }
     }
@@ -130,51 +119,63 @@ function parseBudget(raw: any): number {
 
 async function metaFetch(url: string, accessToken: string): Promise<any> {
   const separator = url.includes("?") ? "&" : "?";
-  const res = await fetch(`${url}${separator}access_token=${accessToken}`);
+  const fullUrl = `${url}${separator}access_token=${accessToken}`;
+  const res = await fetch(fullUrl);
   if (!res.ok) {
     const text = await res.text();
-    console.error(`Meta API error: ${res.status}`, text);
-    return null;
+    console.error(`Meta API error: ${res.status}`, text.substring(0, 500));
+    return { _error: true, status: res.status, body: text.substring(0, 500) };
   }
   return res.json();
 }
 
-// Fetch all pages of a paginated Meta endpoint
 async function metaFetchAll(url: string, accessToken: string): Promise<any[]> {
   const all: any[] = [];
   let nextUrl: string | null = url;
-
   while (nextUrl) {
     const data = await metaFetch(nextUrl, accessToken);
+    if (data?._error) return all; // stop on error
     if (!data?.data) break;
     all.push(...data.data);
     nextUrl = data.paging?.next || null;
-    // Safety limit
     if (all.length > 500) break;
   }
-
   return all;
 }
 
-// ===== BATCH FETCH (optimized: ~6 requests instead of 200+) =====
+// ===== BATCH FETCH =====
 
 async function fetchBatchHierarchy(
-  accessToken: string
-): Promise<MetaCampaign[]> {
+  accessToken: string,
+  period: Period = "maximum"
+): Promise<{ campaigns: MetaCampaign[]; debug: any }> {
+  const debug: any = { period, errors: [], counts: {} };
+
   // 1. Get ad accounts
   const accountsData = await metaFetch(
     `${META_API_URL}/me/adaccounts?fields=id,name,account_id`,
     accessToken
   );
 
-  if (!accountsData?.data?.length) return [];
+  if (accountsData?._error) {
+    debug.errors.push({ step: "adaccounts", ...accountsData });
+    return { campaigns: [], debug };
+  }
+
+  if (!accountsData?.data?.length) {
+    debug.errors.push({ step: "adaccounts", message: "No ad accounts found" });
+    return { campaigns: [], debug };
+  }
+
+  debug.accounts = accountsData.data.map((a: any) => ({ id: a.id, name: a.name }));
 
   const allCampaigns: MetaCampaign[] = [];
+  const dateParam = getDateParam(period);
 
   for (const account of accountsData.data) {
     const accountId = account.id;
 
-    // 2. Fetch ALL data in parallel (batch approach)
+    // 2. Fetch ALL data in parallel
     const [
       campaignsRaw,
       adsetsRaw,
@@ -183,39 +184,51 @@ async function fetchBatchHierarchy(
       adsetInsightsRaw,
       adInsightsRaw,
     ] = await Promise.all([
-      // All campaigns
       metaFetchAll(
         `${META_API_URL}/${accountId}/campaigns?fields=id,name,status,objective,buying_type,daily_budget,lifetime_budget,start_time,stop_time&limit=100`,
         accessToken
       ),
-      // All adsets
       metaFetchAll(
         `${META_API_URL}/${accountId}/adsets?fields=id,name,status,campaign_id,daily_budget,lifetime_budget,targeting,optimization_goal&limit=100`,
         accessToken
       ),
-      // All ads with creative thumbnails
       metaFetchAll(
         `${META_API_URL}/${accountId}/ads?fields=id,name,status,adset_id,creative{id,thumbnail_url}&limit=100`,
         accessToken
       ),
-      // All insights at campaign level (1 request)
+      // Insights at campaign level — use date_preset instead of time_range
       metaFetchAll(
-        `${META_API_URL}/${accountId}/insights?fields=campaign_id,${INSIGHTS_FIELDS}&level=campaign&time_range=${encodeURIComponent(TIME_RANGE)}&limit=200`,
+        `${META_API_URL}/${accountId}/insights?fields=campaign_id,${INSIGHTS_FIELDS}&level=campaign&${dateParam}&limit=500`,
         accessToken
       ),
-      // All insights at adset level (1 request)
       metaFetchAll(
-        `${META_API_URL}/${accountId}/insights?fields=adset_id,${INSIGHTS_FIELDS}&level=adset&time_range=${encodeURIComponent(TIME_RANGE)}&limit=500`,
+        `${META_API_URL}/${accountId}/insights?fields=adset_id,${INSIGHTS_FIELDS}&level=adset&${dateParam}&limit=500`,
         accessToken
       ),
-      // All insights at ad level (1 request)
       metaFetchAll(
-        `${META_API_URL}/${accountId}/insights?fields=ad_id,${INSIGHTS_FIELDS}&level=ad&time_range=${encodeURIComponent(TIME_RANGE)}&limit=500`,
+        `${META_API_URL}/${accountId}/insights?fields=ad_id,${INSIGHTS_FIELDS}&level=ad&${dateParam}&limit=500`,
         accessToken
       ),
     ]);
 
-    // 3. Index insights by ID for O(1) lookup
+    debug.counts = {
+      campaigns: campaignsRaw.length,
+      adsets: adsetsRaw.length,
+      ads: adsRaw.length,
+      campaignInsights: campaignInsightsRaw.length,
+      adsetInsights: adsetInsightsRaw.length,
+      adInsights: adInsightsRaw.length,
+    };
+
+    // Sample first insight for debug
+    if (campaignInsightsRaw.length > 0) {
+      debug.sampleCampaignInsight = campaignInsightsRaw[0];
+    }
+    if (campaignInsightsRaw.length === 0) {
+      debug.errors.push({ step: "campaign_insights", message: "No campaign insights returned by Meta API" });
+    }
+
+    // 3. Index insights by ID
     const campaignInsightsMap = new Map<string, any>();
     for (const row of campaignInsightsRaw) {
       if (row.campaign_id) campaignInsightsMap.set(row.campaign_id, row);
@@ -250,13 +263,11 @@ async function fetchBatchHierarchy(
     // 6. Build hierarchy
     for (const camp of campaignsRaw) {
       const campInsights = parseInsight(campaignInsightsMap.get(camp.id));
-
       const campAdsets = adsetsByCampaign.get(camp.id) || [];
       const adsets: MetaAdSet[] = [];
 
       for (const adset of campAdsets) {
         const adsetInsights = parseInsight(adsetInsightsMap.get(adset.id));
-
         const adsetAds = adsByAdSet.get(adset.id) || [];
         const ads: MetaAd[] = adsetAds.map((ad: any) => ({
           id: ad.id,
@@ -267,33 +278,22 @@ async function fetchBatchHierarchy(
           insights: parseInsight(adInsightsMap.get(ad.id)),
         }));
 
-        // Targeting summary
         let targetingSummary = "";
         if (adset.targeting) {
           const t = adset.targeting;
           const parts: string[] = [];
-          if (t.age_min || t.age_max)
-            parts.push(`${t.age_min || "?"}-${t.age_max || "?"}ans`);
-          if (t.geo_locations?.countries)
-            parts.push(t.geo_locations.countries.join(", "));
+          if (t.age_min || t.age_max) parts.push(`${t.age_min || "?"}-${t.age_max || "?"}ans`);
+          if (t.geo_locations?.countries) parts.push(t.geo_locations.countries.join(", "));
           if (t.genders?.length)
-            parts.push(
-              t.genders.includes(1) ? "Hommes" : t.genders.includes(2) ? "Femmes" : "Tous"
-            );
+            parts.push(t.genders.includes(1) ? "Hommes" : t.genders.includes(2) ? "Femmes" : "Tous");
           targetingSummary = parts.join(" · ");
         }
 
         adsets.push({
-          id: adset.id,
-          name: adset.name,
-          status: adset.status,
-          campaignId: camp.id,
-          dailyBudget: parseBudget(adset.daily_budget),
-          lifetimeBudget: parseBudget(adset.lifetime_budget),
-          targeting: targetingSummary || undefined,
-          optimization: adset.optimization_goal || undefined,
-          insights: adsetInsights,
-          ads,
+          id: adset.id, name: adset.name, status: adset.status, campaignId: camp.id,
+          dailyBudget: parseBudget(adset.daily_budget), lifetimeBudget: parseBudget(adset.lifetime_budget),
+          targeting: targetingSummary || undefined, optimization: adset.optimization_goal || undefined,
+          insights: adsetInsights, ads,
         });
       }
 
@@ -306,34 +306,23 @@ async function fetchBatchHierarchy(
             impressions: adsets.reduce((s, a) => s + a.insights.impressions, 0),
             clicks: adsets.reduce((s, a) => s + a.insights.clicks, 0),
             conversions: adsets.reduce((s, a) => s + a.insights.conversions, 0),
-            cpc: adsets.reduce((s, a) => s + a.insights.clicks, 0) > 0
-              ? adsets.reduce((s, a) => s + a.insights.spend, 0) / adsets.reduce((s, a) => s + a.insights.clicks, 0)
-              : 0,
-            ctr: adsets.reduce((s, a) => s + a.insights.impressions, 0) > 0
-              ? (adsets.reduce((s, a) => s + a.insights.clicks, 0) / adsets.reduce((s, a) => s + a.insights.impressions, 0)) * 100
-              : 0,
-            costPerResult: 0,
-            actions: {},
+            cpc: (() => { const c = adsets.reduce((s, a) => s + a.insights.clicks, 0); const sp = adsets.reduce((s, a) => s + a.insights.spend, 0); return c > 0 ? sp / c : 0; })(),
+            ctr: (() => { const i = adsets.reduce((s, a) => s + a.insights.impressions, 0); const c = adsets.reduce((s, a) => s + a.insights.clicks, 0); return i > 0 ? (c / i) * 100 : 0; })(),
+            costPerResult: 0, actions: {},
           }
         : campInsights;
 
       allCampaigns.push({
-        id: camp.id,
-        name: camp.name,
-        status: camp.status,
-        objective: camp.objective,
-        buyingType: camp.buying_type,
-        dailyBudget: parseBudget(camp.daily_budget),
-        lifetimeBudget: parseBudget(camp.lifetime_budget),
-        startDate: camp.start_time,
-        endDate: camp.stop_time,
-        insights: finalInsights,
-        adsets,
+        id: camp.id, name: camp.name, status: camp.status,
+        objective: camp.objective, buyingType: camp.buying_type,
+        dailyBudget: parseBudget(camp.daily_budget), lifetimeBudget: parseBudget(camp.lifetime_budget),
+        startDate: camp.start_time, endDate: camp.stop_time,
+        insights: finalInsights, adsets,
       });
     }
   }
 
-  return allCampaigns;
+  return { campaigns: allCampaigns, debug };
 }
 
 // ===== ROUTE =====
@@ -342,143 +331,117 @@ export async function GET(request: NextRequest) {
   try {
     const accessToken = process.env.META_ACCESS_TOKEN;
     if (!accessToken) {
-      return NextResponse.json(
-        { error: "META_ACCESS_TOKEN non configuré" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "META_ACCESS_TOKEN non configuré" }, { status: 400 });
     }
 
-    const campaigns = await fetchBatchHierarchy(accessToken);
+    // Period param: today, yesterday, last_7d, last_30d, this_month, last_month, this_year, last_year, maximum
+    const periodParam = request.nextUrl.searchParams.get("period") || "maximum";
+    const validPeriods: Period[] = ["today", "yesterday", "last_7d", "last_30d", "this_month", "last_month", "this_year", "last_year", "maximum"];
+    const period: Period = validPeriods.includes(periodParam as Period) ? (periodParam as Period) : "maximum";
 
-    // Sync en base (stocker la hiérarchie complète dans metaInsights)
-    for (const campaign of campaigns) {
-      try {
-        const metaInsights = {
-          spend: campaign.insights.spend,
-          impressions: campaign.insights.impressions,
-          clicks: campaign.insights.clicks,
-          conversions: campaign.insights.conversions,
-          cpc: campaign.insights.cpc,
-          ctr: campaign.insights.ctr,
-          budget: campaign.dailyBudget || campaign.lifetimeBudget || 0,
-          status: campaign.status,
-          objective: campaign.objective,
-          adsetsCount: campaign.adsets.length,
-          adsCount: campaign.adsets.reduce((s, a) => s + a.ads.length, 0),
-          // Store full hierarchy for cache
-          adsets: campaign.adsets.map((as) => ({
-            id: as.id,
-            name: as.name,
-            status: as.status,
-            dailyBudget: as.dailyBudget,
-            lifetimeBudget: as.lifetimeBudget,
-            targeting: as.targeting,
-            optimization: as.optimization,
-            insights: {
-              spend: as.insights.spend,
-              impressions: as.insights.impressions,
-              clicks: as.insights.clicks,
-              conversions: as.insights.conversions,
-              cpc: as.insights.cpc,
-              ctr: as.insights.ctr,
-            },
-            ads: as.ads.map((ad) => ({
-              id: ad.id,
-              name: ad.name,
-              status: ad.status,
-              thumbnailUrl: ad.thumbnailUrl,
+    // Debug mode
+    const debugMode = request.nextUrl.searchParams.get("debug") === "1";
+
+    const { campaigns, debug } = await fetchBatchHierarchy(accessToken, period);
+
+    // Sync to DB (only for 'maximum' period — the default full data)
+    if (period === "maximum") {
+      for (const campaign of campaigns) {
+        try {
+          const metaInsights = {
+            spend: campaign.insights.spend,
+            impressions: campaign.insights.impressions,
+            clicks: campaign.insights.clicks,
+            conversions: campaign.insights.conversions,
+            cpc: campaign.insights.cpc,
+            ctr: campaign.insights.ctr,
+            budget: campaign.dailyBudget || campaign.lifetimeBudget || 0,
+            status: campaign.status,
+            objective: campaign.objective,
+            adsetsCount: campaign.adsets.length,
+            adsCount: campaign.adsets.reduce((s, a) => s + a.ads.length, 0),
+            adsets: campaign.adsets.map((as) => ({
+              id: as.id, name: as.name, status: as.status,
+              dailyBudget: as.dailyBudget, lifetimeBudget: as.lifetimeBudget,
+              targeting: as.targeting, optimization: as.optimization,
               insights: {
-                spend: ad.insights.spend,
-                impressions: ad.insights.impressions,
-                clicks: ad.insights.clicks,
-                conversions: ad.insights.conversions,
-                cpc: ad.insights.cpc,
-                ctr: ad.insights.ctr,
+                spend: as.insights.spend, impressions: as.insights.impressions,
+                clicks: as.insights.clicks, conversions: as.insights.conversions,
+                cpc: as.insights.cpc, ctr: as.insights.ctr,
               },
+              ads: as.ads.map((ad) => ({
+                id: ad.id, name: ad.name, status: ad.status, thumbnailUrl: ad.thumbnailUrl,
+                insights: {
+                  spend: ad.insights.spend, impressions: ad.insights.impressions,
+                  clicks: ad.insights.clicks, conversions: ad.insights.conversions,
+                  cpc: ad.insights.cpc, ctr: ad.insights.ctr,
+                },
+              })),
             })),
-          })),
-          syncedAt: new Date().toISOString(),
-        };
+            syncedAt: new Date().toISOString(),
+          };
 
-        const existing = await prisma.campagne.findFirst({
-          where: { metaCampaignId: campaign.id },
-        });
-
-        if (existing) {
-          await prisma.campagne.update({
-            where: { id: existing.id },
-            data: {
-              nom: campaign.name,
-              coutTotal: campaign.insights.spend,
-              dateDebut: campaign.startDate
-                ? new Date(campaign.startDate)
-                : undefined,
-              dateFin: campaign.endDate
-                ? new Date(campaign.endDate)
-                : undefined,
-              actif: campaign.status === "ACTIVE",
-              metaInsights,
-            },
-          });
-        } else {
-          await prisma.campagne.create({
-            data: {
-              nom: campaign.name,
-              plateforme: "META",
-              coutTotal: campaign.insights.spend,
-              dateDebut: campaign.startDate
-                ? new Date(campaign.startDate)
-                : undefined,
-              dateFin: campaign.endDate
-                ? new Date(campaign.endDate)
-                : undefined,
-              metaCampaignId: campaign.id,
-              actif: campaign.status === "ACTIVE",
-              metaInsights,
-            },
-          });
+          const existing = await prisma.campagne.findFirst({ where: { metaCampaignId: campaign.id } });
+          if (existing) {
+            await prisma.campagne.update({
+              where: { id: existing.id },
+              data: {
+                nom: campaign.name,
+                coutTotal: campaign.insights.spend,
+                dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
+                dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
+                actif: campaign.status === "ACTIVE",
+                metaInsights,
+              },
+            });
+          } else {
+            await prisma.campagne.create({
+              data: {
+                nom: campaign.name, plateforme: "META",
+                coutTotal: campaign.insights.spend,
+                dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
+                dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
+                metaCampaignId: campaign.id, actif: campaign.status === "ACTIVE",
+                metaInsights,
+              },
+            });
+          }
+        } catch (err) {
+          console.error(`Sync campagne ${campaign.id}:`, err);
         }
-      } catch (err) {
-        console.error(`Sync campagne ${campaign.id}:`, err);
       }
     }
 
-    // KPIs globaux
+    // KPIs
     const totalSpend = campaigns.reduce((s, c) => s + c.insights.spend, 0);
     const totalImpressions = campaigns.reduce((s, c) => s + c.insights.impressions, 0);
     const totalClicks = campaigns.reduce((s, c) => s + c.insights.clicks, 0);
     const totalConversions = campaigns.reduce((s, c) => s + c.insights.conversions, 0);
 
-    return NextResponse.json({
+    const response: any = {
       success: true,
+      period,
       campaigns,
       kpis: {
         totalCampaigns: campaigns.length,
         totalAdSets: campaigns.reduce((s, c) => s + c.adsets.length, 0),
-        totalAds: campaigns.reduce(
-          (s, c) => s + c.adsets.reduce((ss, a) => ss + a.ads.length, 0),
-          0
-        ),
+        totalAds: campaigns.reduce((s, c) => s + c.adsets.reduce((ss, a) => ss + a.ads.length, 0), 0),
         totalSpend: Math.round(totalSpend * 100) / 100,
-        totalImpressions,
-        totalClicks,
-        totalConversions,
-        globalCTR:
-          totalImpressions > 0
-            ? Math.round((totalClicks / totalImpressions) * 10000) / 100
-            : 0,
-        globalCPC:
-          totalClicks > 0
-            ? Math.round((totalSpend / totalClicks) * 100) / 100
-            : 0,
+        totalImpressions, totalClicks, totalConversions,
+        globalCTR: totalImpressions > 0 ? Math.round((totalClicks / totalImpressions) * 10000) / 100 : 0,
+        globalCPC: totalClicks > 0 ? Math.round((totalSpend / totalClicks) * 100) / 100 : 0,
+        campaignsWithData: campaigns.filter((c) => c.insights.spend > 0 || c.insights.impressions > 0).length,
       },
       synced: campaigns.length,
-    });
+    };
+
+    if (debugMode) {
+      response.debug = debug;
+    }
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error("GET /api/meta/campaigns error:", error);
-    return NextResponse.json(
-      { error: error.message || "Erreur serveur" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || "Erreur serveur" }, { status: 500 });
   }
 }
