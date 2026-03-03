@@ -328,52 +328,23 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Space Tabs — onglets horizontaux */}
-      {visibleSpaces.length > 1 && (
-        <div className="px-3 lg:px-4 pt-3 pb-1">
-          <div className="flex gap-1 overflow-x-auto">
-            {visibleSpaces.map((space) => {
-              const Icon = space.icon;
-              const isActive = space.key === activeSpace;
-              return (
-                <button
-                  key={space.key}
-                  onClick={() => setActiveSpace(space.key)}
-                  className={clsx(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
-                    isActive
-                      ? clsx(space.bgActive, space.textActive, "border", space.borderActive)
-                      : "text-cockpit-secondary hover:text-cockpit-primary hover:bg-cockpit-dark/50 border border-transparent"
-                  )}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {space.label}
-                </button>
-              );
-            })}
-          </div>
+      {/* Active space label */}
+      <div className="px-3 lg:px-4 pt-3 pb-1">
+        <div
+          className={clsx(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border",
+            currentSpace.bgActive,
+            currentSpace.textActive,
+            currentSpace.borderActive
+          )}
+        >
+          {(() => {
+            const Icon = currentSpace.icon;
+            return <Icon className="w-3.5 h-3.5" />;
+          })()}
+          <span className="text-xs font-bold">{currentSpace.label}</span>
         </div>
-      )}
-
-      {/* Single space label when only 1 is visible */}
-      {visibleSpaces.length === 1 && (
-        <div className="px-3 lg:px-4 pt-3 pb-1">
-          <div
-            className={clsx(
-              "flex items-center gap-2 px-3 py-2 rounded-lg border",
-              currentSpace.bgActive,
-              currentSpace.textActive,
-              currentSpace.borderActive
-            )}
-          >
-            {(() => {
-              const Icon = currentSpace.icon;
-              return <Icon className="w-3.5 h-3.5" />;
-            })()}
-            <span className="text-xs font-bold">{currentSpace.label}</span>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Navigation — space-specific items */}
       <nav className="flex-1 overflow-y-auto pt-2 pb-4 px-3 lg:px-4">
@@ -401,6 +372,36 @@ export function Sidebar() {
           </>
         )}
       </nav>
+
+      {/* Space Switcher — boutons en bas */}
+      {visibleSpaces.length > 1 && (
+        <div className="border-t border-cockpit px-3 lg:px-4 py-3">
+          <p className="text-[10px] font-semibold text-cockpit-secondary uppercase tracking-widest px-3 mb-2">
+            Services
+          </p>
+          <div className="space-y-1">
+            {visibleSpaces.map((space) => {
+              const Icon = space.icon;
+              const isActive = space.key === activeSpace;
+              return (
+                <button
+                  key={space.key}
+                  onClick={() => setActiveSpace(space.key)}
+                  className={clsx(
+                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                    isActive
+                      ? clsx(space.bgActive, space.textActive, "border", space.borderActive)
+                      : "text-cockpit-secondary hover:text-cockpit-primary hover:bg-cockpit-dark/80 border border-transparent"
+                  )}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  {space.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* User Info Footer */}
       {session?.user && (

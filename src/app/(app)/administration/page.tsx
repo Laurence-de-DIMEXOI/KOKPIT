@@ -31,12 +31,13 @@ const mockKPIs: KPICard[] = [
   {
     icon: <Users className="w-6 h-6" />,
     label: 'Effectif total',
-    value: '12',
+    value: '9',
   },
   {
     icon: <UserCheck className="w-6 h-6" />,
     label: 'En congé aujourd\'hui',
-    value: '2',
+    value: '1',
+    subtitle: 'Michelle Perrot',
   },
   {
     icon: <Clock className="w-6 h-6" />,
@@ -54,31 +55,31 @@ const mockKPIs: KPICard[] = [
 const mockUpcomingLeaves: UpcomingLeave[] = [
   {
     id: '1',
-    name: 'Sophie Martin',
-    startDate: '2026-03-10',
-    endDate: '2026-03-14',
+    name: 'Michelle Perrot',
+    startDate: '2026-03-03',
+    endDate: '2026-03-16',
     type: 'Congé payé',
   },
   {
     id: '2',
-    name: 'Jean Dupont',
-    startDate: '2026-03-15',
-    endDate: '2026-03-15',
+    name: 'Laurent Batisse',
+    startDate: '2026-03-20',
+    endDate: '2026-03-20',
     type: 'RTT',
   },
   {
     id: '3',
-    name: 'Marie Laurent',
-    startDate: '2026-03-18',
-    endDate: '2026-03-20',
+    name: 'Daniella Folio',
+    startDate: '2026-03-25',
+    endDate: '2026-03-28',
     type: 'Congé payé',
   },
   {
     id: '4',
-    name: 'Pierre Moreau',
-    startDate: '2026-03-22',
-    endDate: '2026-03-22',
-    type: 'Maladie',
+    name: 'Laurence Payet',
+    startDate: '2026-04-06',
+    endDate: '2026-04-10',
+    type: 'Congé payé',
   },
 ];
 
