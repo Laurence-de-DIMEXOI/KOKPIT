@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -17,16 +18,14 @@ export async function GET() {
     const totalLeadsBefore = await prisma.lead.count();
 
     // 2. Identifier les demandes récentes (du site web) à GARDER
-    // Ce sont celles qui ont des articles (nouveau format v2)
-    // ou créées aujourd'hui via le formulaire
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const demandesToKeep = await prisma.demandePrix.findMany({
       where: {
         OR: [
-          { articles: { not: null } },           // Nouveau format avec articles
-          { createdAt: { gte: today } },          // Créées aujourd'hui
+          { articles: { not: Prisma.JsonNull } },  // Nouveau format avec articles
+          { createdAt: { gte: today } },             // Créées aujourd'hui
         ],
       },
       select: { id: true, contactId: true },
@@ -42,9 +41,7 @@ export async function GET() {
       },
     });
 
-    // 4. Supprimer les leads qui n'ont PAS de demande récente associée
-    // (leads legacy créés par l'import)
-    // On garde les leads dont le contactId correspond à une demande récente
+    // 4. Supprimer les leads legacy (pas liés à une demande récente)
     const deletedLeads = await prisma.lead.deleteMany({
       where: {
         contactId: { notIn: keepContactIds },
@@ -52,8 +49,7 @@ export async function GET() {
       },
     });
 
-    // 5. Supprimer les événements orphelins liés aux leads supprimés
-    // (événements des anciens imports)
+    // 5. Supprimer les événements orphelins
     const deletedEvenements = await prisma.evenement.deleteMany({
       where: {
         type: "CREATION_LEAD",
@@ -69,30 +65,13 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       message: "Nettoyage terminé",
-      before: {
-        demandes: totalDemandesBefore,
-        leads: totalLeadsBefore,
-      },
-      deleted: {
-        demandes: deletedDemandes.count,
-        leads: deletedLeads.count,
-        evenements: deletedEvenements.count,
-      },
-      after: {
-        demandes: totalDemandesAfter,
-        leads: totalLeadsAfter,
-        contacts: totalContacts,
-      },
-      kept: {
-        demandes: keepIds.length,
-        description: "Demandes avec articles (site web v2) + demandes du jour",
-      },
+      before: { demandes: totalDemandesBefore, leads: totalLeadsBefore },
+      deleted: { demandes: deletedDemandes.count, leads: deletedLeads.count, evenements: deletedEvenements.count },
+      after: { demandes: totalDemandesAfter, leads: totalLeadsAfter, contacts: totalContacts },
+      kept: { demandes: keepIds.length, description: "Demandes avec articles (site web v2) + demandes du jour" },
     });
   } catch (error: any) {
     console.error("Clean legacy error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
