@@ -17,9 +17,20 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(url.searchParams.get("offset") || "0", 10);
     const statutFilter = url.searchParams.get("statut");
 
+    // Filtrer : uniquement les demandes ayant un Lead associé (créées par le webhook)
+    // Les anciennes demandes (import legacy) restent en base pour l'historique contact
+    const whereClause = {
+      contact: {
+        leads: {
+          some: {},
+        },
+      },
+    };
+
     // Récupérer les demandes de prix avec contact
     const [demandesPrix, totalDemandesPrix] = await Promise.all([
       prisma.demandePrix.findMany({
+        where: whereClause,
         include: {
           contact: {
             include: {
@@ -37,7 +48,7 @@ export async function GET(request: NextRequest) {
         take: limit,
         skip: offset,
       }),
-      prisma.demandePrix.count(),
+      prisma.demandePrix.count({ where: whereClause }),
     ]);
 
     // Formater les demandes de prix
