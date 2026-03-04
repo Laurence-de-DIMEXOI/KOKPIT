@@ -173,7 +173,7 @@ export default function ContactsPage() {
       if (data.success) {
         setImportMessage({
           type: "success",
-          text: `Import terminé : ${data.created} créés, ${data.updated} mis à jour, ${data.skipped} ignorés${data.errors > 0 ? `, ${data.errors} erreurs` : ""}`,
+          text: `Import terminé : ${data.created} créés, ${data.updated} mis à jour, ${data.demandesCreated || 0} demandes importées${data.errors > 0 ? `, ${data.errors} erreurs` : ""}`,
         });
         fetchContacts(true);
       } else {

@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
         showroom,
         modePaiement,
         budget,
-        articles: articles ? (articles as unknown as Record<string, unknown>[]) : undefined,
+        articles: articles ? (JSON.parse(JSON.stringify(articles)) as object) : undefined,
         dateDemande: new Date(),
       },
     });
@@ -328,7 +328,7 @@ export async function POST(request: NextRequest) {
           meuble,
           budget,
           showroom,
-          articles: articles ? (articles as unknown as Record<string, unknown>[]) : undefined,
+          articles: articles ? (JSON.parse(JSON.stringify(articles)) as object) : undefined,
           nbArticles: articles?.length || 0,
           demandePrixId: demande.id,
           leadId: lead.id,

@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { contactsData } from "@/data/contacts";
+import { contactDetailsData } from "@/data/contact-details";
 
 /**
  * POST /api/contacts/import-legacy
  *
- * Import one-shot des anciens contacts Glide (fichier statique) dans Supabase.
- * Upsert par email : crée si nouveau, met à jour si existant.
- * Sépare "nom prénom" en deux champs.
+ * Import des anciens contacts Glide + leurs détails (consentements + demandes)
+ * dans Supabase. Upsert par email, puis création des DemandePrix.
  */
 
 function splitNomPrenom(fullName: string): { nom: string; prenom: string } {
   const parts = fullName.trim().split(/\s+/);
   if (parts.length === 0) return { nom: "", prenom: "" };
   if (parts.length === 1) return { nom: parts[0], prenom: "" };
-
-  // Convention Glide : "NOM Prénom" ou "Nom Prénom"
-  // Le premier mot est le nom de famille
   const nom = parts[0];
   const prenom = parts.slice(1).join(" ");
   return { nom, prenom };
@@ -27,6 +24,17 @@ function normalizeShowroom(showroom: string | undefined): string | null {
     return null;
   }
   return showroom;
+}
+
+function parseDate(dateStr: string | null): Date | null {
+  if (!dateStr) return null;
+  // Format DD/MM/YYYY
+  const parts = dateStr.split("/");
+  if (parts.length === 3) {
+    const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T10:00:00`);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
 }
 
 export async function POST() {
@@ -45,16 +53,37 @@ export async function POST() {
     let updated = 0;
     let skipped = 0;
     let errors = 0;
+    let demandesCreated = 0;
     const errorDetails: string[] = [];
 
-    // Récupérer les showrooms existants pour matcher par nom
+    // Récupérer les showrooms existants
     const showrooms = await prisma.showroom.findMany();
     const showroomMap = new Map(
       showrooms.map((s) => [s.nom.toLowerCase(), s.id])
     );
 
-    // Traiter par batch de 50 pour éviter le timeout
-    const batchSize = 50;
+    // Aussi matcher partiellement (ex: "Saint-Denis" → "NORD - Sainte-Clotilde")
+    const showroomFuzzyMap = new Map<string, string>();
+    for (const s of showrooms) {
+      if (s.nom.toLowerCase().includes("nord") || s.nom.toLowerCase().includes("clotilde") || s.nom.toLowerCase().includes("denis")) {
+        showroomFuzzyMap.set("saint-denis", s.id);
+        showroomFuzzyMap.set("sainte-clotilde", s.id);
+        showroomFuzzyMap.set("nord", s.id);
+      }
+      if (s.nom.toLowerCase().includes("sud") || s.nom.toLowerCase().includes("pierre")) {
+        showroomFuzzyMap.set("saint-pierre", s.id);
+        showroomFuzzyMap.set("sud", s.id);
+      }
+    }
+
+    function findShowroomId(showroomNom: string | null): string | null {
+      if (!showroomNom) return null;
+      const lower = showroomNom.toLowerCase();
+      return showroomMap.get(lower) || showroomFuzzyMap.get(lower) || null;
+    }
+
+    // Traiter par batch de 20 pour éviter le timeout
+    const batchSize = 20;
     for (let i = 0; i < contacts.length; i += batchSize) {
       const batch = contacts.slice(i, i + batchSize);
 
@@ -68,21 +97,24 @@ export async function POST() {
 
           const { nom, prenom } = splitNomPrenom(c.nom || "");
           const showroomNom = normalizeShowroom(c.showroom);
-
-          // Trouver le showroom ID
-          let showroomId: string | null = null;
-          if (showroomNom) {
-            showroomId =
-              showroomMap.get(showroomNom.toLowerCase()) || null;
-          }
+          const showroomId = findShowroomId(showroomNom);
 
           // Mapper le stage
-          let lifecycleStage: "PROSPECT" | "LEAD" | "CLIENT" | "INACTIF" =
-            "PROSPECT";
+          let lifecycleStage: "PROSPECT" | "LEAD" | "CLIENT" | "INACTIF" = "PROSPECT";
           if (c.stage === "CLIENT") lifecycleStage = "CLIENT";
-          else if (c.stage === "LEAD" || c.stage === "NEGOCIATION")
-            lifecycleStage = "LEAD";
+          else if (c.stage === "LEAD" || c.stage === "NEGOCIATION") lifecycleStage = "LEAD";
           else if (c.stage === "INACTIF") lifecycleStage = "INACTIF";
+
+          // Récupérer les détails (consentements + demandes)
+          const details = contactDetailsData[email];
+
+          // Consentements
+          const consentOffre = details?.consents?.offre ?? false;
+          const consentNewsletter = details?.consents?.newsletter ?? false;
+          const consentInvitation = details?.consents?.invitation ?? false;
+          const consentDevis = details?.consents?.devis ?? false;
+          // Si au moins un consent, on considère RGPD email accepté
+          const hasAnyConsent = consentOffre || consentNewsletter || consentInvitation || consentDevis;
 
           const result = await prisma.contact.upsert({
             where: { email },
@@ -94,22 +126,65 @@ export async function POST() {
               showroomId,
               sourcePremiere: "GLIDE",
               lifecycleStage,
+              consentOffre,
+              consentNewsletter,
+              consentInvitation,
+              consentDevis,
+              rgpdEmailConsent: hasAnyConsent,
+              rgpdConsentDate: hasAnyConsent ? new Date() : null,
+              rgpdConsentSource: hasAnyConsent ? "import-glide" : null,
             },
             update: {
-              // Ne mettre à jour que si les champs sont vides
-              // Pour ne pas écraser les données mises à jour manuellement
-              nom: { set: nom }, // On force le nom car le format est meilleur (séparé)
+              nom: { set: nom },
               prenom: { set: prenom },
-              // telephone et showroom : ne pas écraser si déjà renseigné
+              ...(c.telephone ? { telephone: c.telephone } : {}),
+              ...(showroomId ? { showroomId } : {}),
+              lifecycleStage,
+              // Mettre à jour les consentements
+              consentOffre,
+              consentNewsletter,
+              consentInvitation,
+              consentDevis,
+              rgpdEmailConsent: hasAnyConsent,
+              ...(hasAnyConsent ? {
+                rgpdConsentDate: new Date(),
+                rgpdConsentSource: "import-glide",
+              } : {}),
             },
           });
 
-          // Vérifier si c'était un create ou update (par createdAt vs updatedAt)
-          const isNew =
-            result.createdAt.getTime() ===
-            result.updatedAt.getTime();
+          const isNew = result.createdAt.getTime() === result.updatedAt.getTime();
           if (isNew) created++;
           else updated++;
+
+          // Créer les DemandePrix depuis les requests legacy
+          if (details?.requests && details.requests.length > 0) {
+            for (const req of details.requests) {
+              if (!req.meuble || req.meuble === "TEST") continue;
+
+              // Vérifier si cette demande existe déjà (par contactId + meuble + message)
+              const existing = await prisma.demandePrix.findFirst({
+                where: {
+                  contactId: result.id,
+                  meuble: req.meuble,
+                  ...(req.message ? { message: req.message } : {}),
+                },
+              });
+
+              if (!existing) {
+                await prisma.demandePrix.create({
+                  data: {
+                    contactId: result.id,
+                    meuble: req.meuble,
+                    message: req.message || null,
+                    showroom: showroomNom,
+                    dateDemande: parseDate(req.date) || null,
+                  },
+                });
+                demandesCreated++;
+              }
+            }
+          }
         } catch (err: any) {
           errors++;
           if (errorDetails.length < 10) {
@@ -128,6 +203,7 @@ export async function POST() {
       updated,
       skipped,
       errors,
+      demandesCreated,
       errorDetails: errorDetails.length > 0 ? errorDetails : undefined,
     });
   } catch (error: any) {
@@ -148,17 +224,39 @@ export async function GET() {
       .filter(Boolean)
   );
 
-  // Compter combien existent déjà en base
+  // Détails disponibles
+  const detailsEmails = Object.keys(contactDetailsData);
+  const withConsents = detailsEmails.filter(
+    (e) => contactDetailsData[e]?.consents && (
+      contactDetailsData[e].consents.offre ||
+      contactDetailsData[e].consents.newsletter ||
+      contactDetailsData[e].consents.invitation ||
+      contactDetailsData[e].consents.devis
+    )
+  ).length;
+  const withRequests = detailsEmails.filter(
+    (e) => contactDetailsData[e]?.requests?.length > 0
+  ).length;
+  const totalRequests = detailsEmails.reduce(
+    (sum, e) => sum + (contactDetailsData[e]?.requests?.length || 0), 0
+  );
+
   const existingCount = await prisma.contact.count({
-    where: {
-      email: { in: Array.from(emails) },
-    },
+    where: { email: { in: Array.from(emails) } },
   });
+
+  const existingDemandes = await prisma.demandePrix.count();
 
   return NextResponse.json({
     totalStaticContacts: contacts.length,
     uniqueEmails: emails.size,
     alreadyInDatabase: existingCount,
     toImport: emails.size - existingCount,
+    details: {
+      withConsents,
+      withRequests,
+      totalRequests,
+    },
+    existingDemandes,
   });
 }
