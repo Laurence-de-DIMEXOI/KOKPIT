@@ -13,7 +13,6 @@ import {
   Link2,
   DollarSign,
   CheckCircle2,
-  Download,
   Upload,
   AlertCircle,
 } from "lucide-react";
@@ -54,8 +53,8 @@ interface SellsySuggestion {
 
 const sourceConfig: Record<string, { label: string; bg: string; text: string }> = {
   GLIDE: { label: "Glide", bg: "bg-purple-500/10", text: "text-purple-400" },
-  HUBSPOT: { label: "HubSpot", bg: "bg-orange-500/10", text: "text-orange-400" },
-  WEBHOOK: { label: "Web", bg: "bg-cockpit-info/10", text: "text-cockpit-info" },
+  SITE_WEB: { label: "Site Web", bg: "bg-cockpit-info/10", text: "text-cockpit-info" },
+  WEBHOOK: { label: "Webhook", bg: "bg-blue-500/10", text: "text-blue-400" },
   MANUAL: { label: "Manuel", bg: "bg-cockpit-secondary/10", text: "text-cockpit-secondary" },
 };
 
@@ -77,9 +76,8 @@ export default function ContactsPage() {
   const [stageFilter, setStageFilter] = useState<string>("ALL");
   const [sourceFilter, setSourceFilter] = useState<string>("ALL");
 
-  // Import / Sync states
+  // Import states
   const [importingLegacy, setImportingLegacy] = useState(false);
-  const [syncingHubSpot, setSyncingHubSpot] = useState(false);
   const [importMessage, setImportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Sellsy data
@@ -118,9 +116,9 @@ export default function ContactsPage() {
           contacts = contacts.filter((c: any) => {
             const src = (c.sourcePremiere || "").toUpperCase();
             if (sourceFilter === "GLIDE") return src === "GLIDE";
-            if (sourceFilter === "HUBSPOT") return src === "HUBSPOT";
+            if (sourceFilter === "SITE_WEB") return src === "SITE_WEB" || src === "SITE-WEB" || src === "SITE-WEB-V2";
             if (sourceFilter === "WEBHOOK") return src === "WEBHOOK" || src === "GLIDE_WEBHOOK";
-            return src !== "GLIDE" && src !== "HUBSPOT" && src !== "WEBHOOK";
+            return src !== "GLIDE" && src !== "WEBHOOK";
           });
         }
 
@@ -185,29 +183,6 @@ export default function ContactsPage() {
       setImportMessage({ type: "error", text: err.message });
     } finally {
       setImportingLegacy(false);
-    }
-  };
-
-  // Sync HubSpot
-  const handleSyncHubSpot = async () => {
-    setSyncingHubSpot(true);
-    setImportMessage(null);
-    try {
-      const res = await fetch("/api/hubspot/sync", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setImportMessage({
-          type: "success",
-          text: `HubSpot : ${data.created} créés, ${data.updated} mis à jour (${data.totalFromHubSpot} contacts HubSpot)`,
-        });
-        fetchContacts(true);
-      } else {
-        setImportMessage({ type: "error", text: data.error || "Erreur sync HubSpot" });
-      }
-    } catch (err: any) {
-      setImportMessage({ type: "error", text: err.message });
-    } finally {
-      setSyncingHubSpot(false);
     }
   };
 
@@ -299,11 +274,6 @@ export default function ContactsPage() {
             {importingLegacy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{importingLegacy ? "Import..." : "Import anciens"}</span>
           </button>
-          <button onClick={handleSyncHubSpot} disabled={syncingHubSpot}
-            className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
-            {syncingHubSpot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5 text-orange-400" />}
-            <span className="hidden sm:inline">{syncingHubSpot ? "Sync..." : "Sync HubSpot"}</span>
-          </button>
           <button onClick={() => fetchContacts(true)} disabled={refreshing}
             className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
             {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -356,7 +326,7 @@ export default function ContactsPage() {
             className="bg-cockpit-input border border-cockpit-input px-3 py-2.5 rounded-input text-xs text-cockpit-primary">
             <option value="ALL">Toutes les sources</option>
             <option value="GLIDE">Glide (anciens)</option>
-            <option value="HUBSPOT">HubSpot</option>
+            <option value="SITE_WEB">Site Web</option>
             <option value="WEBHOOK">Webhook</option>
           </select>
         </div>
@@ -426,11 +396,6 @@ export default function ContactsPage() {
                             className="flex items-center gap-2 bg-cockpit-yellow text-cockpit-bg px-4 py-2 rounded-lg font-semibold hover:opacity-90 text-sm disabled:opacity-50">
                             {importingLegacy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                             Importer les anciens contacts
-                          </button>
-                          <button onClick={handleSyncHubSpot} disabled={syncingHubSpot}
-                            className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 text-sm disabled:opacity-50">
-                            {syncingHubSpot ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                            Sync HubSpot
                           </button>
                         </div>
                       </div>

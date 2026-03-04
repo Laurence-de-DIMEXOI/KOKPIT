@@ -1,25 +1,89 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { KPICard } from "@/components/dashboard/kpi-card";
-import { Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
+import {
+  Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2,
+  ChevronDown, ChevronUp, Package, Phone, Mail, MapPin,
+  DollarSign, Sparkles, User, Calendar, MessageSquare, Tag,
+  CheckCircle, XCircle, FileText,
+} from "lucide-react";
+
+// ===== TYPES =====
+
+interface Article {
+  nom: string;
+  categorie?: string;
+  finition?: string;
+  quantite?: number;
+}
 
 interface Demande {
   id: string;
   type: "DEMANDE_PRIX";
+  contactId: string;
   nom: string;
   prenom: string;
   email: string;
   telephone: string | null;
   source: string;
   statut: string;
+  priorite: string;
   meuble?: string;
-  showroom?: string;
+  message?: string | null;
+  showroom?: string | null;
+  budget?: string | null;
+  modePaiement?: string | null;
+  articles?: Article[] | null;
+  leadId?: string | null;
   assigneA?: string;
+  assigneEmail?: string | null;
+  commercialId?: string | null;
+  notes?: string | null;
+  slaDeadline?: string | null;
   dateCreation: string;
   dateDemande?: string | null;
 }
+
+interface SellsyMatch {
+  articleDemande: {
+    nom: string;
+    categorie?: string;
+    finition?: string;
+    quantite: number;
+  };
+  bestMatch: {
+    id: number;
+    name: string;
+    reference: string;
+    prixHT: number;
+    prixTTC: number;
+    score: number;
+  } | null;
+  matchesSellsy: {
+    id: number;
+    name: string;
+    reference: string;
+    prixHT: number;
+    prixTTC: number;
+    score: number;
+    matchType: string;
+  }[];
+  estimatedValueHT: number;
+  estimatedValueTTC: number;
+}
+
+interface SellsyResult {
+  success: boolean;
+  matches: SellsyMatch[];
+  totalEstimatedHT: number;
+  totalEstimatedTTC: number;
+  catalogSize: number;
+  error?: string;
+}
+
+// ===== COMPONENT =====
 
 export default function LeadsPage() {
   const { data: session } = useSession();
@@ -27,28 +91,27 @@ export default function LeadsPage() {
   const [stats, setStats] = useState({
     total: 0,
     nouveau: 0,
-    encours: 0,
+    enCours: 0,
     devis: 0,
+    vente: 0,
+    perdu: 0,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sellsyResults, setSellsyResults] = useState<Record<string, SellsyResult>>({});
+  const [sellsyLoading, setSellsyLoading] = useState<Record<string, boolean>>({});
+  const [statutFilter, setStatutFilter] = useState<string>("ALL");
 
-  const fetchDemandes = async (showLoader = true) => {
+  const fetchDemandes = useCallback(async (showLoader = true) => {
     if (showLoader) setRefreshing(true);
     try {
       const response = await fetch("/api/demandes");
       const result = await response.json();
-
       const demandesArray = result.data || [];
-
       setDemandes(demandesArray);
-      setStats({
-        total: demandesArray.length,
-        nouveau: demandesArray.filter((d: Demande) => d.statut === "NOUVEAU").length,
-        encours: demandesArray.filter((d: Demande) => d.statut === "EN_COURS").length,
-        devis: demandesArray.filter((d: Demande) => d.statut === "DEVIS").length,
-      });
+      if (result.stats) setStats(result.stats);
       setLastUpdate(new Date());
     } catch (error) {
       console.error("Erreur:", error);
@@ -56,33 +119,99 @@ export default function LeadsPage() {
       setLoading(false);
       if (showLoader) setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDemandes(true);
-  }, []);
+  }, [fetchDemandes]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchDemandes(false);
-    }, 10000);
+    const interval = setInterval(() => fetchDemandes(false), 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchDemandes]);
+
+  // ===== SELLSY AI MATCH =====
+
+  const fetchSellsyMatch = async (demandeId: string) => {
+    if (sellsyResults[demandeId] || sellsyLoading[demandeId]) return;
+    setSellsyLoading((prev) => ({ ...prev, [demandeId]: true }));
+    try {
+      const res = await fetch(`/api/demandes/${demandeId}/match-sellsy`);
+      const data = await res.json();
+      setSellsyResults((prev) => ({ ...prev, [demandeId]: data }));
+    } catch (err) {
+      setSellsyResults((prev) => ({
+        ...prev,
+        [demandeId]: { success: false, matches: [], totalEstimatedHT: 0, totalEstimatedTTC: 0, catalogSize: 0, error: "Erreur de connexion" },
+      }));
+    } finally {
+      setSellsyLoading((prev) => ({ ...prev, [demandeId]: false }));
+    }
+  };
+
+  // ===== UPDATE STATUT =====
+
+  const updateStatut = async (leadId: string, newStatut: string) => {
+    try {
+      await fetch("/api/demandes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, statut: newStatut }),
+      });
+      fetchDemandes(false);
+    } catch (err) {
+      console.error("Erreur update statut:", err);
+    }
+  };
+
+  // ===== EXPAND =====
+
+  const toggleExpand = (id: string) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+    } else {
+      setExpandedId(id);
+      fetchSellsyMatch(id);
+    }
+  };
+
+  // ===== HELPERS =====
 
   const getStatusColor = (statut: string) => {
-    const colors: Record<string, { bg: string; text: string }> = {
-      NOUVEAU: { bg: "bg-[#71DD37]/10", text: "text-[#71DD37]" },
-      EN_COURS: { bg: "bg-[#F59E0B]/10", text: "text-[#F59E0B]" },
-      DEVIS: { bg: "bg-[#60A5FA]/10", text: "text-[#60A5FA]" },
-      VENTE: { bg: "bg-[#34D399]/10", text: "text-[#34D399]" },
-      PERDU: { bg: "bg-[#EF4444]/10", text: "text-[#EF4444]" },
+    const colors: Record<string, { bg: string; text: string; ring: string }> = {
+      NOUVEAU: { bg: "bg-[#71DD37]/10", text: "text-[#71DD37]", ring: "ring-[#71DD37]/30" },
+      EN_COURS: { bg: "bg-[#F59E0B]/10", text: "text-[#F59E0B]", ring: "ring-[#F59E0B]/30" },
+      DEVIS: { bg: "bg-[#60A5FA]/10", text: "text-[#60A5FA]", ring: "ring-[#60A5FA]/30" },
+      VENTE: { bg: "bg-[#34D399]/10", text: "text-[#34D399]", ring: "ring-[#34D399]/30" },
+      PERDU: { bg: "bg-[#EF4444]/10", text: "text-[#EF4444]", ring: "ring-[#EF4444]/30" },
     };
-    return colors[statut] || { bg: "bg-gray-100", text: "text-gray-600" };
+    return colors[statut] || { bg: "bg-gray-500/10", text: "text-gray-400", ring: "ring-gray-500/30" };
   };
 
-  const nomComplet = (demande: Demande) => {
-    return `${demande.prenom || ""} ${demande.nom || ""}`.trim();
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-[#34D399]";
+    if (score >= 50) return "text-[#F59E0B]";
+    return "text-[#EF4444]";
   };
+
+  const nomComplet = (d: Demande) => `${d.prenom || ""} ${d.nom || ""}`.trim();
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+
+  const formatDateTime = (iso: string) =>
+    new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  const isSlaExpired = (sla: string | null | undefined) => {
+    if (!sla) return false;
+    return new Date(sla) < new Date();
+  };
+
+  const filteredDemandes = statutFilter === "ALL"
+    ? demandes
+    : demandes.filter((d) => d.statut === statutFilter);
+
+  // ===== RENDER =====
 
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
@@ -93,7 +222,7 @@ export default function LeadsPage() {
             Demandes de Prix
           </h1>
           <p className="text-cockpit-secondary text-sm">
-            Gérez les demandes de prix en provenance de Glide
+            Gérez les demandes · Estimation IA via catalogue Sellsy
           </p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
@@ -102,15 +231,8 @@ export default function LeadsPage() {
             disabled={refreshing}
             className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
           >
-            {refreshing ? (
-              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
-            )}
+            {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             <span className="hidden sm:inline">Actualiser</span>
-          </button>
-          <button className="bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm">
-            + <span className="hidden sm:inline">Nouvelle demande</span><span className="sm:hidden">Nouveau</span>
           </button>
         </div>
       </div>
@@ -118,135 +240,415 @@ export default function LeadsPage() {
       {/* Auto-refresh indicator */}
       <div className="flex items-center gap-2 text-xs text-cockpit-secondary">
         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-        Auto 10s • {lastUpdate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+        Auto 15s • {lastUpdate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
-        <KPICard
-          title="Total"
-          value={stats.total}
-          icon={<Inbox className="w-7 h-7" />}
-          bgColor="bg-cockpit-yellow"
-        />
-        <KPICard
-          title="Nouveau"
-          value={stats.nouveau}
-          icon={<TrendingUp className="w-7 h-7" />}
-          bgColor="bg-cockpit-info"
-        />
-        <KPICard
-          title="En cours"
-          value={stats.encours}
-          icon={<Clock className="w-7 h-7" />}
-          bgColor="bg-cockpit-warning"
-        />
-        <KPICard
-          title="Devis"
-          value={stats.devis}
-          icon={<AlertCircle className="w-7 h-7" />}
-          bgColor="bg-cockpit-success"
-        />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <KPICard title="Total" value={stats.total} icon={<Inbox className="w-6 h-6" />} bgColor="bg-cockpit-yellow" />
+        <KPICard title="Nouveau" value={stats.nouveau} icon={<TrendingUp className="w-6 h-6" />} bgColor="bg-[#71DD37]" />
+        <KPICard title="En cours" value={stats.enCours} icon={<Clock className="w-6 h-6" />} bgColor="bg-[#F59E0B]" />
+        <KPICard title="Devis" value={stats.devis} icon={<FileText className="w-6 h-6" />} bgColor="bg-[#60A5FA]" />
+        <KPICard title="Vente" value={stats.vente} icon={<CheckCircle className="w-6 h-6" />} bgColor="bg-[#34D399]" />
+        <KPICard title="Perdu" value={stats.perdu} icon={<XCircle className="w-6 h-6" />} bgColor="bg-[#EF4444]" />
       </div>
 
-      {/* Table desktop / Cards mobile */}
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
-        {/* Vue tableau (md+) */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-cockpit-dark border-b border-cockpit">
-              <tr>
-                <th className="px-4 lg:px-8 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">TYPE</th>
-                <th className="px-4 lg:px-8 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">CONTACT</th>
-                <th className="px-4 lg:px-8 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">MEUBLE</th>
-                <th className="px-4 lg:px-8 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading hidden lg:table-cell">SOURCE</th>
-                <th className="px-4 lg:px-8 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">STATUT</th>
-                <th className="px-4 lg:px-8 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading hidden xl:table-cell">ASSIGNÉ À</th>
-                <th className="px-4 lg:px-8 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-cockpit-heading">DATE</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cockpit">
-              {demandes.length > 0 ? (
-                demandes.map((demande) => {
-                  const statusColor = getStatusColor(demande.statut);
-                  return (
-                    <tr key={demande.id} className="hover:bg-cockpit-dark transition-colors">
-                      <td className="px-4 lg:px-8 py-3 lg:py-4 text-center text-lg">📋</td>
-                      <td className="px-4 lg:px-8 py-3 lg:py-4">
-                        <div className="font-medium text-cockpit-primary text-sm">{nomComplet(demande)}</div>
-                        <div className="text-xs text-cockpit-secondary truncate max-w-[180px]">{demande.email}</div>
-                      </td>
-                      <td className="px-4 lg:px-8 py-3 lg:py-4 text-cockpit-secondary text-sm">{demande.meuble || "—"}</td>
-                      <td className="px-4 lg:px-8 py-3 lg:py-4 text-cockpit-secondary text-sm hidden lg:table-cell">{demande.source}</td>
-                      <td className="px-4 lg:px-8 py-3 lg:py-4">
-                        <span className={`inline-block px-2 lg:px-3 py-1 rounded-full text-xs font-semibold ${statusColor.bg} ${statusColor.text}`}>
-                          {demande.statut}
-                        </span>
-                      </td>
-                      <td className="px-4 lg:px-8 py-3 lg:py-4 text-cockpit-secondary text-sm hidden xl:table-cell">{demande.assigneA || "—"}</td>
-                      <td className="px-4 lg:px-8 py-3 lg:py-4 text-cockpit-secondary text-xs lg:text-sm">
-                        {new Date(demande.dateCreation).toLocaleDateString("fr-FR")}
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={7} className="px-4 lg:px-8 py-12 text-center text-cockpit-secondary">
-                    {loading ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Chargement...
-                      </div>
-                    ) : (
-                      "Aucune demande"
-                    )}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Filters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {["ALL", "NOUVEAU", "EN_COURS", "DEVIS", "VENTE", "PERDU"].map((s) => {
+          const label: Record<string, string> = {
+            ALL: "Tous",
+            NOUVEAU: "Nouveau",
+            EN_COURS: "En cours",
+            DEVIS: "Devis",
+            VENTE: "Vente",
+            PERDU: "Perdu",
+          };
+          const isActive = statutFilter === s;
+          const sc = s !== "ALL" ? getStatusColor(s) : { bg: "", text: "", ring: "" };
+          return (
+            <button
+              key={s}
+              onClick={() => setStatutFilter(s)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                isActive
+                  ? s === "ALL"
+                    ? "bg-cockpit-yellow text-cockpit-bg"
+                    : `${sc.bg} ${sc.text} ring-1 ${sc.ring}`
+                  : "bg-cockpit-card border border-cockpit text-cockpit-secondary hover:text-cockpit-primary"
+              }`}
+            >
+              {label[s]}
+            </button>
+          );
+        })}
+        <span className="text-xs text-cockpit-secondary ml-2">
+          {filteredDemandes.length} demande{filteredDemandes.length !== 1 ? "s" : ""}
+        </span>
+      </div>
 
-        {/* Vue cartes (mobile) */}
-        <div className="md:hidden divide-y divide-cockpit">
-          {loading ? (
-            <div className="flex items-center justify-center py-12 gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-cockpit-secondary text-sm">Chargement...</span>
-            </div>
-          ) : demandes.length > 0 ? (
-            demandes.map((demande) => {
-              const statusColor = getStatusColor(demande.statut);
-              return (
-                <div key={demande.id} className="p-4 hover:bg-cockpit-dark transition-colors active:bg-cockpit-dark/80">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">📋</span>
-                        <p className="text-cockpit-primary font-medium text-sm truncate">{nomComplet(demande)}</p>
-                      </div>
-                      <p className="text-cockpit-secondary text-xs truncate mt-1">{demande.email}</p>
-                      {demande.meuble && (
-                        <p className="text-cockpit-secondary text-xs mt-1">Meuble: {demande.meuble}</p>
+      {/* Demandes list */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="bg-cockpit-card rounded-card border border-cockpit p-12 text-center">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+            <span className="text-cockpit-secondary text-sm">Chargement...</span>
+          </div>
+        ) : filteredDemandes.length === 0 ? (
+          <div className="bg-cockpit-card rounded-card border border-cockpit p-12 text-center">
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-cockpit-secondary" />
+            <p className="text-cockpit-secondary">Aucune demande</p>
+          </div>
+        ) : (
+          filteredDemandes.map((demande) => {
+            const isExpanded = expandedId === demande.id;
+            const statusColor = getStatusColor(demande.statut);
+            const sellsy = sellsyResults[demande.id];
+            const sellsyIsLoading = sellsyLoading[demande.id];
+            const articles = demande.articles as Article[] | null;
+            const slaExpired = isSlaExpired(demande.slaDeadline);
+
+            return (
+              <div
+                key={demande.id}
+                className={`bg-cockpit-card rounded-card border transition-all ${
+                  isExpanded ? "border-cockpit-yellow/50 shadow-cockpit-lg" : "border-cockpit hover:border-cockpit-yellow/30"
+                }`}
+              >
+                {/* Row principal — cliquable */}
+                <div
+                  className="flex items-center gap-3 px-4 lg:px-6 py-3 lg:py-4 cursor-pointer"
+                  onClick={() => toggleExpand(demande.id)}
+                >
+                  {/* Icône expand */}
+                  <div className="flex-shrink-0 text-cockpit-secondary">
+                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
+
+                  {/* Contact */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-cockpit-primary text-sm truncate">
+                        {nomComplet(demande)}
+                      </span>
+                      {slaExpired && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded font-semibold">
+                          SLA
+                        </span>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor.bg} ${statusColor.text}`}>
-                        {demande.statut}
-                      </span>
-                      <span className="text-[10px] text-cockpit-secondary">
-                        {new Date(demande.dateCreation).toLocaleDateString("fr-FR")}
-                      </span>
+                    <p className="text-xs text-cockpit-secondary truncate">
+                      {demande.meuble || "Produit non spécifié"}
+                    </p>
+                  </div>
+
+                  {/* Showroom */}
+                  <div className="hidden md:block text-xs text-cockpit-secondary min-w-[100px]">
+                    {demande.showroom || "—"}
+                  </div>
+
+                  {/* Budget */}
+                  <div className="hidden lg:block text-xs text-cockpit-secondary min-w-[100px]">
+                    {demande.budget || "—"}
+                  </div>
+
+                  {/* Assigné */}
+                  <div className="hidden xl:flex items-center gap-1.5 text-xs text-cockpit-secondary min-w-[120px]">
+                    <User className="w-3 h-3" />
+                    <span className="truncate">{demande.assigneA || "Non assigné"}</span>
+                  </div>
+
+                  {/* Statut */}
+                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${statusColor.bg} ${statusColor.text}`}>
+                    {demande.statut === "EN_COURS" ? "En cours" : demande.statut.charAt(0) + demande.statut.slice(1).toLowerCase()}
+                  </span>
+
+                  {/* Date */}
+                  <span className="text-xs text-cockpit-secondary flex-shrink-0 hidden sm:block min-w-[80px] text-right">
+                    {formatDate(demande.dateCreation)}
+                  </span>
+
+                  {/* Estimation IA */}
+                  {sellsy?.totalEstimatedTTC ? (
+                    <span className="text-xs font-bold text-cockpit-yellow flex-shrink-0 min-w-[80px] text-right">
+                      {sellsy.totalEstimatedTTC.toFixed(0)}€
+                    </span>
+                  ) : (
+                    <span className="min-w-[80px] hidden lg:block" />
+                  )}
+                </div>
+
+                {/* Détails expandés */}
+                {isExpanded && (
+                  <div className="border-t border-cockpit px-4 lg:px-6 py-4 lg:py-6 space-y-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                      {/* Col 1 — Contact & Demande */}
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
+                          <User className="w-4 h-4 text-cockpit-yellow" />
+                          Contact
+                        </h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2 text-cockpit-primary">
+                            <Mail className="w-3.5 h-3.5 text-cockpit-secondary" />
+                            <a href={`mailto:${demande.email}`} className="hover:text-cockpit-yellow transition-colors">
+                              {demande.email}
+                            </a>
+                          </div>
+                          {demande.telephone && (
+                            <div className="flex items-center gap-2 text-cockpit-primary">
+                              <Phone className="w-3.5 h-3.5 text-cockpit-secondary" />
+                              <a href={`tel:${demande.telephone}`} className="hover:text-cockpit-yellow transition-colors">
+                                {demande.telephone}
+                              </a>
+                            </div>
+                          )}
+                          {demande.showroom && (
+                            <div className="flex items-center gap-2 text-cockpit-primary">
+                              <MapPin className="w-3.5 h-3.5 text-cockpit-secondary" />
+                              {demande.showroom}
+                            </div>
+                          )}
+                          {demande.budget && (
+                            <div className="flex items-center gap-2 text-cockpit-primary">
+                              <DollarSign className="w-3.5 h-3.5 text-cockpit-secondary" />
+                              Budget: {demande.budget}
+                            </div>
+                          )}
+                          {demande.modePaiement && (
+                            <div className="flex items-center gap-2 text-cockpit-primary">
+                              <Tag className="w-3.5 h-3.5 text-cockpit-secondary" />
+                              {demande.modePaiement}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-cockpit-secondary text-xs">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatDateTime(demande.dateCreation)}
+                          </div>
+                        </div>
+
+                        {demande.message && (
+                          <div className="mt-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-cockpit-heading mb-1">
+                              <MessageSquare className="w-4 h-4 text-cockpit-yellow" />
+                              Message
+                            </div>
+                            <p className="text-sm text-cockpit-secondary bg-cockpit-dark p-3 rounded-lg">
+                              {demande.message}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Articles de la demande */}
+                        {articles && articles.length > 0 && (
+                          <div className="mt-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-cockpit-heading mb-2">
+                              <Package className="w-4 h-4 text-cockpit-yellow" />
+                              Articles ({articles.length})
+                            </div>
+                            <div className="space-y-1.5">
+                              {articles.map((a, i) => (
+                                <div key={i} className="flex items-center justify-between bg-cockpit-dark p-2.5 rounded-lg text-sm">
+                                  <div>
+                                    <span className="text-cockpit-primary font-medium">{a.nom}</span>
+                                    {a.finition && (
+                                      <span className="text-cockpit-secondary text-xs ml-2">({a.finition})</span>
+                                    )}
+                                    {a.categorie && (
+                                      <span className="text-cockpit-secondary text-xs ml-2">· {a.categorie}</span>
+                                    )}
+                                  </div>
+                                  <span className="text-cockpit-secondary text-xs">x{a.quantite || 1}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Col 2 — Estimation IA Sellsy */}
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-cockpit-yellow" />
+                          Estimation IA · Catalogue Sellsy
+                        </h3>
+
+                        {sellsyIsLoading ? (
+                          <div className="flex items-center gap-2 text-cockpit-secondary text-sm py-4">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Recherche dans le catalogue Sellsy...
+                          </div>
+                        ) : sellsy?.error ? (
+                          <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm">
+                            {sellsy.error}
+                          </div>
+                        ) : sellsy ? (
+                          <div className="space-y-3">
+                            {/* Total estimé */}
+                            {sellsy.totalEstimatedTTC > 0 && (
+                              <div className="bg-cockpit-yellow/10 border border-cockpit-yellow/30 p-4 rounded-lg">
+                                <div className="text-xs text-cockpit-yellow font-semibold mb-1">ESTIMATION TOTALE</div>
+                                <div className="text-2xl font-bold text-cockpit-yellow">
+                                  {sellsy.totalEstimatedTTC.toFixed(2)}€ <span className="text-sm font-normal">TTC</span>
+                                </div>
+                                <div className="text-xs text-cockpit-secondary mt-1">
+                                  {sellsy.totalEstimatedHT.toFixed(2)}€ HT · {sellsy.catalogSize} produits analysés
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Détails par article */}
+                            {sellsy.matches.map((m, i) => (
+                              <div key={i} className="bg-cockpit-dark p-3 rounded-lg">
+                                <div className="text-xs text-cockpit-secondary mb-1.5">
+                                  {m.articleDemande.nom} (x{m.articleDemande.quantite})
+                                </div>
+                                {m.bestMatch ? (
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm text-cockpit-primary font-medium">
+                                        {m.bestMatch.name}
+                                      </span>
+                                      <span className={`text-xs font-bold ${getScoreColor(m.bestMatch.score)}`}>
+                                        {m.bestMatch.score}%
+                                      </span>
+                                    </div>
+                                    {m.bestMatch.reference && (
+                                      <div className="text-xs text-cockpit-secondary">
+                                        Réf: {m.bestMatch.reference}
+                                      </div>
+                                    )}
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-cockpit-secondary">
+                                        {m.bestMatch.prixHT.toFixed(2)}€ HT
+                                      </span>
+                                      <span className="text-cockpit-yellow font-semibold">
+                                        {m.estimatedValueTTC.toFixed(2)}€ TTC
+                                      </span>
+                                    </div>
+                                    {/* Alternatives */}
+                                    {m.matchesSellsy.length > 1 && (
+                                      <details className="mt-1">
+                                        <summary className="text-[10px] text-cockpit-secondary cursor-pointer hover:text-cockpit-primary">
+                                          {m.matchesSellsy.length - 1} autre{m.matchesSellsy.length > 2 ? "s" : ""} correspondance{m.matchesSellsy.length > 2 ? "s" : ""}
+                                        </summary>
+                                        <div className="mt-1 space-y-1">
+                                          {m.matchesSellsy.slice(1).map((alt, j) => (
+                                            <div key={j} className="flex items-center justify-between text-xs text-cockpit-secondary">
+                                              <span className="truncate mr-2">{alt.name}</span>
+                                              <span>{alt.prixTTC.toFixed(0)}€ ({alt.score}%)</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </details>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-cockpit-secondary italic">
+                                    Aucune correspondance trouvée
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+
+                            {sellsy.matches.length === 0 && (
+                              <div className="text-sm text-cockpit-secondary italic py-2">
+                                Aucun article à analyser
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Col 3 — Actions & Statut */}
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
+                          <Tag className="w-4 h-4 text-cockpit-yellow" />
+                          Actions
+                        </h3>
+
+                        {/* Changer le statut */}
+                        <div>
+                          <label className="text-xs text-cockpit-secondary mb-1.5 block">Statut</label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {["NOUVEAU", "EN_COURS", "DEVIS", "VENTE", "PERDU"].map((s) => {
+                              const sc = getStatusColor(s);
+                              const isActive = demande.statut === s;
+                              return (
+                                <button
+                                  key={s}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (demande.leadId && !isActive) updateStatut(demande.leadId, s);
+                                  }}
+                                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                                    isActive
+                                      ? `${sc.bg} ${sc.text} ring-1 ${sc.ring}`
+                                      : "bg-cockpit-dark text-cockpit-secondary hover:text-cockpit-primary"
+                                  }`}
+                                >
+                                  {s === "EN_COURS" ? "En cours" : s.charAt(0) + s.slice(1).toLowerCase()}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Assignation */}
+                        <div>
+                          <label className="text-xs text-cockpit-secondary mb-1.5 block">Assigné à</label>
+                          <div className="bg-cockpit-dark p-3 rounded-lg text-sm text-cockpit-primary">
+                            {demande.assigneA || "Non assigné"}
+                            {demande.assigneEmail && (
+                              <span className="text-xs text-cockpit-secondary block">{demande.assigneEmail}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        {demande.notes && (
+                          <div>
+                            <label className="text-xs text-cockpit-secondary mb-1.5 block">Notes</label>
+                            <div className="bg-cockpit-dark p-3 rounded-lg text-xs text-cockpit-secondary">
+                              {demande.notes}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SLA */}
+                        {demande.slaDeadline && (
+                          <div>
+                            <label className="text-xs text-cockpit-secondary mb-1.5 block">SLA (72h)</label>
+                            <div className={`p-3 rounded-lg text-sm font-semibold ${
+                              slaExpired
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-cockpit-dark text-cockpit-primary"
+                            }`}>
+                              {slaExpired ? "!! " : ""}
+                              {formatDateTime(demande.slaDeadline)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Source */}
+                        <div className="flex items-center gap-3 text-xs text-cockpit-secondary">
+                          <span>Source: {demande.source}</span>
+                          {demande.priorite && demande.priorite !== "NORMALE" && (
+                            <span className={`px-2 py-0.5 rounded-full font-semibold ${
+                              demande.priorite === "HAUTE" ? "bg-red-500/10 text-red-400" : "bg-gray-500/10 text-gray-400"
+                            }`}>
+                              {demande.priorite}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="py-12 text-center text-cockpit-secondary text-sm">Aucune demande</div>
-          )}
-        </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
