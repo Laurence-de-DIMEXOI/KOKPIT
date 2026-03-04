@@ -343,12 +343,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Notifications email
+    // Notifications email — fire-and-forget (ne bloque pas la réponse)
+    const emailPromises: Promise<void>[] = [];
     if (commercial) {
-      await sendEmailNotification(
-        commercial.email, commercial.nom || "Commercial",
-        nom, prenom, meuble, telephone, email, showroom,
-        budget, articles, message
+      emailPromises.push(
+        sendEmailNotification(
+          commercial.email, commercial.nom || "Commercial",
+          nom, prenom, meuble, telephone, email, showroom,
+          budget, articles, message
+        )
       );
     }
 
@@ -358,11 +361,18 @@ export async function POST(request: NextRequest) {
       showroom.toLowerCase().includes("sud")
     );
     if (isSud) {
-      await sendEmailNotification(
-        "contact@dimexoi.fr", "Équipe DIMEXOI",
-        nom, prenom, meuble, telephone, email, showroom,
-        budget, articles, message
+      emailPromises.push(
+        sendEmailNotification(
+          "contact@dimexoi.fr", "Équipe DIMEXOI",
+          nom, prenom, meuble, telephone, email, showroom,
+          budget, articles, message
+        )
       );
+    }
+
+    // Lancer les emails sans attendre (fire-and-forget)
+    if (emailPromises.length > 0) {
+      Promise.allSettled(emailPromises).catch(err => console.error("Email background error:", err));
     }
 
     return NextResponse.json({
