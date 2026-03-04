@@ -113,8 +113,20 @@ export async function POST() {
           const consentNewsletter = details?.consents?.newsletter ?? false;
           const consentInvitation = details?.consents?.invitation ?? false;
           const consentDevis = details?.consents?.devis ?? false;
-          // Si au moins un consent, on considère RGPD email accepté
           const hasAnyConsent = consentOffre || consentNewsletter || consentInvitation || consentDevis;
+
+          // Trouver la date la plus ancienne des demandes pour le consentement RGPD
+          let earliestDate: Date | null = null;
+          if (details?.requests) {
+            for (const req of details.requests) {
+              const d = parseDate(req.date);
+              if (d && (!earliestDate || d < earliestDate)) {
+                earliestDate = d;
+              }
+            }
+          }
+          // Si pas de date trouvée dans les demandes, fallback raisonnable
+          const consentDate = earliestDate || (hasAnyConsent ? new Date("2024-01-01") : null);
 
           const result = await prisma.contact.upsert({
             where: { email },
@@ -131,8 +143,8 @@ export async function POST() {
               consentInvitation,
               consentDevis,
               rgpdEmailConsent: hasAnyConsent,
-              rgpdConsentDate: hasAnyConsent ? new Date() : null,
-              rgpdConsentSource: hasAnyConsent ? "import-glide" : null,
+              rgpdConsentDate: consentDate,
+              rgpdConsentSource: hasAnyConsent ? "glide" : null,
             },
             update: {
               nom: { set: nom },
@@ -140,15 +152,14 @@ export async function POST() {
               ...(c.telephone ? { telephone: c.telephone } : {}),
               ...(showroomId ? { showroomId } : {}),
               lifecycleStage,
-              // Mettre à jour les consentements
               consentOffre,
               consentNewsletter,
               consentInvitation,
               consentDevis,
               rgpdEmailConsent: hasAnyConsent,
               ...(hasAnyConsent ? {
-                rgpdConsentDate: new Date(),
-                rgpdConsentSource: "import-glide",
+                rgpdConsentDate: consentDate,
+                rgpdConsentSource: "glide",
               } : {}),
             },
           });
@@ -172,15 +183,24 @@ export async function POST() {
               });
 
               if (!existing) {
-                await prisma.demandePrix.create({
+                const realDate = parseDate(req.date);
+                const dp = await prisma.demandePrix.create({
                   data: {
                     contactId: result.id,
                     meuble: req.meuble,
                     message: req.message || null,
                     showroom: showroomNom,
-                    dateDemande: parseDate(req.date) || null,
+                    dateDemande: realDate || null,
                   },
                 });
+                // Forcer createdAt à la vraie date de la demande
+                if (realDate) {
+                  await prisma.$executeRawUnsafe(
+                    `UPDATE "DemandePrix" SET "createdAt" = $1 WHERE id = $2`,
+                    realDate,
+                    dp.id
+                  );
+                }
                 demandesCreated++;
               }
             }

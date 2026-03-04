@@ -43,7 +43,8 @@ interface MatchResult {
   estimatedValueTTC: number;
 }
 
-function normalizeString(s: string): string {
+function normalizeString(s: string | null | undefined): string {
+  if (!s) return "";
   return s
     .toLowerCase()
     .normalize("NFD")
@@ -62,9 +63,11 @@ function extractKeywords(name: string): string[] {
     .filter((w) => w.length > 2 && !stopWords.has(w));
 }
 
-function scoreMatch(articleName: string, sellsyName: string): number {
+function scoreMatch(articleName: string | null | undefined, sellsyName: string | null | undefined): number {
+  if (!articleName || !sellsyName) return 0;
   const normArticle = normalizeString(articleName);
   const normSellsy = normalizeString(sellsyName);
+  if (!normArticle || !normSellsy) return 0;
 
   // Match exact
   if (normArticle === normSellsy) return 100;
