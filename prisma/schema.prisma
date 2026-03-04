@@ -517,6 +517,8 @@ model DemandePrix {
   glideRowId          String?   @unique
   showroom            String?
   modePaiement        String?
+  budget              String?
+  articles            Json?     // [{nom, categorie, finition, quantite}]
   dateDemande         DateTime?
   createdAt           DateTime  @default(now())
 

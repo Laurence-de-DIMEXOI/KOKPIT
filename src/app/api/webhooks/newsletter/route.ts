@@ -6,11 +6,8 @@ import { prisma } from "@/lib/prisma";
  *
  * Inscription à la newsletter depuis le site web DIMEXOI.
  * Crée un contact (ou met à jour) avec consentement newsletter + RGPD email.
- * Léger et rapide — pas de demande de prix, pas de lead, pas de notification.
  *
- * ==========================================================
  * JSON ATTENDU :
- * ==========================================================
  * {
  *   "email": "marie@gmail.com",               // OBLIGATOIRE
  *   "nom": "Dupont",                           // optionnel
@@ -21,6 +18,8 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
+    const origin = request.headers.get("origin") || "";
+
     // Vérification secret (optionnel)
     const secret = process.env.WEBHOOK_SECRET;
     if (secret) {
@@ -41,7 +40,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validation email basique
     if (!email.includes("@") || !email.includes(".")) {
       return NextResponse.json(
         { error: "Format email invalide" },
@@ -53,7 +51,6 @@ export async function POST(request: NextRequest) {
     const prenom = (body.prenom || "").trim();
     const source = body.source || "NEWSLETTER";
 
-    // Upsert contact — juste activer le consentement newsletter
     const contact = await prisma.contact.upsert({
       where: { email },
       create: {
@@ -68,18 +65,15 @@ export async function POST(request: NextRequest) {
         lifecycleStage: "PROSPECT",
       },
       update: {
-        // Activer newsletter (sans toucher aux autres consentements)
         consentNewsletter: true,
         rgpdEmailConsent: true,
         rgpdConsentDate: new Date(),
         rgpdConsentSource: "newsletter-site-web",
-        // Mettre à jour nom/prénom seulement si fournis et non vides
         ...(body.nom ? { nom } : {}),
         ...(body.prenom ? { prenom } : {}),
       },
     });
 
-    // Événement pour traçabilité
     await prisma.evenement.create({
       data: {
         contactId: contact.id,
@@ -94,20 +88,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Vérifier si c'était une création ou mise à jour
     const isNew = contact.createdAt.getTime() === contact.updatedAt.getTime();
+
+    const headers: Record<string, string> = {
+      "Access-Control-Allow-Origin": origin || "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-webhook-secret",
+    };
 
     return NextResponse.json({
       success: true,
       action: isNew ? "subscribed" : "updated",
       contactId: contact.id,
       message: isNew ? "Inscription newsletter confirmée" : "Préférences newsletter mises à jour",
-    }, { status: isNew ? 201 : 200 });
+    }, { status: isNew ? 201 : 200, headers });
 
   } catch (error: any) {
     console.error("Newsletter webhook error:", error);
 
-    // Duplicate email (shouldn't happen with upsert, but just in case)
     if (error.code === "P2002") {
       return NextResponse.json({
         success: true,
@@ -121,6 +119,20 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// OPTIONS — CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get("origin") || "*";
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-webhook-secret",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
 }
 
 // GET — Health check
