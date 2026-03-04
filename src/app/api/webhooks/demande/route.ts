@@ -189,17 +189,21 @@ async function sendEmailNotification(
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    // CORS — accepter les requêtes depuis le site DIMEXOI
-    const origin = request.headers.get("origin") || "";
+  // Headers CORS pour toutes les réponses
+  const corsHeaders: Record<string, string> = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, x-webhook-secret",
+  };
 
+  try {
     // Vérification secret (optionnel)
     const secret = process.env.WEBHOOK_SECRET;
     if (secret) {
       const auth = request.headers.get("authorization")?.replace("Bearer ", "") ||
         request.headers.get("x-webhook-secret");
       if (auth !== secret) {
-        return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+        return NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401, headers: corsHeaders });
       }
     }
 
@@ -212,16 +216,16 @@ export async function POST(request: NextRequest) {
 
     if (!email || !nom) {
       return NextResponse.json(
-        { error: "Champs obligatoires manquants", required: ["email", "nom"] },
-        { status: 400 }
+        { success: false, error: "Champs obligatoires manquants", required: ["email", "nom"] },
+        { status: 400, headers: corsHeaders }
       );
     }
 
     // Validation email basique
     if (!email.includes("@") || !email.includes(".")) {
       return NextResponse.json(
-        { error: "Format email invalide" },
-        { status: 400 }
+        { success: false, error: "Format email invalide" },
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -361,27 +365,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Headers CORS
-    const headers: Record<string, string> = {
-      "Access-Control-Allow-Origin": origin || "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-webhook-secret",
-    };
-
     return NextResponse.json({
       success: true,
+      message: "Demande envoyée avec succès",
       contactId: contact.id,
       demandePrixId: demande.id,
       leadId: lead.id,
       assignedTo: commercial?.email || null,
       nbArticles: articles?.length || 0,
-    }, { status: 201, headers });
+    }, { status: 200, headers: corsHeaders });
 
   } catch (error: any) {
     console.error("Webhook demande error:", error);
     return NextResponse.json(
-      { error: "Erreur interne", detail: error.message },
-      { status: 500 }
+      { success: false, error: "Erreur interne", detail: error.message },
+      { status: 500, headers: corsHeaders }
     );
   }
 }
