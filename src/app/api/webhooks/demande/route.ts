@@ -234,7 +234,11 @@ export async function POST(request: NextRequest) {
     const showroom = body.showroom || null;
     const budget = body.budget || null;
     const modePaiement = body.modePaiement || null;
-    const source = body.source || "SITE_WEB";
+    const rawSource = (body.source || "").toString().toUpperCase().replace(/-/g, "_");
+
+    // Mapper vers les valeurs valides de l'enum LeadSource
+    const VALID_SOURCES = ["META_ADS", "GOOGLE_ADS", "SITE_WEB", "GLIDE", "SALON", "FORMULAIRE", "DIRECT"];
+    const source = VALID_SOURCES.includes(rawSource) ? rawSource : "SITE_WEB";
 
     // Articles (v2) — compatible avec l'ancien champ "produit"/"meuble"
     const articles: Article[] | null = Array.isArray(body.articles) && body.articles.length > 0
