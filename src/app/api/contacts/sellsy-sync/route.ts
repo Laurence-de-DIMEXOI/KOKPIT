@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { listAllContacts } from "@/lib/sellsy";
+import {
+  listAllContacts,
+  listAllCompanies,
+  type SellsyContact,
+  type SellsyCompany,
+} from "@/lib/sellsy";
 
 /**
  * POST /api/contacts/sellsy-sync
  *
- * Phase 1 : Match par email → liaison automatique (écrit sellsyContactId en base)
- * Phase 2 : Match par nom + prénom + téléphone → suggestions à valider
+ * Tente de lier les contacts KOKPIT aux entités Sellsy.
  *
- * Retourne le résumé : combien liés, combien de suggestions.
+ * Stratégie :
+ * 1. Essaye d'abord l'API Contacts Sellsy (personnes)
+ * 2. Si non disponible, utilise l'API Companies Sellsy (entreprises)
+ * 3. Match par email → liaison automatique
+ * 4. Match par nom + prénom + téléphone → suggestion à valider
  */
 
 function normalize(str: string): string {
@@ -27,12 +35,54 @@ function normalizePhone(phone: string): string {
     .replace(/^(\+33|0033|33)/, "0");
 }
 
+interface SellsyEntity {
+  id: number;
+  email: string;
+  nom: string;
+  prenom: string;
+  telephone: string;
+  type: "contact" | "company";
+}
+
 export async function POST() {
   try {
-    // 1. Récupérer tous les contacts Sellsy
+    // 1. Tenter contacts Sellsy, sinon companies
+    let sellsyEntities: SellsyEntity[] = [];
+    let sourceType: "contacts" | "companies" = "contacts";
+
     const sellsyContacts = await listAllContacts();
 
-    // 2. Récupérer tous les contacts KOKPIT
+    if (sellsyContacts && sellsyContacts.length > 0) {
+      sourceType = "contacts";
+      sellsyEntities = sellsyContacts.map((c: SellsyContact) => ({
+        id: c.id,
+        email: (c.email || "").toLowerCase().trim(),
+        nom: c.last_name || "",
+        prenom: c.first_name || "",
+        telephone: c.phone || "",
+        type: "contact" as const,
+      }));
+    } else {
+      // Fallback : utiliser les companies
+      sourceType = "companies";
+      const companies = await listAllCompanies();
+      sellsyEntities = companies.map((c: SellsyCompany) => {
+        // Le nom d'une company est souvent "Prénom Nom" pour les particuliers
+        const parts = (c.name || "").trim().split(/\s+/);
+        const prenom = parts.length > 1 ? parts[0] : "";
+        const nom = parts.length > 1 ? parts.slice(1).join(" ") : parts[0] || "";
+        return {
+          id: c.id,
+          email: (c.email || "").toLowerCase().trim(),
+          nom,
+          prenom,
+          telephone: c.phone || "",
+          type: "company" as const,
+        };
+      });
+    }
+
+    // 2. Récupérer les contacts KOKPIT
     const kokpitContacts = await prisma.contact.findMany({
       select: {
         id: true,
@@ -45,27 +95,23 @@ export async function POST() {
     });
 
     // 3. Index Sellsy par email
-    const sellsyByEmail = new Map<
-      string,
-      (typeof sellsyContacts)[0]
-    >();
-    for (const sc of sellsyContacts) {
-      if (sc.email) {
-        sellsyByEmail.set(sc.email.toLowerCase().trim(), sc);
+    const sellsyByEmail = new Map<string, SellsyEntity>();
+    for (const se of sellsyEntities) {
+      if (se.email) {
+        sellsyByEmail.set(se.email, se);
       }
     }
 
-    // 4. Index Sellsy par nom+prenom+tel normalisés
-    const sellsyByNamePhone = new Map<
-      string,
-      (typeof sellsyContacts)[0]
-    >();
-    for (const sc of sellsyContacts) {
-      const nom = normalize(sc.last_name || "");
-      const prenom = normalize(sc.first_name || "");
-      const tel = sc.phone ? normalizePhone(sc.phone) : "";
-      if (nom && prenom && tel.length >= 6) {
-        sellsyByNamePhone.set(`${nom}|${prenom}|${tel}`, sc);
+    // 4. Index Sellsy par nom normalisé (pour suggestions)
+    const sellsyByNormName = new Map<string, SellsyEntity>();
+    for (const se of sellsyEntities) {
+      const nom = normalize(se.nom);
+      const prenom = normalize(se.prenom);
+      if (nom) {
+        // Clé nom+prenom
+        if (prenom) sellsyByNormName.set(`${nom}|${prenom}`, se);
+        // Aussi juste le nom pour nom_partiel
+        sellsyByNormName.set(`nom:${nom}`, se);
       }
     }
 
@@ -83,8 +129,7 @@ export async function POST() {
       sellsyPrenom: string;
       sellsyEmail: string;
       sellsyTelephone: string;
-      matchType: "nom_prenom_tel";
-      confidence: "high";
+      matchType: string;
     }> = [];
 
     for (const kc of kokpitContacts) {
@@ -96,41 +141,66 @@ export async function POST() {
 
       const email = kc.email?.toLowerCase().trim();
 
-      // === MATCH PAR EMAIL ===
+      // === MATCH PAR EMAIL (automatique) ===
       if (email) {
-        const sellsyMatch = sellsyByEmail.get(email);
-        if (sellsyMatch) {
+        const match = sellsyByEmail.get(email);
+        if (match) {
           await prisma.contact.update({
             where: { id: kc.id },
-            data: { sellsyContactId: String(sellsyMatch.id) },
+            data: { sellsyContactId: String(match.id) },
           });
           linkedByEmail++;
           continue;
         }
       }
 
-      // === SUGGESTION PAR NOM + PRÉNOM + TÉLÉPHONE ===
+      // === SUGGESTIONS ===
       const nom = normalize(kc.nom || "");
       const prenom = normalize(kc.prenom || "");
       const tel = kc.telephone ? normalizePhone(kc.telephone) : "";
 
+      // Match nom + prénom + téléphone (les 3 ensemble)
       if (nom && prenom && tel.length >= 6) {
-        const key = `${nom}|${prenom}|${tel}`;
-        const sellsyMatch = sellsyByNamePhone.get(key);
-        if (sellsyMatch) {
+        const key = `${nom}|${prenom}`;
+        const match = sellsyByNormName.get(key);
+        if (match && match.telephone) {
+          const sellsyTel = normalizePhone(match.telephone);
+          if (sellsyTel === tel) {
+            suggestions.push({
+              contactId: kc.id,
+              kokpitNom: kc.nom || "",
+              kokpitPrenom: kc.prenom || "",
+              kokpitEmail: kc.email || "",
+              kokpitTelephone: kc.telephone || "",
+              sellsyContactId: match.id,
+              sellsyNom: match.nom,
+              sellsyPrenom: match.prenom,
+              sellsyEmail: match.email,
+              sellsyTelephone: match.telephone,
+              matchType: "nom_prenom_tel",
+            });
+            continue;
+          }
+        }
+      }
+
+      // Match nom + prénom (sans téléphone) → confiance moyenne
+      if (nom && prenom) {
+        const key = `${nom}|${prenom}`;
+        const match = sellsyByNormName.get(key);
+        if (match) {
           suggestions.push({
             contactId: kc.id,
             kokpitNom: kc.nom || "",
             kokpitPrenom: kc.prenom || "",
             kokpitEmail: kc.email || "",
             kokpitTelephone: kc.telephone || "",
-            sellsyContactId: sellsyMatch.id,
-            sellsyNom: sellsyMatch.last_name || "",
-            sellsyPrenom: sellsyMatch.first_name || "",
-            sellsyEmail: sellsyMatch.email || "",
-            sellsyTelephone: sellsyMatch.phone || "",
-            matchType: "nom_prenom_tel",
-            confidence: "high",
+            sellsyContactId: match.id,
+            sellsyNom: match.nom,
+            sellsyPrenom: match.prenom,
+            sellsyEmail: match.email,
+            sellsyTelephone: match.telephone,
+            matchType: "nom_prenom",
           });
         }
       }
@@ -138,8 +208,9 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
+      sourceType,
       totalKokpit: kokpitContacts.length,
-      totalSellsy: sellsyContacts.length,
+      totalSellsy: sellsyEntities.length,
       alreadyLinked,
       linkedByEmail,
       suggestions,

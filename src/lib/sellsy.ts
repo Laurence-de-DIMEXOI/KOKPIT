@@ -394,27 +394,80 @@ export async function listContacts(params?: {
 
 /**
  * Récupère TOUS les contacts Sellsy en paginant automatiquement.
- * L'API Sellsy retourne max 100 résultats par appel.
+ * Retourne null si l'API contacts n'est pas accessible.
  */
-export async function listAllContacts(): Promise<SellsyContact[]> {
-  const allContacts: SellsyContact[] = [];
+export async function listAllContacts(): Promise<SellsyContact[] | null> {
+  try {
+    const allContacts: SellsyContact[] = [];
+    const pageSize = 100;
+    let offset = 0;
+    let total = Infinity;
+
+    while (offset < total) {
+      const res = await listContacts({
+        limit: pageSize,
+        offset,
+        order: "created",
+        direction: "desc",
+      });
+      allContacts.push(...res.data);
+      total = res.pagination.total;
+      offset += pageSize;
+    }
+
+    return allContacts;
+  } catch {
+    console.warn("Sellsy contacts API non disponible, fallback companies");
+    return null;
+  }
+}
+
+/**
+ * Récupère TOUTES les entreprises Sellsy en paginant.
+ */
+export async function listAllCompanies(): Promise<SellsyCompany[]> {
+  const all: SellsyCompany[] = [];
   const pageSize = 100;
   let offset = 0;
   let total = Infinity;
 
   while (offset < total) {
-    const res = await listContacts({
+    const res = await listCompanies({
       limit: pageSize,
       offset,
       order: "created",
       direction: "desc",
     });
-    allContacts.push(...res.data);
+    all.push(...res.data);
     total = res.pagination.total;
     offset += pageSize;
   }
 
-  return allContacts;
+  return all;
+}
+
+/**
+ * Récupère TOUS les devis Sellsy en paginant.
+ */
+export async function listAllEstimates(): Promise<SellsyEstimate[]> {
+  const all: SellsyEstimate[] = [];
+  const pageSize = 100;
+  let offset = 0;
+  let total = Infinity;
+
+  while (offset < total) {
+    const res = await listEstimates({
+      limit: pageSize,
+      offset,
+      order: "created",
+      direction: "desc",
+    });
+    all.push(...res.data);
+    total = res.pagination.total;
+    offset += pageSize;
+  }
+
+  return all;
 }
 
 // ===== UTILITAIRE DE TEST =====
