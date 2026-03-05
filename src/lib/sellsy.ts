@@ -221,15 +221,15 @@ export async function searchItems(params: {
 
 /**
  * Récupère TOUS les produits Sellsy (product + service uniquement, non archivés).
- * Exclut shipping et packaging. Pagination automatique via cursor offset.
+ * Exclut shipping et packaging. Pagination numérique standard.
  */
 export async function listAllItems(): Promise<SellsyItem[]> {
   const all: SellsyItem[] = [];
   const pageSize = 100;
-  let offset: number | string = 0;
-  let hasMore = true;
+  let offset = 0;
+  let total = Infinity;
 
-  while (hasMore) {
+  while (offset < total) {
     const res = await searchItems({
       filters: {
         type: ["product", "service"],
@@ -239,17 +239,20 @@ export async function listAllItems(): Promise<SellsyItem[]> {
       offset,
     });
     all.push(...res.data);
-
-    // Sellsy v2 uses cursor-based offset (base64 string) for pagination
-    if (res.data.length < pageSize || all.length >= res.pagination.total) {
-      hasMore = false;
-    } else {
-      offset = res.pagination.offset;
-    }
+    total = res.pagination.total;
+    offset += pageSize;
   }
 
-  console.log(`Fetched ${all.length} items (product/service, non-archived)`);
-  return all;
+  // Dédupliquer par ID (sécurité)
+  const seen = new Set<number>();
+  const unique = all.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+
+  console.log(`Fetched ${unique.length} unique items out of ${all.length} (product/service, non-archived)`);
+  return unique;
 }
 
 // ===== DEVIS (ESTIMATES) =====
