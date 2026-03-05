@@ -37,9 +37,13 @@ function parseDate(dateStr: string | null): Date | null {
   return null;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const contacts = contactsData as Array<{
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get("page") || "0", 10);
+    const size = parseInt(url.searchParams.get("size") || "50", 10);
+
+    const allContacts = contactsData as Array<{
       id: string;
       nom: string;
       email: string;
@@ -49,12 +53,24 @@ export async function POST() {
       demandes?: number;
     }>;
 
-    let created = 0;
+    const totalContacts = allContacts.length;
+    const totalPages = Math.ceil(totalContacts / size);
+    const contacts = allContacts.slice(page * size, (page + 1) * size);
+
+    if (contacts.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: "Import terminé ! Toutes les pages ont été traitées.",
+        page,
+        totalPages,
+        done: true,
+      });
+    }
+
     let updated = 0;
     let skipped = 0;
     let errors = 0;
     let demandesCreated = 0;
-    const errorDetails: string[] = [];
 
     // Récupérer les showrooms existants
     const showrooms = await prisma.showroom.findMany();
@@ -62,7 +78,6 @@ export async function POST() {
       showrooms.map((s) => [s.nom.toLowerCase(), s.id])
     );
 
-    // Aussi matcher partiellement (ex: "Saint-Denis" → "NORD - Sainte-Clotilde")
     const showroomFuzzyMap = new Map<string, string>();
     for (const s of showrooms) {
       if (s.nom.toLowerCase().includes("nord") || s.nom.toLowerCase().includes("clotilde") || s.nom.toLowerCase().includes("denis")) {
@@ -82,149 +97,83 @@ export async function POST() {
       return showroomMap.get(lower) || showroomFuzzyMap.get(lower) || null;
     }
 
-    // Traiter par batch de 20 pour éviter le timeout
-    const batchSize = 20;
-    for (let i = 0; i < contacts.length; i += batchSize) {
-      const batch = contacts.slice(i, i + batchSize);
+    // Traiter séquentiellement pour éviter les race conditions
+    for (const c of contacts) {
+      try {
+        const email = c.email?.trim().toLowerCase();
+        if (!email) {
+          skipped++;
+          continue;
+        }
 
-      const promises = batch.map(async (c) => {
-        try {
-          const email = c.email?.trim().toLowerCase();
-          if (!email) {
-            skipped++;
-            return;
-          }
+        const showroomNom = normalizeShowroom(c.showroom);
+        const showroomId = findShowroomId(showroomNom);
 
-          const { nom, prenom } = splitNomPrenom(c.nom || "");
-          const showroomNom = normalizeShowroom(c.showroom);
-          const showroomId = findShowroomId(showroomNom);
+        // Trouver le contact existant par email
+        const contact = await prisma.contact.findUnique({ where: { email } });
+        if (!contact) {
+          skipped++;
+          continue;
+        }
+        updated++;
 
-          // Mapper le stage
-          let lifecycleStage: "PROSPECT" | "LEAD" | "CLIENT" | "INACTIF" = "PROSPECT";
-          if (c.stage === "CLIENT") lifecycleStage = "CLIENT";
-          else if (c.stage === "LEAD" || c.stage === "NEGOCIATION") lifecycleStage = "LEAD";
-          else if (c.stage === "INACTIF") lifecycleStage = "INACTIF";
+        // Créer les DemandePrix depuis les requests legacy
+        const details = contactDetailsData[email];
+        if (details?.requests && details.requests.length > 0) {
+          for (const req of details.requests) {
+            if (!req.meuble || req.meuble === "TEST") continue;
 
-          // Récupérer les détails (consentements + demandes)
-          const details = contactDetailsData[email];
+            // Vérifier si cette demande existe déjà
+            const existing = await prisma.demandePrix.findFirst({
+              where: {
+                contactId: contact.id,
+                meuble: req.meuble,
+                ...(req.message ? { message: req.message } : {}),
+              },
+            });
 
-          // Consentements
-          const consentOffre = details?.consents?.offre ?? false;
-          const consentNewsletter = details?.consents?.newsletter ?? false;
-          const consentInvitation = details?.consents?.invitation ?? false;
-          const consentDevis = details?.consents?.devis ?? false;
-          const hasAnyConsent = consentOffre || consentNewsletter || consentInvitation || consentDevis;
-
-          // Trouver la date la plus ancienne des demandes pour le consentement RGPD
-          let earliestDate: Date | null = null;
-          if (details?.requests) {
-            for (const req of details.requests) {
-              const d = parseDate(req.date);
-              if (d && (!earliestDate || d < earliestDate)) {
-                earliestDate = d;
-              }
-            }
-          }
-          // Si pas de date trouvée dans les demandes, fallback raisonnable
-          const consentDate = earliestDate || (hasAnyConsent ? new Date("2024-01-01") : null);
-
-          const result = await prisma.contact.upsert({
-            where: { email },
-            create: {
-              email,
-              nom,
-              prenom,
-              telephone: c.telephone || null,
-              showroomId,
-              sourcePremiere: "GLIDE",
-              lifecycleStage,
-              consentOffre,
-              consentNewsletter,
-              consentInvitation,
-              consentDevis,
-              rgpdEmailConsent: hasAnyConsent,
-              rgpdConsentDate: consentDate,
-              rgpdConsentSource: hasAnyConsent ? "glide" : null,
-            },
-            update: {
-              nom: { set: nom },
-              prenom: { set: prenom },
-              ...(c.telephone ? { telephone: c.telephone } : {}),
-              ...(showroomId ? { showroomId } : {}),
-              lifecycleStage,
-              consentOffre,
-              consentNewsletter,
-              consentInvitation,
-              consentDevis,
-              rgpdEmailConsent: hasAnyConsent,
-              ...(hasAnyConsent ? {
-                rgpdConsentDate: consentDate,
-                rgpdConsentSource: "glide",
-              } : {}),
-            },
-          });
-
-          const isNew = result.createdAt.getTime() === result.updatedAt.getTime();
-          if (isNew) created++;
-          else updated++;
-
-          // Créer les DemandePrix depuis les requests legacy
-          if (details?.requests && details.requests.length > 0) {
-            for (const req of details.requests) {
-              if (!req.meuble || req.meuble === "TEST") continue;
-
-              // Vérifier si cette demande existe déjà (par contactId + meuble + message)
-              const existing = await prisma.demandePrix.findFirst({
-                where: {
-                  contactId: result.id,
+            if (!existing) {
+              const realDate = parseDate(req.date);
+              const dp = await prisma.demandePrix.create({
+                data: {
+                  contactId: contact.id,
                   meuble: req.meuble,
-                  ...(req.message ? { message: req.message } : {}),
+                  message: req.message || null,
+                  showroom: showroomNom,
+                  dateDemande: realDate || null,
                 },
               });
-
-              if (!existing) {
-                const realDate = parseDate(req.date);
-                const dp = await prisma.demandePrix.create({
-                  data: {
-                    contactId: result.id,
-                    meuble: req.meuble,
-                    message: req.message || null,
-                    showroom: showroomNom,
-                    dateDemande: realDate || null,
-                  },
-                });
-                // Forcer createdAt à la vraie date de la demande
-                if (realDate) {
-                  await prisma.$executeRawUnsafe(
-                    `UPDATE "DemandePrix" SET "createdAt" = $1 WHERE id = $2`,
-                    realDate,
-                    dp.id
-                  );
-                }
-                demandesCreated++;
+              if (realDate) {
+                await prisma.$executeRawUnsafe(
+                  `UPDATE "DemandePrix" SET "createdAt" = $1 WHERE id = $2`,
+                  realDate,
+                  dp.id
+                );
               }
+              demandesCreated++;
             }
           }
-        } catch (err: any) {
-          errors++;
-          if (errorDetails.length < 10) {
-            errorDetails.push(`${c.email}: ${err.message}`);
-          }
         }
-      });
-
-      await Promise.all(promises);
+      } catch (err: any) {
+        errors++;
+      }
     }
+
+    const hasMore = page + 1 < totalPages;
 
     return NextResponse.json({
       success: true,
-      total: contacts.length,
-      created,
+      page,
+      totalPages,
+      processed: contacts.length,
       updated,
       skipped,
       errors,
       demandesCreated,
-      errorDetails: errorDetails.length > 0 ? errorDetails : undefined,
+      done: !hasMore,
+      nextUrl: hasMore
+        ? `/api/contacts/import-legacy?page=${page + 1}&size=${size}`
+        : null,
     });
   } catch (error: any) {
     console.error("Import legacy contacts error:", error);
