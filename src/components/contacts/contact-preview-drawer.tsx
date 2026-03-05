@@ -3,10 +3,10 @@
 import {
   X, Mail, Phone, MapPin, CheckCircle2, Circle,
   ShoppingBag, Calendar, User, Pencil, Save,
-  MessageSquare, Loader2,
+  MessageSquare, Loader2, FileText, ShoppingCart,
+  ExternalLink,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
-import { contactDetailsData } from "@/data/contact-details";
 
 // Types pour les données API
 interface DemandePrix {
@@ -15,6 +15,23 @@ interface DemandePrix {
   message: string | null;
   showroom: string | null;
   dateDemande: string | null;
+}
+
+interface DevisData {
+  id: string;
+  sellsyQuoteId: string | null;
+  montant: number;
+  statut: string;
+  dateEnvoi: string | null;
+  createdAt: string;
+}
+
+interface VenteData {
+  id: string;
+  sellsyInvoiceId: string | null;
+  montant: number;
+  dateVente: string;
+  createdAt: string;
 }
 
 interface ContactAPI {
@@ -33,22 +50,14 @@ interface ContactAPI {
   rgpdEmailConsent: boolean;
   rgpdSmsConsent: boolean;
   notes: string | null;
+  sellsyContactId: string | null;
   demandesPrix: DemandePrix[];
-  _count: { demandesPrix: number; leads: number; devis: number };
+  devis: DevisData[];
+  ventes: VenteData[];
+  _count: { demandesPrix: number; leads: number; devis: number; ventes: number };
 }
 
-// Compat : données statiques (ancien format)
-interface ContactStatique {
-  id: string;
-  nom: string;
-  email: string;
-  telephone: string;
-  showroom: string;
-  stage: string;
-  demandes: number;
-}
-
-type ContactData = ContactAPI | ContactStatique;
+type ContactData = ContactAPI;
 
 interface ContactPreviewDrawerProps {
   contact: ContactData | null;
@@ -62,12 +71,28 @@ const stageConfig: Record<string, { label: string; bg: string; text: string }> =
   LEAD: { label: "Lead", bg: "bg-[#FFAB00]/10", text: "text-[#FFAB00]" },
   CLIENT: { label: "Client", bg: "bg-[#71DD37]/10", text: "text-[#71DD37]" },
   INACTIF: { label: "Inactif", bg: "bg-[#8592A3]/10", text: "text-[#8592A3]" },
-  NEGOCIATION: { label: "Négociation", bg: "bg-[#FFAB00]/10", text: "text-[#FFAB00]" },
-  NOUVEAU: { label: "Nouveau", bg: "bg-[#03C3EC]/10", text: "text-[#03C3EC]" },
 };
 
-function isApiContact(c: ContactData): c is ContactAPI {
-  return "demandesPrix" in c;
+const devisStatutConfig: Record<string, { label: string; color: string }> = {
+  EN_ATTENTE: { label: "En attente", color: "text-[#8592A3]" },
+  ENVOYE: { label: "Envoyé", color: "text-[#03C3EC]" },
+  ACCEPTE: { label: "Accepté", color: "text-[#71DD37]" },
+  REFUSE: { label: "Refusé", color: "text-[#FF3E1D]" },
+  EXPIRE: { label: "Expiré", color: "text-[#8592A3]" },
+};
+
+function formatEuro(amount: number) {
+  if (amount === 0) return "0 €";
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(amount);
+}
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return "—";
+  try {
+    return new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
 }
 
 export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: ContactPreviewDrawerProps) {
@@ -83,32 +108,18 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
 
   useEffect(() => {
     if (!contact) return;
-    if (isApiContact(contact)) {
-      setForm({
-        nom: contact.nom,
-        prenom: contact.prenom,
-        email: contact.email,
-        telephone: contact.telephone || "",
-        lifecycleStage: contact.lifecycleStage,
-        consentOffre: contact.consentOffre,
-        consentNewsletter: contact.consentNewsletter,
-        consentInvitation: contact.consentInvitation,
-        consentDevis: contact.consentDevis,
-        notes: contact.notes || "",
-      });
-    } else {
-      const details = contactDetailsData[contact.email] || null;
-      setForm({
-        nom: contact.nom, prenom: "", email: contact.email,
-        telephone: contact.telephone || "",
-        lifecycleStage: contact.stage || "PROSPECT",
-        consentOffre: details?.consents?.offre ?? false,
-        consentNewsletter: details?.consents?.newsletter ?? false,
-        consentInvitation: details?.consents?.invitation ?? false,
-        consentDevis: details?.consents?.devis ?? false,
-        notes: "",
-      });
-    }
+    setForm({
+      nom: contact.nom,
+      prenom: contact.prenom,
+      email: contact.email,
+      telephone: contact.telephone || "",
+      lifecycleStage: contact.lifecycleStage,
+      consentOffre: contact.consentOffre,
+      consentNewsletter: contact.consentNewsletter,
+      consentInvitation: contact.consentInvitation,
+      consentDevis: contact.consentDevis,
+      notes: contact.notes || "",
+    });
     setEditing(false);
   }, [contact]);
 
@@ -153,18 +164,25 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
   const stage = stageConfig[form.lifecycleStage] || stageConfig.PROSPECT;
   const initials = form.nom.split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 
-  // Charger les demandes depuis l'API ou les données statiques
-  const staticDetails = !isApiContact(contact) ? contactDetailsData[contact.email] : null;
-  const demandes = isApiContact(contact)
-    ? contact.demandesPrix
-    : (staticDetails?.requests || []).map((r, i) => ({
-        id: `static-${i}`,
-        meuble: r.meuble,
-        message: r.message || null,
-        showroom: null,
-        dateDemande: r.date || null,
-      }));
-  const nbDemandes = isApiContact(contact) ? contact._count.demandesPrix : (contact as ContactStatique).demandes || 0;
+  const demandes = contact.demandesPrix || [];
+  const devis = contact.devis || [];
+  const ventes = contact.ventes || [];
+  const nbDemandes = contact._count?.demandesPrix || 0;
+  const nbDevis = contact._count?.devis || 0;
+  const nbVentes = contact._count?.ventes || 0;
+  const totalDevisHT = devis.reduce((sum, d) => sum + (d.montant || 0), 0);
+  const totalVentesHT = ventes.reduce((sum, v) => sum + (v.montant || 0), 0);
+
+  // Sellsy PDF URL (ouvre dans Sellsy web)
+  const getSellsyEstimateUrl = (sellsyQuoteId: string | null) => {
+    if (!sellsyQuoteId) return null;
+    return `https://go.sellsy.com/doc/estimate/${sellsyQuoteId}`;
+  };
+
+  const getSellsyOrderUrl = (sellsyInvoiceId: string | null) => {
+    if (!sellsyInvoiceId) return null;
+    return `https://go.sellsy.com/doc/order/${sellsyInvoiceId}`;
+  };
 
   return (
     <>
@@ -192,7 +210,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
                 {form.prenom ? `${form.prenom} ${form.nom}` : form.nom}
               </h2>
             )}
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               {editing ? (
                 <select value={form.lifecycleStage} onChange={e => setForm(f => ({ ...f, lifecycleStage: e.target.value }))}
                   className="text-xs font-semibold border border-[#E8EAED] rounded-full px-3 py-1 bg-white">
@@ -204,7 +222,9 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
               ) : (
                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${stage.bg} ${stage.text}`}>{stage.label}</span>
               )}
-              <span className="text-sm text-[#8592A3]">{nbDemandes} demande{nbDemandes > 1 ? "s" : ""}</span>
+              <span className="text-xs text-[#8592A3]">{nbDemandes} dem.</span>
+              {nbDevis > 0 && <span className="text-xs text-[#03C3EC]">{nbDevis} devis</span>}
+              {nbVentes > 0 && <span className="text-xs text-[#71DD37]">{nbVentes} BDC</span>}
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -252,10 +272,104 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
               <div className="flex items-center gap-3">
                 <MapPin className="w-4 h-4 text-[#8592A3] flex-shrink-0" />
                 <span className="text-sm text-[#32475C]">
-                  {isApiContact(contact) ? contact.showroom?.nom || "Non défini" : (contact as ContactStatique).showroom || "Non défini"}
+                  {contact.showroom?.nom || "Non défini"}
                 </span>
               </div>
+              {contact.sellsyContactId && (
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-4 h-4 text-[#71DD37] flex-shrink-0" />
+                  <span className="text-sm text-[#71DD37] font-medium">Lié à Sellsy (ID: {contact.sellsyContactId})</span>
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Devis Sellsy */}
+          <div className="p-6 border-b border-[#E8EAED]">
+            <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
+              <FileText className="w-4 h-4 inline-block mr-2 -mt-0.5" />Devis Sellsy
+              {nbDevis > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#03C3EC]/10 text-[#03C3EC]">{nbDevis}</span>
+              )}
+              {totalDevisHT > 0 && (
+                <span className="ml-2 text-xs font-normal text-[#32475C]">{formatEuro(totalDevisHT)} HT</span>
+              )}
+            </h3>
+            {devis.length > 0 ? (
+              <div className="space-y-2">
+                {devis.map((d) => {
+                  const url = getSellsyEstimateUrl(d.sellsyQuoteId);
+                  const statutCfg = devisStatutConfig[d.statut] || devisStatutConfig.EN_ATTENTE;
+                  return (
+                    <div key={d.id} className="px-4 py-3 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#03C3EC]/30 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {url ? (
+                            <a href={url} target="_blank" rel="noopener noreferrer"
+                              className="text-sm font-medium text-[#03C3EC] hover:underline flex items-center gap-1">
+                              {d.sellsyQuoteId ? `#${d.sellsyQuoteId}` : "Devis"}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : (
+                            <span className="text-sm font-medium text-[#32475C]">Devis</span>
+                          )}
+                          <span className={`text-xs font-semibold ${statutCfg.color}`}>{statutCfg.label}</span>
+                        </div>
+                        <span className="text-sm font-bold text-[#32475C]">{formatEuro(d.montant)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-[#8592A3]">
+                        <Calendar className="w-3 h-3" />
+                        {d.dateEnvoi ? formatDate(d.dateEnvoi) : formatDate(d.createdAt)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-[#8592A3]">Aucun devis</p>
+            )}
+          </div>
+
+          {/* Bons de commande (Ventes) */}
+          <div className="p-6 border-b border-[#E8EAED]">
+            <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
+              <ShoppingCart className="w-4 h-4 inline-block mr-2 -mt-0.5" />Bons de commande
+              {nbVentes > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#71DD37]/10 text-[#71DD37]">{nbVentes}</span>
+              )}
+              {totalVentesHT > 0 && (
+                <span className="ml-2 text-xs font-normal text-[#32475C]">{formatEuro(totalVentesHT)} HT</span>
+              )}
+            </h3>
+            {ventes.length > 0 ? (
+              <div className="space-y-2">
+                {ventes.map((v) => {
+                  const url = getSellsyOrderUrl(v.sellsyInvoiceId);
+                  return (
+                    <div key={v.id} className="px-4 py-3 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#71DD37]/30 transition-colors">
+                      <div className="flex items-center justify-between">
+                        {url ? (
+                          <a href={url} target="_blank" rel="noopener noreferrer"
+                            className="text-sm font-medium text-[#71DD37] hover:underline flex items-center gap-1">
+                            {v.sellsyInvoiceId ? `#${v.sellsyInvoiceId}` : "BDC"}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-sm font-medium text-[#32475C]">BDC</span>
+                        )}
+                        <span className="text-sm font-bold text-[#71DD37]">{formatEuro(v.montant)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-[#8592A3]">
+                        <Calendar className="w-3 h-3" />
+                        {formatDate(v.dateVente)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-[#8592A3]">Aucun bon de commande</p>
+            )}
           </div>
 
           {/* Consentements */}
@@ -304,7 +418,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
           {/* Meubles demandés */}
           <div className="p-6">
             <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
-              <ShoppingBag className="w-4 h-4 inline-block mr-2 -mt-0.5" />Meubles demandés
+              <ShoppingBag className="w-4 h-4 inline-block mr-2 -mt-0.5" />Demandes de prix
               {nbDemandes > 0 && (
                 <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#F4B400]/10 text-[#F4B400]">{nbDemandes}</span>
               )}
@@ -318,7 +432,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
                       {req.dateDemande && (
                         <div className="flex items-center gap-1.5 text-xs text-[#8592A3]">
                           <Calendar className="w-3.5 h-3.5" />
-                          {req.dateDemande.includes("/") ? req.dateDemande : new Date(req.dateDemande).toLocaleDateString("fr-FR")}
+                          {formatDate(req.dateDemande)}
                         </div>
                       )}
                     </div>

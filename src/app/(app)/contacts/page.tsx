@@ -8,12 +8,10 @@ import {
   Search,
   FileText,
   ShoppingCart,
-  HelpCircle,
   RefreshCw,
   Link2,
   DollarSign,
   CheckCircle2,
-  Upload,
   AlertCircle,
   X,
   Check,
@@ -24,35 +22,6 @@ import { ContactPreviewDrawer } from "@/components/contacts/contact-preview-draw
 const ITEMS_PER_PAGE = 25;
 
 type ContactData = any;
-
-interface SellsyDoc {
-  id: number;
-  number: string;
-  date: string;
-  status: string;
-  company_name: string;
-  subject: string;
-  totalHT: number;
-}
-
-interface ContactLink {
-  contactId: string;
-  email: string;
-  matchType: "email" | "nom" | "nom_partiel" | "telephone";
-  confidence: "confirmed" | "high" | "medium";
-  sellsyContactName?: string;
-  devis: SellsyDoc[];
-  commandes: SellsyDoc[];
-  totalDevisHT: number;
-  totalCommandesHT: number;
-  totalCA: number;
-}
-
-interface SellsySuggestion {
-  sellsyName: string;
-  matchType: string;
-  confidence: string;
-}
 
 const sourceConfig: Record<string, { label: string; bg: string; text: string }> = {
   GLIDE: { label: "Glide", bg: "bg-purple-500/10", text: "text-purple-400" },
@@ -79,18 +48,28 @@ export default function ContactsPage() {
   const [stageFilter, setStageFilter] = useState<string>("ALL");
   const [sourceFilter, setSourceFilter] = useState<string>("ALL");
 
-  // Import states
-  const [importingLegacy, setImportingLegacy] = useState(false);
-  const [importMessage, setImportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // KPIs from API
+  const [kpis, setKpis] = useState({
+    totalContacts: 0,
+    totalLinkedSellsy: 0,
+    totalAvecBDC: 0,
+    totalCABDC: 0,
+    totalDevis: 0,
+    totalVentes: 0,
+  });
 
   // Sellsy sync modal
   const [showSellsyModal, setShowSellsyModal] = useState(false);
   const [sellsySyncing, setSellsySyncing] = useState(false);
   const [sellsySyncResult, setSellsySyncResult] = useState<{
+    success: boolean;
     linkedByEmail: number;
     alreadyLinked: number;
-    totalKokpit: number;
-    totalSellsy: number;
+    totalKokpitContacts: number;
+    totalSellsyEntities: number;
+    devisImported: number;
+    ventesImported: number;
+    clientsUpdated: number;
     suggestions: Array<{
       contactId: string;
       kokpitNom: string;
@@ -102,18 +81,12 @@ export default function ContactsPage() {
       sellsyPrenom: string;
       sellsyEmail: string;
       sellsyTelephone: string;
+      matchType: string;
     }>;
+    errors: string[];
   } | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
-
-  // Sellsy data
-  const [sellsyLinks, setSellsyLinks] = useState<Record<string, ContactLink>>({});
-  const [sellsySuggestions, setSellsySuggestions] = useState<Record<string, SellsySuggestion[]>>({});
-  const [sellsyKPIs, setSellsyKPIs] = useState({
-    totalLinked: 0, contactsAvecDevis: 0, contactsAvecCommande: 0, totalCA: 0, totalDevisHT: 0,
-  });
-  const [sellsyLoading, setSellsyLoading] = useState(true);
 
   // Search debounce
   const [searchInput, setSearchInput] = useState("");
@@ -138,7 +111,7 @@ export default function ContactsPage() {
 
         let contacts = result.contacts || [];
 
-        // Client-side source filter (sourcePremiere field)
+        // Client-side source filter
         if (sourceFilter !== "ALL") {
           contacts = contacts.filter((c: any) => {
             const src = (c.sourcePremiere || "").toUpperCase();
@@ -151,6 +124,11 @@ export default function ContactsPage() {
 
         setApiContacts(contacts);
         setTotalContacts(result.pagination?.total || 0);
+
+        // Update KPIs from API response
+        if (result.kpis) {
+          setKpis(result.kpis);
+        }
       } catch (error) {
         console.error("Erreur chargement contacts:", error);
       } finally {
@@ -163,56 +141,6 @@ export default function ContactsPage() {
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
-  // Charger les liens Sellsy
-  useEffect(() => {
-    const fetchSellsy = async () => {
-      try {
-        setSellsyLoading(true);
-        const res = await fetch("/api/contacts/sellsy-links");
-        const data = await res.json();
-        if (data.success) {
-          setSellsyLinks(data.links || {});
-          setSellsySuggestions(data.suggestions || {});
-          setSellsyKPIs({
-            totalLinked: data.kpis?.totalLinked || 0,
-            contactsAvecDevis: data.kpis?.contactsAvecDevis || 0,
-            contactsAvecCommande: data.kpis?.contactsAvecCommande || 0,
-            totalCA: data.kpis?.totalCA || 0,
-            totalDevisHT: data.kpis?.totalDevisHT || 0,
-          });
-        }
-      } catch (error) {
-        console.error("Erreur Sellsy links:", error);
-      } finally {
-        setSellsyLoading(false);
-      }
-    };
-    fetchSellsy();
-  }, []);
-
-  // Import legacy contacts
-  const handleImportLegacy = async () => {
-    setImportingLegacy(true);
-    setImportMessage(null);
-    try {
-      const res = await fetch("/api/contacts/import-legacy", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setImportMessage({
-          type: "success",
-          text: `Import terminé : ${data.created} créés, ${data.updated} mis à jour, ${data.demandesCreated || 0} demandes importées${data.errors > 0 ? `, ${data.errors} erreurs` : ""}`,
-        });
-        fetchContacts(true);
-      } else {
-        setImportMessage({ type: "error", text: data.error || "Erreur import" });
-      }
-    } catch (err: any) {
-      setImportMessage({ type: "error", text: err.message });
-    } finally {
-      setImportingLegacy(false);
-    }
-  };
-
   // Sellsy sync
   const handleSellsySync = async () => {
     setSellsySyncing(true);
@@ -221,16 +149,10 @@ export default function ContactsPage() {
     try {
       const res = await fetch("/api/contacts/sellsy-sync", { method: "POST" });
       const data = await res.json();
-      if (data.success) {
-        setSellsySyncResult({
-          linkedByEmail: data.linkedByEmail,
-          alreadyLinked: data.alreadyLinked,
-          totalKokpit: data.totalKokpit,
-          totalSellsy: data.totalSellsy,
-          suggestions: data.suggestions || [],
-        });
-        // Refresh contacts si des liaisons ont été faites
-        if (data.linkedByEmail > 0) fetchContacts(true);
+      setSellsySyncResult(data);
+      // Refresh contacts si des liaisons / imports ont été faits
+      if (data.linkedByEmail > 0 || data.devisImported > 0 || data.ventesImported > 0 || data.clientsUpdated > 0) {
+        fetchContacts(true);
       }
     } catch (err: any) {
       console.error("Sellsy sync error:", err);
@@ -250,7 +172,6 @@ export default function ContactsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        // Retirer de la liste des suggestions
         setSellsySyncResult((prev) =>
           prev ? { ...prev, suggestions: prev.suggestions.filter((s) => s.contactId !== contactId) } : null
         );
@@ -280,60 +201,17 @@ export default function ContactsPage() {
     );
   };
 
-  // Sellsy badge
-  const renderSellsyCell = (contact: ContactData) => {
-    if (sellsyLoading) return <span className="text-cockpit-secondary text-xs">...</span>;
-
-    const link = sellsyLinks[contact.id];
-    const sugs = sellsySuggestions[contact.id];
-
-    if (link) {
-      return (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {link.matchType === "email" && (
-              <span className="inline-flex items-center text-[10px] text-cockpit-success"><CheckCircle2 className="w-3 h-3" /></span>
-            )}
-            {link.devis.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cockpit-info/10 text-cockpit-info">
-                <FileText className="w-3 h-3" />{link.devis.length}
-              </span>
-            )}
-            {link.commandes.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cockpit-success/10 text-cockpit-success">
-                <ShoppingCart className="w-3 h-3" />{link.commandes.length}
-              </span>
-            )}
-          </div>
-          {link.totalCA > 0 && (
-            <span className="text-[10px] text-cockpit-success font-semibold">{formatEuro(link.totalCA)}</span>
-          )}
-        </div>
-      );
+  // Date dernière demande
+  const getLastDemandeDate = (contact: ContactData) => {
+    const demandes = contact.demandesPrix;
+    if (!demandes || demandes.length === 0) return null;
+    const latest = demandes[0];
+    if (!latest?.dateDemande) return null;
+    try {
+      return new Date(latest.dateDemande).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+    } catch {
+      return null;
     }
-
-    if (sugs && sugs.length > 0) {
-      return (
-        <div className="group relative">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cockpit-warning/10 text-cockpit-warning cursor-help">
-            <HelpCircle className="w-3 h-3" />Peut-être...
-          </span>
-          <div className="absolute z-50 bottom-full left-0 mb-2 w-64 p-3 bg-cockpit-card border border-cockpit rounded-lg shadow-cockpit-lg hidden group-hover:block">
-            <p className="text-xs text-cockpit-heading font-semibold mb-1.5">Il s&apos;agit peut-être de :</p>
-            {sugs.map((sug, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-cockpit-primary mb-1">
-                <span className="text-cockpit-yellow font-medium">{sug.sellsyName}</span>
-                <span className="text-cockpit-secondary text-[10px]">
-                  ({sug.matchType === "nom" ? "même nom" : sug.matchType === "telephone" ? "même tél." : "nom similaire"})
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    return <span className="text-cockpit-secondary text-[10px]">—</span>;
   };
 
   return (
@@ -345,15 +223,10 @@ export default function ContactsPage() {
           <p className="text-cockpit-secondary text-sm">{totalContacts} contacts en base</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={handleImportLegacy} disabled={importingLegacy}
-            className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
-            {importingLegacy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{importingLegacy ? "Import..." : "Import anciens"}</span>
-          </button>
           <button onClick={() => { setShowSellsyModal(true); if (!sellsySyncResult) handleSellsySync(); }}
             className="flex items-center gap-1.5 bg-cockpit-info/10 border border-cockpit-info/30 text-cockpit-info px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-info/20 transition-colors">
             <Link2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Lier à Sellsy</span>
+            <span className="hidden sm:inline">Sync Sellsy</span>
           </button>
           <button onClick={() => fetchContacts(true)} disabled={refreshing}
             className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
@@ -365,25 +238,12 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Import message */}
-      {importMessage && (
-        <div className={`flex items-center gap-3 p-3 rounded-lg border ${
-          importMessage.type === "success"
-            ? "bg-cockpit-success/10 border-cockpit-success/30 text-cockpit-success"
-            : "bg-[#FF3E1D]/10 border-[#FF3E1D]/30 text-[#FF3E1D]"
-        }`}>
-          {importMessage.type === "success" ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
-          <p className="text-xs">{importMessage.text}</p>
-          <button onClick={() => setImportMessage(null)} className="ml-auto text-xs opacity-60 hover:opacity-100">✕</button>
-        </div>
-      )}
-
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
-        <KPICard title="Contacts" value={totalContacts} icon={<Users className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
-        <KPICard title="Liés Sellsy" value={sellsyKPIs.totalLinked} icon={<Link2 className="w-7 h-7" />} bgColor="bg-cockpit-info" />
-        <KPICard title="Avec commande" value={sellsyKPIs.contactsAvecCommande} icon={<ShoppingCart className="w-7 h-7" />} bgColor="bg-cockpit-success" />
-        <KPICard title="CA Généré" value={formatEuro(sellsyKPIs.totalCA)} icon={<DollarSign className="w-7 h-7" />} bgColor="bg-cockpit-warning" />
+        <KPICard title="Contacts" value={kpis.totalContacts} icon={<Users className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
+        <KPICard title="Devis Sellsy" value={kpis.totalDevis} icon={<FileText className="w-7 h-7" />} bgColor="bg-cockpit-info" />
+        <KPICard title="Bons de commande" value={kpis.totalVentes} icon={<ShoppingCart className="w-7 h-7" />} bgColor="bg-cockpit-success" />
+        <KPICard title="CA BDC" value={formatEuro(kpis.totalCABDC)} icon={<DollarSign className="w-7 h-7" />} bgColor="bg-cockpit-warning" />
       </div>
 
       {/* Search + Filters */}
@@ -422,17 +282,18 @@ export default function ContactsPage() {
               <tr>
                 <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">NOM</th>
                 <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">EMAIL</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading hidden lg:table-cell">TÉL.</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading hidden lg:table-cell">TÉL.</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading">SOURCE</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading">STAGE</th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">DEM.</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">SELLSY</th>
+                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">DEVIS</th>
+                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">BDC</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cockpit">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin" />Chargement...
                     </div>
@@ -441,6 +302,10 @@ export default function ContactsPage() {
               ) : apiContacts.length > 0 ? (
                 apiContacts.map((c: any) => {
                   const sc = stageConfig[c.lifecycleStage] || stageConfig.PROSPECT;
+                  const nbDevis = c._count?.devis || 0;
+                  const nbVentes = c._count?.ventes || 0;
+                  const nbDem = c._count?.demandesPrix || 0;
+                  const lastDate = getLastDemandeDate(c);
                   return (
                     <tr key={c.id} className="hover:bg-cockpit-dark transition-colors cursor-pointer"
                       onClick={() => setSelectedContact(c)}>
@@ -448,41 +313,46 @@ export default function ContactsPage() {
                         <span className="text-cockpit-yellow font-medium hover:underline text-sm">
                           {c.prenom} {c.nom}
                         </span>
+                        {lastDate && (
+                          <p className="text-[10px] text-cockpit-secondary mt-0.5">{lastDate}</p>
+                        )}
                       </td>
                       <td className="px-4 lg:px-6 py-3 text-cockpit-secondary text-xs truncate max-w-[200px]">{c.email}</td>
-                      <td className="px-4 lg:px-6 py-3 text-cockpit-secondary text-sm hidden lg:table-cell">{c.telephone || "—"}</td>
+                      <td className="px-3 py-3 text-cockpit-secondary text-sm hidden lg:table-cell">{c.telephone || "—"}</td>
                       <td className="px-3 py-3"><SourceBadge source={c.sourcePremiere} /></td>
                       <td className="px-3 py-3">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${sc.bg} ${sc.text}`}>
                           {c.lifecycleStage || "PROSPECT"}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-center text-sm font-medium">
-                        {(c._count?.demandesPrix || 0) + (c._count?.leads || 0)}
+                      <td className="px-3 py-3 text-center text-sm font-medium text-cockpit-primary">
+                        {nbDem > 0 ? nbDem : <span className="text-cockpit-secondary text-xs">—</span>}
                       </td>
-                      <td className="px-4 lg:px-6 py-3" onClick={(e) => e.stopPropagation()}>
-                        {renderSellsyCell(c)}
+                      <td className="px-3 py-3 text-center">
+                        {nbDevis > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cockpit-info/10 text-cockpit-info">
+                            <FileText className="w-3 h-3" />{nbDevis}
+                          </span>
+                        ) : (
+                          <span className="text-cockpit-secondary text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {nbVentes > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-cockpit-success/10 text-cockpit-success">
+                            <ShoppingCart className="w-3 h-3" />{nbVentes}
+                          </span>
+                        ) : (
+                          <span className="text-cockpit-secondary text-xs">—</span>
+                        )}
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-cockpit-secondary">
-                    {totalContacts === 0 ? (
-                      <div className="space-y-3">
-                        <p>Aucun contact en base</p>
-                        <div className="flex items-center justify-center gap-3">
-                          <button onClick={handleImportLegacy} disabled={importingLegacy}
-                            className="flex items-center gap-2 bg-cockpit-yellow text-cockpit-bg px-4 py-2 rounded-lg font-semibold hover:opacity-90 text-sm disabled:opacity-50">
-                            {importingLegacy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                            Importer les anciens contacts
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      "Aucun contact trouvé avec ces filtres"
-                    )}
+                  <td colSpan={8} className="px-4 py-12 text-center text-cockpit-secondary">
+                    {totalContacts === 0 ? "Aucun contact en base" : "Aucun contact trouvé avec ces filtres"}
                   </td>
                 </tr>
               )}
@@ -500,6 +370,9 @@ export default function ContactsPage() {
           ) : apiContacts.length > 0 ? (
             apiContacts.map((c: any) => {
               const sc = stageConfig[c.lifecycleStage] || stageConfig.PROSPECT;
+              const nbDevis = c._count?.devis || 0;
+              const nbVentes = c._count?.ventes || 0;
+              const nbDem = c._count?.demandesPrix || 0;
               return (
                 <div key={c.id} className="p-4 hover:bg-cockpit-dark transition-colors cursor-pointer"
                   onClick={() => setSelectedContact(c)}>
@@ -512,13 +385,18 @@ export default function ContactsPage() {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${sc.bg} ${sc.text}`}>
                           {c.lifecycleStage || "PROSPECT"}
                         </span>
-                        {((c._count?.demandesPrix || 0) + (c._count?.leads || 0)) > 0 && (
-                          <span className="text-[10px] text-cockpit-secondary">
-                            {(c._count?.demandesPrix || 0) + (c._count?.leads || 0)} dem.
+                        {nbDem > 0 && <span className="text-[10px] text-cockpit-secondary">{nbDem} dem.</span>}
+                        {nbDevis > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-cockpit-info font-semibold">
+                            <FileText className="w-3 h-3" />{nbDevis}
+                          </span>
+                        )}
+                        {nbVentes > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-cockpit-success font-semibold">
+                            <ShoppingCart className="w-3 h-3" />{nbVentes}
                           </span>
                         )}
                       </div>
-                      <div className="mt-2">{renderSellsyCell(c)}</div>
                     </div>
                   </div>
                 </div>
@@ -552,7 +430,7 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Modal Liaison Sellsy */}
+      {/* Modal Sync Sellsy */}
       {showSellsyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-cockpit-card border border-cockpit rounded-2xl shadow-cockpit-lg w-full max-w-2xl max-h-[85vh] flex flex-col">
@@ -563,8 +441,8 @@ export default function ContactsPage() {
                   <Link2 className="w-5 h-5 text-cockpit-info" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-cockpit-heading">Liaison Sellsy</h2>
-                  <p className="text-xs text-cockpit-secondary">Lier les contacts KOKPIT aux contacts Sellsy</p>
+                  <h2 className="text-lg font-bold text-cockpit-heading">Synchronisation Sellsy</h2>
+                  <p className="text-xs text-cockpit-secondary">Liaison contacts + import devis/BDC</p>
                 </div>
               </div>
               <button onClick={() => setShowSellsyModal(false)} className="p-2 hover:bg-cockpit-dark rounded-lg transition-colors">
@@ -578,51 +456,74 @@ export default function ContactsPage() {
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
                   <Loader2 className="w-8 h-8 animate-spin text-cockpit-info" />
                   <p className="text-sm text-cockpit-secondary">Synchronisation en cours...</p>
-                  <p className="text-xs text-cockpit-secondary">Récupération des contacts Sellsy et matching...</p>
+                  <p className="text-xs text-cockpit-secondary">Récupération des données Sellsy, matching et import...</p>
                 </div>
               ) : sellsySyncResult ? (
                 <>
                   {/* Résumé */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-cockpit-dark rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-cockpit-heading">{sellsySyncResult.totalSellsy}</p>
-                      <p className="text-[10px] text-cockpit-secondary mt-1">Contacts Sellsy</p>
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="bg-cockpit-dark rounded-xl p-3 text-center">
                       <p className="text-2xl font-bold text-cockpit-success">{sellsySyncResult.linkedByEmail}</p>
                       <p className="text-[10px] text-cockpit-secondary mt-1">Liés par email</p>
                     </div>
                     <div className="bg-cockpit-dark rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-cockpit-info">{sellsySyncResult.alreadyLinked}</p>
+                      <p className="text-2xl font-bold text-cockpit-info">{sellsySyncResult.devisImported}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-1">Devis importés</p>
+                    </div>
+                    <div className="bg-cockpit-dark rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-cockpit-success">{sellsySyncResult.ventesImported}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-1">BDC importés</p>
+                    </div>
+                    <div className="bg-cockpit-dark rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-cockpit-warning">{sellsySyncResult.clientsUpdated}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-1">→ CLIENT</p>
+                    </div>
+                    <div className="bg-cockpit-dark rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-cockpit-heading">{sellsySyncResult.alreadyLinked}</p>
                       <p className="text-[10px] text-cockpit-secondary mt-1">Déjà liés</p>
                     </div>
                     <div className="bg-cockpit-dark rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-cockpit-warning">{sellsySyncResult.suggestions.filter((s) => !dismissedSuggestions.has(s.contactId)).length}</p>
-                      <p className="text-[10px] text-cockpit-secondary mt-1">À valider</p>
+                      <p className="text-2xl font-bold text-cockpit-heading">{sellsySyncResult.totalSellsyEntities}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-1">Entreprises Sellsy</p>
                     </div>
                   </div>
 
-                  {sellsySyncResult.linkedByEmail > 0 && (
+                  {/* Erreurs */}
+                  {sellsySyncResult.errors && sellsySyncResult.errors.length > 0 && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                      <p className="text-xs font-semibold text-red-400 mb-1">Erreurs ({sellsySyncResult.errors.length})</p>
+                      <div className="max-h-24 overflow-y-auto space-y-1">
+                        {sellsySyncResult.errors.slice(0, 5).map((err, i) => (
+                          <p key={i} className="text-[10px] text-red-400">{err}</p>
+                        ))}
+                        {sellsySyncResult.errors.length > 5 && (
+                          <p className="text-[10px] text-red-400">...et {sellsySyncResult.errors.length - 5} autres</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Succès message */}
+                  {sellsySyncResult.success && (sellsySyncResult.linkedByEmail > 0 || sellsySyncResult.devisImported > 0 || sellsySyncResult.ventesImported > 0) && (
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-cockpit-success/10 border border-cockpit-success/30">
                       <CheckCircle2 className="w-4 h-4 text-cockpit-success flex-shrink-0" />
                       <p className="text-xs text-cockpit-success">
-                        {sellsySyncResult.linkedByEmail} contact{sellsySyncResult.linkedByEmail > 1 ? "s" : ""} lié{sellsySyncResult.linkedByEmail > 1 ? "s" : ""} automatiquement par email
+                        Synchronisation réussie ! Les données ont été mises à jour.
                       </p>
                     </div>
                   )}
 
                   {/* Suggestions */}
-                  {sellsySyncResult.suggestions.filter((s) => !dismissedSuggestions.has(s.contactId)).length > 0 ? (
+                  {sellsySyncResult.suggestions.filter((s) => !dismissedSuggestions.has(s.contactId)).length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-cockpit-heading mb-3">
-                        Suggestions à valider (nom + prénom + téléphone)
+                        Suggestions à valider ({sellsySyncResult.suggestions.filter((s) => !dismissedSuggestions.has(s.contactId)).length})
                       </h3>
                       <div className="space-y-2">
                         {sellsySyncResult.suggestions
                           .filter((s) => !dismissedSuggestions.has(s.contactId))
                           .map((sug) => (
                             <div key={sug.contactId} className="flex items-center gap-3 p-3 bg-cockpit-dark rounded-xl border border-cockpit">
-                              {/* KOKPIT side */}
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-cockpit-heading truncate">
                                   {sug.kokpitPrenom} {sug.kokpitNom}
@@ -630,11 +531,7 @@ export default function ContactsPage() {
                                 <p className="text-[10px] text-cockpit-secondary truncate">{sug.kokpitEmail || "—"}</p>
                                 <p className="text-[10px] text-cockpit-secondary">{sug.kokpitTelephone || "—"}</p>
                               </div>
-
-                              {/* Arrow */}
                               <div className="text-cockpit-warning text-lg">→</div>
-
-                              {/* Sellsy side */}
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-semibold text-cockpit-info truncate">
                                   {sug.sellsyPrenom} {sug.sellsyNom}
@@ -642,8 +539,6 @@ export default function ContactsPage() {
                                 <p className="text-[10px] text-cockpit-secondary truncate">{sug.sellsyEmail || "—"}</p>
                                 <p className="text-[10px] text-cockpit-secondary">{sug.sellsyTelephone || "—"}</p>
                               </div>
-
-                              {/* Actions */}
                               <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <button
                                   onClick={() => handleConfirmSuggestion(sug.contactId, sug.sellsyContactId)}
@@ -664,10 +559,6 @@ export default function ContactsPage() {
                             </div>
                           ))}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <p className="text-sm text-cockpit-secondary">Aucune suggestion à valider</p>
                     </div>
                   )}
                 </>

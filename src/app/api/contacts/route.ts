@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       where.showroomId = filters.showroomId;
     }
 
-    const [contacts, total] = await Promise.all([
+    const [contacts, total, kpiData] = await Promise.all([
       prisma.contact.findMany({
         where,
         include: {
@@ -43,24 +43,58 @@ export async function GET(request: NextRequest) {
           demandesPrix: {
             orderBy: { dateDemande: "desc" },
           },
-          leads: {
-            include: {
-              commercial: {
-                select: { id: true, nom: true, email: true },
-              },
+          devis: {
+            select: {
+              id: true,
+              sellsyQuoteId: true,
+              montant: true,
+              statut: true,
+              dateEnvoi: true,
+              createdAt: true,
             },
             orderBy: { createdAt: "desc" },
           },
+          ventes: {
+            select: {
+              id: true,
+              sellsyInvoiceId: true,
+              montant: true,
+              dateVente: true,
+              createdAt: true,
+            },
+            orderBy: { dateVente: "desc" },
+          },
           _count: {
-            select: { demandesPrix: true, leads: true, devis: true },
+            select: { demandesPrix: true, leads: true, devis: true, ventes: true },
           },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: [
+          { demandesPrix: { _count: "desc" } },
+          { updatedAt: "desc" },
+        ],
         skip: (filters.page - 1) * filters.limit,
         take: filters.limit,
       }),
       prisma.contact.count({ where }),
+      // KPIs globaux
+      prisma.$transaction([
+        prisma.contact.count({ where: { sellsyContactId: { not: null } } }),
+        prisma.contact.count({ where: { ventes: { some: {} } } }),
+        prisma.vente.aggregate({ _sum: { montant: true } }),
+        prisma.devis.count(),
+        prisma.vente.count(),
+      ]),
     ]);
+
+    // Trier côté serveur par date de dernière demande (desc)
+    contacts.sort((a: any, b: any) => {
+      const dateA = a.demandesPrix?.[0]?.dateDemande;
+      const dateB = b.demandesPrix?.[0]?.dateDemande;
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
 
     return NextResponse.json({
       contacts,
@@ -69,6 +103,14 @@ export async function GET(request: NextRequest) {
         limit: filters.limit,
         total,
         totalPages: Math.ceil(total / filters.limit),
+      },
+      kpis: {
+        totalContacts: total,
+        totalLinkedSellsy: kpiData[0],
+        totalAvecBDC: kpiData[1],
+        totalCABDC: kpiData[2]._sum.montant || 0,
+        totalDevis: kpiData[3],
+        totalVentes: kpiData[4],
       },
     });
   } catch (error: any) {

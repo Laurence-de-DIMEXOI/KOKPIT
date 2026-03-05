@@ -466,6 +466,26 @@ export async function listAllEstimates(): Promise<SellsyEstimate[]> {
   return all;
 }
 
+/**
+ * Récupère TOUS les bons de commande Sellsy en paginant.
+ * Note: pas de order/direction — cause 400 sur certains comptes Sellsy
+ */
+export async function listAllOrders(): Promise<SellsyOrder[]> {
+  const all: SellsyOrder[] = [];
+  const pageSize = 100;
+  let offset = 0;
+  let total = Infinity;
+
+  while (offset < total) {
+    const res = await listOrders({ limit: pageSize, offset });
+    all.push(...res.data);
+    total = res.pagination.total;
+    offset += pageSize;
+  }
+
+  return all;
+}
+
 // ===== UTILITAIRE DE TEST =====
 
 export async function testConnection(): Promise<{
