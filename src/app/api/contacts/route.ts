@@ -7,6 +7,7 @@ const filterSchema = z.object({
   search: z.string().optional(),
   stage: z.enum(["PROSPECT", "LEAD", "CLIENT", "INACTIF"]).optional(),
   showroomId: z.string().optional(),
+  sort: z.enum(["derniere_demande", "dernier_devis", "dernier_bdc", "nom", "date_creation"]).optional().default("derniere_demande"),
   page: z.coerce.number().positive().default(1),
   limit: z.coerce.number().min(1).max(100).default(25),
 });
@@ -68,10 +69,11 @@ export async function GET(request: NextRequest) {
             select: { demandesPrix: true, leads: true, devis: true, ventes: true },
           },
         },
-        orderBy: [
-          { demandesPrix: { _count: "desc" } },
-          { updatedAt: "desc" },
-        ],
+        orderBy: filters.sort === "nom"
+          ? [{ nom: "asc" as const }]
+          : filters.sort === "date_creation"
+          ? [{ createdAt: "desc" as const }]
+          : [{ updatedAt: "desc" as const }],
         skip: (filters.page - 1) * filters.limit,
         take: filters.limit,
       }),
@@ -86,15 +88,35 @@ export async function GET(request: NextRequest) {
       ]),
     ]);
 
-    // Trier côté serveur par date de dernière demande (desc)
-    contacts.sort((a: any, b: any) => {
-      const dateA = a.demandesPrix?.[0]?.dateDemande;
-      const dateB = b.demandesPrix?.[0]?.dateDemande;
-      if (!dateA && !dateB) return 0;
-      if (!dateA) return 1;
-      if (!dateB) return -1;
-      return new Date(dateB).getTime() - new Date(dateA).getTime();
-    });
+    // Tri côté serveur pour les colonnes nécessitant un accès aux relations
+    if (filters.sort === "derniere_demande") {
+      contacts.sort((a: any, b: any) => {
+        const dateA = a.demandesPrix?.[0]?.dateDemande;
+        const dateB = b.demandesPrix?.[0]?.dateDemande;
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
+    } else if (filters.sort === "dernier_devis") {
+      contacts.sort((a: any, b: any) => {
+        const dateA = a.devis?.[0]?.createdAt || a.devis?.[0]?.dateEnvoi;
+        const dateB = b.devis?.[0]?.createdAt || b.devis?.[0]?.dateEnvoi;
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
+    } else if (filters.sort === "dernier_bdc") {
+      contacts.sort((a: any, b: any) => {
+        const dateA = a.ventes?.[0]?.dateVente;
+        const dateB = b.ventes?.[0]?.dateVente;
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
+    }
 
     return NextResponse.json({
       contacts,

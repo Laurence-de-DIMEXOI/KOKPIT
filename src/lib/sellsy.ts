@@ -280,6 +280,8 @@ export async function searchOrders(params: {
     status?: string[];
     order_status?: string[];
     contact_id?: number;
+    date?: { start?: string; end?: string };
+    created?: DateRange;
   };
   limit?: number;
   offset?: number;
@@ -443,16 +445,21 @@ export async function listAllCompanies(): Promise<SellsyCompany[]> {
 }
 
 /**
- * Récupère TOUS les devis Sellsy en paginant.
+ * Récupère TOUS les devis Sellsy depuis une date donnée (défaut: 2024-01-01).
+ * Utilise l'endpoint search avec filtre date pour limiter les résultats.
  */
-export async function listAllEstimates(): Promise<SellsyEstimate[]> {
+export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]> {
   const all: SellsyEstimate[] = [];
   const pageSize = 100;
   let offset = 0;
   let total = Infinity;
+  const sinceDate = since || "2024-01-01";
 
   while (offset < total) {
-    const res = await listEstimates({
+    const res = await searchEstimates({
+      filters: {
+        date: { start: sinceDate },
+      },
       limit: pageSize,
       offset,
       order: "created",
@@ -463,26 +470,35 @@ export async function listAllEstimates(): Promise<SellsyEstimate[]> {
     offset += pageSize;
   }
 
+  console.log(`Fetched ${all.length} estimates since ${sinceDate}`);
   return all;
 }
 
 /**
- * Récupère TOUS les bons de commande Sellsy en paginant.
- * Note: pas de order/direction — cause 400 sur certains comptes Sellsy
+ * Récupère TOUS les bons de commande Sellsy depuis une date donnée (défaut: 2024-01-01).
+ * Utilise l'endpoint search avec filtre date pour limiter les résultats.
  */
-export async function listAllOrders(): Promise<SellsyOrder[]> {
+export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
   const all: SellsyOrder[] = [];
   const pageSize = 100;
   let offset = 0;
   let total = Infinity;
+  const sinceDate = since || "2024-01-01";
 
   while (offset < total) {
-    const res = await listOrders({ limit: pageSize, offset });
+    const res = await searchOrders({
+      filters: {
+        date: { start: sinceDate },
+      },
+      limit: pageSize,
+      offset,
+    });
     all.push(...res.data);
     total = res.pagination.total;
     offset += pageSize;
   }
 
+  console.log(`Fetched ${all.length} orders since ${sinceDate}`);
   return all;
 }
 

@@ -47,6 +47,7 @@ export default function ContactsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [stageFilter, setStageFilter] = useState<string>("ALL");
   const [sourceFilter, setSourceFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<string>("derniere_demande");
 
   // KPIs from API
   const [kpis, setKpis] = useState({
@@ -104,8 +105,9 @@ export default function ContactsPage() {
       try {
         const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
         const stageParam = stageFilter !== "ALL" ? `&stage=${stageFilter}` : "";
+        const sortParam = `&sort=${sortBy}`;
         const response = await fetch(
-          `/api/contacts?page=${page}&limit=${ITEMS_PER_PAGE}${searchParam}${stageParam}`
+          `/api/contacts?page=${page}&limit=${ITEMS_PER_PAGE}${searchParam}${stageParam}${sortParam}`
         );
         const result = await response.json();
 
@@ -136,7 +138,7 @@ export default function ContactsPage() {
         setRefreshing(false);
       }
     },
-    [page, search, stageFilter, sourceFilter]
+    [page, search, stageFilter, sourceFilter, sortBy]
   );
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
@@ -269,6 +271,14 @@ export default function ContactsPage() {
             <option value="GLIDE">Glide (anciens)</option>
             <option value="SITE_WEB">Site Web</option>
             <option value="WEBHOOK">Webhook</option>
+          </select>
+          <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+            className="bg-cockpit-input border border-cockpit-input px-3 py-2.5 rounded-input text-xs text-cockpit-primary">
+            <option value="derniere_demande">Tri: Dernière demande</option>
+            <option value="dernier_devis">Tri: Dernier devis</option>
+            <option value="dernier_bdc">Tri: Dernier BDC</option>
+            <option value="nom">Tri: Nom A-Z</option>
+            <option value="date_creation">Tri: Date création</option>
           </select>
         </div>
       </div>
