@@ -371,7 +371,7 @@ export default function LeadsPage() {
                   {/* Estimation IA */}
                   {sellsy?.totalEstimatedTTC ? (
                     <span className="text-xs font-bold text-cockpit-yellow flex-shrink-0 min-w-[80px] text-right">
-                      {sellsy.totalEstimatedTTC.toFixed(0)}€
+                      {Number(sellsy.totalEstimatedTTC).toFixed(0)}€
                     </span>
                   ) : (
                     <span className="min-w-[80px] hidden lg:block" />
@@ -489,10 +489,10 @@ export default function LeadsPage() {
                               <div className="bg-cockpit-yellow/10 border border-cockpit-yellow/30 p-4 rounded-lg">
                                 <div className="text-xs text-cockpit-yellow font-semibold mb-1">ESTIMATION TOTALE</div>
                                 <div className="text-2xl font-bold text-cockpit-yellow">
-                                  {sellsy.totalEstimatedTTC.toFixed(2)}€ <span className="text-sm font-normal">TTC</span>
+                                  {Number(sellsy.totalEstimatedTTC).toFixed(2)}€ <span className="text-sm font-normal">TTC</span>
                                 </div>
                                 <div className="text-xs text-cockpit-secondary mt-1">
-                                  {sellsy.totalEstimatedHT.toFixed(2)}€ HT · {sellsy.catalogSize} produits analysés
+                                  {Number(sellsy.totalEstimatedHT).toFixed(2)}€ HT · {sellsy.catalogSize} produits analysés
                                 </div>
                               </div>
                             )}
@@ -520,10 +520,10 @@ export default function LeadsPage() {
                                     )}
                                     <div className="flex items-center justify-between text-sm">
                                       <span className="text-cockpit-secondary">
-                                        {m.bestMatch.prixHT.toFixed(2)}€ HT
+                                        {Number(m.bestMatch.prixHT).toFixed(2)}€ HT
                                       </span>
                                       <span className="text-cockpit-yellow font-semibold">
-                                        {m.estimatedValueTTC.toFixed(2)}€ TTC
+                                        {Number(m.estimatedValueTTC).toFixed(2)}€ TTC
                                       </span>
                                     </div>
                                     {/* Alternatives */}
@@ -536,7 +536,7 @@ export default function LeadsPage() {
                                           {m.matchesSellsy.slice(1).map((alt, j) => (
                                             <div key={j} className="flex items-center justify-between text-xs text-cockpit-secondary">
                                               <span className="truncate mr-2">{alt.name}</span>
-                                              <span>{alt.prixTTC.toFixed(0)}€ ({alt.score}%)</span>
+                                              <span>{Number(alt.prixTTC).toFixed(0)}€ ({alt.score}%)</span>
                                             </div>
                                           ))}
                                         </div>
