@@ -424,6 +424,7 @@ export async function listAllContacts(): Promise<SellsyContact[] | null> {
 
 /**
  * Récupère TOUTES les entreprises Sellsy en paginant.
+ * Note: pas de order/direction — cause 400 sur certains comptes Sellsy
  */
 export async function listAllCompanies(): Promise<SellsyCompany[]> {
   const all: SellsyCompany[] = [];
@@ -432,12 +433,7 @@ export async function listAllCompanies(): Promise<SellsyCompany[]> {
   let total = Infinity;
 
   while (offset < total) {
-    const res = await listCompanies({
-      limit: pageSize,
-      offset,
-      order: "created",
-      direction: "desc",
-    });
+    const res = await listCompanies({ limit: pageSize, offset });
     all.push(...res.data);
     total = res.pagination.total;
     offset += pageSize;
