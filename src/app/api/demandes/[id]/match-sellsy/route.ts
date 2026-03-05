@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { searchItems, listItems, SellsyItem } from "@/lib/sellsy";
+import { listAllItems, type SellsyItem } from "@/lib/sellsy";
 
 /**
  * GET /api/demandes/[id]/match-sellsy
@@ -8,10 +8,13 @@ import { searchItems, listItems, SellsyItem } from "@/lib/sellsy";
  * Cherche dans le catalogue Sellsy les produits correspondant
  * aux articles de la demande de prix pour estimer sa valeur.
  *
+ * Utilise listAllItems() qui charge tous les produits et services
+ * (non archivés, exclut shipping/packaging).
+ *
  * Algorithme de matching :
  * 1. Recherche par nom exact
  * 2. Recherche par mots-clés du nom
- * 3. Recherche par catégorie
+ * 3. Recherche par référence
  * 4. Score de pertinence basé sur les correspondances
  */
 
@@ -113,8 +116,10 @@ export async function GET(
     // Extraire les articles (JSON ou champ meuble simple)
     const articles: { nom: string; categorie?: string | null; finition?: string | null; quantite: number }[] = [];
 
-    if (demande.articles && Array.isArray(demande.articles)) {
-      for (const a of demande.articles as any[]) {
+    // Vérifier si articles contient un tableau JSON
+    const articlesJson = (demande as any).articles;
+    if (articlesJson && Array.isArray(articlesJson)) {
+      for (const a of articlesJson) {
         articles.push({
           nom: a.nom || a.name || "Inconnu",
           categorie: a.categorie || a.category || null,
@@ -123,7 +128,7 @@ export async function GET(
         });
       }
     } else if (demande.meuble && demande.meuble !== "Non spécifié") {
-      // Ancien format : un seul meuble en string
+      // Format standard : un seul meuble en string
       articles.push({
         nom: demande.meuble,
         categorie: null,
@@ -142,23 +147,10 @@ export async function GET(
       });
     }
 
-    // Charger le catalogue Sellsy (tous les produits actifs)
+    // Charger le catalogue Sellsy complet (product + service, non archivés)
     let allItems: SellsyItem[] = [];
     try {
-      const result = await searchItems({ filters: { is_archived: false } });
-      allItems = result.data || [];
-
-      // Si > 100 résultats, paginer
-      if (result.pagination && result.pagination.total > result.pagination.count) {
-        const total = result.pagination.total;
-        let offset = result.pagination.count;
-        while (offset < total && offset < 500) {
-          const more = await listItems({ limit: 100, offset });
-          allItems = allItems.concat(more.data.filter((i) => !i.is_archived));
-          offset += more.data.length;
-          if (more.data.length === 0) break;
-        }
-      }
+      allItems = await listAllItems();
     } catch (err: any) {
       return NextResponse.json({
         success: false,
@@ -176,8 +168,12 @@ export async function GET(
       const matches: MatchResult["matchesSellsy"] = [];
 
       for (const item of allItems) {
+        const itemName = item.name || item.reference || item.description || "";
+        const prixHT = parseFloat(item.reference_price_taxes_exc || "0");
+        const prixTTC = parseFloat(item.reference_price_taxes_inc || "0");
+
         // Score par nom
-        let score = scoreMatch(article.nom, item.name);
+        let score = scoreMatch(article.nom, itemName);
 
         // Bonus si la référence contient un mot-clé
         if (score < 50 && item.reference) {
@@ -185,19 +181,25 @@ export async function GET(
           score = Math.max(score, refScore * 0.8);
         }
 
+        // Bonus si la description matche
+        if (score < 50 && item.description && item.description !== itemName) {
+          const descScore = scoreMatch(article.nom, item.description);
+          score = Math.max(score, descScore * 0.7);
+        }
+
         // Bonus catégorie si match partiel
         if (score > 20 && article.categorie) {
-          const catScore = scoreMatch(article.categorie, item.name);
+          const catScore = scoreMatch(article.categorie, itemName);
           if (catScore > 30) score = Math.min(100, score + 10);
         }
 
         if (score >= 30) {
           matches.push({
             id: item.id,
-            name: item.name,
+            name: itemName,
             reference: item.reference || "",
-            prixHT: item.reference_price_taxes_exc || 0,
-            prixTTC: item.reference_price_taxes_inc || 0,
+            prixHT,
+            prixTTC,
             score: Math.round(score),
             matchType: score >= 85 ? "exact" : score >= 50 ? "partiel" : "categorie",
           });
