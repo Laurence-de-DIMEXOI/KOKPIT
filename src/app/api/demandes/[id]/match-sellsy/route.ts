@@ -145,7 +145,7 @@ export async function GET(
     // Charger le catalogue Sellsy (tous les produits actifs)
     let allItems: SellsyItem[] = [];
     try {
-      const result = await searchItems({ is_archived: false });
+      const result = await searchItems({ filters: { is_archived: false } });
       allItems = result.data || [];
 
       // Si > 100 résultats, paginer

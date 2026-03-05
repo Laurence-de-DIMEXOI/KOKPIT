@@ -91,17 +91,27 @@ export interface SellsyPagination {
 export interface SellsyItem {
   id: number;
   type: "product" | "service" | "shipping" | "packaging";
-  name: string;
+  name: string | null;
   reference: string;
   description: string;
-  reference_price_taxes_exc: number;
-  reference_price_taxes_inc: number;
-  purchase_amount: number;
+  reference_price: string;
+  price_excl_tax: string;
+  reference_price_taxes_exc: string;
+  reference_price_taxes_inc: string;
+  purchase_amount: string;
+  is_reference_price_taxes_free: boolean;
   tax_id: number | null;
   unit_id: number | null;
-  category_id: number | null;
+  category_id: number;
   currency: string;
+  standard_quantity: string;
   is_archived: boolean;
+  is_declined: boolean;
+  is_einvoicing_compliant: boolean;
+  is_name_included_in_description: boolean;
+  accounting_code_id: number | null;
+  accounting_purchase_code_id: number | null;
+  accounting_analytic_code: string | null;
   created: string;
   updated: string;
 }
@@ -185,16 +195,61 @@ export async function getItem(id: number): Promise<{ data: SellsyItem }> {
   return sellsyFetch<{ data: SellsyItem }>(`/items/${id}`);
 }
 
-export async function searchItems(filters: {
-  name?: string;
-  reference?: string;
-  type?: string[];
-  is_archived?: boolean;
+export async function searchItems(params: {
+  filters: {
+    name?: string;
+    reference?: string;
+    type?: string[];
+    is_archived?: boolean;
+  };
+  limit?: number;
+  offset?: number | string;
 }): Promise<SellsyListResponse<SellsyItem>> {
-  return sellsyFetch<SellsyListResponse<SellsyItem>>("/items/search", {
-    method: "POST",
-    body: JSON.stringify({ filters }),
-  });
+  const searchParams = new URLSearchParams();
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  if (params.offset !== undefined) searchParams.set("offset", String(params.offset));
+
+  const qs = searchParams.toString();
+  return sellsyFetch<SellsyListResponse<SellsyItem>>(
+    `/items/search${qs ? `?${qs}` : ""}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ filters: params.filters }),
+    }
+  );
+}
+
+/**
+ * Récupère TOUS les produits Sellsy (product + service uniquement, non archivés).
+ * Exclut shipping et packaging. Pagination automatique via cursor offset.
+ */
+export async function listAllItems(): Promise<SellsyItem[]> {
+  const all: SellsyItem[] = [];
+  const pageSize = 100;
+  let offset: number | string = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const res = await searchItems({
+      filters: {
+        type: ["product", "service"],
+        is_archived: false,
+      },
+      limit: pageSize,
+      offset,
+    });
+    all.push(...res.data);
+
+    // Sellsy v2 uses cursor-based offset (base64 string) for pagination
+    if (res.data.length < pageSize || all.length >= res.pagination.total) {
+      hasMore = false;
+    } else {
+      offset = res.pagination.offset;
+    }
+  }
+
+  console.log(`Fetched ${all.length} items (product/service, non-archived)`);
+  return all;
 }
 
 // ===== DEVIS (ESTIMATES) =====

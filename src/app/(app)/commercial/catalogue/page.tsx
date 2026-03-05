@@ -1,41 +1,74 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Package,
   RefreshCw,
   Loader2,
   Search,
-  Euro,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Tag,
+  Filter,
 } from "lucide-react";
+import { KPICard } from "@/components/dashboard/kpi-card";
 
 interface SellsyItem {
   id: number;
-  name?: string;
-  reference?: string;
-  unit_amount?: string;
-  description?: string;
-  type?: string;
-  is_active?: boolean;
-  category?: { id: number; name?: string };
+  type: "product" | "service";
+  name: string | null;
+  reference: string;
+  description: string;
+  reference_price_taxes_exc: string;
+  reference_price_taxes_inc: string;
+  purchase_amount: string;
+  currency: string;
+  standard_quantity: string;
+  category_id: number;
+  is_archived: boolean;
+  created: string;
+  updated: string;
 }
+
+type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type";
+type SortDir = "asc" | "desc";
+
+const formatEuro = (val: string | number) => {
+  const num = typeof val === "string" ? parseFloat(val) : val;
+  if (!num && num !== 0) return "—";
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
+};
 
 export default function CataloguePage() {
   const [items, setItems] = useState<SellsyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [total, setTotal] = useState(0);
+  const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const fetchItems = async (query?: string) => {
+  // Search debounce
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const fetchItems = async () => {
     setRefreshing(true);
     try {
-      const params = new URLSearchParams({ limit: "500", is_archived: "false" });
-      if (query) params.set("search", query);
-      const res = await fetch(`/api/sellsy/items?${params}`);
+      const res = await fetch("/api/sellsy/items?all=true");
       const data = await res.json();
-      setItems(data.items || []);
-      setTotal(data.pagination?.total || 0);
+      if (data.success) {
+        setItems(data.items || []);
+      }
     } catch (error) {
       console.error("Erreur chargement catalogue:", error);
     } finally {
@@ -48,9 +81,85 @@ export default function CataloguePage() {
     fetchItems();
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchItems(search);
+  // Filter & sort
+  const filtered = useMemo(() => {
+    let result = items;
+
+    // Search
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (item) =>
+          (item.name || "").toLowerCase().includes(q) ||
+          (item.reference || "").toLowerCase().includes(q) ||
+          (item.description || "").toLowerCase().includes(q)
+      );
+    }
+
+    // Type filter
+    if (typeFilter !== "ALL") {
+      result = result.filter((item) => item.type === typeFilter);
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "name":
+          cmp = (a.name || a.reference || "").localeCompare(b.name || b.reference || "", "fr");
+          break;
+        case "reference":
+          cmp = (a.reference || "").localeCompare(b.reference || "", "fr");
+          break;
+        case "price_ht":
+          cmp = parseFloat(a.reference_price_taxes_exc || "0") - parseFloat(b.reference_price_taxes_exc || "0");
+          break;
+        case "price_ttc":
+          cmp = parseFloat(a.reference_price_taxes_inc || "0") - parseFloat(b.reference_price_taxes_inc || "0");
+          break;
+        case "type":
+          cmp = (a.type || "").localeCompare(b.type || "");
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return result;
+  }, [items, search, typeFilter, sortKey, sortDir]);
+
+  // KPIs
+  const kpis = useMemo(() => {
+    const products = items.filter((i) => i.type === "product");
+    const services = items.filter((i) => i.type === "service");
+    const avgPriceHT =
+      items.length > 0
+        ? items.reduce((sum, i) => sum + parseFloat(i.reference_price_taxes_exc || "0"), 0) / items.length
+        : 0;
+    return {
+      total: items.length,
+      products: products.length,
+      services: services.length,
+      avgPriceHT,
+    };
+  }, [items]);
+
+  // Sort handler
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 text-cockpit-secondary" />;
+    return sortDir === "asc" ? (
+      <ArrowUp className="w-3 h-3 text-cockpit-info" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-cockpit-info" />
+    );
   };
 
   if (loading) {
@@ -62,7 +171,7 @@ export default function CataloguePage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -70,11 +179,11 @@ export default function CataloguePage() {
             Catalogue Produits
           </h1>
           <p className="text-cockpit-secondary text-sm">
-            {total} produits Sellsy
+            {filtered.length} produit{filtered.length > 1 ? "s" : ""} affichés sur {items.length}
           </p>
         </div>
         <button
-          onClick={() => fetchItems(search)}
+          onClick={fetchItems}
           disabled={refreshing}
           className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
         >
@@ -83,92 +192,221 @@ export default function CataloguePage() {
           ) : (
             <RefreshCw className="w-4 h-4" />
           )}
-          Sync Sellsy
+          Rafraîchir
         </button>
       </div>
 
-      {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
-          <input
-            type="text"
-            placeholder="Rechercher un produit..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-cockpit-card border border-cockpit rounded-lg pl-10 pr-4 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-cockpit-info/40"
-          />
-        </div>
-        <button
-          type="submit"
-          className="bg-cockpit-info/15 text-cockpit-info border border-cockpit-info/30 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-cockpit-info/25 transition-colors"
-        >
-          Chercher
-        </button>
-      </form>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
+        <KPICard title="Total articles" value={kpis.total} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
+        <KPICard title="Produits" value={kpis.products} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-info" />
+        <KPICard title="Services" value={kpis.services} icon={<Tag className="w-7 h-7" />} bgColor="bg-cockpit-success" />
+        <KPICard title="Prix moy. HT" value={formatEuro(kpis.avgPriceHT)} icon={<Tag className="w-7 h-7" />} bgColor="bg-cockpit-warning" />
+      </div>
 
-      {/* Products Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 hover:border-cockpit-info/40 transition-colors"
-          >
-            <div className="flex items-start gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-cockpit-info/10 flex items-center justify-center flex-shrink-0">
-                <Package className="w-5 h-5 text-cockpit-info" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-cockpit-heading truncate">
-                  {item.name || `Produit #${item.id}`}
-                </p>
-                {item.reference && (
-                  <p className="text-xs text-cockpit-secondary">
-                    Réf: {item.reference}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {item.description && (
-              <p className="text-xs text-cockpit-secondary line-clamp-2 mb-3">
-                {item.description}
-              </p>
-            )}
-
-            <div className="flex items-center justify-between pt-3 border-t border-cockpit">
-              <div className="flex items-center gap-1">
-                <span className="text-base font-bold text-cockpit-heading">
-                  {(Number(item.unit_amount) || 0).toLocaleString("fr-FR", {
-                    style: "currency",
-                    currency: "EUR",
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              {item.type && (
-                <span className="text-xs bg-cockpit-dark px-2 py-1 rounded text-cockpit-secondary">
-                  {item.type}
-                </span>
-              )}
-            </div>
-
-            {item.category?.name && (
-              <p className="text-xs text-cockpit-info mt-2">
-                {item.category.name}
-              </p>
-            )}
+      {/* Search + Filters */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4 lg:p-8">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
+            <input
+              type="text"
+              placeholder="Rechercher par nom, référence ou description..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary text-sm"
+            />
           </div>
-        ))}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="bg-cockpit-input border border-cockpit-input px-3 py-2.5 rounded-input text-xs text-cockpit-primary"
+          >
+            <option value="ALL">Tous les types</option>
+            <option value="product">Produits</option>
+            <option value="service">Services</option>
+          </select>
+        </div>
       </div>
 
-      {items.length === 0 && (
-        <div className="text-center py-12">
-          <Package className="w-12 h-12 text-cockpit-secondary mx-auto mb-4" />
-          <p className="text-cockpit-secondary">Aucun produit trouvé</p>
+      {/* Table */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
+        {/* Desktop */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-cockpit-dark border-b border-cockpit">
+              <tr>
+                <th
+                  className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
+                  onClick={() => handleSort("reference")}
+                >
+                  <span className="flex items-center gap-1.5">RÉF. <SortIcon col="reference" /></span>
+                </th>
+                <th
+                  className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
+                  onClick={() => handleSort("name")}
+                >
+                  <span className="flex items-center gap-1.5">NOM <SortIcon col="name" /></span>
+                </th>
+                <th
+                  className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
+                  onClick={() => handleSort("type")}
+                >
+                  <span className="flex items-center gap-1.5">TYPE <SortIcon col="type" /></span>
+                </th>
+                <th
+                  className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
+                  onClick={() => handleSort("price_ht")}
+                >
+                  <span className="flex items-center gap-1.5 justify-end">PRIX HT <SortIcon col="price_ht" /></span>
+                </th>
+                <th
+                  className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
+                  onClick={() => handleSort("price_ttc")}
+                >
+                  <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
+                </th>
+                <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
+                  ACHAT
+                </th>
+                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
+                  QTÉ STD
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cockpit">
+              {filtered.length > 0 ? (
+                filtered.map((item) => {
+                  const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
+                  const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
+                  const purchasePrice = parseFloat(item.purchase_amount || "0");
+                  const margin = priceHT > 0 && purchasePrice > 0 ? ((priceHT - purchasePrice) / priceHT * 100) : null;
+                  return (
+                    <tr key={item.id} className="hover:bg-cockpit-dark transition-colors">
+                      <td className="px-4 lg:px-6 py-3">
+                        <span className="text-xs font-mono text-cockpit-info bg-cockpit-info/10 px-2 py-0.5 rounded">
+                          {item.reference || "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 lg:px-6 py-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-cockpit-heading truncate max-w-[300px]">
+                            {item.name || item.reference || `#${item.id}`}
+                          </p>
+                          {item.description && item.description !== item.name && (
+                            <p className="text-[10px] text-cockpit-secondary truncate max-w-[300px] mt-0.5">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          item.type === "product"
+                            ? "bg-cockpit-info/10 text-cockpit-info"
+                            : "bg-cockpit-warning/10 text-cockpit-warning"
+                        }`}>
+                          {item.type === "product" ? "Produit" : "Service"}
+                        </span>
+                      </td>
+                      <td className="px-4 lg:px-6 py-3 text-right">
+                        <span className="text-sm font-semibold text-cockpit-heading">
+                          {formatEuro(priceHT)}
+                        </span>
+                      </td>
+                      <td className="px-4 lg:px-6 py-3 text-right">
+                        <span className="text-sm text-cockpit-primary">
+                          {formatEuro(priceTTC)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right hidden lg:table-cell">
+                        <div>
+                          <span className="text-xs text-cockpit-secondary">
+                            {purchasePrice > 0 ? formatEuro(purchasePrice) : "—"}
+                          </span>
+                          {margin !== null && margin > 0 && (
+                            <p className="text-[10px] text-cockpit-success">
+                              +{margin.toFixed(0)}%
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-center hidden lg:table-cell">
+                        <span className="text-xs text-cockpit-secondary">
+                          {parseFloat(item.standard_quantity || "0") > 0
+                            ? parseFloat(item.standard_quantity).toFixed(0)
+                            : "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-cockpit-secondary">
+                    <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p>Aucun produit trouvé</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {/* Mobile */}
+        <div className="md:hidden divide-y divide-cockpit">
+          {filtered.length > 0 ? (
+            filtered.map((item) => {
+              const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
+              const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
+              return (
+                <div key={item.id} className="p-4 hover:bg-cockpit-dark transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-mono text-cockpit-info bg-cockpit-info/10 px-1.5 py-0.5 rounded">
+                          {item.reference || "—"}
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          item.type === "product"
+                            ? "bg-cockpit-info/10 text-cockpit-info"
+                            : "bg-cockpit-warning/10 text-cockpit-warning"
+                        }`}>
+                          {item.type === "product" ? "Produit" : "Service"}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-cockpit-heading truncate">
+                        {item.name || item.reference || `#${item.id}`}
+                      </p>
+                      {item.description && item.description !== item.name && (
+                        <p className="text-[10px] text-cockpit-secondary truncate mt-0.5">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
+                      <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-12 text-center text-cockpit-secondary text-sm">
+              Aucun produit trouvé
+            </div>
+          )}
+        </div>
+
+        {/* Footer count */}
+        <div className="px-4 lg:px-6 py-3 border-t border-cockpit">
+          <p className="text-xs text-cockpit-secondary">
+            {filtered.length} article{filtered.length > 1 ? "s" : ""} affichés
+            {filtered.length !== items.length && ` (sur ${items.length} total)`}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
