@@ -392,6 +392,31 @@ export async function listContacts(params?: {
   );
 }
 
+/**
+ * Récupère TOUS les contacts Sellsy en paginant automatiquement.
+ * L'API Sellsy retourne max 100 résultats par appel.
+ */
+export async function listAllContacts(): Promise<SellsyContact[]> {
+  const allContacts: SellsyContact[] = [];
+  const pageSize = 100;
+  let offset = 0;
+  let total = Infinity;
+
+  while (offset < total) {
+    const res = await listContacts({
+      limit: pageSize,
+      offset,
+      order: "created",
+      direction: "desc",
+    });
+    allContacts.push(...res.data);
+    total = res.pagination.total;
+    offset += pageSize;
+  }
+
+  return allContacts;
+}
+
 // ===== UTILITAIRE DE TEST =====
 
 export async function testConnection(): Promise<{

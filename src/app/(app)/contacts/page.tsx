@@ -15,6 +15,9 @@ import {
   CheckCircle2,
   Upload,
   AlertCircle,
+  X,
+  Check,
+  Ban,
 } from "lucide-react";
 import { ContactPreviewDrawer } from "@/components/contacts/contact-preview-drawer";
 
@@ -79,6 +82,30 @@ export default function ContactsPage() {
   // Import states
   const [importingLegacy, setImportingLegacy] = useState(false);
   const [importMessage, setImportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Sellsy sync modal
+  const [showSellsyModal, setShowSellsyModal] = useState(false);
+  const [sellsySyncing, setSellsySyncing] = useState(false);
+  const [sellsySyncResult, setSellsySyncResult] = useState<{
+    linkedByEmail: number;
+    alreadyLinked: number;
+    totalKokpit: number;
+    totalSellsy: number;
+    suggestions: Array<{
+      contactId: string;
+      kokpitNom: string;
+      kokpitPrenom: string;
+      kokpitEmail: string;
+      kokpitTelephone: string;
+      sellsyContactId: number;
+      sellsyNom: string;
+      sellsyPrenom: string;
+      sellsyEmail: string;
+      sellsyTelephone: string;
+    }>;
+  } | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
   // Sellsy data
   const [sellsyLinks, setSellsyLinks] = useState<Record<string, ContactLink>>({});
@@ -186,6 +213,55 @@ export default function ContactsPage() {
     }
   };
 
+  // Sellsy sync
+  const handleSellsySync = async () => {
+    setSellsySyncing(true);
+    setSellsySyncResult(null);
+    setDismissedSuggestions(new Set());
+    try {
+      const res = await fetch("/api/contacts/sellsy-sync", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setSellsySyncResult({
+          linkedByEmail: data.linkedByEmail,
+          alreadyLinked: data.alreadyLinked,
+          totalKokpit: data.totalKokpit,
+          totalSellsy: data.totalSellsy,
+          suggestions: data.suggestions || [],
+        });
+        // Refresh contacts si des liaisons ont été faites
+        if (data.linkedByEmail > 0) fetchContacts(true);
+      }
+    } catch (err: any) {
+      console.error("Sellsy sync error:", err);
+    } finally {
+      setSellsySyncing(false);
+    }
+  };
+
+  // Confirm suggestion
+  const handleConfirmSuggestion = async (contactId: string, sellsyContactId: number) => {
+    setConfirmingId(contactId);
+    try {
+      const res = await fetch("/api/contacts/sellsy-sync/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId, sellsyContactId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Retirer de la liste des suggestions
+        setSellsySyncResult((prev) =>
+          prev ? { ...prev, suggestions: prev.suggestions.filter((s) => s.contactId !== contactId) } : null
+        );
+      }
+    } catch (err: any) {
+      console.error("Confirm suggestion error:", err);
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
   const totalPages = Math.ceil(totalContacts / ITEMS_PER_PAGE);
 
   const formatEuro = (amount: number) => {
@@ -273,6 +349,11 @@ export default function ContactsPage() {
             className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
             {importingLegacy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{importingLegacy ? "Import..." : "Import anciens"}</span>
+          </button>
+          <button onClick={() => { setShowSellsyModal(true); if (!sellsySyncResult) handleSellsySync(); }}
+            className="flex items-center gap-1.5 bg-cockpit-info/10 border border-cockpit-info/30 text-cockpit-info px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-info/20 transition-colors">
+            <Link2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Lier à Sellsy</span>
           </button>
           <button onClick={() => fetchContacts(true)} disabled={refreshing}
             className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
@@ -470,6 +551,149 @@ export default function ContactsPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Liaison Sellsy */}
+      {showSellsyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-cockpit-card border border-cockpit rounded-2xl shadow-cockpit-lg w-full max-w-2xl max-h-[85vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-cockpit">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cockpit-info/10 flex items-center justify-center">
+                  <Link2 className="w-5 h-5 text-cockpit-info" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-cockpit-heading">Liaison Sellsy</h2>
+                  <p className="text-xs text-cockpit-secondary">Lier les contacts KOKPIT aux contacts Sellsy</p>
+                </div>
+              </div>
+              <button onClick={() => setShowSellsyModal(false)} className="p-2 hover:bg-cockpit-dark rounded-lg transition-colors">
+                <X className="w-5 h-5 text-cockpit-secondary" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {sellsySyncing ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-cockpit-info" />
+                  <p className="text-sm text-cockpit-secondary">Synchronisation en cours...</p>
+                  <p className="text-xs text-cockpit-secondary">Récupération des contacts Sellsy et matching...</p>
+                </div>
+              ) : sellsySyncResult ? (
+                <>
+                  {/* Résumé */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-cockpit-dark rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-cockpit-heading">{sellsySyncResult.totalSellsy}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-1">Contacts Sellsy</p>
+                    </div>
+                    <div className="bg-cockpit-dark rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-cockpit-success">{sellsySyncResult.linkedByEmail}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-1">Liés par email</p>
+                    </div>
+                    <div className="bg-cockpit-dark rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-cockpit-info">{sellsySyncResult.alreadyLinked}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-1">Déjà liés</p>
+                    </div>
+                    <div className="bg-cockpit-dark rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-cockpit-warning">{sellsySyncResult.suggestions.filter((s) => !dismissedSuggestions.has(s.contactId)).length}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-1">À valider</p>
+                    </div>
+                  </div>
+
+                  {sellsySyncResult.linkedByEmail > 0 && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-cockpit-success/10 border border-cockpit-success/30">
+                      <CheckCircle2 className="w-4 h-4 text-cockpit-success flex-shrink-0" />
+                      <p className="text-xs text-cockpit-success">
+                        {sellsySyncResult.linkedByEmail} contact{sellsySyncResult.linkedByEmail > 1 ? "s" : ""} lié{sellsySyncResult.linkedByEmail > 1 ? "s" : ""} automatiquement par email
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Suggestions */}
+                  {sellsySyncResult.suggestions.filter((s) => !dismissedSuggestions.has(s.contactId)).length > 0 ? (
+                    <div>
+                      <h3 className="text-sm font-semibold text-cockpit-heading mb-3">
+                        Suggestions à valider (nom + prénom + téléphone)
+                      </h3>
+                      <div className="space-y-2">
+                        {sellsySyncResult.suggestions
+                          .filter((s) => !dismissedSuggestions.has(s.contactId))
+                          .map((sug) => (
+                            <div key={sug.contactId} className="flex items-center gap-3 p-3 bg-cockpit-dark rounded-xl border border-cockpit">
+                              {/* KOKPIT side */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-cockpit-heading truncate">
+                                  {sug.kokpitPrenom} {sug.kokpitNom}
+                                </p>
+                                <p className="text-[10px] text-cockpit-secondary truncate">{sug.kokpitEmail || "—"}</p>
+                                <p className="text-[10px] text-cockpit-secondary">{sug.kokpitTelephone || "—"}</p>
+                              </div>
+
+                              {/* Arrow */}
+                              <div className="text-cockpit-warning text-lg">→</div>
+
+                              {/* Sellsy side */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-cockpit-info truncate">
+                                  {sug.sellsyPrenom} {sug.sellsyNom}
+                                </p>
+                                <p className="text-[10px] text-cockpit-secondary truncate">{sug.sellsyEmail || "—"}</p>
+                                <p className="text-[10px] text-cockpit-secondary">{sug.sellsyTelephone || "—"}</p>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <button
+                                  onClick={() => handleConfirmSuggestion(sug.contactId, sug.sellsyContactId)}
+                                  disabled={confirmingId === sug.contactId}
+                                  className="p-2 rounded-lg bg-cockpit-success/10 text-cockpit-success hover:bg-cockpit-success/20 transition-colors disabled:opacity-50"
+                                  title="Valider cette liaison"
+                                >
+                                  {confirmingId === sug.contactId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                </button>
+                                <button
+                                  onClick={() => setDismissedSuggestions((prev) => new Set([...prev, sug.contactId]))}
+                                  className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                                  title="Ignorer"
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-cockpit-secondary">Aucune suggestion à valider</p>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-cockpit">
+              <button
+                onClick={handleSellsySync}
+                disabled={sellsySyncing}
+                className="flex items-center gap-2 bg-cockpit-info/10 text-cockpit-info px-4 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-info/20 transition-colors disabled:opacity-50"
+              >
+                {sellsySyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Relancer la sync
+              </button>
+              <button
+                onClick={() => setShowSellsyModal(false)}
+                className="px-4 py-2 rounded-lg text-xs font-medium border border-cockpit text-cockpit-primary hover:bg-cockpit-dark transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drawer */}
       <ContactPreviewDrawer contact={selectedContact} isOpen={selectedContact !== null} onClose={() => setSelectedContact(null)} />
