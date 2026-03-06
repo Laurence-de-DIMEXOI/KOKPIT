@@ -271,9 +271,6 @@ export default function CataloguePage() {
                 <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
                   ACHAT / MARGE
                 </th>
-                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
-                  QTÉ STD
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cockpit">
@@ -333,19 +330,12 @@ export default function CataloguePage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-center hidden lg:table-cell">
-                        <span className="text-xs text-cockpit-secondary">
-                          {parseFloat(item.standard_quantity || "0") > 0
-                            ? parseFloat(item.standard_quantity).toFixed(0)
-                            : "—"}
-                        </span>
-                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-cockpit-secondary">
+                  <td colSpan={6} className="px-4 py-12 text-center text-cockpit-secondary">
                     <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p>Aucun produit trouvé</p>
                   </td>

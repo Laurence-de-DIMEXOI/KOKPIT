@@ -41,7 +41,6 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
   const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
   const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
   const purchasePrice = parseFloat(item.purchase_amount || "0");
-  const stdQty = parseFloat(item.standard_quantity || "0");
   const margin = priceHT > 0 && purchasePrice > 0 ? ((priceHT - purchasePrice) / priceHT * 100) : null;
   const tvaRate = priceHT > 0 ? ((priceTTC - priceHT) / priceHT * 100) : null;
 
@@ -51,14 +50,14 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-40"
+        className="fixed inset-0 bg-black/60 z-40"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full sm:w-[480px] bg-cockpit-bg border-l border-cockpit z-50 overflow-y-auto shadow-2xl">
+      <div className="fixed right-0 top-0 h-full w-full sm:w-[480px] bg-[#1a1d23] border-l border-cockpit z-50 overflow-y-auto shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 bg-cockpit-bg border-b border-cockpit px-6 py-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-[#1a1d23] border-b border-cockpit px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
               item.type === "product" ? "bg-cockpit-info/10" : "bg-cockpit-warning/10"
@@ -82,7 +81,7 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-cockpit-dark transition-colors text-cockpit-secondary"
+            className="p-2 rounded-lg hover:bg-cockpit-card transition-colors text-cockpit-secondary"
           >
             <X className="w-5 h-5" />
           </button>
@@ -115,7 +114,7 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
                 <Info className="w-3.5 h-3.5" />
                 Description
               </label>
-              <p className="text-sm text-cockpit-primary bg-cockpit-dark p-3 rounded-lg whitespace-pre-wrap">
+              <p className="text-sm text-cockpit-primary bg-cockpit-card p-3 rounded-lg whitespace-pre-wrap border border-cockpit">
                 {item.description}
               </p>
             </div>
@@ -128,11 +127,11 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
               Tarification
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-cockpit-dark p-4 rounded-lg">
+              <div className="bg-cockpit-card border border-cockpit p-4 rounded-lg">
                 <p className="text-[10px] text-cockpit-secondary mb-1">PRIX HT</p>
                 <p className="text-xl font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
               </div>
-              <div className="bg-cockpit-dark p-4 rounded-lg">
+              <div className="bg-cockpit-card border border-cockpit p-4 rounded-lg">
                 <p className="text-[10px] text-cockpit-secondary mb-1">PRIX TTC</p>
                 <p className="text-xl font-bold text-cockpit-heading">{formatEuro(priceTTC)}</p>
                 {tvaRate !== null && tvaRate > 0 && (
@@ -150,11 +149,11 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
                 Achat & Marge
               </label>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-cockpit-dark p-4 rounded-lg">
+                <div className="bg-cockpit-card border border-cockpit p-4 rounded-lg">
                   <p className="text-[10px] text-cockpit-secondary mb-1">PRIX D&apos;ACHAT</p>
                   <p className="text-lg font-semibold text-cockpit-primary">{formatEuro(purchasePrice)}</p>
                 </div>
-                <div className="bg-cockpit-dark p-4 rounded-lg">
+                <div className="bg-cockpit-card border border-cockpit p-4 rounded-lg">
                   <p className="text-[10px] text-cockpit-secondary mb-1">MARGE BRUTE</p>
                   {margin !== null ? (
                     <>
@@ -173,33 +172,6 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
             </div>
           )}
 
-          {/* Quantité standard */}
-          <div>
-            <label className="text-xs font-semibold text-cockpit-secondary mb-3 flex items-center gap-1.5">
-              <Package className="w-3.5 h-3.5" />
-              Stock & Quantité
-            </label>
-            <div className="bg-cockpit-dark p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-cockpit-secondary mb-1">QUANTITÉ STANDARD</p>
-                  <p className="text-lg font-semibold text-cockpit-primary">
-                    {stdQty > 0 ? stdQty.toFixed(0) : "—"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-cockpit-secondary mb-1">STOCK DÉTAILLÉ</p>
-                  <p className="text-xs text-cockpit-secondary italic">
-                    Non disponible via API
-                  </p>
-                </div>
-              </div>
-              <p className="text-[10px] text-cockpit-secondary mt-2 border-t border-cockpit pt-2">
-                Les données de stock détaillées (en stock, réservé, disponible) ne sont pas accessibles via l&apos;API Sellsy sur ce compte. Consultez Sellsy directement pour les stocks.
-              </p>
-            </div>
-          </div>
-
           {/* Dates */}
           <div>
             <label className="text-xs font-semibold text-cockpit-secondary mb-3 flex items-center gap-1.5">
@@ -207,13 +179,13 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
               Dates
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-cockpit-dark p-3 rounded-lg">
+              <div className="bg-cockpit-card border border-cockpit p-3 rounded-lg">
                 <p className="text-[10px] text-cockpit-secondary mb-1">CRÉÉ LE</p>
                 <p className="text-sm text-cockpit-primary">
                   {item.created ? new Date(item.created).toLocaleDateString("fr-FR") : "—"}
                 </p>
               </div>
-              <div className="bg-cockpit-dark p-3 rounded-lg">
+              <div className="bg-cockpit-card border border-cockpit p-3 rounded-lg">
                 <p className="text-[10px] text-cockpit-secondary mb-1">MODIFIÉ LE</p>
                 <p className="text-sm text-cockpit-primary">
                   {item.updated ? new Date(item.updated).toLocaleDateString("fr-FR") : "—"}
