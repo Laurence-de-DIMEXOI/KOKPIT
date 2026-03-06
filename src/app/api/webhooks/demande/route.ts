@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { estimateAndSave } from "@/lib/estimation";
 
 /**
  * POST /api/webhooks/demande
@@ -129,7 +130,8 @@ async function sendEmailNotification(
   to: string, toName: string,
   nom: string, prenom: string, meuble: string,
   telephone: string | null, email: string, showroom: string | null,
-  budget: string | null, articles: Article[] | null, message: string | null
+  budget: string | null, articles: Article[] | null, message: string | null,
+  sourceDetail: string | null = null
 ) {
   const brevoApiKey = process.env.BREVO_API_KEY;
   if (!brevoApiKey) return;
@@ -145,7 +147,7 @@ async function sendEmailNotification(
 <head><meta charset="UTF-8"></head>
 <body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;">
 <div style="max-width:600px;margin:0 auto;padding:20px;border:1px solid #e0e0e0;border-radius:8px;">
-  <h2 style="color:#f59e0b;">🛋️ Nouvelle demande — Site Web${nbArticles > 0 ? ` (${nbArticles} article${nbArticles > 1 ? "s" : ""})` : ""}</h2>
+  <h2 style="color:#f59e0b;">🛋️ Nouvelle demande — ${sourceDetail ? sourceDetail : "Site Web"}${nbArticles > 0 ? ` (${nbArticles} article${nbArticles > 1 ? "s" : ""})` : ""}</h2>
   <p>Bonjour ${toName},</p>
   <p>Une nouvelle demande a été reçue depuis le <strong>site web DIMEXOI</strong>.</p>
   <div style="background:#f9fafb;padding:15px;border-left:4px solid #f59e0b;margin:20px 0;">
@@ -154,6 +156,7 @@ async function sendEmailNotification(
     <p><strong>Email :</strong> ${email}</p>
     ${showroom ? `<p><strong>Showroom :</strong> ${showroom}</p>` : ""}
     ${budget ? `<p><strong>Budget :</strong> ${budget}</p>` : ""}
+    ${sourceDetail ? `<p><strong>🎯 Source :</strong> ${sourceDetail}</p>` : ""}
     ${message ? `<p><strong>Message :</strong> ${message}</p>` : ""}
   </div>
   ${articlesHtml ? `<h3 style="color:#333;margin-top:20px;">Articles demandés</h3>${articlesHtml}` : `<p><strong>Produit :</strong> ${meuble}</p>`}
@@ -238,7 +241,23 @@ export async function POST(request: NextRequest) {
 
     // Mapper vers les valeurs valides de l'enum LeadSource
     const VALID_SOURCES = ["META_ADS", "GOOGLE_ADS", "SITE_WEB", "GLIDE", "SALON", "FORMULAIRE", "DIRECT"];
-    const source = VALID_SOURCES.includes(rawSource) ? rawSource : "SITE_WEB";
+
+    // UTM tracking data from site
+    const utm = body.utm || {};
+    const utmSource = (utm.utm_source || "").toLowerCase();
+    const utmMedium = (utm.utm_medium || "").toLowerCase();
+    const utmCampaign = utm.utm_campaign || null;
+
+    // Auto-detect lead source from UTM parameters
+    let source = VALID_SOURCES.includes(rawSource) ? rawSource : "SITE_WEB";
+    if (utmSource.includes("facebook") || utmSource.includes("instagram") || utmSource === "fb" || utmSource === "ig") {
+      source = "META_ADS";
+    } else if (utmSource.includes("google") && utmMedium === "cpc") {
+      source = "GOOGLE_ADS";
+    }
+
+    // Build source detail string for notes/email
+    const sourceDetail = [utmSource, utmMedium, utmCampaign].filter(Boolean).join(" / ") || null;
 
     // Articles (v2) — compatible avec l'ancien champ "produit"/"meuble"
     const articles: Article[] | null = Array.isArray(body.articles) && body.articles.length > 0
@@ -319,7 +338,7 @@ export async function POST(request: NextRequest) {
         contactId: contact.id,
         source: source,
         statut: "NOUVEAU",
-        notes: `Demande site web: ${meuble}${message ? ` — ${message}` : ""}${budget ? ` (Budget: ${budget})` : ""}`,
+        notes: `Demande site web: ${meuble}${message ? ` — ${message}` : ""}${budget ? ` (Budget: ${budget})` : ""}${sourceDetail ? ` [Source: ${sourceDetail}]` : ""}`,
         commercialId: commercial?.id || null,
         slaDeadline,
       },
@@ -341,6 +360,8 @@ export async function POST(request: NextRequest) {
           demandePrixId: demande.id,
           leadId: lead.id,
           assignedTo: commercial?.email || "non assigné",
+          utm: utm || null,
+          sourceDetail: sourceDetail || null,
           ip: request.headers.get("x-forwarded-for") || null,
           userAgent: request.headers.get("user-agent") || null,
         },
@@ -354,7 +375,7 @@ export async function POST(request: NextRequest) {
         sendEmailNotification(
           commercial.email, commercial.nom || "Commercial",
           nom, prenom, meuble, telephone, email, showroom,
-          budget, articles, message
+          budget, articles, message, sourceDetail
         )
       );
     }
@@ -369,7 +390,7 @@ export async function POST(request: NextRequest) {
         sendEmailNotification(
           "contact@dimexoi.fr", "Équipe DIMEXOI",
           nom, prenom, meuble, telephone, email, showroom,
-          budget, articles, message
+          budget, articles, message, sourceDetail
         )
       );
     }
@@ -378,6 +399,11 @@ export async function POST(request: NextRequest) {
     if (emailPromises.length > 0) {
       Promise.allSettled(emailPromises).catch(err => console.error("Email background error:", err));
     }
+
+    // Estimation IA automatique (fire-and-forget, best effort)
+    estimateAndSave(demande.id).catch(err =>
+      console.error("Auto-estimation error:", err)
+    );
 
     return NextResponse.json({
       success: true,

@@ -13,6 +13,7 @@ import {
   Filter,
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
+import { ProductDrawer } from "@/components/catalogue/product-drawer";
 
 interface SellsyItem {
   id: number;
@@ -54,6 +55,7 @@ export default function CataloguePage() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [selectedItem, setSelectedItem] = useState<SellsyItem | null>(null);
 
   // Search debounce
   useEffect(() => {
@@ -267,7 +269,7 @@ export default function CataloguePage() {
                   <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
                 </th>
                 <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
-                  ACHAT
+                  ACHAT / MARGE
                 </th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
                   QTÉ STD
@@ -282,7 +284,7 @@ export default function CataloguePage() {
                   const purchasePrice = parseFloat(item.purchase_amount || "0");
                   const margin = priceHT > 0 && purchasePrice > 0 ? ((priceHT - purchasePrice) / priceHT * 100) : null;
                   return (
-                    <tr key={item.id} className="hover:bg-cockpit-dark transition-colors">
+                    <tr key={item.id} className="hover:bg-cockpit-dark transition-colors cursor-pointer" onClick={() => setSelectedItem(item)}>
                       <td className="px-4 lg:px-6 py-3">
                         <span className="text-xs font-mono text-cockpit-info bg-cockpit-info/10 px-2 py-0.5 rounded">
                           {item.reference || "—"}
@@ -325,8 +327,8 @@ export default function CataloguePage() {
                             {purchasePrice > 0 ? formatEuro(purchasePrice) : "—"}
                           </span>
                           {margin !== null && margin > 0 && (
-                            <p className="text-[10px] text-cockpit-success">
-                              +{margin.toFixed(0)}%
+                            <p className={`text-[10px] ${margin > 30 ? "text-cockpit-success" : margin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
+                              Marge {margin.toFixed(0)}%
                             </p>
                           )}
                         </div>
@@ -360,7 +362,7 @@ export default function CataloguePage() {
               const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
               const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
               return (
-                <div key={item.id} className="p-4 hover:bg-cockpit-dark transition-colors">
+                <div key={item.id} className="p-4 hover:bg-cockpit-dark transition-colors cursor-pointer" onClick={() => setSelectedItem(item)}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -407,6 +409,8 @@ export default function CataloguePage() {
           </p>
         </div>
       </div>
+      {/* Product Drawer */}
+      <ProductDrawer item={selectedItem} onClose={() => setSelectedItem(null)} />
     </div>
   );
 }

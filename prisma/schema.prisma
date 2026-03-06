@@ -519,6 +519,9 @@ model DemandePrix {
   modePaiement        String?
   budget              String?
   articles            Json?     // [{nom, categorie, finition, quantite}]
+  estimationHT        Float?
+  estimationTTC       Float?
+  estimationDetails   Json?     // Résultat du matching IA Sellsy
   dateDemande         DateTime?
   createdAt           DateTime  @default(now())
 

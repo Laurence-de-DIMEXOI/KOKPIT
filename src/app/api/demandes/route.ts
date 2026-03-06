@@ -70,6 +70,9 @@ export async function GET(request: NextRequest) {
         modePaiement: demande.modePaiement,
         budget: demande.budget || null,
         articles: demande.articles || null,
+        // Estimation IA
+        estimationHT: (demande as any).estimationHT || null,
+        estimationTTC: (demande as any).estimationTTC || null,
         // Lead associé
         leadId: lead?.id || null,
         statut: lead?.statut || "NOUVEAU",
