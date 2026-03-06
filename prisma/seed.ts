@@ -10,8 +10,8 @@ async function main() {
   // NETTOYAGE (ordre inversé pour respecter les FK)
   // ============================================================================
   console.log("Nettoyage des données existantes...");
-  await prisma.workflowLog.deleteMany();
-  await prisma.workflowAction.deleteMany();
+  await prisma.workflowExecution.deleteMany();
+  await prisma.emailTemplate.deleteMany();
   await prisma.workflow.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.smsLog.deleteMany();
@@ -111,171 +111,131 @@ async function main() {
   console.log(`  ✓ ${users.length} utilisateurs créés`);
 
   // ============================================================================
-  // WORKFLOWS
+  // WORKFLOWS + EMAIL TEMPLATES
   // ============================================================================
   console.log("Création des workflows...");
 
-  // 1. Nurturing nouveau lead
+  // 1. Accusé de réception demande
   await prisma.workflow.create({
     data: {
-      nom: "Séquence nurturing nouveau lead",
-      triggerType: "NOUVEAU_LEAD",
-      actif: true,
-      conditions: {},
-      actions: {
-        create: [
-          {
-            ordre: 1,
-            typeAction: "NOTIFICATION",
-            config: { titre: "Nouveau lead", message: "Un nouveau lead vient d'arriver" },
-            delaiHeures: 0,
-          },
-          {
-            ordre: 2,
-            typeAction: "EMAIL",
-            config: { template: "bienvenue", objet: "Bienvenue chez Dimexoi" },
-            delaiHeures: 1,
-          },
-          {
-            ordre: 3,
-            typeAction: "EMAIL",
-            config: { template: "presentation", objet: "Découvrez nos collections en teck" },
-            delaiHeures: 48,
-          },
-          {
-            ordre: 4,
-            typeAction: "EMAIL",
-            config: { template: "offre", objet: "Une offre spéciale pour vous" },
-            delaiHeures: 120,
-          },
-        ],
+      nom: "Accusé de réception demande",
+      description: "Email automatique envoyé à chaque nouvelle demande de prix",
+      trigger: "NOUVELLE_DEMANDE",
+      enabled: true,
+      delaiMinutes: 0,
+      emailTemplate: {
+        create: {
+          nom: "Template accusé réception",
+          sujet: "Votre demande a bien été reçue, {{prenom}} !",
+          contenuHtml: "<h2>Bonjour {{prenom}},</h2><p>Nous avons bien reçu votre demande concernant <strong>{{meuble}}</strong>.</p><p>Notre équipe du showroom va l'étudier et vous recontactera dans les plus brefs délais.</p><p>Cordialement,<br/>L'équipe Dimexoi</p>",
+          contenuTexte: "Bonjour {{prenom}}, nous avons bien reçu votre demande concernant {{meuble}}.",
+          variables: ["prenom", "nom", "meuble", "showroom"],
+        },
       },
     },
   });
 
-  // 2. Relance inactif J+7
+  // 2. Bienvenue nouveau contact
   await prisma.workflow.create({
     data: {
-      nom: "Relance lead inactif J+7",
-      triggerType: "LEAD_INACTIF",
-      actif: true,
-      conditions: { inactiviteJours: 7 },
-      actions: {
-        create: [
-          {
-            ordre: 1,
-            typeAction: "EMAIL",
-            config: { template: "relance_inactif", objet: "Toujours intéressé ?" },
-            delaiHeures: 0,
-          },
-          {
-            ordre: 2,
-            typeAction: "SMS",
-            config: { message: "Bonjour, avez-vous des questions sur nos meubles en teck ? Contactez votre showroom." },
-            delaiHeures: 48,
-          },
-          {
-            ordre: 3,
-            typeAction: "TACHE",
-            config: { titre: "Appeler le lead inactif", priorite: "HAUTE" },
-            delaiHeures: 72,
-          },
-        ],
+      nom: "Bienvenue nouveau contact",
+      description: "Email de bienvenue lors de la création d'un nouveau contact",
+      trigger: "CONTACT_CREE",
+      enabled: true,
+      delaiMinutes: 0,
+      emailTemplate: {
+        create: {
+          nom: "Template bienvenue",
+          sujet: "Bienvenue chez Dimexoi, {{prenom}} !",
+          contenuHtml: "<h2>Bienvenue {{prenom}} !</h2><p>Merci de votre intérêt pour nos meubles en teck massif.</p><p>Découvrez nos collections dans nos showrooms à La Réunion.</p><p>À bientôt,<br/>L'équipe Dimexoi</p>",
+          contenuTexte: "Bienvenue {{prenom}} ! Merci de votre intérêt pour Dimexoi.",
+          variables: ["prenom", "nom", "email"],
+        },
       },
     },
   });
 
-  // 3. Alerte SLA 72h
+  // 3. Confirmation devis envoyé
   await prisma.workflow.create({
     data: {
-      nom: "Alerte SLA 72h dépassé",
-      triggerType: "SLA_DEPASSE",
-      actif: true,
-      conditions: { slaHeures: 72 },
-      actions: {
-        create: [
-          {
-            ordre: 1,
-            typeAction: "NOTIFICATION",
-            config: { titre: "⚠️ SLA dépassé", message: "Un lead n'a pas été traité dans les 72h" },
-            delaiHeures: 0,
-          },
-          {
-            ordre: 2,
-            typeAction: "EMAIL",
-            config: { template: "alerte_sla", objet: "URGENT : SLA dépassé", destinataire: "responsable" },
-            delaiHeures: 0,
-          },
-        ],
+      nom: "Confirmation devis envoyé",
+      description: "Email de confirmation après envoi d'un devis",
+      trigger: "DEVIS_ENVOYE",
+      enabled: true,
+      delaiMinutes: 0,
+      emailTemplate: {
+        create: {
+          nom: "Template confirmation devis",
+          sujet: "Votre devis Dimexoi est prêt !",
+          contenuHtml: "<h2>Bonjour {{prenom}},</h2><p>Votre devis d'un montant de <strong>{{montant}} €</strong> vient de vous être envoyé.</p><p>N'hésitez pas à nous contacter pour toute question.</p><p>Cordialement,<br/>L'équipe Dimexoi</p>",
+          contenuTexte: "Bonjour {{prenom}}, votre devis de {{montant}} € vient de vous être envoyé.",
+          variables: ["prenom", "nom", "montant"],
+        },
       },
     },
   });
 
-  // 4. Relance devis non facturé
+  // 4. Relance devis J+3
   await prisma.workflow.create({
     data: {
-      nom: "Relance devis non facturé",
-      triggerType: "DEVIS_NON_FACTURE",
-      actif: true,
-      conditions: { statutDevis: "EN_ATTENTE", delaiJours: 14 },
-      actions: {
-        create: [
-          {
-            ordre: 1,
-            typeAction: "EMAIL",
-            config: { template: "relance_devis", objet: "Votre devis est toujours disponible" },
-            delaiHeures: 0,
-          },
-          {
-            ordre: 2,
-            typeAction: "TACHE",
-            config: { titre: "Appeler pour relance devis", priorite: "HAUTE" },
-            delaiHeures: 48,
-          },
-          {
-            ordre: 3,
-            typeAction: "EMAIL",
-            config: { template: "relance_devis_final", objet: "Dernière relance : votre devis expire bientôt" },
-            delaiHeures: 168,
-          },
-        ],
+      nom: "Relance devis sans réponse J+3",
+      description: "Relance automatique 3 jours après l'envoi d'un devis sans réponse",
+      trigger: "DEVIS_SANS_REPONSE_3J",
+      enabled: true,
+      delaiMinutes: 4320,
+      emailTemplate: {
+        create: {
+          nom: "Template relance J+3",
+          sujet: "Avez-vous des questions sur votre devis ?",
+          contenuHtml: "<h2>Bonjour {{prenom}},</h2><p>Nous vous avons envoyé un devis il y a quelques jours.</p><p>Avez-vous des questions ? Notre équipe est disponible pour vous accompagner.</p><p>Cordialement,<br/>L'équipe Dimexoi</p>",
+          contenuTexte: "Bonjour {{prenom}}, avez-vous des questions sur votre devis ?",
+          variables: ["prenom", "nom", "montant"],
+        },
       },
     },
   });
 
-  // 5. Cross-sell post-achat
+  // 5. Relance devis J+7
   await prisma.workflow.create({
     data: {
-      nom: "Cross-sell post-achat",
-      triggerType: "POST_ACHAT",
-      actif: true,
-      conditions: {},
-      actions: {
-        create: [
-          {
-            ordre: 1,
-            typeAction: "EMAIL",
-            config: { template: "merci_achat", objet: "Merci pour votre achat chez Dimexoi !" },
-            delaiHeures: 2,
-          },
-          {
-            ordre: 2,
-            typeAction: "EMAIL",
-            config: { template: "cross_sell", objet: "Complétez votre espace avec nos suggestions" },
-            delaiHeures: 48,
-          },
-          {
-            ordre: 3,
-            typeAction: "TACHE",
-            config: { titre: "Suivi satisfaction post-achat", priorite: "NORMALE" },
-            delaiHeures: 168,
-          },
-        ],
+      nom: "Relance devis sans réponse J+7",
+      description: "Dernière relance 7 jours après l'envoi du devis",
+      trigger: "DEVIS_SANS_REPONSE_7J",
+      enabled: false,
+      delaiMinutes: 10080,
+      emailTemplate: {
+        create: {
+          nom: "Template relance J+7",
+          sujet: "Votre devis expire bientôt !",
+          contenuHtml: "<h2>Bonjour {{prenom}},</h2><p>Votre devis arrive bientôt à expiration.</p><p>Profitez-en avant qu'il ne soit trop tard !</p><p>Cordialement,<br/>L'équipe Dimexoi</p>",
+          contenuTexte: "Bonjour {{prenom}}, votre devis arrive bientôt à expiration.",
+          variables: ["prenom", "nom", "montant"],
+        },
       },
     },
   });
 
-  console.log("  ✓ 5 workflows créés avec leurs actions");
+  // 6. Remerciement vente
+  await prisma.workflow.create({
+    data: {
+      nom: "Remerciement après vente",
+      description: "Email de remerciement automatique après confirmation d'une vente",
+      trigger: "VENTE_CONFIRMEE",
+      enabled: true,
+      delaiMinutes: 0,
+      emailTemplate: {
+        create: {
+          nom: "Template remerciement vente",
+          sujet: "Merci pour votre achat, {{prenom}} !",
+          contenuHtml: "<h2>Merci {{prenom}} !</h2><p>Votre commande a bien été confirmée.</p><p>Nous préparons votre commande avec le plus grand soin.</p><p>À très bientôt chez Dimexoi !</p>",
+          contenuTexte: "Merci {{prenom}} ! Votre commande a bien été confirmée.",
+          variables: ["prenom", "nom", "montant"],
+        },
+      },
+    },
+  });
+
+  console.log("  ✓ 6 workflows créés avec leurs templates email");
 
   // ============================================================================
   // CAMPAGNES DE TEST
