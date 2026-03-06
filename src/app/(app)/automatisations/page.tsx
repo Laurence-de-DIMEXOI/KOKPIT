@@ -5,7 +5,8 @@ import { KPICard } from "@/components/dashboard/kpi-card";
 import {
   Zap, Activity, CheckCircle, AlertCircle, RefreshCw, Loader2,
   Mail, ChevronDown, ChevronUp, Clock, Power, PowerOff,
-  Save, X, Eye, Send, Sparkles,
+  Save, X, Eye, Send, Sparkles, ExternalLink, Upload, Download,
+  Link2, Unlink,
 } from "lucide-react";
 
 // ===== TYPES =====
@@ -49,6 +50,12 @@ interface KPIs {
   tauxReussite: number;
 }
 
+interface BrevoAccount {
+  email: string;
+  company: string;
+  plan: { type: string; credits: number };
+}
+
 // ===== TRIGGER CONFIG =====
 
 const triggerConfig: Record<string, { label: string; color: string; icon: string }> = {
@@ -60,7 +67,6 @@ const triggerConfig: Record<string, { label: string; color: string; icon: string
   VENTE_CONFIRMEE: { label: "Vente confirmée", color: "bg-cockpit-success/10 text-cockpit-success", icon: "🎉" },
   LEAD_STATUT_CHANGE: { label: "Statut changé", color: "bg-purple-500/10 text-purple-400", icon: "🔄" },
   MANUEL: { label: "Manuel", color: "bg-cockpit-secondary/10 text-cockpit-secondary", icon: "✋" },
-  // Legacy triggers
   NOUVEAU_LEAD: { label: "Nouveau lead", color: "bg-cockpit-yellow/10 text-cockpit-yellow", icon: "📥" },
   LEAD_INACTIF: { label: "Lead inactif", color: "bg-red-500/10 text-red-400", icon: "💤" },
   DEVIS_NON_FACTURE: { label: "Devis non facturé", color: "bg-cockpit-warning/10 text-cockpit-warning", icon: "📄" },
@@ -83,6 +89,13 @@ export default function AutomatisationsPage() {
   const [toggling, setToggling] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
+  // Brevo state
+  const [brevoAccount, setBrevoAccount] = useState<BrevoAccount | null>(null);
+  const [brevoConnected, setBrevoConnected] = useState(false);
+  const [brevoLoading, setBrevoLoading] = useState(true);
+  const [syncing, setSyncing] = useState<string | null>(null);
+  const [pulling, setPulling] = useState<string | null>(null);
+
   const fetchWorkflows = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
@@ -101,7 +114,29 @@ export default function AutomatisationsPage() {
     }
   }, []);
 
-  useEffect(() => { fetchWorkflows(); }, [fetchWorkflows]);
+  // Check Brevo connection
+  const fetchBrevoStatus = useCallback(async () => {
+    setBrevoLoading(true);
+    try {
+      const res = await fetch("/api/brevo");
+      const data = await res.json();
+      if (data.success) {
+        setBrevoAccount(data.account);
+        setBrevoConnected(true);
+      } else {
+        setBrevoConnected(false);
+      }
+    } catch {
+      setBrevoConnected(false);
+    } finally {
+      setBrevoLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWorkflows();
+    fetchBrevoStatus();
+  }, [fetchWorkflows, fetchBrevoStatus]);
 
   // Toggle enabled
   const toggleWorkflow = async (id: string, currentEnabled: boolean) => {
@@ -167,7 +202,6 @@ export default function AutomatisationsPage() {
     }
   };
 
-  // Cancel edit
   const cancelEdit = () => {
     setEditingTemplate(null);
     setEditSujet("");
@@ -176,14 +210,91 @@ export default function AutomatisationsPage() {
 
   // Preview
   const showPreview = (html: string) => {
-    // Replace variables with example values
     const preview = html
       .replace(/\{\{prenom\}\}/g, "Jean")
       .replace(/\{\{nom\}\}/g, "Dupont")
       .replace(/\{\{email\}\}/g, "jean@example.com")
       .replace(/\{\{meuble\}\}/g, "Table basse en teck")
+      .replace(/\{\{montant\}\}/g, "2 450")
       .replace(/\{\{showroom\}\}/g, "Saint-Denis");
     setPreviewHtml(preview);
+  };
+
+  // ===== BREVO ACTIONS =====
+
+  // Push local template → Brevo
+  const syncToBrevo = async (emailTemplateId: string) => {
+    setSyncing(emailTemplateId);
+    try {
+      const res = await fetch("/api/brevo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailTemplateId }),
+      });
+      const data = await res.json();
+      if (data.success && data.brevoTemplateId) {
+        // Update local state with brevoTemplateId
+        setWorkflows((prev) =>
+          prev.map((w) => {
+            if (w.emailTemplate?.id === emailTemplateId) {
+              return {
+                ...w,
+                emailTemplate: { ...w.emailTemplate!, brevoTemplateId: data.brevoTemplateId },
+              };
+            }
+            return w;
+          })
+        );
+        // Open Brevo editor in new tab
+        if (data.editorUrl) {
+          window.open(data.editorUrl, "_blank");
+        }
+      }
+    } catch (err) {
+      console.error("Erreur sync Brevo:", err);
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  // Pull Brevo template → local
+  const pullFromBrevo = async (emailTemplateId: string, brevoTemplateId: number) => {
+    setPulling(emailTemplateId);
+    try {
+      const res = await fetch("/api/brevo", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailTemplateId, brevoTemplateId }),
+      });
+      const data = await res.json();
+      if (data.success && data.template) {
+        setWorkflows((prev) =>
+          prev.map((w) => {
+            if (w.emailTemplate?.id === emailTemplateId) {
+              return {
+                ...w,
+                emailTemplate: {
+                  ...w.emailTemplate!,
+                  sujet: data.template.sujet,
+                  contenuHtml: data.template.contenuHtml,
+                  brevoTemplateId: data.template.brevoTemplateId,
+                },
+              };
+            }
+            return w;
+          })
+        );
+      }
+    } catch (err) {
+      console.error("Erreur pull Brevo:", err);
+    } finally {
+      setPulling(null);
+    }
+  };
+
+  // Open Brevo editor
+  const openBrevoEditor = (brevoTemplateId: number) => {
+    window.open(`https://app.brevo.com/camp/template/${brevoTemplateId}/design`, "_blank");
   };
 
   // Format delay
@@ -194,7 +305,6 @@ export default function AutomatisationsPage() {
     return `${Math.round(minutes / 1440)} jour(s)`;
   };
 
-  // Format date
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -205,17 +315,40 @@ export default function AutomatisationsPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">Automatisations</h1>
           <p className="text-cockpit-secondary text-sm">
-            Workflows email · Activer/désactiver et personnaliser les templates
+            Workflows email · Templates Brevo · Activer/désactiver
           </p>
         </div>
-        <button
-          onClick={() => fetchWorkflows(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
-        >
-          {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Actualiser
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Brevo status badge */}
+          {brevoLoading ? (
+            <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cockpit-card border border-cockpit rounded-lg text-xs text-cockpit-secondary">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Brevo...
+            </span>
+          ) : brevoConnected ? (
+            <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg text-xs text-blue-400">
+              <Link2 className="w-3 h-3" />
+              Brevo connecté
+              {brevoAccount && (
+                <span className="text-blue-400/60 hidden sm:inline">· {brevoAccount.email}</span>
+              )}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">
+              <Unlink className="w-3 h-3" />
+              Brevo non connecté
+            </span>
+          )}
+
+          <button
+            onClick={() => { fetchWorkflows(true); fetchBrevoStatus(); }}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+          >
+            {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Actualiser
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -243,6 +376,7 @@ export default function AutomatisationsPage() {
             const isExpanded = expandedId === wf.id;
             const tc = triggerConfig[wf.trigger] || triggerConfig.MANUEL;
             const isEditing = editingTemplate === wf.emailTemplate?.id;
+            const hasBrevo = !!wf.emailTemplate?.brevoTemplateId;
 
             return (
               <div
@@ -276,6 +410,11 @@ export default function AutomatisationsPage() {
                       <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${tc.color}`}>
                         {tc.icon} {tc.label}
                       </span>
+                      {hasBrevo && (
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[9px] font-bold">
+                          BREVO
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-cockpit-secondary truncate">{wf.description}</p>
                   </div>
@@ -311,18 +450,18 @@ export default function AutomatisationsPage() {
                   </div>
                 </div>
 
-                {/* Expanded — Template editor */}
+                {/* Expanded — Template editor + Brevo */}
                 {isExpanded && (
                   <div className="border-t border-cockpit px-3 sm:px-4 py-3 sm:py-4 space-y-4">
                     {wf.emailTemplate ? (
                       <>
-                        {/* Template info */}
-                        <div className="flex items-center justify-between">
+                        {/* Template header + actions */}
+                        <div className="flex items-center justify-between flex-wrap gap-2">
                           <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
                             <Mail className="w-4 h-4 text-cockpit-yellow" />
                             Template: {wf.emailTemplate.nom}
                           </h3>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {!isEditing && (
                               <>
                                 <button
@@ -343,11 +482,77 @@ export default function AutomatisationsPage() {
                           </div>
                         </div>
 
+                        {/* ===== BREVO SECTION ===== */}
+                        {brevoConnected && (
+                          <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                </svg>
+                                <span className="text-xs font-semibold text-blue-400">Brevo</span>
+                                {hasBrevo ? (
+                                  <span className="text-[10px] text-blue-400/60">
+                                    Template #{wf.emailTemplate.brevoTemplateId}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-cockpit-secondary">Non synchronisé</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {/* Push to Brevo */}
+                                <button
+                                  onClick={() => syncToBrevo(wf.emailTemplate!.id)}
+                                  disabled={syncing === wf.emailTemplate!.id}
+                                  className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 border border-blue-500/30 rounded text-[11px] text-blue-400 hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                                  title={hasBrevo ? "Mettre à jour sur Brevo" : "Envoyer vers Brevo"}
+                                >
+                                  {syncing === wf.emailTemplate!.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Upload className="w-3 h-3" />
+                                  )}
+                                  {hasBrevo ? "Push" : "Créer sur Brevo"}
+                                </button>
+
+                                {/* Pull from Brevo (only if linked) */}
+                                {hasBrevo && (
+                                  <button
+                                    onClick={() => pullFromBrevo(wf.emailTemplate!.id, wf.emailTemplate!.brevoTemplateId!)}
+                                    disabled={pulling === wf.emailTemplate!.id}
+                                    className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 border border-blue-500/30 rounded text-[11px] text-blue-400 hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                                    title="Récupérer depuis Brevo"
+                                  >
+                                    {pulling === wf.emailTemplate!.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Download className="w-3 h-3" />
+                                    )}
+                                    Pull
+                                  </button>
+                                )}
+
+                                {/* Open Brevo editor */}
+                                {hasBrevo && (
+                                  <button
+                                    onClick={() => openBrevoEditor(wf.emailTemplate!.brevoTemplateId!)}
+                                    className="flex items-center gap-1 px-2 py-1 bg-blue-600/20 border border-blue-500/40 rounded text-[11px] text-blue-300 font-semibold hover:bg-blue-600/30 transition-colors"
+                                    title="Ouvrir l'éditeur drag & drop Brevo"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    Éditeur Brevo
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {isEditing ? (
                           /* Edit mode */
                           <div className="space-y-3">
                             <div>
-                              <label className="text-xs text-cockpit-secondary mb-1 block">Sujet de l'email</label>
+                              <label className="text-xs text-cockpit-secondary mb-1 block">Sujet de l&apos;email</label>
                               <input
                                 type="text"
                                 value={editSujet}
@@ -371,7 +576,7 @@ export default function AutomatisationsPage() {
                                 placeholder="<h2>Bonjour {{prenom}},</h2>..."
                               />
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <button
                                 onClick={saveTemplate}
                                 disabled={saving}

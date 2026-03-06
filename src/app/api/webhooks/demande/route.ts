@@ -368,37 +368,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Notifications email — fire-and-forget (ne bloque pas la réponse)
-    const emailPromises: Promise<void>[] = [];
-    if (commercial) {
-      emailPromises.push(
-        sendEmailNotification(
-          commercial.email, commercial.nom || "Commercial",
-          nom, prenom, meuble, telephone, email, showroom,
-          budget, articles, message, sourceDetail
-        )
-      );
-    }
+    // Notification email au commercial — fire-and-forget
+    // Envoi unique à commercial@dimexoi.fr (ou au commercial assigné)
+    const notifEmail = commercial?.email || "commercial@dimexoi.fr";
+    const notifName = commercial?.nom || "Commercial";
 
-    // Si showroom Sud → notifier contact@dimexoi.fr
-    const isSud = showroom && (
-      showroom.toLowerCase().includes("saint-pierre") ||
-      showroom.toLowerCase().includes("sud")
-    );
-    if (isSud) {
-      emailPromises.push(
-        sendEmailNotification(
-          "contact@dimexoi.fr", "Équipe DIMEXOI",
-          nom, prenom, meuble, telephone, email, showroom,
-          budget, articles, message, sourceDetail
-        )
-      );
-    }
-
-    // Lancer les emails sans attendre (fire-and-forget)
-    if (emailPromises.length > 0) {
-      Promise.allSettled(emailPromises).catch(err => console.error("Email background error:", err));
-    }
+    sendEmailNotification(
+      notifEmail, notifName,
+      nom, prenom, meuble, telephone, email, showroom,
+      budget, articles, message, sourceDetail
+    ).catch(err => console.error("Email notification error:", err));
 
     // Estimation IA automatique (fire-and-forget, best effort)
     estimateAndSave(demande.id).catch(err =>
