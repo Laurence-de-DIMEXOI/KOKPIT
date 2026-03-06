@@ -217,7 +217,7 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+    <div className="space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -241,7 +241,7 @@ export default function ContactsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KPICard title="Contacts" value={kpis.totalContacts} icon={<Users className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
         <KPICard title="Devis Sellsy" value={kpis.totalDevis} icon={<FileText className="w-7 h-7" />} bgColor="bg-cockpit-info" />
         <KPICard title="Bons de commande" value={kpis.totalVentes} icon={<ShoppingCart className="w-7 h-7" />} bgColor="bg-cockpit-success" />
@@ -249,7 +249,7 @@ export default function ContactsPage() {
       </div>
 
       {/* Search + Filters */}
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4 lg:p-8">
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />

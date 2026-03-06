@@ -129,7 +129,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="space-y-6 lg:space-y-8">
+    <div className="space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -157,8 +157,8 @@ export default function DashboardPage() {
       {/* KPI Cards — Funnel global */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total contacts */}
-        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2">
             <Users className="w-5 h-5 text-cockpit-yellow" />
           </div>
           <p className="text-cockpit-secondary text-xs mb-1">Contacts Sellsy</p>
@@ -166,8 +166,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Contacts → Devis */}
-        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2">
             <FileText className="w-5 h-5 text-cockpit-info" />
             <span className="text-xs font-bold text-cockpit-info bg-cockpit-info/15 px-2 py-0.5 rounded-full">
               {kpis.globalConversionDevis}%
@@ -178,8 +178,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Devis → Commande */}
-        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2">
             <ShoppingCart className="w-5 h-5 text-cockpit-success" />
             <span className="text-xs font-bold text-cockpit-success bg-cockpit-success/15 px-2 py-0.5 rounded-full">
               {kpis.globalConversionCommande}%
@@ -190,8 +190,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Conversion globale */}
-        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2">
             <Target className="w-5 h-5 text-cockpit-warning" />
           </div>
           <p className="text-cockpit-secondary text-xs mb-1">Conversion globale</p>
@@ -201,8 +201,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Entonnoir visuel */}
-      <div className="bg-cockpit-dark border border-cockpit rounded-xl p-6">
-        <h2 className="text-lg font-bold text-cockpit-heading mb-6 flex items-center gap-2">
+      <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-5">
+        <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-cockpit-yellow" />
           Entonnoir de conversion
         </h2>
@@ -273,14 +273,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Graphique mensuel — barres par mois */}
-      <div className="bg-cockpit-dark border border-cockpit rounded-xl p-6">
-        <h2 className="text-lg font-bold text-cockpit-heading mb-6 flex items-center gap-2">
+      <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-5">
+        <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-cockpit-yellow" />
           Évolution mensuelle
         </h2>
 
         {/* Légende */}
-        <div className="flex gap-6 mb-6 text-xs">
+        <div className="flex gap-4 mb-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-cockpit-yellow/60" />
             <span className="text-cockpit-secondary">Contacts</span>
@@ -346,8 +346,8 @@ export default function DashboardPage() {
 
       {/* Tableau mensuel détaillé */}
       <div className="bg-cockpit-dark border border-cockpit rounded-xl overflow-hidden">
-        <div className="p-6 pb-4">
-          <h2 className="text-lg font-bold text-cockpit-heading flex items-center gap-2">
+        <div className="p-4 sm:p-5 pb-3">
+          <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
             <FileText className="w-5 h-5 text-cockpit-yellow" />
             Détail mensuel
           </h2>
@@ -411,9 +411,9 @@ export default function DashboardPage() {
 
       {/* Contacts sans devis — À traiter */}
       {contactsSansDevis.length > 0 && (
-        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-cockpit-heading flex items-center gap-2">
+        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-cockpit-warning" />
               Contacts sans devis
               <span className="text-xs font-normal text-cockpit-secondary ml-2">

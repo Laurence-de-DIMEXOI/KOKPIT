@@ -239,7 +239,7 @@ export default function LeadsPage() {
   // ===== RENDER =====
 
   return (
-    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+    <div className="space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -357,7 +357,7 @@ export default function LeadsPage() {
               >
                 {/* Row principal — cliquable */}
                 <div
-                  className="flex items-center gap-3 px-4 lg:px-6 py-3 lg:py-4 cursor-pointer"
+                  className="flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer"
                   onClick={() => toggleExpand(demande.id)}
                 >
                   {/* Icône expand */}
@@ -423,8 +423,8 @@ export default function LeadsPage() {
 
                 {/* Détails expandés */}
                 {isExpanded && (
-                  <div className="border-t border-cockpit px-4 lg:px-6 py-4 lg:py-6 space-y-5">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  <div className="border-t border-cockpit px-3 sm:px-4 py-3 sm:py-4 space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                       {/* Col 1 — Contact & Demande */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
