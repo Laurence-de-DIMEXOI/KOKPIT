@@ -203,14 +203,15 @@ export default function ContactsPage() {
     );
   };
 
-  // Date dernière demande
+  // Date dernière demande (dateDemande ou createdAt en fallback)
   const getLastDemandeDate = (contact: ContactData) => {
     const demandes = contact.demandesPrix;
     if (!demandes || demandes.length === 0) return null;
     const latest = demandes[0];
-    if (!latest?.dateDemande) return null;
+    const dateStr = latest?.dateDemande || latest?.createdAt;
+    if (!dateStr) return null;
     try {
-      return new Date(latest.dateDemande).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+      return new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
     } catch {
       return null;
     }

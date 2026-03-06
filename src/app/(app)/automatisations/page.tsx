@@ -1,73 +1,480 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
-import { Zap, Activity, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  Zap, Activity, CheckCircle, AlertCircle, RefreshCw, Loader2,
+  Mail, ChevronDown, ChevronUp, Clock, Power, PowerOff,
+  Save, X, Eye, Send, Sparkles,
+} from "lucide-react";
 
-const mockWorkflows = [
-  { id: "1", nom: "Bienvenue nouveaux leads", description: "Envoyer un email de bienvenue aux nouveaux leads", statut: "ACTIF", executions: 245, dateCreation: "2025-01-15", actions: 2 },
-  { id: "2", nom: "Relance devis non répondus", description: "Relancer les devis sans réponse après 3 jours", statut: "ACTIF", executions: 128, dateCreation: "2025-02-01", actions: 3 },
-  { id: "3", nom: "Post-vente cross-sell", description: "Proposer des produits complémentaires après vente", statut: "ACTIF", executions: 89, dateCreation: "2025-01-20", actions: 2 },
-];
+// ===== TYPES =====
+
+interface EmailTemplate {
+  id: string;
+  workflowId: string;
+  nom: string;
+  sujet: string;
+  contenuHtml: string;
+  contenuTexte: string | null;
+  variables: string[] | null;
+  brevoTemplateId: number | null;
+}
+
+interface WorkflowStats {
+  executions30d: number;
+  success30d: number;
+  error30d: number;
+  lastExecutedAt: string | null;
+  lastStatus: string | null;
+}
+
+interface Workflow {
+  id: string;
+  nom: string;
+  description: string | null;
+  trigger: string;
+  enabled: boolean;
+  delaiMinutes: number;
+  conditions: any;
+  emailTemplate: EmailTemplate | null;
+  stats: WorkflowStats;
+  _count: { executions: number };
+}
+
+interface KPIs {
+  total: number;
+  actifs: number;
+  executions30d: number;
+  tauxReussite: number;
+}
+
+// ===== TRIGGER CONFIG =====
+
+const triggerConfig: Record<string, { label: string; color: string; icon: string }> = {
+  NOUVELLE_DEMANDE: { label: "Nouvelle demande", color: "bg-cockpit-yellow/10 text-cockpit-yellow", icon: "📥" },
+  CONTACT_CREE: { label: "Nouveau contact", color: "bg-cockpit-info/10 text-cockpit-info", icon: "👤" },
+  DEVIS_ENVOYE: { label: "Devis envoyé", color: "bg-blue-500/10 text-blue-400", icon: "📄" },
+  DEVIS_SANS_REPONSE_3J: { label: "Relance J+3", color: "bg-cockpit-warning/10 text-cockpit-warning", icon: "⏰" },
+  DEVIS_SANS_REPONSE_7J: { label: "Relance J+7", color: "bg-orange-500/10 text-orange-400", icon: "⏰" },
+  VENTE_CONFIRMEE: { label: "Vente confirmée", color: "bg-cockpit-success/10 text-cockpit-success", icon: "🎉" },
+  LEAD_STATUT_CHANGE: { label: "Statut changé", color: "bg-purple-500/10 text-purple-400", icon: "🔄" },
+  MANUEL: { label: "Manuel", color: "bg-cockpit-secondary/10 text-cockpit-secondary", icon: "✋" },
+  // Legacy triggers
+  NOUVEAU_LEAD: { label: "Nouveau lead", color: "bg-cockpit-yellow/10 text-cockpit-yellow", icon: "📥" },
+  LEAD_INACTIF: { label: "Lead inactif", color: "bg-red-500/10 text-red-400", icon: "💤" },
+  DEVIS_NON_FACTURE: { label: "Devis non facturé", color: "bg-cockpit-warning/10 text-cockpit-warning", icon: "📄" },
+  POST_ACHAT: { label: "Post-achat", color: "bg-cockpit-success/10 text-cockpit-success", icon: "🎉" },
+  SLA_DEPASSE: { label: "SLA dépassé", color: "bg-red-500/10 text-red-400", icon: "🚨" },
+};
+
+// ===== COMPONENT =====
 
 export default function AutomatisationsPage() {
-  const stats = {
-    total: mockWorkflows.length,
-    actifs: mockWorkflows.filter((w) => w.statut === "ACTIF").length,
-    successRate: 95,
-    totalActions: mockWorkflows.reduce((acc, w) => acc + w.actions, 0),
-  };
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [kpis, setKpis] = useState<KPIs>({ total: 0, actifs: 0, executions30d: 0, tauxReussite: 100 });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [editSujet, setEditSujet] = useState("");
+  const [editHtml, setEditHtml] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
-  const getStatusColor = (statut: string) => {
-    switch (statut) {
-      case "ACTIF": return "bg-cockpit-success/10 text-cockpit-success";
-      case "INACTIF": return "bg-cockpit-secondary/10 text-cockpit-secondary";
-      case "ERREUR": return "bg-cockpit-danger/10 text-cockpit-danger";
-      default: return "bg-cockpit-warning/10 text-cockpit-warning";
+  const fetchWorkflows = useCallback(async (showRefresh = false) => {
+    if (showRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const res = await fetch("/api/workflows");
+      const data = await res.json();
+      if (data.success) {
+        setWorkflows(data.workflows || []);
+        setKpis(data.kpis || { total: 0, actifs: 0, executions30d: 0, tauxReussite: 100 });
+      }
+    } catch (err) {
+      console.error("Erreur chargement workflows:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchWorkflows(); }, [fetchWorkflows]);
+
+  // Toggle enabled
+  const toggleWorkflow = async (id: string, currentEnabled: boolean) => {
+    setToggling(id);
+    try {
+      const res = await fetch("/api/workflows", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, enabled: !currentEnabled }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWorkflows((prev) =>
+          prev.map((w) => (w.id === id ? { ...w, enabled: !currentEnabled } : w))
+        );
+        setKpis((prev) => ({
+          ...prev,
+          actifs: prev.actifs + (currentEnabled ? -1 : 1),
+        }));
+      }
+    } catch (err) {
+      console.error("Erreur toggle:", err);
+    } finally {
+      setToggling(null);
     }
   };
 
+  // Start editing template
+  const startEdit = (wf: Workflow) => {
+    if (wf.emailTemplate) {
+      setEditingTemplate(wf.emailTemplate.id);
+      setEditSujet(wf.emailTemplate.sujet);
+      setEditHtml(wf.emailTemplate.contenuHtml);
+    }
+  };
+
+  // Save template
+  const saveTemplate = async () => {
+    if (!editingTemplate) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/workflows/template", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingTemplate, sujet: editSujet, contenuHtml: editHtml }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWorkflows((prev) =>
+          prev.map((w) => {
+            if (w.emailTemplate?.id === editingTemplate) {
+              return { ...w, emailTemplate: { ...w.emailTemplate!, sujet: editSujet, contenuHtml: editHtml } };
+            }
+            return w;
+          })
+        );
+        setEditingTemplate(null);
+      }
+    } catch (err) {
+      console.error("Erreur save template:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Cancel edit
+  const cancelEdit = () => {
+    setEditingTemplate(null);
+    setEditSujet("");
+    setEditHtml("");
+  };
+
+  // Preview
+  const showPreview = (html: string) => {
+    // Replace variables with example values
+    const preview = html
+      .replace(/\{\{prenom\}\}/g, "Jean")
+      .replace(/\{\{nom\}\}/g, "Dupont")
+      .replace(/\{\{email\}\}/g, "jean@example.com")
+      .replace(/\{\{meuble\}\}/g, "Table basse en teck")
+      .replace(/\{\{showroom\}\}/g, "Saint-Denis");
+    setPreviewHtml(preview);
+  };
+
+  // Format delay
+  const formatDelay = (minutes: number) => {
+    if (minutes === 0) return "Immédiat";
+    if (minutes < 60) return `${minutes} min`;
+    if (minutes < 1440) return `${Math.round(minutes / 60)}h`;
+    return `${Math.round(minutes / 1440)} jour(s)`;
+  };
+
+  // Format date
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+
   return (
-    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+    <div className="space-y-4 sm:space-y-5">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">Automatisations</h1>
-          <p className="text-cockpit-secondary text-sm">Gérez vos workflows et automatisations</p>
+          <p className="text-cockpit-secondary text-sm">
+            Workflows email · Activer/désactiver et personnaliser les templates
+          </p>
         </div>
-        <button className="bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 text-sm sm:text-base w-full sm:w-auto">
-          + Nouveau workflow
+        <button
+          onClick={() => fetchWorkflows(true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+        >
+          {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          Actualiser
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
-        <KPICard title="Workflows" value={stats.total} icon={<Zap className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
-        <KPICard title="Actifs" value={stats.actifs} icon={<CheckCircle className="w-7 h-7" />} bgColor="bg-cockpit-success" change={{ value: 2, direction: "up" }} />
-        <KPICard title="Réussite" value={`${stats.successRate}%`} icon={<Activity className="w-7 h-7" />} bgColor="bg-cockpit-info" change={{ value: 5, direction: "up" }} />
-        <KPICard title="Actions" value={stats.totalActions} icon={<AlertCircle className="w-7 h-7" />} bgColor="bg-cockpit-warning" change={{ value: 3, direction: "up" }} />
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <KPICard title="Workflows" value={kpis.total} icon={<Zap className="w-6 h-6" />} bgColor="bg-cockpit-yellow" />
+        <KPICard title="Actifs" value={kpis.actifs} icon={<CheckCircle className="w-6 h-6" />} bgColor="bg-cockpit-success" />
+        <KPICard title="Exéc. 30j" value={kpis.executions30d} icon={<Activity className="w-6 h-6" />} bgColor="bg-cockpit-info" />
+        <KPICard title="Réussite" value={`${kpis.tauxReussite}%`} icon={<Sparkles className="w-6 h-6" />} bgColor="bg-cockpit-warning" />
       </div>
 
-      <div className="space-y-3 sm:space-y-4">
-        {mockWorkflows.map((workflow) => (
-          <div key={workflow.id} className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6 lg:p-8 hover:shadow-cockpit-md transition-shadow">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base sm:text-lg font-bold text-cockpit-heading mb-1 sm:mb-2">{workflow.nom}</h3>
-                <p className="text-cockpit-secondary text-xs sm:text-sm mb-3 sm:mb-4">{workflow.description}</p>
-                <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm">
-                  <span className="text-cockpit-secondary"><span className="font-semibold text-cockpit-primary">{workflow.actions}</span> actions</span>
-                  <span className="text-cockpit-secondary">Créé le {new Date(workflow.dateCreation).toLocaleDateString("fr-FR")}</span>
+      {/* Workflow list */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="bg-cockpit-card rounded-card border border-cockpit p-12 text-center">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+            <span className="text-cockpit-secondary text-sm">Chargement...</span>
+          </div>
+        ) : workflows.length === 0 ? (
+          <div className="bg-cockpit-card rounded-card border border-cockpit p-12 text-center">
+            <Zap className="w-8 h-8 mx-auto mb-3 text-cockpit-secondary" />
+            <p className="text-cockpit-secondary">Aucun workflow configuré</p>
+          </div>
+        ) : (
+          workflows.map((wf) => {
+            const isExpanded = expandedId === wf.id;
+            const tc = triggerConfig[wf.trigger] || triggerConfig.MANUEL;
+            const isEditing = editingTemplate === wf.emailTemplate?.id;
+
+            return (
+              <div
+                key={wf.id}
+                className={`bg-cockpit-card rounded-card border transition-all ${
+                  isExpanded ? "border-cockpit-yellow/50 shadow-cockpit-lg" : "border-cockpit hover:border-cockpit-yellow/30"
+                }`}
+              >
+                {/* Row principal */}
+                <div className="flex items-center gap-3 px-3 sm:px-4 py-3 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : wf.id)}>
+                  {/* Toggle */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleWorkflow(wf.id, wf.enabled); }}
+                    disabled={toggling === wf.id}
+                    className={`flex-shrink-0 w-11 h-6 rounded-full transition-colors relative ${
+                      wf.enabled ? "bg-cockpit-success" : "bg-cockpit-dark border border-cockpit"
+                    }`}
+                    title={wf.enabled ? "Désactiver" : "Activer"}
+                  >
+                    <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      wf.enabled ? "translate-x-5" : "translate-x-0.5"
+                    }`}>
+                      {toggling === wf.id && <Loader2 className="w-3 h-3 animate-spin absolute inset-0 m-auto text-cockpit-secondary" />}
+                    </div>
+                  </button>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-cockpit-primary text-sm truncate">{wf.nom}</span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${tc.color}`}>
+                        {tc.icon} {tc.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-cockpit-secondary truncate">{wf.description}</p>
+                  </div>
+
+                  {/* Délai */}
+                  <div className="hidden sm:flex items-center gap-1 text-xs text-cockpit-secondary flex-shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {formatDelay(wf.delaiMinutes)}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="hidden md:flex items-center gap-2 text-xs flex-shrink-0">
+                    {wf.stats.executions30d > 0 ? (
+                      <>
+                        <span className="text-cockpit-success font-semibold">{wf.stats.success30d}</span>
+                        {wf.stats.error30d > 0 && (
+                          <span className="text-red-400 font-semibold">{wf.stats.error30d} err</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-cockpit-secondary">—</span>
+                    )}
+                  </div>
+
+                  {/* Last exec */}
+                  <span className="text-[10px] text-cockpit-secondary flex-shrink-0 hidden lg:block min-w-[90px] text-right">
+                    {wf.stats.lastExecutedAt ? formatDate(wf.stats.lastExecutedAt) : "Jamais"}
+                  </span>
+
+                  {/* Expand */}
+                  <div className="flex-shrink-0 text-cockpit-secondary">
+                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
                 </div>
+
+                {/* Expanded — Template editor */}
+                {isExpanded && (
+                  <div className="border-t border-cockpit px-3 sm:px-4 py-3 sm:py-4 space-y-4">
+                    {wf.emailTemplate ? (
+                      <>
+                        {/* Template info */}
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-cockpit-yellow" />
+                            Template: {wf.emailTemplate.nom}
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            {!isEditing && (
+                              <>
+                                <button
+                                  onClick={() => showPreview(wf.emailTemplate!.contenuHtml)}
+                                  className="flex items-center gap-1 px-2.5 py-1 bg-cockpit-dark border border-cockpit rounded-lg text-xs text-cockpit-secondary hover:text-cockpit-primary transition-colors"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  Aperçu
+                                </button>
+                                <button
+                                  onClick={() => startEdit(wf)}
+                                  className="flex items-center gap-1 px-2.5 py-1 bg-cockpit-yellow/10 border border-cockpit-yellow/30 rounded-lg text-xs text-cockpit-yellow hover:bg-cockpit-yellow/20 transition-colors"
+                                >
+                                  Modifier
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {isEditing ? (
+                          /* Edit mode */
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-xs text-cockpit-secondary mb-1 block">Sujet de l'email</label>
+                              <input
+                                type="text"
+                                value={editSujet}
+                                onChange={(e) => setEditSujet(e.target.value)}
+                                className="w-full px-3 py-2 border border-cockpit-input rounded-lg bg-cockpit-input text-cockpit-primary text-sm"
+                                placeholder="Sujet..."
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-cockpit-secondary mb-1 block">
+                                Contenu HTML
+                                <span className="ml-2 text-cockpit-yellow">
+                                  Variables: {(wf.emailTemplate.variables || []).map((v) => `{{${v}}}`).join(", ")}
+                                </span>
+                              </label>
+                              <textarea
+                                value={editHtml}
+                                onChange={(e) => setEditHtml(e.target.value)}
+                                rows={8}
+                                className="w-full px-3 py-2 border border-cockpit-input rounded-lg bg-cockpit-input text-cockpit-primary text-sm font-mono"
+                                placeholder="<h2>Bonjour {{prenom}},</h2>..."
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={saveTemplate}
+                                disabled={saving}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-cockpit-success text-white rounded-lg text-xs font-semibold hover:bg-cockpit-success/90 transition-colors disabled:opacity-50"
+                              >
+                                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                Enregistrer
+                              </button>
+                              <button
+                                onClick={() => showPreview(editHtml)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-cockpit-dark border border-cockpit rounded-lg text-xs text-cockpit-secondary hover:text-cockpit-primary transition-colors"
+                              >
+                                <Eye className="w-3 h-3" />
+                                Aperçu
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-cockpit-dark border border-cockpit rounded-lg text-xs text-cockpit-secondary hover:text-cockpit-primary transition-colors"
+                              >
+                                <X className="w-3 h-3" />
+                                Annuler
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* View mode */
+                          <div className="space-y-2">
+                            <div className="bg-cockpit-dark rounded-lg p-3 border border-cockpit">
+                              <div className="text-[10px] text-cockpit-secondary mb-1">SUJET</div>
+                              <p className="text-sm text-cockpit-primary">{wf.emailTemplate.sujet}</p>
+                            </div>
+                            <div className="bg-cockpit-dark rounded-lg p-3 border border-cockpit">
+                              <div className="text-[10px] text-cockpit-secondary mb-1">CONTENU</div>
+                              <div
+                                className="text-sm text-cockpit-primary prose prose-invert prose-sm max-w-none [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mb-2 [&_p]:mb-1"
+                                dangerouslySetInnerHTML={{ __html: wf.emailTemplate.contenuHtml }}
+                              />
+                            </div>
+                            {wf.emailTemplate.variables && wf.emailTemplate.variables.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {(wf.emailTemplate.variables as string[]).map((v) => (
+                                  <span key={v} className="px-2 py-0.5 bg-cockpit-yellow/10 text-cockpit-yellow text-[10px] font-mono rounded">
+                                    {`{{${v}}}`}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Stats détaillées */}
+                        <div className="flex items-center gap-4 pt-2 border-t border-cockpit text-xs text-cockpit-secondary">
+                          <span>Total: <strong className="text-cockpit-primary">{wf._count.executions}</strong> exécutions</span>
+                          <span>30j: <strong className="text-cockpit-success">{wf.stats.success30d}</strong> succès</span>
+                          {wf.stats.error30d > 0 && (
+                            <span><strong className="text-red-400">{wf.stats.error30d}</strong> erreurs</span>
+                          )}
+                          <span>Délai: <strong className="text-cockpit-primary">{formatDelay(wf.delaiMinutes)}</strong></span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-cockpit-secondary italic py-4 text-center">
+                        Pas de template email configuré pour ce workflow
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-3 sm:gap-4">
-                <span className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold ${getStatusColor(workflow.statut)}`}>
-                  <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  {workflow.statut}
-                </span>
-                <button className="p-2 hover:bg-cockpit-dark rounded-lg transition-colors">⋮</button>
-              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Preview Modal */}
+      {previewHtml && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                Aperçu email
+              </h3>
+              <button onClick={() => setPreviewHtml(null)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <div
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            </div>
+            <div className="px-5 py-3 border-t flex justify-end">
+              <button
+                onClick={() => setPreviewHtml(null)}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium border text-gray-600 hover:bg-gray-50"
+              >
+                Fermer
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

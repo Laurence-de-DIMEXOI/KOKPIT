@@ -36,13 +36,59 @@ export async function GET(request: NextRequest) {
       where.showroomId = filters.showroomId;
     }
 
+    // Pour les tris par relation (derniere_demande, dernier_devis, dernier_bdc),
+    // on récupère d'abord les IDs triés via raw SQL pour un tri correct AVANT pagination
+    let sortedIds: string[] | null = null;
+
+    if (filters.sort === "derniere_demande" || filters.sort === "dernier_devis" || filters.sort === "dernier_bdc") {
+      // Construire la clause WHERE en SQL
+      const whereClauses: string[] = [];
+      const whereParams: any[] = [];
+      let paramIdx = 1;
+
+      if (filters.search) {
+        whereClauses.push(`(c."nom" ILIKE $${paramIdx} OR c."prenom" ILIKE $${paramIdx} OR c."email" ILIKE $${paramIdx} OR c."telephone" LIKE $${paramIdx})`);
+        whereParams.push(`%${filters.search}%`);
+        paramIdx++;
+      }
+      if (filters.stage) {
+        whereClauses.push(`c."lifecycleStage"::text = $${paramIdx}`);
+        whereParams.push(filters.stage);
+        paramIdx++;
+      }
+
+      const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+      let joinSQL = "";
+      let orderSQL = "";
+
+      if (filters.sort === "derniere_demande") {
+        joinSQL = `LEFT JOIN (SELECT "contactId", MAX(COALESCE("dateDemande", "createdAt")) as last_date FROM "DemandePrix" GROUP BY "contactId") dp ON dp."contactId" = c."id"`;
+        orderSQL = `ORDER BY dp.last_date DESC NULLS LAST, c."createdAt" DESC`;
+      } else if (filters.sort === "dernier_devis") {
+        joinSQL = `LEFT JOIN (SELECT "contactId", MAX(COALESCE("dateEnvoi", "createdAt")) as last_date FROM "Devis" GROUP BY "contactId") dv ON dv."contactId" = c."id"`;
+        orderSQL = `ORDER BY dv.last_date DESC NULLS LAST, c."createdAt" DESC`;
+      } else if (filters.sort === "dernier_bdc") {
+        joinSQL = `LEFT JOIN (SELECT "contactId", MAX(COALESCE("dateVente", "createdAt")) as last_date FROM "Vente" GROUP BY "contactId") v ON v."contactId" = c."id"`;
+        orderSQL = `ORDER BY v.last_date DESC NULLS LAST, c."createdAt" DESC`;
+      }
+
+      whereParams.push(filters.limit);
+      whereParams.push((filters.page - 1) * filters.limit);
+
+      const rawQuery = `SELECT c."id" FROM "Contact" c ${joinSQL} ${whereSQL} ${orderSQL} LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+
+      const rawResult: any[] = await prisma.$queryRawUnsafe(rawQuery, ...whereParams);
+      sortedIds = rawResult.map((r: any) => r.id);
+    }
+
     const [contacts, total, kpiData] = await Promise.all([
       prisma.contact.findMany({
-        where,
+        where: sortedIds ? { ...where, id: { in: sortedIds } } : where,
         include: {
           showroom: { select: { id: true, nom: true } },
           demandesPrix: {
-            orderBy: { dateDemande: "desc" },
+            orderBy: { createdAt: "desc" },
           },
           devis: {
             select: {
@@ -69,13 +115,17 @@ export async function GET(request: NextRequest) {
             select: { demandesPrix: true, leads: true, devis: true, ventes: true },
           },
         },
-        orderBy: filters.sort === "nom"
-          ? [{ nom: "asc" as const }]
-          : filters.sort === "date_creation"
-          ? [{ createdAt: "desc" as const }]
-          : [{ updatedAt: "desc" as const }],
-        skip: (filters.page - 1) * filters.limit,
-        take: filters.limit,
+        ...(sortedIds
+          ? {} // Pas de orderBy/skip/take Prisma, on trie manuellement après
+          : {
+              orderBy: filters.sort === "nom"
+                ? [{ nom: "asc" as const }]
+                : filters.sort === "date_creation"
+                ? [{ createdAt: "desc" as const }]
+                : [{ updatedAt: "desc" as const }],
+              skip: (filters.page - 1) * filters.limit,
+              take: filters.limit,
+            }),
       }),
       prisma.contact.count({ where }),
       // KPIs globaux
@@ -88,38 +138,15 @@ export async function GET(request: NextRequest) {
       ]),
     ]);
 
-    // Tri côté serveur pour les colonnes nécessitant un accès aux relations
-    if (filters.sort === "derniere_demande") {
-      contacts.sort((a: any, b: any) => {
-        const dateA = a.demandesPrix?.[0]?.dateDemande;
-        const dateB = b.demandesPrix?.[0]?.dateDemande;
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        return new Date(dateB).getTime() - new Date(dateA).getTime();
-      });
-    } else if (filters.sort === "dernier_devis") {
-      contacts.sort((a: any, b: any) => {
-        const dateA = a.devis?.[0]?.createdAt || a.devis?.[0]?.dateEnvoi;
-        const dateB = b.devis?.[0]?.createdAt || b.devis?.[0]?.dateEnvoi;
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        return new Date(dateB).getTime() - new Date(dateA).getTime();
-      });
-    } else if (filters.sort === "dernier_bdc") {
-      contacts.sort((a: any, b: any) => {
-        const dateA = a.ventes?.[0]?.dateVente;
-        const dateB = b.ventes?.[0]?.dateVente;
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        return new Date(dateB).getTime() - new Date(dateA).getTime();
-      });
+    // Rétablir l'ordre des IDs triés par raw SQL
+    let sortedContacts = contacts;
+    if (sortedIds) {
+      const idOrder = new Map(sortedIds.map((id, idx) => [id, idx]));
+      sortedContacts = [...contacts].sort((a, b) => (idOrder.get(a.id) ?? 999) - (idOrder.get(b.id) ?? 999));
     }
 
     return NextResponse.json({
-      contacts,
+      contacts: sortedContacts,
       pagination: {
         page: filters.page,
         limit: filters.limit,

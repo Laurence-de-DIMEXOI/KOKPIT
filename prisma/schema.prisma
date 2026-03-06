@@ -210,7 +210,7 @@ model Contact {
   clickEvents         ClickEvent[]
   emailLogs           EmailLog[]
   smsLogs             SmsLog[]
-  workflowLogs        WorkflowLog[]
+  // workflowLogs removed — replaced by WorkflowExecution
   demandesPrix        DemandePrix[]
 
   @@index([telephone])
@@ -250,7 +250,7 @@ model Lead {
   campagne            Campagne? @relation(fields: [campagneId], references: [id], onDelete: SetNull)
   devis               Devis[]
   evenements          Evenement[]
-  workflowLogs        WorkflowLog[]
+  // workflowLogs removed — replaced by WorkflowExecution
 
   @@index([contactId])
   @@index([commercialId])
@@ -365,61 +365,7 @@ model ClickEvent {
   @@index([createdAt])
 }
 
-model Workflow {
-  id                  String    @id @default(cuid())
-  nom                 String
-  triggerType         WorkflowTrigger
-  conditions          Json?
-  actif               Boolean   @default(true)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  // Relations
-  actions             WorkflowAction[]
-  logs                WorkflowLog[]
-
-  @@index([triggerType])
-  @@index([actif])
-}
-
-model WorkflowAction {
-  id                  String    @id @default(cuid())
-  workflowId          String
-  ordre               Int
-  typeAction          ActionType
-  config              Json
-  delaiHeures         Int?
-  createdAt           DateTime  @default(now())
-
-  // Relations
-  workflow            Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  logs                WorkflowLog[] @relation("WorkflowActionLog")
-
-  @@index([workflowId])
-  @@index([ordre])
-}
-
-model WorkflowLog {
-  id                  String    @id @default(cuid())
-  workflowId          String
-  actionId            String?
-  contactId           String?
-  leadId              String?
-  statut              WorkflowLogStatut @default(PLANIFIE)
-  resultat            Json?
-  executeAt           DateTime
-  createdAt           DateTime  @default(now())
-
-  // Relations
-  workflow            Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  action              WorkflowAction? @relation("WorkflowActionLog", fields: [actionId], references: [id], onDelete: SetNull)
-  contact             Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-
-  @@index([workflowId])
-  @@index([contactId])
-  @@index([createdAt])
-}
+// Old Workflow/WorkflowAction/WorkflowLog models replaced by new ones at end of file
 
 model EmailCampaign {
   id                  String    @id @default(cuid())
@@ -530,4 +476,69 @@ model DemandePrix {
 
   @@index([contactId])
   @@index([dateDemande])
+}
+
+// ============================================================================
+// AUTOMATISATIONS — Workflows & Email Templates
+// ============================================================================
+
+enum WorkflowTrigger {
+  NOUVELLE_DEMANDE          // Nouvelle demande de prix reçue
+  CONTACT_CREE              // Nouveau contact créé
+  DEVIS_ENVOYE              // Devis envoyé au client
+  DEVIS_SANS_REPONSE_3J     // Devis sans réponse après 3 jours
+  DEVIS_SANS_REPONSE_7J     // Devis sans réponse après 7 jours
+  VENTE_CONFIRMEE           // Bon de commande confirmé
+  LEAD_STATUT_CHANGE        // Changement de statut d'un lead
+  MANUEL                    // Déclenché manuellement
+}
+
+model Workflow {
+  id                  String            @id @default(cuid())
+  nom                 String
+  description         String?
+  trigger             WorkflowTrigger
+  enabled             Boolean           @default(true)
+  delaiMinutes        Int               @default(0)     // Délai avant exécution (ex: 3j = 4320)
+  conditions          Json?             // Conditions supplémentaires (JSON)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  // Relations
+  emailTemplate       EmailTemplate?
+  executions          WorkflowExecution[]
+
+  @@index([trigger])
+  @@index([enabled])
+}
+
+model EmailTemplate {
+  id                  String    @id @default(cuid())
+  workflowId          String    @unique
+  nom                 String
+  sujet               String    // Subject avec variables {{prenom}}, {{nom}}, etc.
+  contenuHtml         String    // Body HTML avec variables
+  contenuTexte        String?   // Version texte brut
+  variables           Json?     // Liste des variables disponibles
+  brevoTemplateId     Int?      // ID du template Brevo si synchronisé
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  workflow            Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowExecution {
+  id                  String    @id @default(cuid())
+  workflowId          String
+  contactId           String?
+  statut              String    @default("SUCCESS") // SUCCESS, ERROR, SKIPPED
+  details             Json?     // Détails de l'exécution (email envoyé, erreur, etc.)
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  workflow            Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([createdAt])
 }
