@@ -83,27 +83,21 @@ enum EvenementType {
 }
 
 enum WorkflowTrigger {
+  // Legacy
   NOUVEAU_LEAD
   LEAD_INACTIF
   DEVIS_NON_FACTURE
   POST_ACHAT
   SLA_DEPASSE
-}
-
-enum ActionType {
-  EMAIL
-  SMS
-  NOTIFICATION
-  TACHE
-  CHANGEMENT_STATUT
-  DELAI
-}
-
-enum WorkflowLogStatut {
-  PLANIFIE
-  EN_COURS
-  TERMINE
-  ERREUR
+  // New automatisations triggers
+  NOUVELLE_DEMANDE
+  CONTACT_CREE
+  DEVIS_ENVOYE
+  DEVIS_SANS_REPONSE_3J
+  DEVIS_SANS_REPONSE_7J
+  VENTE_CONFIRMEE
+  LEAD_STATUT_CHANGE
+  MANUEL
 }
 
 enum EmailStatut {
@@ -481,17 +475,6 @@ model DemandePrix {
 // ============================================================================
 // AUTOMATISATIONS — Workflows & Email Templates
 // ============================================================================
-
-enum WorkflowTrigger {
-  NOUVELLE_DEMANDE          // Nouvelle demande de prix reçue
-  CONTACT_CREE              // Nouveau contact créé
-  DEVIS_ENVOYE              // Devis envoyé au client
-  DEVIS_SANS_REPONSE_3J     // Devis sans réponse après 3 jours
-  DEVIS_SANS_REPONSE_7J     // Devis sans réponse après 7 jours
-  VENTE_CONFIRMEE           // Bon de commande confirmé
-  LEAD_STATUT_CHANGE        // Changement de statut d'un lead
-  MANUEL                    // Déclenché manuellement
-}
 
 model Workflow {
   id                  String            @id @default(cuid())
