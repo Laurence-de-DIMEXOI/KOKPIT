@@ -161,7 +161,7 @@ async function sendEmailNotification(
   </div>
   ${articlesHtml ? `<h3 style="color:#333;margin-top:20px;">Articles demandés</h3>${articlesHtml}` : `<p><strong>Produit :</strong> ${meuble}</p>`}
   <p style="margin-top:30px;">
-    <a href="https://kokpit-kappa.vercel.app/demandes" style="background:#f59e0b;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">
+    <a href="https://kokpit-kappa.vercel.app/leads" style="background:#f59e0b;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">
       Voir dans KÒKPIT
     </a>
   </p>
