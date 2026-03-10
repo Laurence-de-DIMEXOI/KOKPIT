@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Post, PostStatut, PostLabel, COLUMNS } from "./types";
 import LabelPicker from "./label-picker";
 import PostChecklist from "./post-checklist";
-import { X, Trash2, CalendarDays } from "lucide-react";
+import { X, Trash2, CalendarDays, Upload, ImageIcon, Loader2 } from "lucide-react";
 
 interface PostModalProps {
   post: Post | null; // null = création
@@ -33,6 +33,9 @@ export default function PostModal({
   const [coverImage, setCoverImage] = useState(post?.coverImage || "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Close on Escape
   useEffect(() => {
@@ -42,6 +45,42 @@ export default function PostModal({
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
   }, [onClose]);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError("");
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/planning/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setCoverImage(data.url);
+      } else {
+        setUploadError(data.error || "Erreur lors de l'upload");
+      }
+    } catch (err: any) {
+      setUploadError(err.message || "Erreur réseau");
+    }
+
+    setUploading(false);
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveImage = () => {
+    setCoverImage("");
+  };
 
   const handleSave = async () => {
     if (!title.trim() || saving) return;
@@ -108,6 +147,75 @@ export default function PostModal({
         </div>
 
         <div className="px-6 py-5 space-y-5">
+          {/* Image de couverture */}
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              <ImageIcon className="w-4 h-4 inline mr-1" />
+              Image de couverture
+            </label>
+
+            {coverImage ? (
+              /* Preview de l'image */
+              <div className="relative group rounded-lg overflow-hidden border border-gray-200">
+                <img
+                  src={coverImage}
+                  alt="Couverture"
+                  className="w-full h-44 object-cover"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-white text-gray-700 text-xs font-medium rounded-lg shadow transition-opacity"
+                  >
+                    Changer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg shadow transition-opacity"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Zone d'upload */
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full border-2 border-dashed border-gray-300 rounded-lg py-8 flex flex-col items-center gap-2 text-gray-400 hover:border-cockpit-yellow hover:text-cockpit-yellow transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                    <span className="text-sm">Upload en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8" />
+                    <span className="text-sm font-medium">Cliquez pour choisir une image</span>
+                    <span className="text-xs">JPG, PNG, WebP ou GIF — 5 Mo max</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {uploadError && (
+              <p className="text-xs text-red-500 mt-1">{uploadError}</p>
+            )}
+
+            {/* Input file caché */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </div>
+
           {/* Titre */}
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Titre</label>
@@ -121,30 +229,22 @@ export default function PostModal({
             />
           </div>
 
-          {/* Colonne (statut) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Colonne</label>
-            <select
-              value={statut}
-              onChange={(e) => setStatut(e.target.value as PostStatut)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/50 focus:border-cockpit-yellow bg-white"
-            >
-              {COLUMNS.map((col) => (
-                <option key={col.statut} value={col.statut}>
-                  {col.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Labels */}
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">Plateformes / Labels</label>
-            <LabelPicker selected={labels} onChange={setLabels} />
-          </div>
-
-          {/* Date + Cover side by side */}
+          {/* Colonne (statut) + Date côte à côte */}
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Colonne</label>
+              <select
+                value={statut}
+                onChange={(e) => setStatut(e.target.value as PostStatut)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/50 focus:border-cockpit-yellow bg-white"
+              >
+                {COLUMNS.map((col) => (
+                  <option key={col.statut} value={col.statut}>
+                    {col.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 <CalendarDays className="w-4 h-4 inline mr-1" />
@@ -157,18 +257,12 @@ export default function PostModal({
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/50 focus:border-cockpit-yellow"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Image couverture (URL)
-              </label>
-              <input
-                type="url"
-                value={coverImage}
-                onChange={(e) => setCoverImage(e.target.value)}
-                placeholder="https://..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/50 focus:border-cockpit-yellow"
-              />
-            </div>
+          </div>
+
+          {/* Labels */}
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">Labels</label>
+            <LabelPicker selected={labels} onChange={setLabels} />
           </div>
 
           {/* Description */}
@@ -203,7 +297,7 @@ export default function PostModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={!title.trim() || saving}
+            disabled={!title.trim() || saving || uploading}
             className="px-5 py-2 text-sm font-medium text-white bg-cockpit-yellow hover:bg-yellow-500 rounded-lg disabled:opacity-40 transition-colors"
           >
             {saving ? "Enregistrement..." : post ? "Enregistrer" : "Créer le post"}
