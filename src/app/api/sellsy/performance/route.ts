@@ -46,39 +46,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch en parallèle : devis, commandes et staffs
-    // Tenter avec embed owner, sinon fallback sans embed
-    let allEstimates;
-    let allOrders;
-    let staffs;
+    const [allEstimates, allOrders, staffs] = await Promise.all([
+      listAllEstimates(startDate),
+      listAllOrders(startDate),
+      listStaffs(),
+    ]);
 
-    try {
-      [allEstimates, allOrders, staffs] = await Promise.all([
-        listAllEstimates(startDate, { embed: ["owner"] }),
-        listAllOrders(startDate, { embed: ["owner"] }),
-        listStaffs(),
-      ]);
-    } catch (embedErr) {
-      console.warn("Embed owner failed, retrying without embed:", embedErr);
-      [allEstimates, allOrders, staffs] = await Promise.all([
-        listAllEstimates(startDate),
-        listAllOrders(startDate),
-        listStaffs(),
-      ]);
-    }
-
-    // Debug: log premier devis pour vérifier les champs disponibles
-    if (allEstimates.length > 0) {
-      const sample = allEstimates[0];
-      console.log("Sample estimate keys:", Object.keys(sample));
-      console.log("Sample estimate _embed:", JSON.stringify(sample._embed));
-      console.log("Sample estimate owner_id:", (sample as any).owner_id);
-    }
-
-    // Map des staffs pour résolution owner_id → nom
-    console.log(`Staffs found: ${staffs.length}`, staffs.map(s => `${s.id}: ${s.first_name} ${s.last_name}`));
+    // Map des staffs pour résolution owner.id → nom
     const staffMap = new Map<number, string>();
     staffs.forEach((s) => {
-      staffMap.set(s.id, `${s.first_name} ${s.last_name}`.trim());
+      staffMap.set(s.id, `${s.firstname} ${s.lastname}`.trim());
     });
 
     // Filtrer par période (les listAll récupèrent depuis startDate mais peuvent avoir des dates hors range)
@@ -125,9 +102,9 @@ export async function GET(request: NextRequest) {
       return ownerStats.get(ownerId)!;
     };
 
-    // Agréger devis par owner (via _embed.owner ou owner_id en fallback)
+    // Agréger devis par owner (owner.id direct sur la réponse Sellsy)
     for (const e of periodEstimates) {
-      const ownerId = e._embed?.owner?.id || e.owner_id || 0;
+      const ownerId = e.owner?.id || e.assigned_staff_id || 0;
       const ownerName = staffMap.get(ownerId) || "Non assigné";
       const stats = getOrCreate(ownerId, ownerName);
       stats.devisCount++;
@@ -135,9 +112,9 @@ export async function GET(request: NextRequest) {
       stats.devisTotal += typeof amt === "string" ? parseFloat(amt) : amt;
     }
 
-    // Agréger commandes par owner (via _embed.owner ou owner_id en fallback)
+    // Agréger commandes par owner
     for (const o of periodOrders) {
-      const ownerId = o._embed?.owner?.id || o.owner_id || 0;
+      const ownerId = o.owner?.id || o.assigned_staff_id || 0;
       const ownerName = staffMap.get(ownerId) || "Non assigné";
       const stats = getOrCreate(ownerId, ownerName);
       stats.commandesCount++;

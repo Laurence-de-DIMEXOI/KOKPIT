@@ -143,6 +143,8 @@ export interface SellsyEstimate {
   currency: string;
   created: string;
   owner_id?: number;
+  owner?: SellsyOwnerEmbed;
+  assigned_staff_id?: number;
   amounts?: SellsyAmounts;
   _embed?: {
     company?: { id: number; name: string };
@@ -164,6 +166,8 @@ export interface SellsyOrder {
   currency: string;
   created: string;
   owner_id?: number;
+  owner?: SellsyOwnerEmbed;
+  assigned_staff_id?: number;
   amounts?: SellsyAmounts;
   _embed?: {
     company?: { id: number; name: string };
@@ -523,7 +527,7 @@ export async function listAllCompanies(): Promise<SellsyCompany[]> {
  * Récupère TOUS les devis Sellsy depuis une date donnée (défaut: 2024-01-01).
  * Utilise l'endpoint search avec filtre date pour limiter les résultats.
  */
-export async function listAllEstimates(since?: string, options?: { embed?: string[] }): Promise<SellsyEstimate[]> {
+export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]> {
   const all: SellsyEstimate[] = [];
   const pageSize = 100;
   let offset = 0;
@@ -539,7 +543,6 @@ export async function listAllEstimates(since?: string, options?: { embed?: strin
       offset,
       order: "created",
       direction: "desc",
-      ...(options?.embed ? { embed: options.embed } : {}),
     });
     all.push(...res.data);
     total = res.pagination.total;
@@ -554,7 +557,7 @@ export async function listAllEstimates(since?: string, options?: { embed?: strin
  * Récupère TOUS les bons de commande Sellsy depuis une date donnée (défaut: 2024-01-01).
  * Utilise l'endpoint search avec filtre date pour limiter les résultats.
  */
-export async function listAllOrders(since?: string, options?: { embed?: string[] }): Promise<SellsyOrder[]> {
+export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
   const all: SellsyOrder[] = [];
   const pageSize = 100;
   let offset = 0;
@@ -568,7 +571,6 @@ export async function listAllOrders(since?: string, options?: { embed?: string[]
       },
       limit: pageSize,
       offset,
-      ...(options?.embed ? { embed: options.embed } : {}),
     });
     all.push(...res.data);
     total = res.pagination.total;
@@ -583,10 +585,10 @@ export async function listAllOrders(since?: string, options?: { embed?: string[]
 
 export interface SellsyStaff {
   id: number;
-  first_name: string;
-  last_name: string;
+  firstname: string;
+  lastname: string;
   email?: string;
-  is_active?: boolean;
+  status?: string; // "ok" | "blocked"
 }
 
 export async function listStaffs(): Promise<SellsyStaff[]> {
