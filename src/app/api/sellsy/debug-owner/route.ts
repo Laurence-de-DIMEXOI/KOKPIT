@@ -7,20 +7,21 @@ export async function GET() {
     // 1. Get one estimate via list (raw fields)
     const listRes = await listEstimates({ limit: 1 });
     const firstFromList = listRes.data[0] || null;
+    const rawList = firstFromList as Record<string, unknown> | null;
 
     // 2. Get same estimate via single GET (may have more fields)
-    let singleEstimate = null;
+    let rawSingle: Record<string, unknown> | null = null;
     if (firstFromList) {
       try {
         const singleRes = await getEstimate(firstFromList.id);
-        singleEstimate = singleRes.data || singleRes;
+        rawSingle = (singleRes.data || singleRes) as Record<string, unknown>;
       } catch (e: any) {
-        singleEstimate = { error: e.message };
+        rawSingle = { error: e.message };
       }
     }
 
     // 3. Get staffs
-    let staffs;
+    let staffs: unknown;
     try {
       staffs = await listStaffs();
     } catch (e: any) {
@@ -29,29 +30,28 @@ export async function GET() {
 
     return NextResponse.json({
       listEstimate: {
-        allKeys: firstFromList ? Object.keys(firstFromList) : [],
-        owner_id: (firstFromList as any)?.owner_id,
-        owner: (firstFromList as any)?.owner,
-        _embed: (firstFromList as any)?._embed,
-        // Show all top-level fields that contain "owner" or "staff" or "assign"
-        ownerRelatedFields: firstFromList
-          ? Object.entries(firstFromList).filter(([k]) =>
+        allKeys: rawList ? Object.keys(rawList) : [],
+        owner_id: rawList?.owner_id,
+        owner: rawList?.owner,
+        _embed: rawList?._embed,
+        ownerRelatedFields: rawList
+          ? Object.entries(rawList).filter(([k]) =>
               /owner|staff|assign|respon/i.test(k)
             )
           : [],
-        raw: firstFromList,
+        raw: rawList,
       },
       singleEstimate: {
-        allKeys: singleEstimate && !singleEstimate.error ? Object.keys(singleEstimate) : [],
-        owner_id: singleEstimate?.owner_id,
-        owner: singleEstimate?.owner,
-        _embed: singleEstimate?._embed,
-        ownerRelatedFields: singleEstimate && !singleEstimate.error
-          ? Object.entries(singleEstimate).filter(([k]) =>
+        allKeys: rawSingle && !rawSingle.error ? Object.keys(rawSingle) : [],
+        owner_id: rawSingle?.owner_id,
+        owner: rawSingle?.owner,
+        _embed: rawSingle?._embed,
+        ownerRelatedFields: rawSingle && !rawSingle.error
+          ? Object.entries(rawSingle).filter(([k]) =>
               /owner|staff|assign|respon/i.test(k)
             )
           : [],
-        raw: singleEstimate,
+        raw: rawSingle,
       },
       staffs,
     });
