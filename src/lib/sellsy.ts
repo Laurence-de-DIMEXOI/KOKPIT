@@ -137,6 +137,7 @@ export interface SellsyEstimate {
   company_name: string;
   currency: string;
   created: string;
+  owner_id?: number;
   amounts?: SellsyAmounts;
   _embed?: {
     company?: { id: number; name: string };
@@ -156,6 +157,7 @@ export interface SellsyOrder {
   company_name: string;
   currency: string;
   created: string;
+  owner_id?: number;
   amounts?: SellsyAmounts;
   _embed?: {
     company?: { id: number; name: string };
@@ -558,6 +560,26 @@ export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
 
   console.log(`Fetched ${all.length} orders since ${sinceDate}`);
   return all;
+}
+
+// ===== STAFFS (Collaborateurs) =====
+
+export interface SellsyStaff {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  is_active?: boolean;
+}
+
+export async function listStaffs(): Promise<SellsyStaff[]> {
+  try {
+    const res = await sellsyFetch<SellsyListResponse<SellsyStaff>>("/staffs?limit=100");
+    return res.data;
+  } catch (err) {
+    console.warn("Staffs API non disponible:", err);
+    return [];
+  }
 }
 
 // ===== UTILITAIRE DE TEST =====

@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listCompanies, listEstimates, listOrders } from "@/lib/sellsy";
+import { listCompanies, listAllEstimates, listAllOrders } from "@/lib/sellsy";
 
 // GET /api/sellsy/funnel - Funnel marketing: contacts → devis → commandes
-// Params: months (nombre de mois à analyser, défaut 6)
+// Params: months (nombre de mois à analyser, défaut 12)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const monthsBack = parseInt(searchParams.get("months") || "6", 10);
+    const monthsBack = parseInt(searchParams.get("months") || "12", 10);
 
-    // Récupérer devis et commandes (garanti fonctionnel)
-    // Companies en best-effort (peut échouer si endpoint pas dispo)
-    const [estimatesRes, ordersRes] = await Promise.all([
-      listEstimates({ limit: 100, order: "created", direction: "desc" }),
-      listOrders({ limit: 100, order: "created", direction: "desc" }),
+    // Récupérer TOUS les devis et commandes (pagination complète)
+    const [allEstimates, allOrders] = await Promise.all([
+      listAllEstimates("2024-01-01"),
+      listAllOrders("2024-01-01"),
     ]);
 
     // Tenter de récupérer les companies — fallback si erreur
@@ -29,11 +28,7 @@ export async function GET(request: NextRequest) {
       totalCompaniesFromAPI = companiesRes.pagination.total;
     } catch (err) {
       console.warn("Companies API non disponible, extraction depuis devis/commandes");
-      // Fallback : extraire les contacts uniques depuis devis + commandes
     }
-
-    const estimates = estimatesRes.data;
-    const orders = ordersRes.data;
 
     // Exclure les annulés
     const isCancelled = (status?: string) => {
@@ -42,8 +37,8 @@ export async function GET(request: NextRequest) {
       return s === "cancelled" || s.includes("annul");
     };
 
-    const activeEstimates = estimates.filter((e) => !isCancelled(e.status));
-    const activeOrders = orders.filter((o) => !isCancelled(o.status));
+    const activeEstimates = allEstimates.filter((e) => !isCancelled(e.status));
+    const activeOrders = allOrders.filter((o) => !isCancelled(o.status));
 
     // Si pas de companies API, reconstruire depuis devis/commandes
     if (companies.length === 0) {
@@ -92,6 +87,8 @@ export async function GET(request: NextRequest) {
       contacts: number;
       devis: number;
       commandes: number;
+      devisAmount: number;
+      commandesAmount: number;
       conversionDevis: number;
       conversionCommande: number;
       conversionGlobale: number;
@@ -118,13 +115,13 @@ export async function GET(request: NextRequest) {
 
       // Devis créés ce mois
       const monthEstimates = activeEstimates.filter((e) => {
-        const created = new Date(e.created);
+        const created = new Date(e.date || e.created);
         return created.getFullYear() === year && created.getMonth() === month;
       });
 
       // Commandes créées ce mois
       const monthOrders = activeOrders.filter((o) => {
-        const created = new Date(o.created);
+        const created = new Date(o.date || o.created);
         return created.getFullYear() === year && created.getMonth() === month;
       });
 
@@ -132,8 +129,16 @@ export async function GET(request: NextRequest) {
       const devisCount = monthEstimates.length;
       const commandeCount = monthOrders.length;
 
-      // Pour le funnel mensuel, on utilise le nombre le plus élevé comme base
-      const baseCount = Math.max(contactCount, devisCount, 1);
+      // Montants HT
+      const devisAmount = monthEstimates.reduce((sum, e) => {
+        const amt = e.amounts?.total_excl_tax || e.amounts?.total_raw_excl_tax || 0;
+        return sum + (typeof amt === "string" ? parseFloat(amt) : amt);
+      }, 0);
+
+      const commandesAmount = monthOrders.reduce((sum, o) => {
+        const amt = o.amounts?.total_excl_tax || o.amounts?.total_raw_excl_tax || 0;
+        return sum + (typeof amt === "string" ? parseFloat(amt) : amt);
+      }, 0);
 
       monthlyFunnel.push({
         month: monthKey,
@@ -141,6 +146,8 @@ export async function GET(request: NextRequest) {
         contacts: contactCount,
         devis: devisCount,
         commandes: commandeCount,
+        devisAmount: Math.round(devisAmount * 100) / 100,
+        commandesAmount: Math.round(commandesAmount * 100) / 100,
         conversionDevis: contactCount > 0 ? Math.round((devisCount / contactCount) * 100) : 0,
         conversionCommande: devisCount > 0 ? Math.round((commandeCount / devisCount) * 100) : 0,
         conversionGlobale: contactCount > 0 ? Math.round((commandeCount / contactCount) * 100) : 0,

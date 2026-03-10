@@ -21,6 +21,8 @@ import {
   Mail,
 } from "lucide-react";
 import clsx from "clsx";
+import { EvolutionCharts } from "@/components/dashboard/evolution-charts";
+import { PerformanceTable } from "@/components/dashboard/performance-table";
 
 // ===== TYPES =====
 
@@ -39,6 +41,8 @@ interface MonthlyFunnel {
   contacts: number;
   devis: number;
   commandes: number;
+  devisAmount: number;
+  commandesAmount: number;
   conversionDevis: number;
   conversionCommande: number;
   conversionGlobale: number;
@@ -71,7 +75,7 @@ export default function DashboardPage() {
     if (showLoader) setRefreshing(true);
     setError(null);
     try {
-      const res = await fetch("/api/sellsy/funnel?months=6");
+      const res = await fetch("/api/sellsy/funnel?months=12");
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Erreur inconnue");
@@ -199,6 +203,12 @@ export default function DashboardPage() {
           <p className="text-cockpit-secondary text-[10px] mt-1">Contact → Commande</p>
         </div>
       </div>
+
+      {/* Graphiques évolution Devis & Commandes */}
+      <EvolutionCharts data={monthly} />
+
+      {/* Tableau performance commerciaux */}
+      <PerformanceTable />
 
       {/* Entonnoir visuel */}
       <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-5">
