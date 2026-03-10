@@ -525,3 +525,18 @@ model WorkflowExecution {
   @@index([workflowId])
   @@index([createdAt])
 }
+
+// ============================================================================
+// OBJECTIFS COMMERCIAUX
+// ============================================================================
+
+model ObjectifCommercial {
+  id        String   @id @default(cuid())
+  month     Int      // 1-12
+  year      Int
+  amount    Float    // Objectif CA mensuel en EUR (HT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([month, year])
+}

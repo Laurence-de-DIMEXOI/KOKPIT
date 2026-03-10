@@ -5,6 +5,9 @@ import { useEffect, useState, useCallback } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { EvolutionCharts } from "@/components/dashboard/evolution-charts";
 import { PerformanceTable } from "@/components/dashboard/performance-table";
+import { ExpiringQuotes } from "@/components/dashboard/expiring-quotes";
+import { SalesObjective } from "@/components/dashboard/sales-objective";
+import { ConversionTime } from "@/components/dashboard/conversion-time";
 import {
   FileText,
   ShoppingCart,
@@ -39,6 +42,8 @@ interface EstimateRow {
   date?: string;
   created?: string;
   company_name?: string;
+  contact_id?: number;
+  expiry_date?: string;
   amounts?: SellsyAmounts;
   pdf_link?: string;
 }
@@ -48,6 +53,7 @@ interface OrderRow {
   number?: string;
   subject?: string;
   status?: string;
+  contact_id?: number;
   date?: string;
   created?: string;
   company_name?: string;
@@ -413,7 +419,7 @@ export default function CommercialDashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
@@ -474,7 +480,17 @@ export default function CommercialDashboardPage() {
             previous={prevConversionRate}
           />
         </div>
+
+        <ConversionTime
+          estimates={periodEstimates}
+          orders={periodOrders}
+          previousEstimates={prevEstimates}
+          previousOrders={prevOrders}
+        />
       </div>
+
+      {/* Objectif commercial */}
+      <SalesObjective currentAmount={ordersAmount} />
 
       {/* Amount Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
@@ -530,6 +546,9 @@ export default function CommercialDashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Alertes devis expirants */}
+      <ExpiringQuotes estimates={allEstimates} />
 
       {/* Graphiques évolution Devis & Commandes sur l'année */}
       <EvolutionCharts data={monthlyEvolution} loading={evolutionLoading} />
