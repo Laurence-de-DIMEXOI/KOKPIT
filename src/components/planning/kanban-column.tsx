@@ -1,13 +1,35 @@
 "use client";
 
-import { Post, PostStatut } from "./types";
+import { Post, PostStatut, ColumnIcon } from "./types";
 import KanbanCard from "./kanban-card";
-import { Plus } from "lucide-react";
+import {
+  Plus,
+  Lightbulb,
+  PenLine,
+  Camera,
+  FileCheck,
+  Send,
+  CircleCheckBig,
+  Sparkles,
+  Image,
+} from "lucide-react";
+
+const ICON_MAP: Record<ColumnIcon, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+  Lightbulb,
+  PenLine,
+  Camera,
+  FileCheck,
+  Send,
+  CircleCheckBig,
+  Sparkles,
+  Image,
+};
 
 interface KanbanColumnProps {
   statut: PostStatut;
   label: string;
-  emoji: string;
+  icon: ColumnIcon;
+  color: string;
   posts: Post[];
   onCardClick: (post: Post) => void;
   onAddCard: (statut: PostStatut) => void;
@@ -20,7 +42,8 @@ interface KanbanColumnProps {
 export default function KanbanColumn({
   statut,
   label,
-  emoji,
+  icon,
+  color,
   posts,
   onCardClick,
   onAddCard,
@@ -29,6 +52,8 @@ export default function KanbanColumn({
   onDrop,
   isDragOver,
 }: KanbanColumnProps) {
+  const IconComponent = ICON_MAP[icon];
+
   return (
     <div
       className={`flex flex-col min-w-[280px] max-w-[280px] rounded-xl transition-colors ${
@@ -40,7 +65,12 @@ export default function KanbanColumn({
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-base">{emoji}</span>
+          <div
+            className="w-6 h-6 rounded-md flex items-center justify-center"
+            style={{ backgroundColor: color + "18" }}
+          >
+            <IconComponent className="w-3.5 h-3.5" style={{ color }} />
+          </div>
           <h3 className="text-sm font-semibold text-gray-700">{label}</h3>
           <span className="text-xs font-medium text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">
             {posts.length}

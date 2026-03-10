@@ -131,7 +131,7 @@ export default function PostModal({
             >
               {COLUMNS.map((col) => (
                 <option key={col.statut} value={col.statut}>
-                  {col.emoji} {col.label}
+                  {col.label}
                 </option>
               ))}
             </select>

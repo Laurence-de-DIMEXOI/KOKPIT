@@ -133,7 +133,8 @@ export default function KanbanBoard({ posts, onRefresh }: KanbanBoardProps) {
             <KanbanColumn
               statut={col.statut}
               label={col.label}
-              emoji={col.emoji}
+              icon={col.icon}
+              color={col.color}
               posts={postsByColumn[col.statut] || []}
               onCardClick={handleCardClick}
               onAddCard={handleAddCard}

@@ -58,15 +58,25 @@ export interface Post {
   attachments: PostAttachment[];
 }
 
-export const COLUMNS: { statut: PostStatut; label: string; emoji: string }[] = [
-  { statut: "IDEE", label: "Boîte à idées", emoji: "💡" },
-  { statut: "PRE_PRODUCTION", label: "Pré-production", emoji: "✍️" },
-  { statut: "VISUEL_OK", label: "Visuel Ok", emoji: "📸" },
-  { statut: "TEXTE_OK", label: "Texte Ok", emoji: "📝" },
-  { statut: "PRET_A_POSTER", label: "Prêt à poster", emoji: "📬" },
-  { statut: "POSTE", label: "Posté", emoji: "🎉" },
-  { statut: "INSPIRATIONS", label: "Inspirations", emoji: "♡" },
-  { statut: "COUVERTURES_FB", label: "Couvertures Facebook", emoji: "📘" },
+export type ColumnIcon =
+  | "Lightbulb"
+  | "PenLine"
+  | "Camera"
+  | "FileCheck"
+  | "Send"
+  | "CircleCheckBig"
+  | "Sparkles"
+  | "Image";
+
+export const COLUMNS: { statut: PostStatut; label: string; icon: ColumnIcon; color: string }[] = [
+  { statut: "IDEE",           label: "Boîte à idées",        icon: "Lightbulb",      color: "#F59E0B" },
+  { statut: "PRE_PRODUCTION", label: "Pré-production",       icon: "PenLine",        color: "#8B5CF6" },
+  { statut: "VISUEL_OK",      label: "Visuel Ok",            icon: "Camera",         color: "#EC4899" },
+  { statut: "TEXTE_OK",       label: "Texte Ok",             icon: "FileCheck",      color: "#3B82F6" },
+  { statut: "PRET_A_POSTER",  label: "Prêt à poster",        icon: "Send",           color: "#10B981" },
+  { statut: "POSTE",          label: "Posté",                icon: "CircleCheckBig", color: "#22C55E" },
+  { statut: "INSPIRATIONS",   label: "Inspirations",         icon: "Sparkles",       color: "#F472B6" },
+  { statut: "COUVERTURES_FB", label: "Couvertures Facebook", icon: "Image",          color: "#1D4ED8" },
 ];
 
 // Catégories de labels pour regrouper dans le picker
