@@ -9,14 +9,20 @@ export type PostStatut =
   | "COUVERTURES_FB";
 
 export type PostLabel =
-  | "INSTAGRAM"
-  | "FACEBOOK"
-  | "LINKEDIN"
-  | "TIKTOK"
-  | "SITE_WEB"
-  | "NEWSLETTER"
-  | "PROMO"
-  | "AUTRE";
+  | "PILIER_1_MATIERE"
+  | "PARCOURS_DECOUVERTE"
+  | "CONTEXTE_EVENEMENT"
+  | "PILIER_2_COMPRENDRE"
+  | "PARCOURS_PEDAGOGIE"
+  | "CONTEXTE_NEWSLETTER"
+  | "PARCOURS_PROJECTION"
+  | "CANAL_META"
+  | "PILIER_3_MAGASIN"
+  | "CANAL_GOOGLE"
+  | "PARCOURS_ACTION"
+  | "CONTEXTE_PUBLICITE"
+  | "PARCOURS_FIDELISATION"
+  | "CANAL_STORY";
 
 export interface ChecklistItem {
   id: string;
@@ -63,13 +69,36 @@ export const COLUMNS: { statut: PostStatut; label: string; emoji: string }[] = [
   { statut: "COUVERTURES_FB", label: "Couvertures Facebook", emoji: "📘" },
 ];
 
-export const LABEL_CONFIG: Record<PostLabel, { name: string; color: string; bg: string }> = {
-  INSTAGRAM: { name: "Instagram", color: "#E1306C", bg: "#FCE4EC" },
-  FACEBOOK: { name: "Facebook", color: "#1877F2", bg: "#E3F2FD" },
-  LINKEDIN: { name: "LinkedIn", color: "#0A66C2", bg: "#E8EAF6" },
-  TIKTOK: { name: "TikTok", color: "#010101", bg: "#F5F5F5" },
-  SITE_WEB: { name: "Site Web", color: "#10B981", bg: "#E8F5E9" },
-  NEWSLETTER: { name: "Newsletter", color: "#F59E0B", bg: "#FFF8E1" },
-  PROMO: { name: "Promo", color: "#EF4444", bg: "#FFEBEE" },
-  AUTRE: { name: "Autre", color: "#6B7280", bg: "#F3F4F6" },
+// Catégories de labels pour regrouper dans le picker
+export type LabelCategory = "Piliers" | "Parcours" | "Contexte" | "Canal";
+
+export interface LabelInfo {
+  name: string;
+  color: string;
+  bg: string;
+  category: LabelCategory;
+}
+
+export const LABEL_CONFIG: Record<PostLabel, LabelInfo> = {
+  // ── Piliers (orange → olive → bleu foncé) ──
+  PILIER_1_MATIERE:      { name: "Pilier 1 : Matière qui dure",       color: "#E67C00", bg: "#FFF3E0", category: "Piliers" },
+  PILIER_2_COMPRENDRE:   { name: "Pilier 2 : Comprendre avant d'acheter", color: "#9E9D24", bg: "#F9FBE7", category: "Piliers" },
+  PILIER_3_MAGASIN:      { name: "Pilier 3 : Le magasin comme destination", color: "#3949AB", bg: "#E8EAF6", category: "Piliers" },
+
+  // ── Parcours (pêche → vert → teal → mauve → magenta) ──
+  PARCOURS_DECOUVERTE:   { name: "Parcours : Découverte",    color: "#F4845F", bg: "#FBE9E7", category: "Parcours" },
+  PARCOURS_PEDAGOGIE:    { name: "Parcours : Pédagogie",     color: "#43A047", bg: "#E8F5E9", category: "Parcours" },
+  PARCOURS_PROJECTION:   { name: "Parcours : Projection",    color: "#00897B", bg: "#E0F2F1", category: "Parcours" },
+  PARCOURS_ACTION:       { name: "Parcours : Action",        color: "#AB47BC", bg: "#F3E5F5", category: "Parcours" },
+  PARCOURS_FIDELISATION: { name: "Parcours : Fidélisation",  color: "#D81B60", bg: "#FCE4EC", category: "Parcours" },
+
+  // ── Contexte (jaune → vert clair → rose) ──
+  CONTEXTE_EVENEMENT:    { name: "Contexte : Évènement",     color: "#F9A825", bg: "#FFFDE7", category: "Contexte" },
+  CONTEXTE_NEWSLETTER:   { name: "Contexte : Newsletter",    color: "#66BB6A", bg: "#E8F5E9", category: "Contexte" },
+  CONTEXTE_PUBLICITE:    { name: "Contexte : Publicité",     color: "#EC407A", bg: "#FCE4EC", category: "Contexte" },
+
+  // ── Canal (bleu → violet → rouge) ──
+  CANAL_META:            { name: "Canal : Meta",             color: "#1E88E5", bg: "#E3F2FD", category: "Canal" },
+  CANAL_GOOGLE:          { name: "Canal : Google",           color: "#7E57C2", bg: "#EDE7F6", category: "Canal" },
+  CANAL_STORY:           { name: "Canal : Story",            color: "#C62828", bg: "#FFEBEE", category: "Canal" },
 };
