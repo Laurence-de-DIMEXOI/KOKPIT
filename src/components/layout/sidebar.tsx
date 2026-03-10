@@ -170,6 +170,13 @@ const spaceNavItems: NavItem[] = [
     space: "marketing",
   },
   {
+    label: "Planning",
+    href: "/planning",
+    icon: CalendarDays,
+    module: "planning",
+    space: "marketing",
+  },
+  {
     label: "Automatisations",
     href: "/automatisations",
     icon: Zap,
@@ -218,6 +225,7 @@ function detectSpace(pathname: string): string {
     pathname.startsWith("/campagnes") ||
     pathname.startsWith("/automatisations") ||
     pathname.startsWith("/emailing") ||
+    pathname.startsWith("/planning") ||
     pathname.startsWith("/parametres")
   ) return "marketing";
   // /leads et /contacts sont dans Commercial ET Marketing

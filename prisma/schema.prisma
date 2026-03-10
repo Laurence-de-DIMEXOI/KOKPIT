@@ -144,6 +144,7 @@ model User {
   leadsAssignes   Lead[]    @relation("LeadCommercial")
   evenements      Evenement[] @relation("EvenementAuteur")
   auditLogs       AuditLog[] @relation("AuditLogUser")
+  postPlannings   PostPlanning[] @relation("PostPlanningAuteur")
 
   @@index([showroomId])
 }
@@ -524,6 +525,83 @@ model WorkflowExecution {
 
   @@index([workflowId])
   @@index([createdAt])
+}
+
+// ============================================================================
+// PLANNING POSTS — Kanban Board
+// ============================================================================
+
+enum PostStatut {
+  IDEE
+  PRE_PRODUCTION
+  VISUEL_OK
+  TEXTE_OK
+  PRET_A_POSTER
+  POSTE
+  INSPIRATIONS
+  COUVERTURES_FB
+}
+
+enum PostLabel {
+  INSTAGRAM
+  FACEBOOK
+  LINKEDIN
+  TIKTOK
+  SITE_WEB
+  NEWSLETTER
+  PROMO
+  AUTRE
+}
+
+model PostPlanning {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  statut      PostStatut  @default(IDEE)
+  position    Int         @default(0)
+  dueDate     DateTime?
+  labels      PostLabel[] @default([])
+  coverImage  String?
+  createdById String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  createdBy   User        @relation("PostPlanningAuteur", fields: [createdById], references: [id], onDelete: SetNull)
+  checklist   PostChecklist[]
+  attachments PostAttachment[]
+
+  @@index([statut])
+  @@index([createdById])
+  @@index([dueDate])
+}
+
+model PostChecklist {
+  id        String   @id @default(cuid())
+  postId    String
+  text      String
+  checked   Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  // Relations
+  post      PostPlanning @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model PostAttachment {
+  id        String   @id @default(cuid())
+  postId    String
+  fileName  String
+  fileUrl   String
+  fileType  String   @default("application/octet-stream")
+  createdAt DateTime @default(now())
+
+  // Relations
+  post      PostPlanning @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
 }
 
 // ============================================================================
