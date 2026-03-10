@@ -126,6 +126,11 @@ export interface SellsyAmounts {
   total_shipping?: number;
 }
 
+export interface SellsyOwnerEmbed {
+  id: number;
+  type: string; // "staff"
+}
+
 export interface SellsyEstimate {
   id: number;
   number: string;
@@ -142,6 +147,7 @@ export interface SellsyEstimate {
   _embed?: {
     company?: { id: number; name: string };
     contact?: { id: number; first_name: string; last_name: string };
+    owner?: SellsyOwnerEmbed;
   };
 }
 
@@ -162,6 +168,7 @@ export interface SellsyOrder {
   _embed?: {
     company?: { id: number; name: string };
     contact?: { id: number; first_name: string; last_name: string };
+    owner?: SellsyOwnerEmbed;
   };
 }
 
@@ -294,12 +301,16 @@ export async function searchEstimates(params: {
   offset?: number;
   order?: string;
   direction?: string;
+  embed?: string[];
 }): Promise<SellsyListResponse<SellsyEstimate>> {
   const searchParams = new URLSearchParams();
   if (params.limit) searchParams.set("limit", String(params.limit));
   if (params.offset) searchParams.set("offset", String(params.offset));
   if (params.order) searchParams.set("order", params.order);
   if (params.direction) searchParams.set("direction", params.direction);
+  if (params.embed) {
+    params.embed.forEach((e) => searchParams.append("embed[]", e));
+  }
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyEstimate>>(
@@ -347,12 +358,16 @@ export async function searchOrders(params: {
   offset?: number;
   order?: string;
   direction?: string;
+  embed?: string[];
 }): Promise<SellsyListResponse<SellsyOrder>> {
   const searchParams = new URLSearchParams();
   if (params.limit) searchParams.set("limit", String(params.limit));
   if (params.offset) searchParams.set("offset", String(params.offset));
   if (params.order) searchParams.set("order", params.order);
   if (params.direction) searchParams.set("direction", params.direction);
+  if (params.embed) {
+    params.embed.forEach((e) => searchParams.append("embed[]", e));
+  }
 
   const qs = searchParams.toString();
   return sellsyFetch<SellsyListResponse<SellsyOrder>>(
@@ -524,6 +539,7 @@ export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]
       offset,
       order: "created",
       direction: "desc",
+      embed: ["owner"],
     });
     all.push(...res.data);
     total = res.pagination.total;
@@ -552,6 +568,7 @@ export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
       },
       limit: pageSize,
       offset,
+      embed: ["owner"],
     });
     all.push(...res.data);
     total = res.pagination.total;
