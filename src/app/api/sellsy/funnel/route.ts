@@ -148,9 +148,9 @@ export async function GET(request: NextRequest) {
         commandes: commandeCount,
         devisAmount: Math.round(devisAmount * 100) / 100,
         commandesAmount: Math.round(commandesAmount * 100) / 100,
-        conversionDevis: contactCount > 0 ? Math.round((devisCount / contactCount) * 100) : 0,
-        conversionCommande: devisCount > 0 ? Math.round((commandeCount / devisCount) * 100) : 0,
-        conversionGlobale: contactCount > 0 ? Math.round((commandeCount / contactCount) * 100) : 0,
+        conversionDevis: contactCount > 0 ? Math.min(Math.round((devisCount / contactCount) * 100), 100) : 0,
+        conversionCommande: devisCount > 0 ? Math.min(Math.round((commandeCount / devisCount) * 100), 100) : 0,
+        conversionGlobale: contactCount > 0 ? Math.min(Math.round((commandeCount / contactCount) * 100), 100) : 0,
       });
     }
 
@@ -169,6 +169,7 @@ export async function GET(request: NextRequest) {
     // ===== Contacts récents sans devis (à traiter) =====
     const contactsSansDevis = companies
       .filter((c) => !companiesWithEstimate.has(c.name.toLowerCase()))
+      .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
       .slice(0, 10)
       .map((c) => ({
         id: c.id,
