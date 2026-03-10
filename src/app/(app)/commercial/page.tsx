@@ -3,6 +3,8 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
+import { EvolutionCharts } from "@/components/dashboard/evolution-charts";
+import { PerformanceTable } from "@/components/dashboard/performance-table";
 import {
   FileText,
   ShoppingCart,
@@ -240,6 +242,15 @@ export default function CommercialDashboardPage() {
   const [allEstimates, setAllEstimates] = useState<EstimateRow[]>([]);
   const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [monthlyEvolution, setMonthlyEvolution] = useState<Array<{
+    month: string;
+    label: string;
+    devis: number;
+    commandes: number;
+    devisAmount: number;
+    commandesAmount: number;
+  }>>([]);
+  const [evolutionLoading, setEvolutionLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     setRefreshing(true);
@@ -247,27 +258,34 @@ export default function CommercialDashboardPage() {
       // Use year start as created_start to get recent data (API sorts desc)
       const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
 
-      // Fetch estimates with date filter, orders sorted desc, and products count
-      const [estRes, ordRes, itemsRes] = await Promise.all([
+      // Fetch estimates with date filter, orders sorted desc, products count, and funnel for charts
+      const [estRes, ordRes, itemsRes, funnelRes] = await Promise.all([
         fetch(
           `/api/sellsy/estimates?limit=100&created_start=${encodeURIComponent(yearStart)}`
         ),
         fetch("/api/sellsy/orders?limit=100"),
         fetch("/api/sellsy/items?limit=1"),
+        fetch("/api/sellsy/funnel?months=12"),
       ]);
 
       const estData = await estRes.json();
       const ordData = await ordRes.json();
       const itemsData = await itemsRes.json();
+      const funnelData = await funnelRes.json();
 
       setAllEstimates(estData.estimates || []);
       setAllOrders(ordData.orders || []);
       setTotalProducts(itemsData.pagination?.total || 0);
+
+      if (funnelData.success && funnelData.monthlyFunnel) {
+        setMonthlyEvolution(funnelData.monthlyFunnel);
+      }
     } catch (error) {
       console.error("Erreur chargement données Sellsy:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setEvolutionLoading(false);
     }
   }, []);
 
@@ -512,6 +530,12 @@ export default function CommercialDashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Graphiques évolution Devis & Commandes sur l'année */}
+      <EvolutionCharts data={monthlyEvolution} loading={evolutionLoading} />
+
+      {/* Tableau performance commerciaux */}
+      <PerformanceTable />
 
       {/* Recent data */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">

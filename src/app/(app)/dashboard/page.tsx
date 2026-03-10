@@ -21,8 +21,6 @@ import {
   Mail,
 } from "lucide-react";
 import clsx from "clsx";
-import { EvolutionCharts } from "@/components/dashboard/evolution-charts";
-import { PerformanceTable } from "@/components/dashboard/performance-table";
 
 // ===== TYPES =====
 
@@ -203,12 +201,6 @@ export default function DashboardPage() {
           <p className="text-cockpit-secondary text-[10px] mt-1">Contact → Commande</p>
         </div>
       </div>
-
-      {/* Graphiques évolution Devis & Commandes */}
-      <EvolutionCharts data={monthly} />
-
-      {/* Tableau performance commerciaux */}
-      <PerformanceTable />
 
       {/* Entonnoir visuel */}
       <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-5">
