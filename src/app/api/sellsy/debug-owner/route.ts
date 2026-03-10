@@ -7,14 +7,14 @@ export async function GET() {
     // 1. Get one estimate via list (raw fields)
     const listRes = await listEstimates({ limit: 1 });
     const firstFromList = listRes.data[0] || null;
-    const rawList = firstFromList as Record<string, unknown> | null;
+    const rawList = firstFromList as unknown as Record<string, unknown> | null;
 
     // 2. Get same estimate via single GET (may have more fields)
     let rawSingle: Record<string, unknown> | null = null;
     if (firstFromList) {
       try {
         const singleRes = await getEstimate(firstFromList.id);
-        rawSingle = (singleRes.data || singleRes) as Record<string, unknown>;
+        rawSingle = (singleRes.data || singleRes) as unknown as Record<string, unknown>;
       } catch (e: any) {
         rawSingle = { error: e.message };
       }
