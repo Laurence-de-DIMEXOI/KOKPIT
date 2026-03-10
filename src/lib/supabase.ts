@@ -10,7 +10,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 export async function uploadToStorage(
   bucket: string,
   path: string,
-  file: Buffer | ArrayBuffer,
+  file: ArrayBuffer,
   contentType: string
 ): Promise<string> {
   const url = `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;
@@ -23,7 +23,7 @@ export async function uploadToStorage(
       "Content-Type": contentType,
       "x-upsert": "true",
     },
-    body: file,
+    body: new Uint8Array(file),
   });
 
   if (!res.ok) {
