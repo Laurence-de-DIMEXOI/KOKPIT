@@ -523,7 +523,7 @@ export async function listAllCompanies(): Promise<SellsyCompany[]> {
  * Récupère TOUS les devis Sellsy depuis une date donnée (défaut: 2024-01-01).
  * Utilise l'endpoint search avec filtre date pour limiter les résultats.
  */
-export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]> {
+export async function listAllEstimates(since?: string, options?: { embed?: string[] }): Promise<SellsyEstimate[]> {
   const all: SellsyEstimate[] = [];
   const pageSize = 100;
   let offset = 0;
@@ -539,7 +539,7 @@ export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]
       offset,
       order: "created",
       direction: "desc",
-      embed: ["owner"],
+      ...(options?.embed ? { embed: options.embed } : {}),
     });
     all.push(...res.data);
     total = res.pagination.total;
@@ -554,7 +554,7 @@ export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]
  * Récupère TOUS les bons de commande Sellsy depuis une date donnée (défaut: 2024-01-01).
  * Utilise l'endpoint search avec filtre date pour limiter les résultats.
  */
-export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
+export async function listAllOrders(since?: string, options?: { embed?: string[] }): Promise<SellsyOrder[]> {
   const all: SellsyOrder[] = [];
   const pageSize = 100;
   let offset = 0;
@@ -568,7 +568,7 @@ export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
       },
       limit: pageSize,
       offset,
-      embed: ["owner"],
+      ...(options?.embed ? { embed: options.embed } : {}),
     });
     all.push(...res.data);
     total = res.pagination.total;

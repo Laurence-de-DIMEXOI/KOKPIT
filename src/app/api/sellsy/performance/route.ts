@@ -46,11 +46,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch en parallèle : devis, commandes et staffs
-    const [allEstimates, allOrders, staffs] = await Promise.all([
-      listAllEstimates(startDate),
-      listAllOrders(startDate),
-      listStaffs(),
-    ]);
+    // Tenter avec embed owner, sinon fallback sans embed
+    let allEstimates;
+    let allOrders;
+    let staffs;
+
+    try {
+      [allEstimates, allOrders, staffs] = await Promise.all([
+        listAllEstimates(startDate, { embed: ["owner"] }),
+        listAllOrders(startDate, { embed: ["owner"] }),
+        listStaffs(),
+      ]);
+    } catch (embedErr) {
+      console.warn("Embed owner failed, retrying without embed:", embedErr);
+      [allEstimates, allOrders, staffs] = await Promise.all([
+        listAllEstimates(startDate),
+        listAllOrders(startDate),
+        listStaffs(),
+      ]);
+    }
 
     // Debug: log premier devis pour vérifier les champs disponibles
     if (allEstimates.length > 0) {
