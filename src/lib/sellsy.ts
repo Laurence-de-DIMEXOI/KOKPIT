@@ -670,6 +670,71 @@ export async function listStaffs(): Promise<SellsyStaff[]> {
   }
 }
 
+// ===== API V1 VIA TOKEN V2 =====
+// Ref: https://help.sellsy.com/fr/articles/8544417-utiliser-l-api-v1-via-des-acces-api-v2
+// Prérequis : activer le scope "API V1" dans Sellsy > Paramètres > Portail développeur
+
+const SELLSY_V1_URL = "https://apifeed.sellsy.com/0/";
+
+export async function sellsyV1Call(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
+  const token = await getAccessToken();
+
+  const formData = new FormData();
+  formData.append("request", JSON.stringify({ method, params }));
+  formData.append("io_mode", "json");
+  formData.append("do_in", JSON.stringify(params));
+
+  const response = await fetch(SELLSY_V1_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Sellsy V1 ${response.status}: ${err}`);
+  }
+
+  const data = await response.json();
+
+  if (data.status === "error") {
+    throw new Error(`Sellsy V1 error: ${data.error || JSON.stringify(data)}`);
+  }
+
+  return data.response;
+}
+
+export interface DocumentParentInfo {
+  parentid: string | null;
+  linkedid: string | null;
+  linkedtype: string | null;
+}
+
+/**
+ * Récupère les infos de parenté d'un document via l'API V1.
+ * doctype: "estimate" | "order" | "delivery" | "invoice"
+ * docid: l'ID Sellsy du document
+ */
+export async function getDocumentParent(
+  doctype: string,
+  docid: string
+): Promise<DocumentParentInfo | null> {
+  try {
+    const result = await sellsyV1Call("Document.getOne", { doctype, docid }) as Record<string, unknown>;
+
+    return {
+      parentid: result.parentid ? String(result.parentid) : null,
+      linkedid: result.linkedid ? String(result.linkedid) : null,
+      linkedtype: result.linkedtype ? String(result.linkedtype) : null,
+    };
+  } catch (err) {
+    console.warn(`getDocumentParent(${doctype}, ${docid}) failed:`, err);
+    return null;
+  }
+}
+
 // ===== UTILITAIRE DE TEST =====
 
 export async function testConnection(): Promise<{

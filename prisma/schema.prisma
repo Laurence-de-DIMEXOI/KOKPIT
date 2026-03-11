@@ -664,6 +664,25 @@ model LiaisonDevisCommande {
 }
 
 // ============================================================================
+// CHAÎNE DOCUMENTAIRE SELLSY V1 (Devis → BC → BL → Facture)
+// ============================================================================
+
+model LiaisonDocumentaire {
+  id              String   @id @default(cuid())
+  enfantType      String   // "order" | "invoice" | "delivery"
+  enfantSellsyId  String
+  enfantNumero    String
+  parentType      String   // "estimate" | "order" | "delivery"
+  parentSellsyId  String
+  parentNumero    String
+  confirmeManuel  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@unique([enfantType, enfantSellsyId])
+  @@index([parentSellsyId])
+}
+
+// ============================================================================
 // SYNC BREVO (historique des synchronisations Sellsy → Brevo)
 // ============================================================================
 

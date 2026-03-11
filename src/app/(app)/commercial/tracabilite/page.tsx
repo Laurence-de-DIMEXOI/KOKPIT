@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   GitCompareArrows,
   ShoppingCart,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
+import { DocumentChain } from "@/components/commercial/document-chain";
 import clsx from "clsx";
 
 interface Amounts {
@@ -106,6 +107,8 @@ export default function TracabilitePage() {
   // Dropdown state for linking
   const [linkingOrderId, setLinkingOrderId] = useState<number | null>(null);
   const [linkingEstimateId, setLinkingEstimateId] = useState<number | null>(null);
+  // Expanded chain row
+  const [expandedChainId, setExpandedChainId] = useState<string | null>(null);
 
   const fetchData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -361,42 +364,69 @@ export default function TracabilitePage() {
                     </td>
                   </tr>
                 ) : (
-                  devisConvertis.map((item) => (
-                    <tr key={item.liaisonId} className="hover:bg-cockpit-dark/50 transition-colors">
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-cockpit-secondary" />
-                          <span className="font-medium text-cockpit-primary">{item.estimate.number || `#${item.estimate.id}`}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-cockpit-primary">{item.estimate.company_name || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-cockpit-primary">{formatCurrency(item.montantDevis)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex items-center gap-2">
-                          <ShoppingCart className="w-3.5 h-3.5 text-cockpit-secondary" />
-                          <span className="font-medium text-cockpit-primary">{item.order.number || `#${item.order.id}`}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-cockpit-primary">{formatCurrency(item.montantCommande)}</td>
-                      <td className="px-4 py-3 text-sm text-right">
-                        <span className={clsx(
-                          "font-medium",
-                          item.ecart === 0 ? "text-cockpit-secondary" : item.ecart > 0 ? "text-cockpit-success" : "text-cockpit-danger"
-                        )}>
-                          {item.ecart > 0 ? "+" : ""}{item.ecart}%
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => handleUnlink(item.estimate.id, item.order.id)}
-                          className="p-1.5 rounded-md hover:bg-cockpit-danger/10 text-cockpit-secondary hover:text-cockpit-danger transition-colors"
-                          title="Supprimer la liaison"
-                        >
-                          <Unlink className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  devisConvertis.map((item) => {
+                    const chainKey = `order-${item.order.id}`;
+                    const isExpanded = expandedChainId === chainKey;
+                    return (
+                      <React.Fragment key={item.liaisonId}>
+                      <tr className="hover:bg-cockpit-dark/50 transition-colors group">
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-3.5 h-3.5 text-cockpit-secondary" />
+                            <span className="font-medium text-cockpit-primary">{item.estimate.number || `#${item.estimate.id}`}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-cockpit-primary">{item.estimate.company_name || "—"}</td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-cockpit-primary">{formatCurrency(item.montantDevis)}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <ShoppingCart className="w-3.5 h-3.5 text-cockpit-secondary" />
+                            <span className="font-medium text-cockpit-primary">{item.order.number || `#${item.order.id}`}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-cockpit-primary">{formatCurrency(item.montantCommande)}</td>
+                        <td className="px-4 py-3 text-sm text-right">
+                          <span className={clsx(
+                            "font-medium",
+                            item.ecart === 0 ? "text-cockpit-secondary" : item.ecart > 0 ? "text-cockpit-success" : "text-cockpit-danger"
+                          )}>
+                            {item.ecart > 0 ? "+" : ""}{item.ecart}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => setExpandedChainId(isExpanded ? null : chainKey)}
+                              className={clsx(
+                                "p-1.5 rounded-md transition-colors",
+                                isExpanded
+                                  ? "bg-cockpit-info/10 text-cockpit-info"
+                                  : "text-cockpit-secondary hover:text-cockpit-info hover:bg-cockpit-info/10"
+                              )}
+                              title="Chaîne documentaire"
+                            >
+                              <GitCompareArrows className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleUnlink(item.estimate.id, item.order.id)}
+                              className="p-1.5 rounded-md hover:bg-cockpit-danger/10 text-cockpit-secondary hover:text-cockpit-danger transition-colors"
+                              title="Supprimer la liaison"
+                            >
+                              <Unlink className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr key={`${item.liaisonId}-chain`}>
+                          <td colSpan={7} className="px-4 py-3 bg-gray-50/50">
+                            <DocumentChain docType="order" docId={item.order.id} currentNumero={item.order.number} />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>
