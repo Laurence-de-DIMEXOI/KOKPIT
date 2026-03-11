@@ -1,8 +1,9 @@
 /**
  * API Route de diagnostic temporaire — Sellsy embed related
  *
- * Teste si l'API Sellsy v2 expose le lien devis → commande
- * via les embeds "related", "estimate", "orders"
+ * Teste si l'API Sellsy v2 expose le lien devis → commande.
+ * Stratégie : récupère des IDs via search (sans embed),
+ * puis GET individuel avec différents embeds.
  *
  * À SUPPRIMER après diagnostic
  */
@@ -15,6 +16,38 @@ import {
   searchEstimates,
 } from "@/lib/sellsy";
 
+// Appel direct Sellsy pour tester les embeds sur GET individuel
+const SELLSY_BASE_URL = "https://api.sellsy.com/v2";
+const SELLSY_TOKEN_URL = "https://login.sellsy.com/oauth2/access-tokens";
+
+async function getToken(): Promise<string> {
+  const res = await fetch(SELLSY_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: process.env.SELLSY_CLIENT_ID || "",
+      client_secret: process.env.SELLSY_CLIENT_SECRET || "",
+    }),
+  });
+  const data = await res.json();
+  return data.access_token;
+}
+
+async function rawSellsyGet(path: string, token: string): Promise<unknown> {
+  const res = await fetch(`${SELLSY_BASE_URL}${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    return { error: res.status, body };
+  }
+  return res.json();
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -24,64 +57,50 @@ export async function GET() {
   const results: Record<string, unknown> = {};
 
   try {
-    // Test 1: Récupérer des commandes avec embed related
-    console.log("=== DIAGNOSTIC SELLSY — embed related ===");
+    const token = await getToken();
 
-    const ordersWithRelated = await searchOrders({
+    // Étape 1: Récupérer quelques commandes (sans embed)
+    const orders = await searchOrders({
       filters: { date: { start: "2025-01-01" } },
       limit: 3,
-      embed: ["related"],
     });
-    results.orders_with_related = ordersWithRelated.data.map((o) => ({
-      id: o.id,
-      number: o.number,
-      company_name: o.company_name,
-      _embed: (o as any)._embed,
-      related: (o as any).related,
-      parent_id: (o as any).parent_id,
-      parent_type: (o as any).parent_type,
-      estimate_id: (o as any).estimate_id,
-      origin: (o as any).origin,
-      source_document: (o as any).source_document,
-      // Dump toutes les clés pour voir ce qui existe
-      all_keys: Object.keys(o),
-    }));
+    results.orders_count = orders.pagination.total;
 
-    // Test 2: Récupérer des devis avec embed related
-    const estimatesWithRelated = await searchEstimates({
+    if (orders.data.length > 0) {
+      const orderId = orders.data[0].id;
+      results.first_order_id = orderId;
+      results.first_order_keys = Object.keys(orders.data[0]);
+      results.first_order_full = orders.data[0];
+
+      // Étape 2: GET /orders/{id} avec différents embeds
+      results.order_no_embed = await rawSellsyGet(`/orders/${orderId}`, token);
+      results.order_embed_related = await rawSellsyGet(`/orders/${orderId}?embed[]=related`, token);
+      results.order_embed_invoices = await rawSellsyGet(`/orders/${orderId}?embed[]=invoices`, token);
+      results.order_embed_estimates = await rawSellsyGet(`/orders/${orderId}?embed[]=estimates`, token);
+    }
+
+    // Étape 3: Récupérer quelques devis
+    const estimates = await searchEstimates({
       filters: { date: { start: "2025-01-01" } },
       limit: 3,
-      embed: ["related"],
     });
-    results.estimates_with_related = estimatesWithRelated.data.map((e) => ({
-      id: e.id,
-      number: e.number,
-      company_name: e.company_name,
-      _embed: (e as any)._embed,
-      related: (e as any).related,
-      parent_id: (e as any).parent_id,
-      orders: (e as any).orders,
-      origin: (e as any).origin,
-      all_keys: Object.keys(e),
-    }));
+    results.estimates_count = estimates.pagination.total;
 
-    // Test 3: Dump complet du premier order pour voir TOUS les champs
-    if (ordersWithRelated.data.length > 0) {
-      results.full_order_dump = ordersWithRelated.data[0];
+    if (estimates.data.length > 0) {
+      const estimateId = estimates.data[0].id;
+      results.first_estimate_id = estimateId;
+      results.first_estimate_keys = Object.keys(estimates.data[0]);
+      results.first_estimate_full = estimates.data[0];
+
+      // Étape 4: GET /estimates/{id} avec différents embeds
+      results.estimate_no_embed = await rawSellsyGet(`/estimates/${estimateId}`, token);
+      results.estimate_embed_related = await rawSellsyGet(`/estimates/${estimateId}?embed[]=related`, token);
+      results.estimate_embed_orders = await rawSellsyGet(`/estimates/${estimateId}?embed[]=orders`, token);
     }
-
-    // Test 4: Dump complet du premier estimate
-    if (estimatesWithRelated.data.length > 0) {
-      results.full_estimate_dump = estimatesWithRelated.data[0];
-    }
-
-    console.log("=== RÉSULTAT DIAGNOSTIC ===");
-    console.log(JSON.stringify(results, null, 2));
 
     return NextResponse.json({
       success: true,
       diagnostic: results,
-      conclusion: "Voir les champs _embed, related, parent_id, estimate_id, origin dans les résultats",
     });
   } catch (error: any) {
     console.error("Erreur diagnostic:", error);
