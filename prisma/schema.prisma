@@ -680,3 +680,22 @@ model BrevoSyncLog {
 
   @@index([createdAt])
 }
+
+// ============================================================================
+// DOCUMENTATION (articles d'aide internes)
+// ============================================================================
+
+model DocArticle {
+  id        String   @id @default(cuid())
+  titre     String
+  slug      String   @unique
+  contenu   String   // Markdown
+  categorie String
+  position  Int      @default(0)
+  publie    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categorie])
+  @@index([slug])
+}

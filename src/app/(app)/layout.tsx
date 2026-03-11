@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { ToastProvider } from "@/components/ui/toast";
+import { ChatbotWidget } from "@/components/chat/chatbot-widget";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -51,6 +52,7 @@ export default function AppLayout({
             {children}
           </div>
         </main>
+        <ChatbotWidget />
       </div>
     </ToastProvider>
   );

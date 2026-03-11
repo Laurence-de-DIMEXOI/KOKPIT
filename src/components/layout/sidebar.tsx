@@ -26,6 +26,7 @@ import {
   Link2,
   GitCompareArrows,
   Share2,
+  BookOpen,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Module } from "@/lib/auth-utils";
@@ -143,6 +144,13 @@ const spaceNavItems: NavItem[] = [
     module: "catalogue",
     space: "commercial",
   },
+  {
+    label: "Documentation",
+    href: "/docs",
+    icon: BookOpen,
+    module: "docs",
+    space: "commercial",
+  },
   // ── Marketing : acquisition → outils → config ──
   {
     label: "Tableau de bord",
@@ -201,6 +209,13 @@ const spaceNavItems: NavItem[] = [
     space: "marketing",
   },
   {
+    label: "Documentation",
+    href: "/docs",
+    icon: BookOpen,
+    module: "docs",
+    space: "marketing",
+  },
+  {
     label: "Automatisations",
     href: "/automatisations",
     icon: Zap,
@@ -236,6 +251,13 @@ const spaceNavItems: NavItem[] = [
     module: "conges",
     space: "administration",
   },
+  {
+    label: "Documentation",
+    href: "/docs",
+    icon: BookOpen,
+    module: "docs",
+    space: "administration",
+  },
 ];
 
 // ===== DETECT SPACE FROM URL =====
@@ -254,7 +276,7 @@ function detectSpace(pathname: string): string {
     pathname.startsWith("/nos-reseaux") ||
     pathname.startsWith("/parametres")
   ) return "marketing";
-  // /leads et /contacts sont dans Commercial ET Marketing
+  // /leads, /contacts, /docs sont dans tous les espaces
   // On garde le space actuel (ne pas changer), fallback commercial
   return "";
 }
