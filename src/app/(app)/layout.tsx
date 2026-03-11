@@ -3,6 +3,7 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { ToastProvider } from "@/components/ui/toast";
 import { ChatbotWidget } from "@/components/chat/chatbot-widget";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -47,7 +48,11 @@ export default function AppLayout({
     <ToastProvider>
       <div className="flex min-h-screen bg-cockpit">
         <Sidebar />
-        <main className="flex-1 ml-0 lg:ml-[280px] overflow-y-auto bg-cockpit min-h-screen">
+        <main className="flex-1 ml-0 lg:ml-[280px] overflow-y-auto bg-cockpit min-h-screen relative">
+          {/* Notification bell — top right */}
+          <div className="absolute top-4 right-4 lg:top-6 lg:right-8 z-30">
+            <NotificationBell />
+          </div>
           <div className="p-4 pt-16 sm:p-6 sm:pt-16 md:p-8 lg:p-12 lg:pt-12">
             {children}
           </div>

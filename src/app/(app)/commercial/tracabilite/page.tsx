@@ -15,6 +15,7 @@ import {
   Check,
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
+import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
 import clsx from "clsx";
 
 interface Amounts {
@@ -100,6 +101,7 @@ export default function TracabilitePage() {
   const [devisNonConvertis, setDevisNonConvertis] = useState<DocSummary[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [cacheDate, setCacheDate] = useState<string | null>(null);
 
   // Dropdown state for linking
   const [linkingOrderId, setLinkingOrderId] = useState<number | null>(null);
@@ -115,6 +117,7 @@ export default function TracabilitePage() {
       setDevisNonConvertis(data.devisNonConvertis || []);
       setSuggestions(data.suggestions || []);
       setStats(data.stats || null);
+      setCacheDate(data._cache?.generatedAt || null);
     } catch (err) {
       console.error("Erreur chargement traçabilité:", err);
     } finally {
@@ -245,6 +248,14 @@ export default function TracabilitePage() {
           Actualiser
         </button>
       </div>
+
+      {/* Freshness indicator */}
+      <FreshnessIndicator
+        label="Données Sellsy"
+        cacheDate={cacheDate}
+        onRefresh={() => fetchData(true)}
+        refreshing={refreshing}
+      />
 
       {/* KPIs */}
       {stats && (

@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
       success: true,
       orders: result.data,
       pagination: result.pagination,
+      _cache: { generatedAt: new Date().toISOString() },
     });
   } catch (error: any) {
     console.error("Erreur Sellsy orders:", error);

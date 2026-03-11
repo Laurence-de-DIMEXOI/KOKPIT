@@ -168,6 +168,7 @@ export async function GET() {
         devisEnAttente: nbDevisEnAttente,
         devisExpires: nbDevisExpires,
       },
+      _cache: { generatedAt: new Date().toISOString() },
     });
   } catch (error: any) {
     console.error("GET /api/sellsy/tracabilite error:", error);

@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import clsx from "clsx";
+import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
 
 type Period = "today" | "week" | "month" | "year";
 
@@ -99,6 +100,7 @@ export default function CommandesPage() {
   const [search, setSearch] = useState("");
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState("");
+  const [cacheDate, setCacheDate] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("month");
 
   const fetchOrders = async (fresh = false) => {
@@ -111,6 +113,7 @@ export default function CommandesPage() {
       const data = await res.json();
       setOrders(data.orders || []);
       setTotal(data.pagination?.total || 0);
+      setCacheDate(data._cache?.generatedAt || null);
     } catch (error) {
       console.error("Erreur chargement commandes:", error);
     } finally {
@@ -212,6 +215,14 @@ export default function CommandesPage() {
           Sync Sellsy
         </button>
       </div>
+
+      {/* Freshness indicator */}
+      <FreshnessIndicator
+        label="Données Sellsy"
+        cacheDate={cacheDate}
+        onRefresh={() => fetchOrders(true)}
+        refreshing={refreshing}
+      />
 
       {/* Period Tabs */}
       <div className="flex gap-2 flex-wrap">
@@ -429,10 +440,17 @@ export default function CommandesPage() {
         })}
       </div>
 
-      {filteredOrders.length === 0 && (
-        <div className="text-center py-12">
-          <ShoppingCart className="w-12 h-12 text-cockpit-secondary mx-auto mb-4" />
-          <p className="text-cockpit-secondary">Aucune commande trouvée</p>
+      {filteredOrders.length === 0 && !loading && (
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8 text-center">
+          <ShoppingCart className="w-10 h-10 text-cockpit-secondary mx-auto mb-3 opacity-40" />
+          <p className="text-cockpit-heading font-semibold mb-1">
+            Aucune commande trouvée
+          </p>
+          <p className="text-cockpit-secondary text-sm">
+            {search
+              ? "Essayez avec d'autres termes de recherche"
+              : "Aucune commande pour la période sélectionnée"}
+          </p>
         </div>
       )}
     </div>
