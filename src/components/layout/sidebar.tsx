@@ -23,6 +23,7 @@ import {
   Building2,
   CalendarDays,
   UserCircle,
+  Link2,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Module } from "@/lib/auth-utils";
@@ -177,6 +178,13 @@ const spaceNavItems: NavItem[] = [
     space: "marketing",
   },
   {
+    label: "Liens utiles",
+    href: "/liens-utiles",
+    icon: Link2,
+    module: "liens-utiles",
+    space: "marketing",
+  },
+  {
     label: "Automatisations",
     href: "/automatisations",
     icon: Zap,
@@ -226,6 +234,7 @@ function detectSpace(pathname: string): string {
     pathname.startsWith("/automatisations") ||
     pathname.startsWith("/emailing") ||
     pathname.startsWith("/planning") ||
+    pathname.startsWith("/liens-utiles") ||
     pathname.startsWith("/parametres")
   ) return "marketing";
   // /leads et /contacts sont dans Commercial ET Marketing

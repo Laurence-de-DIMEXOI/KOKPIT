@@ -624,3 +624,21 @@ model ObjectifCommercial {
 
   @@unique([month, year])
 }
+
+// ============================================================================
+// LIENS UTILES (Marketing)
+// ============================================================================
+
+model LienUtile {
+  id          String   @id @default(cuid())
+  nom         String
+  url         String
+  description String?
+  categorie   String   // ex: "CRM", "Réseaux", "CMS", "Outils internes"
+  iconeUrl    String?  // URL favicon ou icône custom
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([categorie])
+}
