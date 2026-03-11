@@ -5,9 +5,11 @@ import {
   FileText,
   RefreshCw,
   Loader2,
-  ChevronRight,
   Euro,
   AlertCircle,
+  ArrowUpDown,
+  ExternalLink,
+  Calendar,
 } from "lucide-react";
 
 interface Estimate {
@@ -75,6 +77,7 @@ export default function PipelinePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   const fetchEstimates = async () => {
     setRefreshing(true);
@@ -106,9 +109,15 @@ export default function PipelinePage() {
 
   const groupedEstimates = PIPELINE_COLUMNS.reduce(
     (acc, col) => {
-      acc[col.key] = activeEstimates.filter(
+      const colItems = activeEstimates.filter(
         (e) => classifyStatus(e.status) === col.key
       );
+      colItems.sort((a, b) => {
+        const da = new Date(a.date || a.created || "").getTime() || 0;
+        const db = new Date(b.date || b.created || "").getTime() || 0;
+        return sortOrder === "newest" ? db - da : da - db;
+      });
+      acc[col.key] = colItems;
       return acc;
     },
     {} as Record<string, Estimate[]>
@@ -171,18 +180,28 @@ export default function PipelinePage() {
             {activeEstimates.length} devis Sellsy
           </p>
         </div>
-        <button
-          onClick={fetchEstimates}
-          disabled={refreshing}
-          className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
-        >
-          {refreshing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4" />
-          )}
-          Sync Sellsy
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSortOrder(s => s === "newest" ? "oldest" : "newest")}
+            className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors text-sm"
+            title={sortOrder === "newest" ? "Plus récents d'abord" : "Plus anciens d'abord"}
+          >
+            <ArrowUpDown className="w-4 h-4" />
+            <span className="hidden sm:inline">{sortOrder === "newest" ? "Récents" : "Anciens"}</span>
+          </button>
+          <button
+            onClick={fetchEstimates}
+            disabled={refreshing}
+            className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+          >
+            {refreshing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Sync Sellsy
+          </button>
+        </div>
       </div>
 
       {/* Kanban Board - horizontal scroll on mobile */}
@@ -223,28 +242,51 @@ export default function PipelinePage() {
                   {colEstimates.map((est) => (
                     <div
                       key={est.id}
-                      className="bg-cockpit-card rounded-lg border border-cockpit p-3 hover:border-cockpit-info/40 transition-colors cursor-pointer"
-                      onClick={() => est.pdf_link && window.open(est.pdf_link, '_blank')}
+                      className="bg-cockpit-card rounded-lg border border-cockpit p-3 hover:border-cockpit-info/40 transition-colors"
                     >
-                      <div className="flex items-start justify-between mb-2">
-                        <p className="text-sm font-medium text-cockpit-primary truncate flex-1">
-                          {est.subject || est.number || `Devis #${est.id}`}
-                        </p>
-                        <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0 ml-1" />
-                      </div>
+                      <p className="text-sm font-medium text-cockpit-primary truncate mb-1">
+                        {est.subject || est.number || `Devis #${est.id}`}
+                      </p>
                       {(est.company_name || est.company?.name) && (
-                        <p className="text-xs text-cockpit-secondary truncate mb-2">
+                        <p className="text-xs text-cockpit-secondary truncate mb-1">
                           {est.company_name || est.company?.name}
                         </p>
                       )}
-                      <div className="flex items-center gap-1 text-cockpit-heading">
-                        <Euro className="w-3 h-3" />
-                        <span className="text-xs font-semibold">
-                          {(Number(est.amounts?.total ?? "0")).toLocaleString(
-                            "fr-FR",
-                            { minimumFractionDigits: 2 }
+                      {(est.date || est.created) && (
+                        <div className="flex items-center gap-1 text-xs text-cockpit-secondary mb-2">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(est.date || est.created || "").toLocaleDateString("fr-FR")}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1 text-cockpit-heading">
+                          <Euro className="w-3 h-3" />
+                          <span className="text-xs font-semibold">
+                            {(Number(est.amounts?.total ?? "0")).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {est.pdf_link && (
+                            <a
+                              href={est.pdf_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 rounded hover:bg-cockpit-dark transition-colors"
+                              title="Voir le PDF"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-cockpit-info" />
+                            </a>
                           )}
-                        </span>
+                          <a
+                            href={`https://go.sellsy.com/doc/estimate/${est.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 rounded hover:bg-cockpit-dark transition-colors"
+                            title="Ouvrir dans Sellsy"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-cockpit-secondary hover:text-cockpit-info" />
+                          </a>
+                        </div>
                       </div>
                     </div>
                   ))}

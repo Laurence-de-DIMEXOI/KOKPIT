@@ -9,6 +9,8 @@ import {
   Euro,
   Calendar,
   Filter,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -249,6 +251,9 @@ export default function CommandesPage() {
               <th className="text-right text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-4">
                 Date
               </th>
+              <th className="text-right text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-4">
+                Liens
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-cockpit">
@@ -299,6 +304,32 @@ export default function CommandesPage() {
                         : "—"}
                     </span>
                   </td>
+                  <td className="p-4 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {order.pdf_link && (
+                        <a
+                          href={order.pdf_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded hover:bg-cockpit-dark transition-colors"
+                          title="Voir le PDF"
+                        >
+                          <FileText className="w-4 h-4 text-cockpit-info" />
+                        </a>
+                      )}
+                      <a
+                        href={`https://go.sellsy.com/doc/order/${order.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1.5 rounded hover:bg-cockpit-dark transition-colors"
+                        title="Ouvrir dans Sellsy"
+                      >
+                        <ExternalLink className="w-4 h-4 text-cockpit-secondary hover:text-cockpit-info" />
+                      </a>
+                    </div>
+                  </td>
                 </tr>
               );
             })}
@@ -342,11 +373,25 @@ export default function CommandesPage() {
                     })}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-cockpit-secondary">
-                  <Calendar className="w-3 h-3" />
-                  {order.created
-                    ? new Date(order.created).toLocaleDateString("fr-FR")
-                    : "—"}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    {order.pdf_link && (
+                      <a href={order.pdf_link} target="_blank" rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()} className="p-1 rounded hover:bg-cockpit-dark" title="PDF">
+                        <FileText className="w-3.5 h-3.5 text-cockpit-info" />
+                      </a>
+                    )}
+                    <a href={`https://go.sellsy.com/doc/order/${order.id}`} target="_blank" rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()} className="p-1 rounded hover:bg-cockpit-dark" title="Sellsy">
+                      <ExternalLink className="w-3.5 h-3.5 text-cockpit-secondary" />
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-cockpit-secondary">
+                    <Calendar className="w-3 h-3" />
+                    {order.created
+                      ? new Date(order.created).toLocaleDateString("fr-FR")
+                      : "—"}
+                  </div>
                 </div>
               </div>
             </div>
