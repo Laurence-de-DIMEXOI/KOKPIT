@@ -146,6 +146,7 @@ model User {
   auditLogs       AuditLog[] @relation("AuditLogUser")
   postPlannings   PostPlanning[] @relation("PostPlanningAuteur")
   liaisons        LiaisonDevisCommande[]
+  brevoSyncLogs   BrevoSyncLog[]
 
   @@index([showroomId])
 }
@@ -660,4 +661,22 @@ model LiaisonDevisCommande {
   @@unique([estimateId, orderId])
   @@index([estimateId])
   @@index([orderId])
+}
+
+// ============================================================================
+// SYNC BREVO (historique des synchronisations Sellsy → Brevo)
+// ============================================================================
+
+model BrevoSyncLog {
+  id           String   @id @default(cuid())
+  segmentNom   String
+  nbContacts   Int
+  statut       String   // "success" | "error"
+  erreur       String?
+  createdAt    DateTime @default(now())
+  createdById  String
+
+  createdBy    User     @relation(fields: [createdById], references: [id])
+
+  @@index([createdAt])
 }

@@ -125,8 +125,35 @@ export default function PipelinePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-cockpit-info" />
+      <div className="space-y-4 sm:space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="h-4 w-32 bg-gray-200 rounded mt-2 animate-pulse" />
+          </div>
+          <div className="h-10 w-32 bg-gray-200 rounded-lg animate-pulse" />
+        </div>
+        <div className="overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex gap-4 min-w-[900px]">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex-1 min-w-[200px] rounded-xl bg-[#F5F6F7] border-t-4 border-gray-300">
+                <div className="p-3 border-b border-gray-200">
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 w-16 bg-gray-200 rounded mt-2 animate-pulse" />
+                </div>
+                <div className="p-2 space-y-2">
+                  {Array.from({ length: 3 }).map((_, j) => (
+                    <div key={j} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2 animate-pulse">
+                      <div className="h-4 w-full bg-gray-200 rounded" />
+                      <div className="h-3 w-2/3 bg-gray-200 rounded" />
+                      <div className="h-3 w-1/2 bg-gray-200 rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
