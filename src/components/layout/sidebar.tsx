@@ -24,6 +24,7 @@ import {
   CalendarDays,
   UserCircle,
   Link2,
+  GitCompareArrows,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Module } from "@/lib/auth-utils";
@@ -124,6 +125,13 @@ const spaceNavItems: NavItem[] = [
     label: "Commandes",
     href: "/commercial/commandes",
     icon: ShoppingCart,
+    module: "commandes",
+    space: "commercial",
+  },
+  {
+    label: "Traçabilité",
+    href: "/commercial/tracabilite",
+    icon: GitCompareArrows,
     module: "commandes",
     space: "commercial",
   },

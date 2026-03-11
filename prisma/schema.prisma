@@ -145,6 +145,7 @@ model User {
   evenements      Evenement[] @relation("EvenementAuteur")
   auditLogs       AuditLog[] @relation("AuditLogUser")
   postPlannings   PostPlanning[] @relation("PostPlanningAuteur")
+  liaisons        LiaisonDevisCommande[]
 
   @@index([showroomId])
 }
@@ -641,4 +642,22 @@ model LienUtile {
   updatedAt   DateTime @updatedAt
 
   @@index([categorie])
+}
+
+// ============================================================================
+// TRAÇABILITÉ DEVIS → COMMANDES (liaison manuelle Sellsy)
+// ============================================================================
+
+model LiaisonDevisCommande {
+  id          String   @id @default(cuid())
+  estimateId  Int      // ID Sellsy du devis
+  orderId     Int      // ID Sellsy de la commande
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
+  @@unique([estimateId, orderId])
+  @@index([estimateId])
+  @@index([orderId])
 }
