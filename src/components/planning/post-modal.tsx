@@ -120,9 +120,9 @@ export default function PostModal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-xl z-10">
+        <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-xl shrink-0">
           <h2 className="text-lg font-bold text-gray-800">
             {post ? "Modifier le post" : "Nouveau post"}
           </h2>
@@ -146,7 +146,7 @@ export default function PostModal({
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
           {/* Image de couverture */}
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">
@@ -288,7 +288,7 @@ export default function PostModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex justify-end gap-3 rounded-b-xl">
+        <div className="bg-white border-t border-gray-100 px-6 py-4 flex justify-end gap-3 rounded-b-xl shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
