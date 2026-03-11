@@ -1,52 +1,174 @@
 "use client";
 
-import { Search, Bell } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useState, useRef, useEffect } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { Menu, LogOut, User, ChevronDown, Lock } from "lucide-react";
+import clsx from "clsx";
+import Link from "next/link";
+import { NotificationBell } from "./notification-bell";
+import type { Espace } from "@/lib/nav-config";
 
 interface TopbarProps {
-  title: string;
-  subtitle?: string;
+  activeSpaceId: string;
+  visibleSpaces: Espace[];
+  showTabs: boolean;
+  onSwitchSpace: (id: string) => void;
+  onOpenMobileMenu: () => void;
 }
 
-export function Topbar({ title, subtitle }: TopbarProps) {
+export function Topbar({
+  activeSpaceId,
+  visibleSpaces,
+  showTabs,
+  onSwitchSpace,
+  onOpenMobileMenu,
+}: TopbarProps) {
   const { data: session } = useSession();
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const avatarRef = useRef<HTMLDivElement>(null);
+
+  // Fermer le dropdown avatar au clic extérieur
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
+        setAvatarOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   return (
-    <div className="h-20 bg-cockpit-dark/60 border-b border-gray-700/30 backdrop-blur-xl flex items-center justify-between px-8">
-      {/* Left Section - Title */}
-      <div className="flex-1">
-        <h2 className="text-2xl font-bold text-white">{title}</h2>
-        {subtitle && <p className="text-gray-400 text-sm mt-1">{subtitle}</p>}
+    <header className="fixed top-0 left-0 right-0 z-40 h-12 bg-white border-b border-gray-200 flex items-center px-4">
+      {/* Left: Hamburger mobile + Logo */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <button
+          onClick={onOpenMobileMenu}
+          className="lg:hidden p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg border-2 border-cockpit-yellow flex items-center justify-center bg-cockpit-yellow/10">
+            <span className="text-cockpit-yellow font-bold text-sm">K</span>
+          </div>
+          <span className="text-gray-900 font-bold text-sm hidden sm:inline">
+            KOKPIT
+          </span>
+        </Link>
       </div>
 
-      {/* Right Section - Actions */}
-      <div className="flex items-center gap-4">
-        {/* Search Pill */}
-        <div className="hidden md:flex items-center gap-2 bg-gray-700/20 border border-gray-600/30 rounded-full px-4 py-2">
-          <Search className="w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            className="bg-transparent text-white placeholder-gray-400 text-sm outline-none w-32"
-          />
-        </div>
+      {/* Center: Space Tabs */}
+      {showTabs && (
+        <nav className="hidden lg:flex items-center gap-1 ml-8">
+          {visibleSpaces.map((espace) => {
+            const isActive = espace.id === activeSpaceId;
+            const isDisabled = espace.disabled;
 
-        {/* Notification Bell */}
-        <button className="relative p-2 hover:bg-gray-700/20 rounded-lg transition-colors">
-          <Bell className="w-5 h-5 text-gray-400 hover:text-white" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-cockpit rounded-full"></span>
-        </button>
+            if (isDisabled) {
+              return (
+                <div
+                  key={espace.id}
+                  className="relative group px-3 py-3 text-sm text-gray-300 cursor-not-allowed flex items-center gap-1.5"
+                >
+                  {espace.label}
+                  <Lock className="w-3 h-3" />
+                  {/* Tooltip */}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    {espace.disabledTooltip}
+                  </div>
+                </div>
+              );
+            }
 
-        {/* User Avatar */}
+            return (
+              <button
+                key={espace.id}
+                onClick={() => onSwitchSpace(espace.id)}
+                className={clsx(
+                  "px-3 py-3 text-sm font-medium transition-colors relative",
+                  isActive
+                    ? "text-gray-900 font-semibold"
+                    : "text-gray-500 hover:text-gray-800"
+                )}
+              >
+                {espace.label}
+                {/* Indicateur actif — barre jaune en bas */}
+                {isActive && (
+                  <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-cockpit-yellow rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Right: Notifications + Avatar */}
+      <div className="flex items-center gap-2">
+        <NotificationBell />
+
+        {/* Avatar + Dropdown */}
         {session?.user && (
-          <div className="w-10 h-10 rounded-full bg-yellow-cockpit/20 flex items-center justify-center cursor-pointer hover:bg-yellow-cockpit/30 transition-colors">
-            <span className="text-yellow-cockpit font-semibold text-sm">
-              {session.user.prenom?.[0]}
-              {session.user.nom?.[0]}
-            </span>
+          <div ref={avatarRef} className="relative">
+            <button
+              onClick={() => setAvatarOpen(!avatarOpen)}
+              className={clsx(
+                "flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors",
+                "hover:bg-gray-100",
+                avatarOpen && "bg-gray-100"
+              )}
+            >
+              <div className="w-8 h-8 rounded-full bg-cockpit-yellow/15 flex items-center justify-center flex-shrink-0">
+                <span className="text-cockpit-yellow font-semibold text-xs">
+                  {session.user.prenom?.[0]}
+                  {session.user.nom?.[0]}
+                </span>
+              </div>
+              <span className="hidden sm:inline text-sm font-medium text-gray-700 max-w-[120px] truncate">
+                {session.user.prenom} {session.user.nom?.[0]}.
+              </span>
+              <ChevronDown
+                className={clsx(
+                  "w-3.5 h-3.5 text-gray-400 transition-transform hidden sm:block",
+                  avatarOpen && "rotate-180"
+                )}
+              />
+            </button>
+
+            {/* Dropdown menu */}
+            {avatarOpen && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {session.user.prenom} {session.user.nom}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {session.user.role}
+                  </p>
+                </div>
+                <Link
+                  href="/parametres"
+                  onClick={() => setAvatarOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <User className="w-4 h-4" />
+                  Profil
+                </Link>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Déconnexion
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
-    </div>
+    </header>
   );
 }

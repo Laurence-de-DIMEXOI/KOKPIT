@@ -1,11 +1,12 @@
 "use client";
 
 import { Sidebar } from "@/components/layout/sidebar";
+import { Topbar } from "@/components/layout/topbar";
 import { ToastProvider } from "@/components/ui/toast";
-import { NotificationBell } from "@/components/layout/notification-bell";
+import { useActiveSpace } from "@/hooks/use-active-space";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import clsx from "clsx";
 
@@ -22,10 +23,20 @@ export default function AppLayout({
 }) {
   const { data: session, status } = useSession();
   const [isClient, setIsClient] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const {
+    activeSpaceId,
+    currentSpace,
+    visibleSpaces,
+    menuItems,
+    generalItems,
+    showTabs,
+    switchSpace,
+  } = useActiveSpace();
 
   useEffect(() => {
     setIsClient(true);
-    // Redirect handled in same effect to avoid double-render
   }, []);
 
   useEffect(() => {
@@ -33,6 +44,21 @@ export default function AppLayout({
       redirect("/login");
     }
   }, [status, isClient]);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  const handleOpenMobileMenu = useCallback(() => setMobileOpen(true), []);
+  const handleCloseMobileMenu = useCallback(() => setMobileOpen(false), []);
 
   if (!isClient || status === "loading") {
     return (
@@ -53,17 +79,36 @@ export default function AppLayout({
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen bg-cockpit">
-        <Sidebar />
-        <main className="flex-1 ml-0 lg:ml-[280px] overflow-y-auto bg-cockpit min-h-screen relative">
-          {/* Notification bell — top right */}
-          <div className="absolute top-4 right-4 lg:top-6 lg:right-8 z-30">
-            <NotificationBell />
-          </div>
-          <div className="p-4 pt-16 sm:p-6 sm:pt-16 md:p-8 lg:p-12 lg:pt-12">
-            {children}
-          </div>
-        </main>
+      <div className="min-h-screen bg-cockpit">
+        {/* Topbar fixe — 48px */}
+        <Topbar
+          activeSpaceId={activeSpaceId}
+          visibleSpaces={visibleSpaces}
+          showTabs={showTabs}
+          onSwitchSpace={switchSpace}
+          onOpenMobileMenu={handleOpenMobileMenu}
+        />
+
+        {/* Sidebar + Main content sous la topbar */}
+        <div className="pt-12">
+          <Sidebar
+            activeSpaceId={activeSpaceId}
+            currentSpace={currentSpace}
+            menuItems={menuItems}
+            generalItems={generalItems}
+            mobileOpen={mobileOpen}
+            onCloseMobile={handleCloseMobileMenu}
+            showTabs={showTabs}
+            visibleSpaces={visibleSpaces}
+            onSwitchSpace={switchSpace}
+          />
+          <main className="flex-1 ml-0 lg:ml-[200px] overflow-y-auto bg-cockpit min-h-[calc(100vh-48px)]">
+            <div className="p-4 sm:p-6 md:p-8 lg:p-10">
+              {children}
+            </div>
+          </main>
+        </div>
+
         <ChatbotWidget />
       </div>
     </ToastProvider>
