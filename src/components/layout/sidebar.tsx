@@ -25,6 +25,7 @@ import {
   UserCircle,
   Link2,
   GitCompareArrows,
+  Share2,
 } from "lucide-react";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Module } from "@/lib/auth-utils";
@@ -186,6 +187,13 @@ const spaceNavItems: NavItem[] = [
     space: "marketing",
   },
   {
+    label: "Nos Réseaux",
+    href: "/nos-reseaux",
+    icon: Share2,
+    module: "nos-reseaux",
+    space: "marketing",
+  },
+  {
     label: "Liens utiles",
     href: "/liens-utiles",
     icon: Link2,
@@ -243,6 +251,7 @@ function detectSpace(pathname: string): string {
     pathname.startsWith("/emailing") ||
     pathname.startsWith("/planning") ||
     pathname.startsWith("/liens-utiles") ||
+    pathname.startsWith("/nos-reseaux") ||
     pathname.startsWith("/parametres")
   ) return "marketing";
   // /leads et /contacts sont dans Commercial ET Marketing
