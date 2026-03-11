@@ -53,7 +53,7 @@ async function getAccessToken(): Promise<string> {
 
 // ===== CACHE API =====
 
-const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const apiCache = new Map<string, { data: unknown; expiresAt: number }>();
 
 function getCacheKey(path: string, body?: string): string {
@@ -552,60 +552,101 @@ export async function listAllCompanies(): Promise<SellsyCompany[]> {
 }
 
 /**
- * Récupère TOUS les devis Sellsy depuis une date donnée (défaut: 2024-01-01).
- * Utilise l'endpoint search avec filtre date pour limiter les résultats.
+ * Récupère TOUS les devis Sellsy depuis une date donnée (défaut: 6 mois).
+ * Page 1 en séquentiel pour connaître le total, puis pages 2-N en parallèle.
  */
 export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]> {
-  const all: SellsyEstimate[] = [];
   const pageSize = 100;
-  let offset = 0;
-  let total = Infinity;
-  const sinceDate = since || "2024-01-01";
+  // Défaut : 6 mois en arrière au lieu de tout depuis 2024
+  const sinceDate = since || new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-  while (offset < total) {
-    const res = await searchEstimates({
-      filters: {
-        date: { start: sinceDate },
-      },
-      limit: pageSize,
-      offset,
-      order: "created",
-      direction: "desc",
-    });
-    all.push(...res.data);
-    total = res.pagination.total;
-    offset += pageSize;
+  // Page 1 — séquentielle pour connaître le total
+  const page1 = await searchEstimates({
+    filters: { date: { start: sinceDate } },
+    limit: pageSize,
+    offset: 0,
+    order: "created",
+    direction: "desc",
+  });
+
+  const all: SellsyEstimate[] = [...page1.data];
+  const total = page1.pagination.total;
+
+  // Pages restantes — en parallèle (max 5 simultanées)
+  if (total > pageSize) {
+    const remainingPages: number[] = [];
+    for (let offset = pageSize; offset < total; offset += pageSize) {
+      remainingPages.push(offset);
+    }
+
+    // Batch par 5 pour ne pas surcharger l'API
+    for (let i = 0; i < remainingPages.length; i += 5) {
+      const batch = remainingPages.slice(i, i + 5);
+      const results = await Promise.all(
+        batch.map((offset) =>
+          searchEstimates({
+            filters: { date: { start: sinceDate } },
+            limit: pageSize,
+            offset,
+            order: "created",
+            direction: "desc",
+          })
+        )
+      );
+      for (const res of results) {
+        all.push(...res.data);
+      }
+    }
   }
 
-  console.log(`Fetched ${all.length} estimates since ${sinceDate}`);
+  console.log(`Fetched ${all.length} estimates since ${sinceDate} (${Math.ceil(total / pageSize)} pages)`);
   return all;
 }
 
 /**
- * Récupère TOUS les bons de commande Sellsy depuis une date donnée (défaut: 2024-01-01).
- * Utilise l'endpoint search avec filtre date pour limiter les résultats.
+ * Récupère TOUS les bons de commande Sellsy depuis une date donnée (défaut: 6 mois).
+ * Page 1 en séquentiel pour connaître le total, puis pages 2-N en parallèle.
  */
 export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
-  const all: SellsyOrder[] = [];
   const pageSize = 100;
-  let offset = 0;
-  let total = Infinity;
-  const sinceDate = since || "2024-01-01";
+  // Défaut : 6 mois en arrière au lieu de tout depuis 2024
+  const sinceDate = since || new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-  while (offset < total) {
-    const res = await searchOrders({
-      filters: {
-        date: { start: sinceDate },
-      },
-      limit: pageSize,
-      offset,
-    });
-    all.push(...res.data);
-    total = res.pagination.total;
-    offset += pageSize;
+  // Page 1 — séquentielle pour connaître le total
+  const page1 = await searchOrders({
+    filters: { date: { start: sinceDate } },
+    limit: pageSize,
+    offset: 0,
+  });
+
+  const all: SellsyOrder[] = [...page1.data];
+  const total = page1.pagination.total;
+
+  // Pages restantes — en parallèle (max 5 simultanées)
+  if (total > pageSize) {
+    const remainingPages: number[] = [];
+    for (let offset = pageSize; offset < total; offset += pageSize) {
+      remainingPages.push(offset);
+    }
+
+    for (let i = 0; i < remainingPages.length; i += 5) {
+      const batch = remainingPages.slice(i, i + 5);
+      const results = await Promise.all(
+        batch.map((offset) =>
+          searchOrders({
+            filters: { date: { start: sinceDate } },
+            limit: pageSize,
+            offset,
+          })
+        )
+      );
+      for (const res of results) {
+        all.push(...res.data);
+      }
+    }
   }
 
-  console.log(`Fetched ${all.length} orders since ${sinceDate}`);
+  console.log(`Fetched ${all.length} orders since ${sinceDate} (${Math.ceil(total / pageSize)} pages)`);
   return all;
 }
 

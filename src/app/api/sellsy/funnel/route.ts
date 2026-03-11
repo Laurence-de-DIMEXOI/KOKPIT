@@ -1,17 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listCompanies, listAllEstimates, listAllOrders } from "@/lib/sellsy";
+import { listCompanies, listAllEstimates, listAllOrders, invalidateSellsyCache } from "@/lib/sellsy";
+
+// Cache dédié funnel (5 minutes)
+let funnelCache: { data: any; timestamp: number; months: number } | null = null;
+const FUNNEL_CACHE_TTL = 5 * 60 * 1000;
 
 // GET /api/sellsy/funnel - Funnel marketing: contacts → devis → commandes
-// Params: months (nombre de mois à analyser, défaut 12)
+// Params: months (nombre de mois à analyser, défaut 12), fresh (bypass cache)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const monthsBack = parseInt(searchParams.get("months") || "12", 10);
+    const monthsBack = Math.min(parseInt(searchParams.get("months") || "12", 10), 24);
+    const fresh = searchParams.get("fresh") === "true";
 
-    // Récupérer TOUS les devis et commandes (pagination complète)
+    // Cache check
+    if (!fresh && funnelCache && funnelCache.months === monthsBack && Date.now() - funnelCache.timestamp < FUNNEL_CACHE_TTL) {
+      return NextResponse.json(funnelCache.data);
+    }
+
+    if (fresh) invalidateSellsyCache();
+
+    // Calculer la date since à partir du nombre de mois demandé (+ 1 mois de marge)
+    const sinceDate = new Date();
+    sinceDate.setMonth(sinceDate.getMonth() - (monthsBack + 1));
+    const sinceStr = sinceDate.toISOString().split("T")[0];
+
+    // Récupérer devis et commandes en parallèle (pagination parallèle interne)
     const [allEstimates, allOrders] = await Promise.all([
-      listAllEstimates("2024-01-01"),
-      listAllOrders("2024-01-01"),
+      listAllEstimates(sinceStr),
+      listAllOrders(sinceStr),
     ]);
 
     // Tenter de récupérer les companies — fallback si erreur
@@ -178,7 +195,7 @@ export async function GET(request: NextRequest) {
         email: c.email || "",
       }));
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       kpis: {
         totalContacts,
@@ -190,7 +207,13 @@ export async function GET(request: NextRequest) {
       },
       monthlyFunnel,
       contactsSansDevis,
-    });
+      _cache: { generatedAt: new Date().toISOString() },
+    };
+
+    // Stocker en cache
+    funnelCache = { data: responseData, timestamp: Date.now(), months: monthsBack };
+
+    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error("Erreur funnel:", error);
     return NextResponse.json(

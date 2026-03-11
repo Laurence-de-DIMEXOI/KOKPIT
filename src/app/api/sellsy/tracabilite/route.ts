@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listAllEstimates, listAllOrders, invalidateSellsyCache } from "@/lib/sellsy";
+
+// Cache dédié traçabilité — 5 min (lourd à recalculer)
+const CACHE_TTL = 5 * 60 * 1000;
+let traceCache: { data: unknown; timestamp: number } | null = null;
 
 function getAmountHT(amounts?: Record<string, any>): number {
   if (!amounts) return 0;
@@ -17,14 +21,26 @@ function daysBetween(dateStr: string): number {
 }
 
 // GET — Données traçabilité complètes
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
+  // Check fresh param
+  const { searchParams } = new URL(request.url);
+  const fresh = searchParams.get("fresh") === "true";
+
+  // Return cache if valid
+  if (!fresh && traceCache && Date.now() - traceCache.timestamp < CACHE_TTL) {
+    return NextResponse.json(traceCache.data);
+  }
+
+  if (fresh) invalidateSellsyCache();
+
   try {
     // Récupérer en parallèle : Sellsy data + liaisons locales
+    // Par défaut listAllEstimates/Orders chargent 6 mois (optimisé)
     const [estimates, orders, liaisons] = await Promise.all([
       listAllEstimates(),
       listAllOrders(),
@@ -154,7 +170,7 @@ export async function GET() {
       ? Math.round((nbDevisConvertis / totalDevis) * 1000) / 10
       : 0;
 
-    return NextResponse.json({
+    const result = {
       devisConvertis,
       commandesSansDevis,
       devisNonConvertis,
@@ -169,7 +185,12 @@ export async function GET() {
         devisExpires: nbDevisExpires,
       },
       _cache: { generatedAt: new Date().toISOString() },
-    });
+    };
+
+    // Mettre en cache
+    traceCache = { data: result, timestamp: Date.now() };
+
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error("GET /api/sellsy/tracabilite error:", error);
     return NextResponse.json(
