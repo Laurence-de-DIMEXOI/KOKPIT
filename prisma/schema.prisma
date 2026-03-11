@@ -82,6 +82,12 @@ enum EvenementType {
   VISITE_WEB
 }
 
+enum TaskStatut {
+  A_FAIRE
+  EN_COURS
+  TERMINEE
+}
+
 enum WorkflowTrigger {
   // Legacy
   NOUVEAU_LEAD
@@ -147,6 +153,8 @@ model User {
   postPlannings   PostPlanning[] @relation("PostPlanningAuteur")
   liaisons        LiaisonDevisCommande[]
   brevoSyncLogs   BrevoSyncLog[]
+  tasksAssignees  Task[]         @relation("TaskAssignee")
+  tasksCreees     Task[]         @relation("TaskCreator")
 
   @@index([showroomId])
 }
@@ -209,6 +217,7 @@ model Contact {
   smsLogs             SmsLog[]
   // workflowLogs removed — replaced by WorkflowExecution
   demandesPrix        DemandePrix[]
+  tasks               Task[]
 
   @@index([telephone])
   @@index([sellsyContactId])
@@ -717,4 +726,30 @@ model DocArticle {
 
   @@index([categorie])
   @@index([slug])
+}
+
+// ============================================================================
+// TÂCHES COMMERCIALES
+// ============================================================================
+
+model Task {
+  id          String     @id @default(cuid())
+  titre       String
+  description String?
+  echeance    DateTime?
+  statut      TaskStatut @default(A_FAIRE)
+  contactId   String?
+  assigneAId  String
+  createdById String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  contact     Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assigneA    User       @relation("TaskAssignee", fields: [assigneAId], references: [id])
+  createdBy   User       @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@index([assigneAId])
+  @@index([echeance])
+  @@index([statut])
 }

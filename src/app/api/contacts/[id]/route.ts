@@ -31,6 +31,9 @@ export async function GET(
         evenements: {
           orderBy: { createdAt: "desc" },
           take: 20,
+          include: {
+            auteur: { select: { id: true, nom: true, prenom: true } },
+          },
         },
         _count: {
           select: { demandesPrix: true, leads: true, devis: true, ventes: true },

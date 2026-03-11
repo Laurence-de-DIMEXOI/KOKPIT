@@ -17,6 +17,7 @@ import {
   GitCompareArrows,
   Share2,
   BookOpen,
+  ClipboardList,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -54,6 +55,7 @@ export const ESPACES: Espace[] = [
       { label: "Pipeline Devis", href: "/commercial/pipeline", icon: FileText, module: "pipeline" },
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
+      { label: "Mes Tâches", href: "/commercial/taches", icon: ClipboardList, module: "taches" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
     ],
   },

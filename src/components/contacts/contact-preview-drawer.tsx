@@ -4,9 +4,10 @@ import {
   X, Mail, Phone, MapPin, CheckCircle2, Circle,
   ShoppingBag, Calendar, User, Pencil, Save,
   MessageSquare, Loader2, FileText, ShoppingCart,
-  ExternalLink,
+  ExternalLink, Activity, Send, PhoneCall, RefreshCw,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
+import { ContactTimeline } from "./contact-timeline";
 
 // Types pour les données API
 interface DemandePrix {
@@ -34,6 +35,14 @@ interface VenteData {
   createdAt: string;
 }
 
+interface EvenementData {
+  id: string;
+  type: string;
+  description: string;
+  createdAt: string;
+  auteur?: { id: string; nom: string; prenom: string } | null;
+}
+
 interface ContactAPI {
   id: string;
   email: string;
@@ -54,6 +63,7 @@ interface ContactAPI {
   demandesPrix: DemandePrix[];
   devis: DevisData[];
   ventes: VenteData[];
+  evenements?: EvenementData[];
   _count: { demandesPrix: number; leads: number; devis: number; ventes: number };
 }
 
@@ -106,6 +116,57 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
     notes: "",
   });
 
+  // Activity state
+  const [activiteEvents, setActiviteEvents] = useState<EvenementData[]>([]);
+  const [activitePage, setActivitePage] = useState(1);
+  const [activiteHasMore, setActiviteHasMore] = useState(false);
+  const [activiteLoading, setActiviteLoading] = useState(false);
+  const [newEventType, setNewEventType] = useState<"APPEL" | "NOTE" | "RELANCE">("NOTE");
+  const [newEventDesc, setNewEventDesc] = useState("");
+  const [submittingEvent, setSubmittingEvent] = useState(false);
+
+  const fetchEvents = useCallback(async (contactId: string, page = 1, append = false) => {
+    setActiviteLoading(true);
+    try {
+      const res = await fetch(`/api/contacts/${contactId}/evenements?page=${page}&limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        setActiviteEvents(prev => append ? [...prev, ...data.evenements] : data.evenements);
+        setActiviteHasMore(data.hasMore);
+        setActivitePage(page);
+      }
+    } catch { /* silently fail */ }
+    setActiviteLoading(false);
+  }, []);
+
+  const handleAddEvent = useCallback(async () => {
+    if (!contact || !newEventDesc.trim()) return;
+    setSubmittingEvent(true);
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/evenements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: newEventType, description: newEventDesc.trim() }),
+      });
+      if (res.ok) {
+        const evt = await res.json();
+        setActiviteEvents(prev => [evt, ...prev]);
+        setNewEventDesc("");
+      }
+    } catch { /* silently fail */ }
+    setSubmittingEvent(false);
+  }, [contact, newEventType, newEventDesc]);
+
+  const handleDeleteEvent = useCallback(async (eventId: string) => {
+    if (!contact) return;
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/evenements?eventId=${eventId}`, { method: "DELETE" });
+      if (res.ok) {
+        setActiviteEvents(prev => prev.filter(e => e.id !== eventId));
+      }
+    } catch { /* silently fail */ }
+  }, [contact]);
+
   useEffect(() => {
     if (!contact) return;
     setForm({
@@ -121,7 +182,9 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
       notes: contact.notes || "",
     });
     setEditing(false);
-  }, [contact]);
+    // Load events
+    fetchEvents(contact.id);
+  }, [contact, fetchEvents]);
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = "hidden";
@@ -369,6 +432,66 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
               </div>
             ) : (
               <p className="text-sm text-[#8592A3]">Aucun bon de commande</p>
+            )}
+          </div>
+
+          {/* Activité */}
+          <div className="p-6 border-b border-[#E8EAED]">
+            <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
+              <Activity className="w-4 h-4 inline-block mr-2 -mt-0.5" />Activité
+            </h3>
+
+            {/* Formulaire inline */}
+            <div className="mb-4 space-y-2">
+              <div className="flex items-center gap-2">
+                {([
+                  { value: "NOTE" as const, icon: <MessageSquare className="w-3.5 h-3.5" />, label: "Note" },
+                  { value: "APPEL" as const, icon: <PhoneCall className="w-3.5 h-3.5" />, label: "Appel" },
+                  { value: "RELANCE" as const, icon: <RefreshCw className="w-3.5 h-3.5" />, label: "Relance" },
+                ]).map(({ value, icon, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setNewEventType(value)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      newEventType === value
+                        ? "bg-[#F4B400]/10 text-[#F4B400] border border-[#F4B400]/30"
+                        : "bg-[#F5F6F7] text-[#8592A3] border border-[#E8EAED] hover:border-[#F4B400]/30"
+                    }`}
+                  >
+                    {icon} {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={newEventDesc}
+                  onChange={(e) => setNewEventDesc(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddEvent(); } }}
+                  placeholder={newEventType === "APPEL" ? "Résumé de l'appel..." : newEventType === "RELANCE" ? "Détail de la relance..." : "Ajouter une note..."}
+                  className="flex-1 text-sm border border-[#E8EAED] rounded-lg px-3 py-2 bg-white placeholder:text-[#8592A3]/60 focus:outline-none focus:border-[#F4B400]/50"
+                />
+                <button
+                  onClick={handleAddEvent}
+                  disabled={submittingEvent || !newEventDesc.trim()}
+                  className="px-3 py-2 bg-[#F4B400] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40"
+                >
+                  {submittingEvent ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Timeline */}
+            {activiteLoading && activiteEvents.length === 0 ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-[#8592A3]" />
+              </div>
+            ) : (
+              <ContactTimeline
+                events={activiteEvents}
+                hasMore={activiteHasMore}
+                onLoadMore={() => fetchEvents(contact.id, activitePage + 1, true)}
+                onDelete={handleDeleteEvent}
+              />
             )}
           </div>
 

@@ -11,6 +11,31 @@ import {
   ExternalLink,
   Calendar,
 } from "lucide-react";
+import clsx from "clsx";
+
+type Period = "week" | "month" | "year" | "all";
+
+const PERIOD_LABELS: Record<Period, string> = {
+  week: "Semaine",
+  month: "Mois",
+  year: "Année",
+  all: "Tout",
+};
+
+function getPeriodStart(period: Period): Date | null {
+  if (period === "all") return null;
+  const now = new Date();
+  if (period === "week") {
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    const start = new Date(now);
+    start.setDate(start.getDate() - diff);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+  if (period === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
+  return new Date(now.getFullYear(), 0, 1);
+}
 
 interface Estimate {
   id: number;
@@ -78,6 +103,7 @@ export default function PipelinePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [period, setPeriod] = useState<Period>("all");
 
   const fetchEstimates = async (fresh = false) => {
     setRefreshing(true);
@@ -102,10 +128,17 @@ export default function PipelinePage() {
     fetchEstimates();
   }, []);
 
-  // Exclure les annulés du pipeline — memoized
-  const activeEstimates = useMemo(() =>
-    estimates.filter((e) => classifyStatus(e.status) !== "cancelled"),
-    [estimates]);
+  // Exclure les annulés + filtrer par période
+  const activeEstimates = useMemo(() => {
+    const periodStart = getPeriodStart(period);
+    return estimates
+      .filter((e) => classifyStatus(e.status) !== "cancelled")
+      .filter((e) => {
+        if (!periodStart) return true;
+        const d = new Date(e.date || e.created || "");
+        return d >= periodStart;
+      });
+  }, [estimates, period]);
 
   const groupedEstimates = useMemo(() =>
     PIPELINE_COLUMNS.reduce(
@@ -208,7 +241,24 @@ export default function PipelinePage() {
             {activeEstimates.length} devis Sellsy
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Period filter */}
+          <div className="flex items-center gap-1 bg-cockpit-card border border-cockpit rounded-lg px-1 py-1">
+            {(["week", "month", "year", "all"] as Period[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={clsx(
+                  "px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors",
+                  period === p
+                    ? "bg-cockpit-yellow text-white"
+                    : "text-cockpit-secondary hover:bg-cockpit-dark"
+                )}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setSortOrder(s => s === "newest" ? "oldest" : "newest")}
             className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors text-sm"

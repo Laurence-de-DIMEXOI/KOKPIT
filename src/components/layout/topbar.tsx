@@ -6,6 +6,7 @@ import { Menu, LogOut, User, ChevronDown, Lock } from "lucide-react";
 import clsx from "clsx";
 import Link from "next/link";
 import { NotificationBell } from "./notification-bell";
+import { GlobalSearch } from "./global-search";
 import type { Espace } from "@/lib/nav-config";
 
 interface TopbarProps {
@@ -106,8 +107,11 @@ export function Topbar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Right: Notifications + Avatar */}
+      {/* Right: Search + Notifications + Avatar */}
       <div className="flex items-center gap-2">
+        <div className="hidden md:block">
+          <GlobalSearch />
+        </div>
         <NotificationBell />
 
         {/* Avatar + Dropdown */}

@@ -19,6 +19,39 @@ import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
 import { DocumentChain } from "@/components/commercial/document-chain";
 import clsx from "clsx";
 
+type Period = "week" | "month" | "year" | "all";
+
+const PERIOD_LABELS: Record<Period, string> = {
+  week: "Semaine",
+  month: "Mois",
+  year: "Année",
+  all: "Tout",
+};
+
+function getPeriodStart(period: Period): Date | null {
+  if (period === "all") return null;
+  const now = new Date();
+  if (period === "week") {
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    const start = new Date(now);
+    start.setDate(start.getDate() - diff);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+  if (period === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
+  return new Date(now.getFullYear(), 0, 1);
+}
+
+function filterByPeriod<T extends { date?: string }>(items: T[], period: Period): T[] {
+  const start = getPeriodStart(period);
+  if (!start) return items;
+  return items.filter((item) => {
+    if (!item.date) return true;
+    return new Date(item.date) >= start;
+  });
+}
+
 interface Amounts {
   total_excl_tax?: string;
   total?: string;
@@ -96,6 +129,7 @@ export default function TracabilitePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("convertis");
+  const [period, setPeriod] = useState<Period>("all");
 
   const [devisConvertis, setDevisConvertis] = useState<DevisConverti[]>([]);
   const [commandesSansDevis, setCommandesSansDevis] = useState<DocSummary[]>([]);
@@ -161,10 +195,20 @@ export default function TracabilitePage() {
     }
   };
 
+  // Period-filtered data
+  const filteredConvertis = period === "all" ? devisConvertis : devisConvertis.filter((item) => {
+    const start = getPeriodStart(period);
+    if (!start) return true;
+    const d = new Date(item.estimate.date || item.order.date || "");
+    return d >= start;
+  });
+  const filteredDirectes = filterByPeriod(commandesSansDevis, period);
+  const filteredNonConvertis = filterByPeriod(devisNonConvertis, period);
+
   const tabs: { key: TabKey; label: string; count: number }[] = [
-    { key: "convertis", label: "Devis \u2192 Commandes", count: devisConvertis.length },
-    { key: "directes", label: "Commandes directes", count: commandesSansDevis.length },
-    { key: "non-convertis", label: "Devis non convertis", count: devisNonConvertis.length },
+    { key: "convertis", label: "Devis \u2192 Commandes", count: filteredConvertis.length },
+    { key: "directes", label: "Commandes directes", count: filteredDirectes.length },
+    { key: "non-convertis", label: "Devis non convertis", count: filteredNonConvertis.length },
   ];
 
   // Get candidate estimates for an order (same contact_id)
@@ -242,14 +286,33 @@ export default function TracabilitePage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => fetchData(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-cockpit text-cockpit-primary text-sm font-medium hover:bg-cockpit-dark/80 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={clsx("w-4 h-4", refreshing && "animate-spin")} />
-          Actualiser
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Period filter */}
+          <div className="flex items-center gap-1 bg-cockpit-card border border-cockpit rounded-lg px-1 py-1">
+            {(["week", "month", "year", "all"] as Period[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={clsx(
+                  "px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors",
+                  period === p
+                    ? "bg-cockpit-yellow text-white"
+                    : "text-cockpit-secondary hover:bg-cockpit-dark"
+                )}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-cockpit text-cockpit-primary text-sm font-medium hover:bg-cockpit-dark/80 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={clsx("w-4 h-4", refreshing && "animate-spin")} />
+            Actualiser
+          </button>
+        </div>
       </div>
 
       {/* Freshness indicator */}
@@ -357,14 +420,14 @@ export default function TracabilitePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
-                {devisConvertis.length === 0 ? (
+                {filteredConvertis.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
                       Aucune liaison créée. Liez vos devis à leurs commandes depuis les onglets ci-dessous.
                     </td>
                   </tr>
                 ) : (
-                  devisConvertis.map((item) => {
+                  filteredConvertis.map((item) => {
                     const chainKey = `order-${item.order.id}`;
                     const isExpanded = expandedChainId === chainKey;
                     return (
@@ -446,14 +509,14 @@ export default function TracabilitePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
-                {commandesSansDevis.length === 0 ? (
+                {filteredDirectes.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
                       Toutes les commandes sont liées à un devis.
                     </td>
                   </tr>
                 ) : (
-                  commandesSansDevis.map((order) => (
+                  filteredDirectes.map((order) => (
                     <tr key={order.id} className="hover:bg-cockpit-dark/50 transition-colors">
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
@@ -530,14 +593,14 @@ export default function TracabilitePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
-                {devisNonConvertis.length === 0 ? (
+                {filteredNonConvertis.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
                       Tous les devis sont liés à une commande.
                     </td>
                   </tr>
                 ) : (
-                  devisNonConvertis.map((est) => (
+                  filteredNonConvertis.map((est) => (
                     <tr key={est.id} className="hover:bg-cockpit-dark/50 transition-colors">
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
