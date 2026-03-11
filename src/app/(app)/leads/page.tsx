@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import {
@@ -130,7 +130,7 @@ export default function LeadsPage() {
   }, [fetchDemandes]);
 
   useEffect(() => {
-    const interval = setInterval(() => fetchDemandes(false), 15000);
+    const interval = setInterval(() => fetchDemandes(false), 60000);
     return () => clearInterval(interval);
   }, [fetchDemandes]);
 
@@ -232,9 +232,11 @@ export default function LeadsPage() {
     return new Date(sla) < new Date();
   };
 
-  const filteredDemandes = statutFilter === "ALL"
-    ? demandes
-    : demandes.filter((d) => d.statut === statutFilter);
+  const filteredDemandes = useMemo(() =>
+    statutFilter === "ALL"
+      ? demandes
+      : demandes.filter((d) => d.statut === statutFilter),
+    [demandes, statutFilter]);
 
   // ===== RENDER =====
 

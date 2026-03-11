@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Loader2, Users, TrendingUp, ArrowUpDown } from "lucide-react";
 import clsx from "clsx";
 
@@ -86,16 +86,18 @@ export function PerformanceTable() {
     }
   };
 
-  const sortedRows = data?.performance
-    ? [...data.performance].sort((a, b) => {
-        const valA = a[sortKey];
-        const valB = b[sortKey];
-        if (typeof valA === "string" && typeof valB === "string") {
-          return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-        return sortAsc ? (valA as number) - (valB as number) : (valB as number) - (valA as number);
-      })
-    : [];
+  const sortedRows = useMemo(() =>
+    data?.performance
+      ? [...data.performance].sort((a, b) => {
+          const valA = a[sortKey];
+          const valB = b[sortKey];
+          if (typeof valA === "string" && typeof valB === "string") {
+            return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+          }
+          return sortAsc ? (valA as number) - (valB as number) : (valB as number) - (valA as number);
+        })
+      : [],
+    [data?.performance, sortKey, sortAsc]);
 
   const SortHeader = ({ label, sortKeyName }: { label: string; sortKeyName: SortKey }) => (
     <th

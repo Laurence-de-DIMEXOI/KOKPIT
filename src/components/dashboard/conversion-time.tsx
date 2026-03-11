@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Clock, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import clsx from "clsx";
 
@@ -93,11 +94,11 @@ export function ConversionTime({
   previousEstimates,
   previousOrders,
 }: ConversionTimeProps) {
-  const avgDays = calculateAvgConversionDays(estimates, orders);
-  const prevAvgDays =
+  const avgDays = useMemo(() => calculateAvgConversionDays(estimates, orders), [estimates, orders]);
+  const prevAvgDays = useMemo(() =>
     previousEstimates && previousOrders
       ? calculateAvgConversionDays(previousEstimates, previousOrders)
-      : null;
+      : null, [previousEstimates, previousOrders]);
 
   return (
     <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">

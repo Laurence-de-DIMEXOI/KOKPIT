@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Post, PostStatut, COLUMNS } from "./types";
 import KanbanColumn from "./kanban-column";
 import PostModal from "./post-modal";
@@ -17,13 +17,15 @@ export default function KanbanBoard({ posts, onRefresh }: KanbanBoardProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [createStatut, setCreateStatut] = useState<PostStatut>("IDEE");
 
-  // Group posts by column
-  const postsByColumn = COLUMNS.reduce((acc, col) => {
-    acc[col.statut] = posts
-      .filter((p) => p.statut === col.statut)
-      .sort((a, b) => a.position - b.position);
-    return acc;
-  }, {} as Record<PostStatut, Post[]>);
+  // Group posts by column — memoized
+  const postsByColumn = useMemo(() =>
+    COLUMNS.reduce((acc, col) => {
+      acc[col.statut] = posts
+        .filter((p) => p.statut === col.statut)
+        .sort((a, b) => a.position - b.position);
+      return acc;
+    }, {} as Record<PostStatut, Post[]>),
+    [posts]);
 
   // Drag handlers
   const handleDragStart = useCallback((e: React.DragEvent, postId: string) => {

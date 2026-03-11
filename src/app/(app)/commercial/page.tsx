@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { EvolutionCharts } from "@/components/dashboard/evolution-charts";
 import { PerformanceTable } from "@/components/dashboard/performance-table";
@@ -301,67 +301,57 @@ export default function CommercialDashboardPage() {
     }
   }, [session, fetchAll]);
 
-  // Computed stats filtered by period
-  const { start, end } = getPeriodDates(period);
-  const { start: prevStart, end: prevEnd } = getPreviousPeriodDates(period);
+  // Computed stats filtered by period — memoized to avoid recalc on every render
+  const { start, end } = useMemo(() => getPeriodDates(period), [period]);
+  const { start: prevStart, end: prevEnd } = useMemo(() => getPreviousPeriodDates(period), [period]);
 
-  const periodEstimates = filterByPeriod(allEstimates, start, end);
-  const periodOrders = filterByPeriod(allOrders, start, end);
-  const prevEstimates = filterByPeriod(allEstimates, prevStart, prevEnd);
-  const prevOrders = filterByPeriod(allOrders, prevStart, prevEnd);
+  const periodEstimates = useMemo(() => filterByPeriod(allEstimates, start, end), [allEstimates, start, end]);
+  const periodOrders = useMemo(() => filterByPeriod(allOrders, start, end), [allOrders, start, end]);
+  const prevEstimates = useMemo(() => filterByPeriod(allEstimates, prevStart, prevEnd), [allEstimates, prevStart, prevEnd]);
+  const prevOrders = useMemo(() => filterByPeriod(allOrders, prevStart, prevEnd), [allOrders, prevStart, prevEnd]);
 
   // Exclure les annulés des calculs de CA
-  const activeEstimates = periodEstimates.filter((e) => !isCancelled(e));
-  const activeOrders = periodOrders.filter((o) => !isCancelled(o));
-  const prevActiveEstimates = prevEstimates.filter((e) => !isCancelled(e));
-  const prevActiveOrders = prevOrders.filter((o) => !isCancelled(o));
+  const activeEstimates = useMemo(() => periodEstimates.filter((e) => !isCancelled(e)), [periodEstimates]);
+  const activeOrders = useMemo(() => periodOrders.filter((o) => !isCancelled(o)), [periodOrders]);
+  const prevActiveEstimates = useMemo(() => prevEstimates.filter((e) => !isCancelled(e)), [prevEstimates]);
+  const prevActiveOrders = useMemo(() => prevOrders.filter((o) => !isCancelled(o)), [prevOrders]);
 
-  const estimatesAmount = activeEstimates.reduce(
-    (sum, e) => sum + getAmount(e),
-    0
-  );
-  const ordersAmount = activeOrders.reduce(
-    (sum, o) => sum + getAmount(o),
-    0
-  );
-  const prevEstimatesAmount = prevActiveEstimates.reduce(
-    (sum, e) => sum + getAmount(e),
-    0
-  );
-  const prevOrdersAmount = prevActiveOrders.reduce(
-    (sum, o) => sum + getAmount(o),
-    0
-  );
+  const estimatesAmount = useMemo(() => activeEstimates.reduce((sum, e) => sum + getAmount(e), 0), [activeEstimates]);
+  const ordersAmount = useMemo(() => activeOrders.reduce((sum, o) => sum + getAmount(o), 0), [activeOrders]);
+  const prevEstimatesAmount = useMemo(() => prevActiveEstimates.reduce((sum, e) => sum + getAmount(e), 0), [prevActiveEstimates]);
+  const prevOrdersAmount = useMemo(() => prevActiveOrders.reduce((sum, o) => sum + getAmount(o), 0), [prevActiveOrders]);
 
-  const conversionRate =
+  const conversionRate = useMemo(() =>
     activeEstimates.length > 0
       ? Math.round((activeOrders.length / activeEstimates.length) * 100)
-      : 0;
-  const prevConversionRate =
+      : 0, [activeEstimates.length, activeOrders.length]);
+  const prevConversionRate = useMemo(() =>
     prevActiveEstimates.length > 0
       ? Math.round((prevActiveOrders.length / prevActiveEstimates.length) * 100)
-      : 0;
+      : 0, [prevActiveEstimates.length, prevActiveOrders.length]);
 
   // Global totals (all time, from pagination)
   const totalEstimatesAllTime = allEstimates.length;
   const totalOrdersAllTime = allOrders.length;
 
-  // Top 5 for lists (also exclude cancelled)
-  const recentEstimates = [...activeEstimates]
-    .sort(
-      (a, b) =>
-        new Date(b.date || b.created || "").getTime() -
-        new Date(a.date || a.created || "").getTime()
-    )
-    .slice(0, 5);
+  // Top 5 for lists (also exclude cancelled) — memoized sort+slice
+  const recentEstimates = useMemo(() =>
+    [...activeEstimates]
+      .sort(
+        (a, b) =>
+          new Date(b.date || b.created || "").getTime() -
+          new Date(a.date || a.created || "").getTime()
+      )
+      .slice(0, 5), [activeEstimates]);
 
-  const recentOrders = [...activeOrders]
-    .sort(
-      (a, b) =>
-        new Date(b.date || b.created || "").getTime() -
-        new Date(a.date || a.created || "").getTime()
-    )
-    .slice(0, 5);
+  const recentOrders = useMemo(() =>
+    [...activeOrders]
+      .sort(
+        (a, b) =>
+          new Date(b.date || b.created || "").getTime() -
+          new Date(a.date || a.created || "").getTime()
+      )
+      .slice(0, 5), [activeOrders]);
 
   if (loading) {
     return (

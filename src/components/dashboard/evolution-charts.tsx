@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   ComposedChart,
   Bar,
@@ -45,21 +46,7 @@ const tooltipStyle = {
   fontSize: "13px",
 };
 
-function DevisTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={tooltipStyle} className="p-3">
-      <p className="font-semibold mb-1">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }}>
-          {p.name}: {p.name.includes("Montant") ? formatEuro(p.value) : p.value}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function CommandesTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div style={tooltipStyle} className="p-3">
@@ -74,10 +61,12 @@ function CommandesTooltip({ active, payload, label }: any) {
 }
 
 export function EvolutionCharts({ data, loading }: EvolutionChartsProps) {
-  const chartData = data.map((d) => ({
-    ...d,
-    shortLabel: shortMonth(d.label),
-  }));
+  const chartData = useMemo(() =>
+    data.map((d) => ({
+      ...d,
+      shortLabel: shortMonth(d.label),
+    })),
+    [data]);
 
   if (loading) {
     return (
@@ -126,7 +115,7 @@ export function EvolutionCharts({ data, loading }: EvolutionChartsProps) {
               tick={{ fontSize: 11 }}
               tickFormatter={formatEuro}
             />
-            <Tooltip content={<DevisTooltip />} />
+            <Tooltip content={<ChartTooltip />} />
             <Legend
               wrapperStyle={{ fontSize: "12px", color: "#9ca3af" }}
             />
@@ -180,7 +169,7 @@ export function EvolutionCharts({ data, loading }: EvolutionChartsProps) {
               tick={{ fontSize: 11 }}
               tickFormatter={formatEuro}
             />
-            <Tooltip content={<CommandesTooltip />} />
+            <Tooltip content={<ChartTooltip />} />
             <Legend
               wrapperStyle={{ fontSize: "12px", color: "#9ca3af" }}
             />

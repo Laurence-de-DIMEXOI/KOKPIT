@@ -2,12 +2,18 @@
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { ToastProvider } from "@/components/ui/toast";
-import { ChatbotWidget } from "@/components/chat/chatbot-widget";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import clsx from "clsx";
+
+// Lazy load chatbot — pas besoin au premier render
+const ChatbotWidget = dynamic(
+  () => import("@/components/chat/chatbot-widget").then((m) => m.ChatbotWidget),
+  { ssr: false }
+);
 
 export default function AppLayout({
   children,
@@ -19,6 +25,7 @@ export default function AppLayout({
 
   useEffect(() => {
     setIsClient(true);
+    // Redirect handled in same effect to avoid double-render
   }, []);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   FileText,
   RefreshCw,
@@ -102,26 +102,27 @@ export default function PipelinePage() {
     fetchEstimates();
   }, []);
 
-  // Exclure les annulés du pipeline
-  const activeEstimates = estimates.filter(
-    (e) => classifyStatus(e.status) !== "cancelled"
-  );
+  // Exclure les annulés du pipeline — memoized
+  const activeEstimates = useMemo(() =>
+    estimates.filter((e) => classifyStatus(e.status) !== "cancelled"),
+    [estimates]);
 
-  const groupedEstimates = PIPELINE_COLUMNS.reduce(
-    (acc, col) => {
-      const colItems = activeEstimates.filter(
-        (e) => classifyStatus(e.status) === col.key
-      );
-      colItems.sort((a, b) => {
-        const da = new Date(a.date || a.created || "").getTime() || 0;
-        const db = new Date(b.date || b.created || "").getTime() || 0;
-        return sortOrder === "newest" ? db - da : da - db;
-      });
-      acc[col.key] = colItems;
-      return acc;
-    },
-    {} as Record<string, Estimate[]>
-  );
+  const groupedEstimates = useMemo(() =>
+    PIPELINE_COLUMNS.reduce(
+      (acc, col) => {
+        const colItems = activeEstimates
+          .filter((e) => classifyStatus(e.status) === col.key)
+          .sort((a, b) => {
+            const da = new Date(a.date || a.created || "").getTime() || 0;
+            const db = new Date(b.date || b.created || "").getTime() || 0;
+            return sortOrder === "newest" ? db - da : da - db;
+          });
+        acc[col.key] = colItems;
+        return acc;
+      },
+      {} as Record<string, Estimate[]>
+    ),
+    [activeEstimates, sortOrder]);
 
   if (loading) {
     return (
