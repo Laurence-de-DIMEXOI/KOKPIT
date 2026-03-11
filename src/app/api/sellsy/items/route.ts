@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchItems, listAllItems } from "@/lib/sellsy";
+import { searchItems, listAllItems, invalidateSellsyCache } from "@/lib/sellsy";
 
 // GET /api/sellsy/items - Liste des produits (exclut shipping/packaging et archivés)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    if (searchParams.get("fresh") === "true") invalidateSellsyCache();
     const limit = parseInt(searchParams.get("limit") || "100", 10);
     const offset = searchParams.get("offset") || "0";
     const search = searchParams.get("search") || "";

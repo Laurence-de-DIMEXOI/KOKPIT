@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listEstimates, searchEstimates } from "@/lib/sellsy";
+import { listEstimates, searchEstimates, invalidateSellsyCache } from "@/lib/sellsy";
 
 // GET /api/sellsy/estimates - Liste des devis Sellsy
-// Params: limit, offset, status, created_start, created_end
+// Params: limit, offset, status, created_start, created_end, fresh
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    if (searchParams.get("fresh") === "true") invalidateSellsyCache();
     const limit = parseInt(searchParams.get("limit") || "500", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const status = searchParams.get("status") || "";

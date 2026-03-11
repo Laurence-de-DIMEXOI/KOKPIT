@@ -79,11 +79,11 @@ export default function PipelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
-  const fetchEstimates = async () => {
+  const fetchEstimates = async (fresh = false) => {
     setRefreshing(true);
     setError(null);
     try {
-      const res = await fetch("/api/sellsy/estimates?limit=100");
+      const res = await fetch(`/api/sellsy/estimates?limit=100${fresh ? "&fresh=true" : ""}`);
       if (!res.ok) {
         throw new Error(`Erreur API: ${res.status}`);
       }
@@ -144,7 +144,7 @@ export default function PipelinePage() {
             </p>
           </div>
           <button
-            onClick={fetchEstimates}
+            onClick={() => fetchEstimates(true)}
             disabled={refreshing}
             className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
           >
@@ -190,7 +190,7 @@ export default function PipelinePage() {
             <span className="hidden sm:inline">{sortOrder === "newest" ? "Récents" : "Anciens"}</span>
           </button>
           <button
-            onClick={fetchEstimates}
+            onClick={() => fetchEstimates(true)}
             disabled={refreshing}
             className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
           >

@@ -51,12 +51,35 @@ async function getAccessToken(): Promise<string> {
   return cachedToken.access_token;
 }
 
+// ===== CACHE API =====
+
+const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+const apiCache = new Map<string, { data: unknown; expiresAt: number }>();
+
+function getCacheKey(path: string, body?: string): string {
+  return body ? `${path}::${body}` : path;
+}
+
+/** Vider le cache Sellsy (appelé par le bouton Sync) */
+export function invalidateSellsyCache() {
+  apiCache.clear();
+}
+
 // ===== HELPER API =====
 
 async function sellsyFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const body = typeof options.body === "string" ? options.body : undefined;
+  const cacheKey = getCacheKey(path, body);
+
+  // Vérifier le cache
+  const cached = apiCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data as T;
+  }
+
   const token = await getAccessToken();
 
   const response = await fetch(`${SELLSY_BASE_URL}${path}`, {
@@ -76,7 +99,12 @@ async function sellsyFetch<T>(
   // 204 No Content
   if (response.status === 204) return {} as T;
 
-  return response.json();
+  const data = await response.json();
+
+  // Mettre en cache
+  apiCache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL });
+
+  return data;
 }
 
 // ===== TYPES =====

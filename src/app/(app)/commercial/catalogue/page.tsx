@@ -63,10 +63,10 @@ export default function CataloguePage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const fetchItems = async () => {
+  const fetchItems = async (fresh = false) => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/sellsy/items?all=true");
+      const res = await fetch(`/api/sellsy/items?all=true${fresh ? "&fresh=true" : ""}`);
       const data = await res.json();
       if (data.success) {
         setItems(data.items || []);
@@ -185,7 +185,7 @@ export default function CataloguePage() {
           </p>
         </div>
         <button
-          onClick={fetchItems}
+          onClick={() => fetchItems(true)}
           disabled={refreshing}
           className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
         >

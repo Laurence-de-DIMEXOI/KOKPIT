@@ -101,11 +101,12 @@ export default function CommandesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [period, setPeriod] = useState<Period>("month");
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (fresh = false) => {
     setRefreshing(true);
     try {
       const params = new URLSearchParams({ limit: "50" });
       if (statusFilter) params.set("status", statusFilter);
+      if (fresh) params.set("fresh", "true");
       const res = await fetch(`/api/sellsy/orders?${params}`);
       const data = await res.json();
       setOrders(data.orders || []);
@@ -170,7 +171,7 @@ export default function CommandesPage() {
           </p>
         </div>
         <button
-          onClick={fetchOrders}
+          onClick={() => fetchOrders(true)}
           disabled={refreshing}
           className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
         >

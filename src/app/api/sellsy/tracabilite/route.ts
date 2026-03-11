@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { listAllEstimates, listAllOrders } from "@/lib/sellsy";
+import { listAllEstimates, listAllOrders, invalidateSellsyCache } from "@/lib/sellsy";
 
 function getAmountHT(amounts?: Record<string, any>): number {
   if (!amounts) return 0;
