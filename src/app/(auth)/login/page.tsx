@@ -31,7 +31,21 @@ export default function LoginPage() {
             : result.error || "Une erreur est survenue"
         );
       } else if (result?.ok) {
-        router.push("/dashboard");
+        // Redirect based on user role
+        try {
+          const sessionRes = await fetch("/api/auth/session");
+          const session = await sessionRes.json();
+          const role = session?.user?.role;
+          const redirectMap: Record<string, string> = {
+            ADMIN: "/commercial",
+            DIRECTION: "/commercial",
+            COMMERCIAL: "/commercial",
+            MARKETING: "/dashboard",
+          };
+          router.push(redirectMap[role] || "/commercial");
+        } catch {
+          router.push("/commercial");
+        }
       }
     } catch (err) {
       setError("Une erreur est survenue lors de la connexion");

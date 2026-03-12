@@ -27,18 +27,26 @@ export default function AuthLayout({
             unique. Campagnes, leads, devis, commandes — tout est centralisé.
           </p>
 
-          <div className="flex items-center gap-6 text-cockpit-secondary text-sm">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-cockpit-secondary text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-cockpit-success" />
-              <span>Meta Ads</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-cockpit-info" />
+              <div className="w-2 h-2 rounded-full bg-[#0E6973]" />
               <span>Sellsy</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-cockpit-warning" />
-              <span>Glide</span>
+              <div className="w-2 h-2 rounded-full bg-[#0B5394]" />
+              <span>Brevo</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#1877F2]" />
+              <span>Meta Ads</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#E1306C]" />
+              <span>Instagram</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#3ECF8E]" />
+              <span>Supabase</span>
             </div>
           </div>
         </div>

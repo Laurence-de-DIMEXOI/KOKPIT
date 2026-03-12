@@ -6,8 +6,8 @@ import { KPICard } from "@/components/dashboard/kpi-card";
 import {
   Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2,
   ChevronDown, ChevronUp, Package, Phone, Mail, MapPin,
-  DollarSign, Sparkles, User, Calendar, MessageSquare, Tag,
-  CheckCircle, XCircle, FileText,
+  DollarSign, User, Calendar, MessageSquare, Tag,
+  CheckCircle, XCircle, FileText, Search,
 } from "lucide-react";
 
 // ===== TYPES =====
@@ -105,8 +105,6 @@ export default function LeadsPage() {
   const [sellsyResults, setSellsyResults] = useState<Record<string, SellsyResult>>({});
   const [sellsyLoading, setSellsyLoading] = useState<Record<string, boolean>>({});
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
-  const [estimating, setEstimating] = useState(false);
-  const [estimateResult, setEstimateResult] = useState<string | null>(null);
 
   const fetchDemandes = useCallback(async (showLoader = true) => {
     if (showLoader) setRefreshing(true);
@@ -134,28 +132,7 @@ export default function LeadsPage() {
     return () => clearInterval(interval);
   }, [fetchDemandes]);
 
-  // ===== BATCH ESTIMATION =====
-
-  const runBatchEstimation = async () => {
-    setEstimating(true);
-    setEstimateResult(null);
-    try {
-      const res = await fetch("/api/demandes/estimate-all", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setEstimateResult(`${data.estimated} demande(s) estimée(s) sur ${data.total}`);
-        fetchDemandes(false); // Recharger pour voir les estimations
-      } else {
-        setEstimateResult(`Erreur: ${data.error}`);
-      }
-    } catch (err) {
-      setEstimateResult("Erreur de connexion");
-    } finally {
-      setEstimating(false);
-    }
-  };
-
-  // ===== SELLSY AI MATCH =====
+  // ===== SELLSY CATALOGUE MATCH =====
 
   const fetchSellsyMatch = async (demandeId: string) => {
     if (sellsyResults[demandeId] || sellsyLoading[demandeId]) return;
@@ -249,18 +226,10 @@ export default function LeadsPage() {
             Demandes de Prix
           </h1>
           <p className="text-cockpit-secondary text-sm">
-            Gérez les demandes · Estimation IA via catalogue Sellsy
+            Gérez les demandes · Correspondance catalogue Sellsy
           </p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            onClick={runBatchEstimation}
-            disabled={estimating}
-            className="flex items-center gap-2 bg-cockpit-yellow/10 border border-cockpit-yellow/30 text-cockpit-yellow px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-cockpit-yellow/20 transition-colors disabled:opacity-50 text-sm"
-          >
-            {estimating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            <span className="hidden sm:inline">Estimer tout</span>
-          </button>
           <button
             onClick={() => fetchDemandes(true)}
             disabled={refreshing}
@@ -272,17 +241,12 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Auto-refresh indicator + estimation result */}
-      <div className="flex items-center gap-3 text-xs text-cockpit-secondary flex-wrap">
+      {/* Auto-refresh indicator */}
+      <div className="flex items-center gap-3 text-xs text-cockpit-secondary">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          Auto 15s • {lastUpdate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          Auto-refresh · {lastUpdate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
         </div>
-        {estimateResult && (
-          <span className="px-2 py-0.5 bg-cockpit-yellow/10 text-cockpit-yellow rounded font-semibold">
-            {estimateResult}
-          </span>
-        )}
       </div>
 
       {/* KPI Cards */}
@@ -410,14 +374,14 @@ export default function LeadsPage() {
                     {formatDate(demande.dateCreation)}
                   </span>
 
-                  {/* Estimation IA (stockée en DB ou chargée dynamiquement) */}
+                  {/* Estimation catalogue */}
                   {(demande.estimationTTC || sellsy?.totalEstimatedTTC) ? (
-                    <span className="text-xs font-bold text-cockpit-yellow flex-shrink-0 min-w-[80px] text-right" title="Estimation IA">
-                      <Sparkles className="w-3 h-3 inline mr-0.5 -mt-0.5" />
+                    <span className="text-xs font-bold text-cockpit-yellow flex-shrink-0 min-w-[80px] text-right" title="Estimation catalogue">
+                      <DollarSign className="w-3 h-3 inline mr-0.5 -mt-0.5" />
                       {Number(demande.estimationTTC || sellsy?.totalEstimatedTTC || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}€
                     </span>
                   ) : (
-                    <span className="text-[10px] text-cockpit-secondary flex-shrink-0 min-w-[80px] text-right hidden lg:block" title="Pas encore estimé">
+                    <span className="text-[10px] text-cockpit-secondary flex-shrink-0 min-w-[80px] text-right hidden lg:block" title="Non estimé">
                       —
                     </span>
                   )}
@@ -511,11 +475,11 @@ export default function LeadsPage() {
                         )}
                       </div>
 
-                      {/* Col 2 — Estimation IA Sellsy */}
+                      {/* Col 2 — Correspondance Catalogue Sellsy */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-cockpit-yellow" />
-                          Estimation IA · Catalogue Sellsy
+                          <Search className="w-4 h-4 text-cockpit-yellow" />
+                          Correspondance Catalogue Sellsy
                         </h3>
 
                         {sellsyIsLoading ? (

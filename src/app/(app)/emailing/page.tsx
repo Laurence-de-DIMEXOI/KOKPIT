@@ -480,21 +480,8 @@ export default function EmailingPage() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-cockpit-heading">
-            Synchronisation Sellsy → Brevo
+            Segments Sellsy → Brevo
           </h2>
-          <button
-            onClick={syncAll}
-            disabled={syncAllRunning || !!syncingSegment}
-            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: 'var(--color-active)' }}
-          >
-            {syncAllRunning ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-            Tout synchroniser
-          </button>
         </div>
 
         <p className="text-xs text-cockpit-secondary mb-4">
@@ -558,21 +545,9 @@ export default function EmailingPage() {
                   </div>
                 )}
 
-                {/* Actions */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => syncSegment(seg.id)}
-                    disabled={isSyncing || syncAllRunning}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cockpit text-cockpit-primary text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50"
-                  >
-                    {isSyncing ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    )}
-                    Synchroniser
-                  </button>
-                  {result?.listeBrevoId && (
+                {/* Lien Brevo */}
+                {result?.listeBrevoId && (
+                  <div className="flex items-center">
                     <a
                       href={`https://app.brevo.com/contact/list/id/${result.listeBrevoId}`}
                       target="_blank"
@@ -582,8 +557,8 @@ export default function EmailingPage() {
                       Voir dans Brevo
                       <ExternalLink className="w-3 h-3" />
                     </a>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             );
           })}

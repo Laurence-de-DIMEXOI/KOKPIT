@@ -377,14 +377,15 @@ export default function CommercialDashboardPage() {
           <button
             onClick={fetchAll}
             disabled={refreshing}
-            className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+            className="flex items-center gap-2 bg-cockpit-dark border border-cockpit px-4 py-2.5 rounded-lg font-medium hover:bg-cockpit-card transition disabled:opacity-50 text-sm"
+            title="Actualiser les données"
           >
             {refreshing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <RefreshCw className="w-4 h-4" />
             )}
-            Synchroniser
+            Actualiser
           </button>
         </div>
 

@@ -268,10 +268,9 @@ export default function CampagnesPage() {
           )}
         </div>
         <button onClick={() => handleSync()} disabled={syncing || loading}
-          className="flex items-center justify-center gap-2 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm w-full sm:w-auto"
-          style={{ backgroundColor: 'var(--color-active)' }}>
+          className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm">
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {syncing ? "Sync en cours..." : "Synchroniser Meta"}
+          <span className="hidden sm:inline">{syncing ? "Actualisation..." : "Actualiser"}</span>
         </button>
       </div>
 
@@ -447,11 +446,11 @@ export default function CampagnesPage() {
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8 text-center">
           <BarChart3 className="w-12 h-12 mx-auto mb-4 text-cockpit-secondary opacity-50" />
           <h3 className="text-base font-semibold text-cockpit-heading mb-2">Aucune campagne</h3>
-          <p className="text-cockpit-secondary text-sm mb-6">Synchronise pour importer tes campagnes Meta</p>
+          <p className="text-cockpit-secondary text-sm mb-6">Les données Meta s'actualisent automatiquement</p>
           <button onClick={() => handleSync()} disabled={syncing}
-            className="text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm"
-            style={{ backgroundColor: 'var(--color-active)' }}>
-            Synchroniser maintenant
+            className="flex items-center gap-2 mx-auto bg-cockpit-card border border-cockpit px-6 py-3 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm">
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Actualiser
           </button>
         </div>
       )}
