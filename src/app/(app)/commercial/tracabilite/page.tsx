@@ -8,16 +8,16 @@ import {
   AlertTriangle,
   Loader2,
   RefreshCw,
-  Link2,
   Unlink,
   ExternalLink,
-  Lightbulb,
   Check,
   Search,
+  CheckCircle2,
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
 import { DocumentChain } from "@/components/commercial/document-chain";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 import clsx from "clsx";
 import { traduireStatut } from "@/lib/sellsy-statuts";
 
@@ -68,23 +68,17 @@ interface DocSummary {
   company_name?: string;
   contact_id?: number;
   amounts?: Amounts;
-  pdf_link?: string;
   ageJours?: number;
 }
 
 interface DevisConverti {
   liaisonId: string;
+  source: "v1";
   estimate: DocSummary;
   order: DocSummary;
   montantDevis: number;
   montantCommande: number;
   ecart: number;
-}
-
-interface Suggestion {
-  estimate: DocSummary;
-  order: DocSummary;
-  score: number;
 }
 
 interface Stats {
@@ -95,6 +89,13 @@ interface Stats {
   tauxConversion: number;
   devisEnAttente: number;
   devisExpires: number;
+}
+
+interface V1Progress {
+  checked: number;
+  total: number;
+  newLinksCreated: number;
+  complete: boolean;
 }
 
 type TabKey = "convertis" | "directes" | "non-convertis";
@@ -137,26 +138,24 @@ export default function TracabilitePage() {
   const [devisConvertis, setDevisConvertis] = useState<DevisConverti[]>([]);
   const [commandesSansDevis, setCommandesSansDevis] = useState<DocSummary[]>([]);
   const [devisNonConvertis, setDevisNonConvertis] = useState<DocSummary[]>([]);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [v1Progress, setV1Progress] = useState<V1Progress | null>(null);
   const [cacheDate, setCacheDate] = useState<string | null>(null);
 
-  // Dropdown state for linking
-  const [linkingOrderId, setLinkingOrderId] = useState<number | null>(null);
-  const [linkingEstimateId, setLinkingEstimateId] = useState<number | null>(null);
   // Expanded chain row
   const [expandedChainId, setExpandedChainId] = useState<string | null>(null);
 
   const fetchData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     try {
-      const res = await fetch("/api/sellsy/tracabilite");
+      const url = showRefresh ? "/api/sellsy/tracabilite?fresh=true" : "/api/sellsy/tracabilite";
+      const res = await fetch(url);
       const data = await res.json();
       setDevisConvertis(data.devisConvertis || []);
       setCommandesSansDevis(data.commandesSansDevis || []);
       setDevisNonConvertis(data.devisNonConvertis || []);
-      setSuggestions(data.suggestions || []);
       setStats(data.stats || null);
+      setV1Progress(data.v1Progress || null);
       setCacheDate(data._cache?.generatedAt || null);
     } catch (err) {
       console.error("Erreur chargement traçabilité:", err);
@@ -169,34 +168,6 @@ export default function TracabilitePage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const handleLink = async (estimateId: number, orderId: number) => {
-    try {
-      await fetch("/api/sellsy/liaison", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estimateId, orderId }),
-      });
-      setLinkingOrderId(null);
-      setLinkingEstimateId(null);
-      fetchData(true);
-    } catch (err) {
-      console.error("Erreur liaison:", err);
-    }
-  };
-
-  const handleUnlink = async (estimateId: number, orderId: number) => {
-    try {
-      await fetch("/api/sellsy/liaison", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estimateId, orderId }),
-      });
-      fetchData(true);
-    } catch (err) {
-      console.error("Erreur suppression liaison:", err);
-    }
-  };
 
   // Period-filtered data
   const sq = searchQuery.toLowerCase();
@@ -217,62 +188,48 @@ export default function TracabilitePage() {
   const filteredNonConvertis = filterByPeriod(devisNonConvertis, period).filter(matchesSearch);
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
-    { key: "convertis", label: "Devis \u2192 Commandes", count: filteredConvertis.length },
+    { key: "convertis", label: "Devis → Commandes", count: filteredConvertis.length },
     { key: "directes", label: "Commandes directes", count: filteredDirectes.length },
     { key: "non-convertis", label: "Devis non convertis", count: filteredNonConvertis.length },
   ];
-
-  // Get candidate estimates for an order (same contact_id)
-  const getCandidateEstimates = (orderId: number) => {
-    const order = commandesSansDevis.find((o) => o.id === orderId);
-    if (!order?.contact_id) return devisNonConvertis;
-    return devisNonConvertis.filter((e) => e.contact_id === order.contact_id);
-  };
-
-  // Get candidate orders for an estimate (same contact_id)
-  const getCandidateOrders = (estimateId: number) => {
-    const estimate = devisNonConvertis.find((e) => e.id === estimateId);
-    if (!estimate?.contact_id) return commandesSansDevis;
-    return commandesSansDevis.filter((o) => o.contact_id === estimate.contact_id);
-  };
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-200 animate-pulse" />
+            <div className="w-10 h-10 rounded-xl bg-cockpit-dark animate-pulse" />
             <div>
-              <div className="h-6 w-64 bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-80 bg-gray-200 rounded mt-1 animate-pulse" />
+              <div className="h-6 w-64 bg-cockpit-dark rounded animate-pulse" />
+              <div className="h-4 w-80 bg-cockpit-dark rounded mt-1 animate-pulse" />
             </div>
           </div>
-          <div className="h-10 w-28 bg-gray-200 rounded-lg animate-pulse" />
+          <div className="h-10 w-28 bg-cockpit-dark rounded-lg animate-pulse" />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 bg-white rounded-xl border border-gray-200 animate-pulse p-4">
-              <div className="h-3 w-24 bg-gray-200 rounded mb-3" />
-              <div className="h-6 w-16 bg-gray-200 rounded" />
+            <div key={i} className="h-24 bg-cockpit-card rounded-xl border border-cockpit animate-pulse p-4">
+              <div className="h-3 w-24 bg-cockpit-dark rounded mb-3" />
+              <div className="h-6 w-16 bg-cockpit-dark rounded" />
             </div>
           ))}
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="flex border-b border-gray-200">
+        <div className="bg-cockpit-card rounded-xl border border-cockpit overflow-hidden">
+          <div className="flex border-b border-cockpit">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="flex-1 px-4 py-3">
-                <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mx-auto" />
+                <div className="h-4 w-32 bg-cockpit-dark rounded animate-pulse mx-auto" />
               </div>
             ))}
           </div>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="px-4 py-3 border-b border-gray-100 flex gap-4 animate-pulse">
-              <div className="h-4 w-24 bg-gray-200 rounded" />
-              <div className="h-4 w-32 bg-gray-200 rounded" />
-              <div className="h-4 w-20 bg-gray-200 rounded ml-auto" />
-              <div className="h-4 w-24 bg-gray-200 rounded" />
-              <div className="h-4 w-20 bg-gray-200 rounded" />
-              <div className="h-4 w-12 bg-gray-200 rounded" />
+            <div key={i} className="px-4 py-3 border-b border-cockpit flex gap-4 animate-pulse">
+              <div className="h-4 w-24 bg-cockpit-dark rounded" />
+              <div className="h-4 w-32 bg-cockpit-dark rounded" />
+              <div className="h-4 w-20 bg-cockpit-dark rounded ml-auto" />
+              <div className="h-4 w-24 bg-cockpit-dark rounded" />
+              <div className="h-4 w-20 bg-cockpit-dark rounded" />
+              <div className="h-4 w-12 bg-cockpit-dark rounded" />
             </div>
           ))}
         </div>
@@ -293,7 +250,7 @@ export default function TracabilitePage() {
               Traçabilité Devis → Commandes
             </h1>
             <p className="text-sm text-cockpit-secondary">
-              Liez vos devis Sellsy à leurs commandes pour suivre la conversion
+              Liaisons automatiques via l&apos;API Sellsy V1
             </p>
           </div>
         </div>
@@ -307,9 +264,10 @@ export default function TracabilitePage() {
                 className={clsx(
                   "px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors",
                   period === p
-                    ? "bg-cockpit-yellow text-white"
+                    ? "text-white"
                     : "text-cockpit-secondary hover:bg-cockpit-dark"
                 )}
+                style={period === p ? { backgroundColor: 'var(--color-active)' } : undefined}
               >
                 {PERIOD_LABELS[p]}
               </button>
@@ -333,6 +291,41 @@ export default function TracabilitePage() {
         onRefresh={() => fetchData(true)}
         refreshing={refreshing}
       />
+
+      {/* V1 Progress indicator */}
+      {v1Progress && !v1Progress.complete && (
+        <div className="bg-cockpit-info/10 border border-cockpit-info/30 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-cockpit-info animate-spin" />
+            <div>
+              <span className="text-sm font-medium text-cockpit-heading">
+                Résolution automatique V1 en cours
+              </span>
+              <p className="text-xs text-cockpit-secondary mt-0.5">
+                {v1Progress.checked}/{v1Progress.total} commandes vérifiées
+                {v1Progress.newLinksCreated > 0 && ` — ${v1Progress.newLinksCreated} nouvelles liaisons trouvées`}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => fetchData(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: 'var(--color-active)' }}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Continuer
+          </button>
+        </div>
+      )}
+
+      {v1Progress?.complete && (
+        <div className="bg-cockpit-success/10 border border-cockpit-success/30 rounded-lg p-3 flex items-center gap-3">
+          <CheckCircle2 className="w-4 h-4 text-cockpit-success flex-shrink-0" />
+          <span className="text-sm text-cockpit-heading">
+            Toutes les commandes ont été vérifiées via l&apos;API Sellsy V1 ({v1Progress.total} commandes)
+          </span>
+        </div>
+      )}
 
       {/* Barre de recherche */}
       <div className="relative">
@@ -376,30 +369,6 @@ export default function TracabilitePage() {
         </div>
       )}
 
-      {/* Suggestions banner */}
-      {suggestions.length > 0 && (
-        <div className="bg-cockpit-yellow/10 border border-cockpit-yellow/30 rounded-lg p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Lightbulb className="w-5 h-5 text-cockpit-yellow" />
-            <span className="text-sm font-medium text-cockpit-heading">
-              {suggestions.length} liaison{suggestions.length > 1 ? "s" : ""} suggérée{suggestions.length > 1 ? "s" : ""} (même client, montant similaire)
-            </span>
-          </div>
-          <button
-            onClick={async () => {
-              for (const s of suggestions) {
-                await handleLink(s.estimate.id, s.order.id);
-              }
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: 'var(--color-active)' }}
-          >
-            <Link2 className="w-3.5 h-3.5" />
-            Appliquer toutes
-          </button>
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
         <div className="flex border-b border-cockpit">
@@ -440,14 +409,15 @@ export default function TracabilitePage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">N° COMMANDE</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">MONTANT COMMANDE</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">ÉCART</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">ACTIONS</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">CHAÎNE</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
                 {filteredConvertis.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
-                      Aucune liaison créée. Liez vos devis à leurs commandes depuis les onglets ci-dessous.
+                      Aucune liaison trouvée via l&apos;API Sellsy V1.
+                      {v1Progress && !v1Progress.complete && " Actualiser pour continuer la résolution automatique."}
                     </td>
                   </tr>
                 ) : (
@@ -460,7 +430,15 @@ export default function TracabilitePage() {
                         <td className="px-4 py-3 text-sm">
                           <div className="flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5 text-cockpit-secondary" />
-                            <span className="font-medium text-cockpit-primary">{item.estimate.number || `#${item.estimate.id}`}</span>
+                            <a
+                              href={getSellsyUrl('estimate', item.estimate.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-cockpit-info hover:underline flex items-center gap-1"
+                            >
+                              {item.estimate.number || `#${item.estimate.id}`}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-cockpit-primary">{item.estimate.company_name || "—"}</td>
@@ -468,7 +446,15 @@ export default function TracabilitePage() {
                         <td className="px-4 py-3 text-sm">
                           <div className="flex items-center gap-2">
                             <ShoppingCart className="w-3.5 h-3.5 text-cockpit-secondary" />
-                            <span className="font-medium text-cockpit-primary">{item.order.number || `#${item.order.id}`}</span>
+                            <a
+                              href={getSellsyUrl('order', item.order.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-cockpit-info hover:underline flex items-center gap-1"
+                            >
+                              {item.order.number || `#${item.order.id}`}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-medium text-cockpit-primary">{formatCurrency(item.montantCommande)}</td>
@@ -481,32 +467,23 @@ export default function TracabilitePage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => setExpandedChainId(isExpanded ? null : chainKey)}
-                              className={clsx(
-                                "p-1.5 rounded-md transition-colors",
-                                isExpanded
-                                  ? "bg-cockpit-info/10 text-cockpit-info"
-                                  : "text-cockpit-secondary hover:text-cockpit-info hover:bg-cockpit-info/10"
-                              )}
-                              title="Chaîne documentaire"
-                            >
-                              <GitCompareArrows className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleUnlink(item.estimate.id, item.order.id)}
-                              className="p-1.5 rounded-md hover:bg-cockpit-danger/10 text-cockpit-secondary hover:text-cockpit-danger transition-colors"
-                              title="Supprimer la liaison"
-                            >
-                              <Unlink className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => setExpandedChainId(isExpanded ? null : chainKey)}
+                            className={clsx(
+                              "p-1.5 rounded-md transition-colors",
+                              isExpanded
+                                ? "bg-cockpit-info/10 text-cockpit-info"
+                                : "text-cockpit-secondary hover:text-cockpit-info hover:bg-cockpit-info/10"
+                            )}
+                            title="Chaîne documentaire"
+                          >
+                            <GitCompareArrows className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                       {isExpanded && (
                         <tr key={`${item.liaisonId}-chain`}>
-                          <td colSpan={7} className="px-4 py-3 bg-gray-50/50">
+                          <td colSpan={7} className="px-4 py-3 bg-cockpit-dark/30">
                             <DocumentChain docType="order" docId={item.order.id} currentNumero={item.order.number} />
                           </td>
                         </tr>
@@ -529,7 +506,7 @@ export default function TracabilitePage() {
                   <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">MONTANT HT</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">DATE</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">STATUT</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">LIER</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">SELLSY</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
@@ -545,12 +522,15 @@ export default function TracabilitePage() {
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
                           <ShoppingCart className="w-3.5 h-3.5 text-cockpit-secondary" />
-                          <span className="font-medium text-cockpit-primary">{order.number || `#${order.id}`}</span>
-                          {order.pdf_link && (
-                            <a href={order.pdf_link} target="_blank" rel="noopener noreferrer" className="text-cockpit-info hover:text-cockpit-info/80">
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
+                          <a
+                            href={getSellsyUrl('order', order.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-cockpit-info hover:underline flex items-center gap-1"
+                          >
+                            {order.number || `#${order.id}`}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-cockpit-primary">{order.company_name || "—"}</td>
@@ -563,38 +543,16 @@ export default function TracabilitePage() {
                           {traduireStatut(order.status)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center relative">
-                        <button
-                          onClick={() => setLinkingOrderId(linkingOrderId === order.id ? null : order.id)}
-                          className="p-1.5 rounded-md hover:bg-cockpit-yellow/10 text-cockpit-secondary hover:text-cockpit-yellow transition-colors"
-                          title="Lier à un devis"
+                      <td className="px-4 py-3 text-center">
+                        <a
+                          href={getSellsyUrl('order', order.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md hover:bg-cockpit-info/10 text-cockpit-secondary hover:text-cockpit-info transition-colors inline-block"
+                          title="Ouvrir dans Sellsy"
                         >
-                          <Link2 className="w-4 h-4" />
-                        </button>
-                        {linkingOrderId === order.id && (
-                          <div className="absolute right-0 top-full z-10 mt-1 w-72 bg-cockpit-card border border-cockpit rounded-lg shadow-cockpit-lg max-h-60 overflow-y-auto">
-                            <div className="p-2 border-b border-cockpit">
-                              <p className="text-xs font-semibold text-cockpit-heading">Lier à un devis</p>
-                            </div>
-                            {getCandidateEstimates(order.id).length === 0 ? (
-                              <p className="p-3 text-xs text-cockpit-secondary">Aucun devis trouvé pour ce client</p>
-                            ) : (
-                              getCandidateEstimates(order.id).map((est) => (
-                                <button
-                                  key={est.id}
-                                  onClick={() => handleLink(est.id, order.id)}
-                                  className="w-full px-3 py-2 text-left hover:bg-cockpit-dark/80 transition-colors flex items-center justify-between"
-                                >
-                                  <div>
-                                    <p className="text-xs font-medium text-cockpit-primary">{est.number || `#${est.id}`}</p>
-                                    <p className="text-[10px] text-cockpit-secondary">{est.company_name}</p>
-                                  </div>
-                                  <span className="text-xs font-medium text-cockpit-primary">{formatCurrency(getAmountHT(est.amounts))}</span>
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
                       </td>
                     </tr>
                   ))
@@ -612,14 +570,15 @@ export default function TracabilitePage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">CLIENT</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">MONTANT HT</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">DATE</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">STATUT</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">ANCIENNETÉ</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">LIER</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">SELLSY</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
                 {filteredNonConvertis.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
+                    <td colSpan={7} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
                       Tous les devis sont liés à une commande.
                     </td>
                   </tr>
@@ -629,12 +588,15 @@ export default function TracabilitePage() {
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
                           <FileText className="w-3.5 h-3.5 text-cockpit-secondary" />
-                          <span className="font-medium text-cockpit-primary">{est.number || `#${est.id}`}</span>
-                          {est.pdf_link && (
-                            <a href={est.pdf_link} target="_blank" rel="noopener noreferrer" className="text-cockpit-info hover:text-cockpit-info/80">
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
+                          <a
+                            href={getSellsyUrl('estimate', est.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-cockpit-info hover:underline flex items-center gap-1"
+                          >
+                            {est.number || `#${est.id}`}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-cockpit-primary">{est.company_name || "—"}</td>
@@ -642,41 +604,24 @@ export default function TracabilitePage() {
                       <td className="px-4 py-3 text-sm text-cockpit-secondary">
                         {est.date ? new Date(est.date).toLocaleDateString("fr-FR") : "—"}
                       </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-cockpit-info/10 text-cockpit-info">
+                          {traduireStatut(est.status)}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-center">
                         {est.ageJours !== undefined && <AgeBadge jours={est.ageJours} />}
                       </td>
-                      <td className="px-4 py-3 text-center relative">
-                        <button
-                          onClick={() => setLinkingEstimateId(linkingEstimateId === est.id ? null : est.id)}
-                          className="p-1.5 rounded-md hover:bg-cockpit-yellow/10 text-cockpit-secondary hover:text-cockpit-yellow transition-colors"
-                          title="Lier à une commande"
+                      <td className="px-4 py-3 text-center">
+                        <a
+                          href={getSellsyUrl('estimate', est.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md hover:bg-cockpit-info/10 text-cockpit-secondary hover:text-cockpit-info transition-colors inline-block"
+                          title="Ouvrir dans Sellsy"
                         >
-                          <Link2 className="w-4 h-4" />
-                        </button>
-                        {linkingEstimateId === est.id && (
-                          <div className="absolute right-0 top-full z-10 mt-1 w-72 bg-cockpit-card border border-cockpit rounded-lg shadow-cockpit-lg max-h-60 overflow-y-auto">
-                            <div className="p-2 border-b border-cockpit">
-                              <p className="text-xs font-semibold text-cockpit-heading">Lier à une commande</p>
-                            </div>
-                            {getCandidateOrders(est.id).length === 0 ? (
-                              <p className="p-3 text-xs text-cockpit-secondary">Aucune commande trouvée pour ce client</p>
-                            ) : (
-                              getCandidateOrders(est.id).map((ord) => (
-                                <button
-                                  key={ord.id}
-                                  onClick={() => handleLink(est.id, ord.id)}
-                                  className="w-full px-3 py-2 text-left hover:bg-cockpit-dark/80 transition-colors flex items-center justify-between"
-                                >
-                                  <div>
-                                    <p className="text-xs font-medium text-cockpit-primary">{ord.number || `#${ord.id}`}</p>
-                                    <p className="text-[10px] text-cockpit-secondary">{ord.company_name}</p>
-                                  </div>
-                                  <span className="text-xs font-medium text-cockpit-primary">{formatCurrency(getAmountHT(ord.amounts))}</span>
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
                       </td>
                     </tr>
                   ))

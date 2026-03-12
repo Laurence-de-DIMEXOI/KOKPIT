@@ -129,6 +129,13 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
   const [newEventDesc, setNewEventDesc] = useState("");
   const [submittingEvent, setSubmittingEvent] = useState(false);
 
+  // Sellsy history (live data)
+  const [sellsyEstimates, setSellsyEstimates] = useState<any[]>([]);
+  const [sellsyOrders, setSellsyOrders] = useState<any[]>([]);
+  const [sellsyLoading, setSellsyLoading] = useState(false);
+  const [sellsyLinked, setSellsyLinked] = useState(false);
+  const [sellsyResolvedVia, setSellsyResolvedVia] = useState<string | null>(null);
+
   const fetchEvents = useCallback(async (contactId: string, page = 1, append = false) => {
     setActiviteLoading(true);
     try {
@@ -171,6 +178,21 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
     } catch { /* silently fail */ }
   }, [contact]);
 
+  const fetchSellsyHistory = useCallback(async (contactId: string) => {
+    setSellsyLoading(true);
+    try {
+      const res = await fetch(`/api/contacts/${contactId}/sellsy-history`);
+      if (res.ok) {
+        const data = await res.json();
+        setSellsyEstimates(data.estimates || []);
+        setSellsyOrders(data.orders || []);
+        setSellsyLinked(data.linked || false);
+        setSellsyResolvedVia(data.resolvedVia || null);
+      }
+    } catch { /* silently fail */ }
+    setSellsyLoading(false);
+  }, []);
+
   useEffect(() => {
     if (!contact) return;
     setForm({
@@ -186,9 +208,10 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
       notes: contact.notes || "",
     });
     setEditing(false);
-    // Load events
+    // Load events + Sellsy history
     fetchEvents(contact.id);
-  }, [contact, fetchEvents]);
+    fetchSellsyHistory(contact.id);
+  }, [contact, fetchEvents, fetchSellsyHistory]);
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = "hidden";
@@ -450,6 +473,117 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
               </div>
             ) : (
               <p className="text-sm text-[#8592A3]">Aucun bon de commande</p>
+            )}
+          </div>
+
+          {/* Historique Sellsy (live) */}
+          <div className="p-6 border-b border-[#E8EAED]">
+            <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
+              <ExternalLink className="w-4 h-4 inline-block mr-2 -mt-0.5" />Historique Sellsy
+              {sellsyLinked && (
+                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#71DD37]/10 text-[#71DD37]">
+                  {sellsyResolvedVia === "email" ? "via email" : "lié"}
+                </span>
+              )}
+            </h3>
+            {sellsyLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-[#8592A3]" />
+              </div>
+            ) : !sellsyLinked ? (
+              <p className="text-sm text-[#8592A3]">Contact non lié à Sellsy</p>
+            ) : (
+              <div className="space-y-3">
+                {/* Devis Sellsy live */}
+                {sellsyEstimates.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-[#03C3EC] mb-2">Devis ({sellsyEstimates.length})</p>
+                    <div className="space-y-1.5">
+                      {sellsyEstimates.slice(0, 5).map((est: any) => {
+                        const montant = est.amounts?.total_excl_tax ?? est.amounts?.total ?? 0;
+                        return (
+                          <a
+                            key={est.id}
+                            href={getSellsyUrl('estimate', est.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#03C3EC]/30 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-3.5 h-3.5 text-[#03C3EC]" />
+                              <span className="text-xs font-medium text-[#03C3EC]">{est.number || `#${est.id}`}</span>
+                              {est.status && (
+                                <span className="text-[10px] text-[#8592A3]">{est.status}</span>
+                              )}
+                              <ExternalLink className="w-2.5 h-2.5 text-[#8592A3]" />
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-bold text-[#32475C]">
+                                {typeof montant === "number" ? formatEuro(montant) : montant}
+                              </span>
+                              {est.date && (
+                                <span className="text-[10px] text-[#8592A3] ml-2">{formatDate(est.date)}</span>
+                              )}
+                            </div>
+                          </a>
+                        );
+                      })}
+                      {sellsyEstimates.length > 5 && (
+                        <p className="text-xs text-[#8592A3] text-center">
+                          +{sellsyEstimates.length - 5} autres devis
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* BDC Sellsy live */}
+                {sellsyOrders.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-[#71DD37] mb-2">Commandes ({sellsyOrders.length})</p>
+                    <div className="space-y-1.5">
+                      {sellsyOrders.slice(0, 5).map((ord: any) => {
+                        const montant = ord.amounts?.total_excl_tax ?? ord.amounts?.total ?? 0;
+                        return (
+                          <a
+                            key={ord.id}
+                            href={getSellsyUrl('order', ord.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#71DD37]/30 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ShoppingCart className="w-3.5 h-3.5 text-[#71DD37]" />
+                              <span className="text-xs font-medium text-[#71DD37]">{ord.number || `#${ord.id}`}</span>
+                              {ord.status && (
+                                <span className="text-[10px] text-[#8592A3]">{ord.status}</span>
+                              )}
+                              <ExternalLink className="w-2.5 h-2.5 text-[#8592A3]" />
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-bold text-[#32475C]">
+                                {typeof montant === "number" ? formatEuro(montant) : montant}
+                              </span>
+                              {ord.date && (
+                                <span className="text-[10px] text-[#8592A3] ml-2">{formatDate(ord.date)}</span>
+                              )}
+                            </div>
+                          </a>
+                        );
+                      })}
+                      {sellsyOrders.length > 5 && (
+                        <p className="text-xs text-[#8592A3] text-center">
+                          +{sellsyOrders.length - 5} autres commandes
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {sellsyEstimates.length === 0 && sellsyOrders.length === 0 && (
+                  <p className="text-sm text-[#8592A3]">Aucun document trouvé dans Sellsy</p>
+                )}
+              </div>
             )}
           </div>
 

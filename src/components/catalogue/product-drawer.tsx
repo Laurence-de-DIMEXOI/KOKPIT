@@ -1,7 +1,8 @@
 "use client";
 
-import { X, Package, Tag, Euro, Hash, Calendar, Info, ExternalLink } from "lucide-react";
+import { X, Package, Tag, Euro, Hash, Calendar, Info, ExternalLink, Barcode } from "lucide-react";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
+import { BarcodeLabel } from "./barcode-label";
 
 interface SellsyItem {
   id: number;
@@ -198,6 +199,23 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
               </div>
             </div>
           </div>
+
+          {/* Code-barres & Étiquette */}
+          {item.reference && (
+            <div className="px-6 py-4 border-b border-[#E8EAED]">
+              <h3 className="text-xs font-semibold text-[#8592A3] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Barcode className="w-3.5 h-3.5" />
+                Code-barres & Étiquette
+              </h3>
+              <BarcodeLabel
+                reference={item.reference}
+                name={item.name || item.reference}
+                priceHT={priceHT}
+                priceTTC={priceTTC}
+                description={item.description}
+              />
+            </div>
+          )}
 
           {/* Métadonnées */}
           <div className="px-6 py-4">
