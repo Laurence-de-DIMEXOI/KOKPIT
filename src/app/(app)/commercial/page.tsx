@@ -22,6 +22,8 @@ import {
   Minus,
 } from "lucide-react";
 import clsx from "clsx";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
+import { traduireStatut } from "@/lib/sellsy-statuts";
 
 // ===== TYPES =====
 
@@ -562,29 +564,28 @@ export default function CommercialDashboardPage() {
           {recentEstimates.length > 0 ? (
             <div className="space-y-3">
               {recentEstimates.map((est) => (
-                <div
+                <a
                   key={est.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit"
+                  href={getSellsyUrl('estimate', est.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit hover:border-cockpit-info/40 transition-colors block"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-cockpit-primary truncate">
                       {est.number || est.subject || `Devis #${est.id}`}
                     </p>
                     <p className="text-xs text-cockpit-secondary">
-                      {est.company_name || est.status || "—"}
+                      {est.company_name || "—"}
+                      {est.status && ` • ${traduireStatut(est.status)}`}
                       {est.date &&
                         ` • ${new Date(est.date).toLocaleDateString("fr-FR")}`}
                     </p>
                   </div>
-                  <a
-                    href={est.pdf_link || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap hover:text-cockpit-info transition-colors"
-                  >
+                  <span className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
                     {formatCurrency(getAmount(est))}
-                  </a>
-                </div>
+                  </span>
+                </a>
               ))}
             </div>
           ) : (
@@ -607,9 +608,12 @@ export default function CommercialDashboardPage() {
           {recentOrders.length > 0 ? (
             <div className="space-y-3">
               {recentOrders.map((order) => (
-                <div
+                <a
                   key={order.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit"
+                  href={getSellsyUrl('order', order.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit hover:border-cockpit-info/40 transition-colors block"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-cockpit-primary truncate">
@@ -618,20 +622,16 @@ export default function CommercialDashboardPage() {
                         `Commande #${order.id}`}
                     </p>
                     <p className="text-xs text-cockpit-secondary">
-                      {order.company_name || order.status || "—"}
+                      {order.company_name || "—"}
+                      {order.status && ` • ${traduireStatut(order.status)}`}
                       {order.date &&
                         ` • ${new Date(order.date).toLocaleDateString("fr-FR")}`}
                     </p>
                   </div>
-                  <a
-                    href={order.pdf_link || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap hover:text-cockpit-info transition-colors"
-                  >
+                  <span className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
                     {formatCurrency(getAmount(order))}
-                  </a>
-                </div>
+                  </span>
+                </a>
               ))}
             </div>
           ) : (
@@ -642,31 +642,6 @@ export default function CommercialDashboardPage() {
         </div>
       </div>
 
-      {/* Summary footer */}
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-cockpit-yellow/10 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-cockpit-yellow" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-cockpit-heading">
-                Volume total chargé
-              </p>
-              <p className="text-xs text-cockpit-secondary">
-                {totalEstimatesAllTime} devis • {totalOrdersAllTime} commandes •{" "}
-                {totalProducts} produits
-              </p>
-            </div>
-          </div>
-          <p className="text-xl sm:text-2xl font-bold text-cockpit-yellow">
-            {formatCurrency(estimatesAmount + ordersAmount)}
-            <span className="text-sm font-normal text-cockpit-secondary ml-2">
-              {PERIOD_LABELS[period]}
-            </span>
-          </p>
-        </div>
-      </div>
     </div>
   );
 }

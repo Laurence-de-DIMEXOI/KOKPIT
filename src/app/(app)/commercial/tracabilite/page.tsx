@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Lightbulb,
   Check,
+  Search,
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
@@ -131,6 +132,7 @@ export default function TracabilitePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("convertis");
   const [period, setPeriod] = useState<Period>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [devisConvertis, setDevisConvertis] = useState<DevisConverti[]>([]);
   const [commandesSansDevis, setCommandesSansDevis] = useState<DocSummary[]>([]);
@@ -197,14 +199,22 @@ export default function TracabilitePage() {
   };
 
   // Period-filtered data
-  const filteredConvertis = period === "all" ? devisConvertis : devisConvertis.filter((item) => {
+  const sq = searchQuery.toLowerCase();
+  const matchesSearch = (doc: DocSummary) =>
+    !sq ||
+    (doc.number || "").toLowerCase().includes(sq) ||
+    (doc.subject || "").toLowerCase().includes(sq) ||
+    (doc.company_name || "").toLowerCase().includes(sq);
+
+  const filteredConvertis = (period === "all" ? devisConvertis : devisConvertis.filter((item) => {
     const start = getPeriodStart(period);
     if (!start) return true;
     const d = new Date(item.estimate.date || item.order.date || "");
     return d >= start;
-  });
-  const filteredDirectes = filterByPeriod(commandesSansDevis, period);
-  const filteredNonConvertis = filterByPeriod(devisNonConvertis, period);
+  })).filter((item) => !sq || matchesSearch(item.estimate) || matchesSearch(item.order));
+
+  const filteredDirectes = filterByPeriod(commandesSansDevis, period).filter(matchesSearch);
+  const filteredNonConvertis = filterByPeriod(devisNonConvertis, period).filter(matchesSearch);
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "convertis", label: "Devis \u2192 Commandes", count: filteredConvertis.length },
@@ -323,6 +333,18 @@ export default function TracabilitePage() {
         onRefresh={() => fetchData(true)}
         refreshing={refreshing}
       />
+
+      {/* Barre de recherche */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
+        <input
+          type="text"
+          placeholder="Rechercher par contact, n° de devis ou n° de commande..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-cockpit-card border border-cockpit rounded-lg pl-10 pr-4 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-cockpit-info/40"
+        />
+      </div>
 
       {/* KPIs */}
       {stats && (
