@@ -181,19 +181,19 @@ export default function LeadsPage() {
 
   const getStatusColor = (statut: string) => {
     const colors: Record<string, { bg: string; text: string; ring: string }> = {
-      NOUVEAU: { bg: "bg-[#71DD37]/10", text: "text-[#71DD37]", ring: "ring-[#71DD37]/30" },
-      EN_COURS: { bg: "bg-[#F59E0B]/10", text: "text-[#F59E0B]", ring: "ring-[#F59E0B]/30" },
-      DEVIS: { bg: "bg-[#60A5FA]/10", text: "text-[#60A5FA]", ring: "ring-[#60A5FA]/30" },
-      VENTE: { bg: "bg-[#34D399]/10", text: "text-[#34D399]", ring: "ring-[#34D399]/30" },
-      PERDU: { bg: "bg-[#EF4444]/10", text: "text-[#EF4444]", ring: "ring-[#EF4444]/30" },
+      NOUVEAU: { bg: "bg-[#8DA035]/10", text: "text-[#8DA035]", ring: "ring-[#8DA035]/30" },
+      EN_COURS: { bg: "bg-[#E2A90A]/10", text: "text-[#E2A90A]", ring: "ring-[#E2A90A]/30" },
+      DEVIS: { bg: "bg-[#D4567A]/10", text: "text-[#D4567A]", ring: "ring-[#D4567A]/30" },
+      VENTE: { bg: "bg-[#8DA035]/10", text: "text-[#8DA035]", ring: "ring-[#8DA035]/30" },
+      PERDU: { bg: "bg-[#C2185B]/10", text: "text-[#C2185B]", ring: "ring-[#C2185B]/30" },
     };
     return colors[statut] || { bg: "bg-gray-500/10", text: "text-gray-400", ring: "ring-gray-500/30" };
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-[#34D399]";
-    if (score >= 50) return "text-[#F59E0B]";
-    return "text-[#EF4444]";
+    if (score >= 80) return "text-[#8DA035]";
+    if (score >= 50) return "text-[#E2A90A]";
+    return "text-[#C2185B]";
   };
 
   const nomComplet = (d: Demande) => `${d.prenom || ""} ${d.nom || ""}`.trim();
@@ -251,12 +251,12 @@ export default function LeadsPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        <KPICard title="Total" value={stats.total} icon={<Inbox className="w-6 h-6" />} bgColor="bg-cockpit-yellow" />
-        <KPICard title="Nouveau" value={stats.nouveau} icon={<TrendingUp className="w-6 h-6" />} bgColor="bg-[#71DD37]" />
-        <KPICard title="En cours" value={stats.enCours} icon={<Clock className="w-6 h-6" />} bgColor="bg-[#F59E0B]" />
-        <KPICard title="Devis" value={stats.devis} icon={<FileText className="w-6 h-6" />} bgColor="bg-[#60A5FA]" />
-        <KPICard title="Vente" value={stats.vente} icon={<CheckCircle className="w-6 h-6" />} bgColor="bg-[#34D399]" />
-        <KPICard title="Perdu" value={stats.perdu} icon={<XCircle className="w-6 h-6" />} bgColor="bg-[#EF4444]" />
+        <KPICard title="Total" value={stats.total} icon={<Inbox className="w-6 h-6" />} bgColor="bg-mk-lemon" />
+        <KPICard title="Nouveau" value={stats.nouveau} icon={<TrendingUp className="w-6 h-6" />} bgColor="bg-mk-lime" />
+        <KPICard title="En cours" value={stats.enCours} icon={<Clock className="w-6 h-6" />} bgColor="bg-mk-lemon" />
+        <KPICard title="Devis" value={stats.devis} icon={<FileText className="w-6 h-6" />} bgColor="bg-mk-grapefruit" />
+        <KPICard title="Vente" value={stats.vente} icon={<CheckCircle className="w-6 h-6" />} bgColor="bg-mk-lime" />
+        <KPICard title="Perdu" value={stats.perdu} icon={<XCircle className="w-6 h-6" />} bgColor="bg-mk-raspberry" />
       </div>
 
       {/* Filters */}
@@ -279,7 +279,7 @@ export default function LeadsPage() {
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                 isActive
                   ? s === "ALL"
-                    ? "bg-cockpit-yellow text-cockpit-bg"
+                    ? "bg-[#C2185B] text-white"
                     : `${sc.bg} ${sc.text} ring-1 ${sc.ring}`
                   : "bg-cockpit-card border border-cockpit text-cockpit-secondary hover:text-cockpit-primary"
               }`}
@@ -318,7 +318,7 @@ export default function LeadsPage() {
               <div
                 key={demande.id}
                 className={`bg-cockpit-card rounded-card border transition-all ${
-                  isExpanded ? "border-cockpit-yellow/50 shadow-cockpit-lg" : "border-cockpit hover:border-cockpit-yellow/30"
+                  isExpanded ? "border-[#C2185B]/50 shadow-cockpit-lg" : "border-cockpit hover:border-[#C2185B]/30"
                 }`}
               >
                 {/* Row principal — cliquable */}
@@ -376,7 +376,7 @@ export default function LeadsPage() {
 
                   {/* Estimation catalogue */}
                   {(demande.estimationTTC || sellsy?.totalEstimatedTTC) ? (
-                    <span className="text-xs font-bold text-cockpit-yellow flex-shrink-0 min-w-[80px] text-right" title="Estimation catalogue">
+                    <span className="text-xs font-bold text-[#C2185B] flex-shrink-0 min-w-[80px] text-right" title="Estimation catalogue">
                       <DollarSign className="w-3 h-3 inline mr-0.5 -mt-0.5" />
                       {Number(demande.estimationTTC || sellsy?.totalEstimatedTTC || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}€
                     </span>
@@ -394,20 +394,20 @@ export default function LeadsPage() {
                       {/* Col 1 — Contact & Demande */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
-                          <User className="w-4 h-4 text-cockpit-yellow" />
+                          <User className="w-4 h-4 text-[#C2185B]" />
                           Contact
                         </h3>
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2 text-cockpit-primary">
                             <Mail className="w-3.5 h-3.5 text-cockpit-secondary" />
-                            <a href={`mailto:${demande.email}`} className="hover:text-cockpit-yellow transition-colors">
+                            <a href={`mailto:${demande.email}`} className="hover:text-[#C2185B] transition-colors">
                               {demande.email}
                             </a>
                           </div>
                           {demande.telephone && (
                             <div className="flex items-center gap-2 text-cockpit-primary">
                               <Phone className="w-3.5 h-3.5 text-cockpit-secondary" />
-                              <a href={`tel:${demande.telephone}`} className="hover:text-cockpit-yellow transition-colors">
+                              <a href={`tel:${demande.telephone}`} className="hover:text-[#C2185B] transition-colors">
                                 {demande.telephone}
                               </a>
                             </div>
@@ -439,7 +439,7 @@ export default function LeadsPage() {
                         {demande.message && (
                           <div className="mt-3">
                             <div className="flex items-center gap-2 text-sm font-semibold text-cockpit-heading mb-1">
-                              <MessageSquare className="w-4 h-4 text-cockpit-yellow" />
+                              <MessageSquare className="w-4 h-4 text-[#C2185B]" />
                               Message
                             </div>
                             <p className="text-sm text-cockpit-secondary bg-cockpit-dark p-3 rounded-lg">
@@ -452,7 +452,7 @@ export default function LeadsPage() {
                         {articles && articles.length > 0 && (
                           <div className="mt-3">
                             <div className="flex items-center gap-2 text-sm font-semibold text-cockpit-heading mb-2">
-                              <Package className="w-4 h-4 text-cockpit-yellow" />
+                              <Package className="w-4 h-4 text-[#C2185B]" />
                               Articles ({articles.length})
                             </div>
                             <div className="space-y-1.5">
@@ -478,7 +478,7 @@ export default function LeadsPage() {
                       {/* Col 2 — Correspondance Catalogue Sellsy */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
-                          <Search className="w-4 h-4 text-cockpit-yellow" />
+                          <Search className="w-4 h-4 text-[#C2185B]" />
                           Correspondance Catalogue Sellsy
                         </h3>
 
@@ -495,9 +495,9 @@ export default function LeadsPage() {
                           <div className="space-y-3">
                             {/* Total estimé */}
                             {sellsy.totalEstimatedTTC > 0 && (
-                              <div className="bg-cockpit-yellow/10 border border-cockpit-yellow/30 p-4 rounded-lg">
-                                <div className="text-xs text-cockpit-yellow font-semibold mb-1">ESTIMATION TOTALE</div>
-                                <div className="text-2xl font-bold text-cockpit-yellow">
+                              <div className="bg-[#C2185B]/10 border border-[#C2185B]/30 p-4 rounded-lg">
+                                <div className="text-xs text-[#C2185B] font-semibold mb-1">ESTIMATION TOTALE</div>
+                                <div className="text-2xl font-bold text-[#C2185B]">
                                   {Number(sellsy.totalEstimatedTTC).toFixed(2)}€ <span className="text-sm font-normal">TTC</span>
                                 </div>
                                 <div className="text-xs text-cockpit-secondary mt-1">
@@ -531,7 +531,7 @@ export default function LeadsPage() {
                                       <span className="text-cockpit-secondary">
                                         {Number(m.bestMatch.prixHT).toFixed(2)}€ HT
                                       </span>
-                                      <span className="text-cockpit-yellow font-semibold">
+                                      <span className="text-[#C2185B] font-semibold">
                                         {Number(m.estimatedValueTTC).toFixed(2)}€ TTC
                                       </span>
                                     </div>
@@ -572,7 +572,7 @@ export default function LeadsPage() {
                       {/* Col 3 — Actions & Statut */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-cockpit-yellow" />
+                          <Tag className="w-4 h-4 text-[#C2185B]" />
                           Actions
                         </h3>
 

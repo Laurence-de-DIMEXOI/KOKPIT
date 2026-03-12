@@ -484,6 +484,21 @@ export interface SellsyContact {
 }
 
 /**
+ * Récupère un contact Sellsy par ID, avec embed company.
+ * Retourne le contact avec company_id si disponible.
+ */
+export async function getContact(id: number): Promise<(SellsyContact & { company_id?: number; _embed?: { company?: { id: number; name: string } } }) | null> {
+  try {
+    const res = await sellsyFetch<SellsyContact & { company_id?: number; _embed?: { company?: { id: number; name: string } } }>(
+      `/contacts/${id}?embed[]=company`
+    );
+    return res || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Cherche un contact Sellsy par email.
  * Retourne le premier contact trouvé ou null.
  */

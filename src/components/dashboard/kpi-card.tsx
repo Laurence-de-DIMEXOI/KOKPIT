@@ -21,6 +21,12 @@ const gradientMap: Record<string, { from: string; to: string; shadow: string }> 
   "bg-[#60A5FA]":       { from: "#118C8C", to: "#0E6973", shadow: "rgba(17, 140, 140, 0.30)" },
   "bg-[#34D399]":       { from: "#849A28", to: "#6B7E1F", shadow: "rgba(132, 154, 40, 0.30)" },
   "bg-[#EF4444]":       { from: "#E23260", to: "#C2185B", shadow: "rgba(226, 50, 96, 0.30)" },
+
+  // === Marketing palette — Cream/Vanilla/Lime/Lemon/Pink Grapefruit/Raspberry ===
+  "bg-mk-lemon":       { from: "#E2A90A", to: "#C89208", shadow: "rgba(226, 169, 10, 0.30)" },
+  "bg-mk-lime":        { from: "#8DA035", to: "#6E8028", shadow: "rgba(141, 160, 53, 0.30)" },
+  "bg-mk-grapefruit":  { from: "#D4567A", to: "#B8406A", shadow: "rgba(212, 86, 122, 0.30)" },
+  "bg-mk-raspberry":   { from: "#C2185B", to: "#A01248", shadow: "rgba(194, 24, 91, 0.30)" },
 };
 
 const fallback = { from: "#F2BB16", to: "#BF820F", shadow: "rgba(242, 187, 22, 0.30)" };

@@ -68,10 +68,10 @@ interface MetaCampaign {
 // ===== HELPERS =====
 
 const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
-  ACTIVE: { label: "Active", bg: "bg-[#71DD37]/10", text: "text-[#71DD37]" },
-  PAUSED: { label: "Pause", bg: "bg-[#FFAB00]/10", text: "text-[#FFAB00]" },
+  ACTIVE: { label: "Active", bg: "bg-[#8DA035]/10", text: "text-[#8DA035]" },
+  PAUSED: { label: "Pause", bg: "bg-[#E2A90A]/10", text: "text-[#E2A90A]" },
   ARCHIVED: { label: "Archivée", bg: "bg-[#8592A3]/10", text: "text-[#8592A3]" },
-  DELETED: { label: "Supprimée", bg: "bg-[#FF3E1D]/10", text: "text-[#FF3E1D]" },
+  DELETED: { label: "Supprimée", bg: "bg-[#C2185B]/10", text: "text-[#C2185B]" },
 };
 
 const periodOptions = [
@@ -257,7 +257,7 @@ export default function CampagnesPage() {
           <p className="text-cockpit-secondary text-xs sm:text-sm">
             {kpis.totalCampaigns} campagnes · {kpis.totalAdSets} ensembles · {kpis.totalAds} publicités
             {kpis.campaignsWithData > 0 && (
-              <span className="text-cockpit-success ml-1">({kpis.campaignsWithData} avec données)</span>
+              <span className="text-[#8DA035] ml-1">({kpis.campaignsWithData} avec données)</span>
             )}
           </p>
           {syncedAt && (
@@ -312,10 +312,10 @@ export default function CampagnesPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
-        <KPICard title="Dépenses" value={fmtEur(kpis.totalSpend)} icon={<DollarSign className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
-        <KPICard title="Impressions" value={fmt(kpis.totalImpressions)} icon={<Eye className="w-7 h-7" />} bgColor="bg-cockpit-info" />
-        <KPICard title="Clics" value={fmt(kpis.totalClicks)} icon={<MousePointer className="w-7 h-7" />} bgColor="bg-cockpit-success" />
-        <KPICard title="Conversions" value={fmt(kpis.totalConversions)} icon={<BarChart3 className="w-7 h-7" />} bgColor="bg-cockpit-warning" />
+        <KPICard title="Dépenses" value={fmtEur(kpis.totalSpend)} icon={<DollarSign className="w-7 h-7" />} bgColor="bg-mk-lemon" />
+        <KPICard title="Impressions" value={fmt(kpis.totalImpressions)} icon={<Eye className="w-7 h-7" />} bgColor="bg-mk-lime" />
+        <KPICard title="Clics" value={fmt(kpis.totalClicks)} icon={<MousePointer className="w-7 h-7" />} bgColor="bg-mk-grapefruit" />
+        <KPICard title="Conversions" value={fmt(kpis.totalConversions)} icon={<BarChart3 className="w-7 h-7" />} bgColor="bg-mk-raspberry" />
       </div>
 
       {/* ROI KPIs */}
@@ -397,7 +397,7 @@ export default function CampagnesPage() {
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-cockpit-yellow" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#C2185B]" />
         </div>
       )}
 
@@ -462,15 +462,15 @@ export default function CampagnesPage() {
 
 function LevelIndicator({ level }: { level: "campaign" | "adset" | "ad" }) {
   const config = {
-    campaign: { bg: "bg-[#1877F2]/15", text: "text-[#1877F2]", label: "Camp." },
-    adset: { bg: "bg-cockpit-info/15", text: "text-cockpit-info", label: "Ens." },
-    ad: { bg: "bg-cockpit-warning/15", text: "text-cockpit-warning", label: "Pub" },
+    campaign: { bg: "bg-[#C2185B]/15", text: "text-[#C2185B]", label: "Camp." },
+    adset: { bg: "bg-[#D4567A]/15", text: "text-[#D4567A]", label: "Ens." },
+    ad: { bg: "bg-[#E2A90A]/15", text: "text-[#E2A90A]", label: "Pub" },
   };
   const c = config[level];
   return (
     <div className={`flex items-center justify-center px-1.5 py-0.5 rounded ${c.bg} flex-shrink-0`}>
       {level === "campaign" ? (
-        <Layers className="w-3.5 h-3.5 text-[#1877F2]" />
+        <Layers className="w-3.5 h-3.5 text-[#C2185B]" />
       ) : (
         <span className={`text-[8px] font-bold ${c.text}`}>{c.label}</span>
       )}
@@ -492,7 +492,7 @@ function CampaignBlock({ campaign, isExpanded, hasAdSets, toggleCampaign, expand
           <div className="flex items-center gap-2">
             {hasAdSets ? (
               isExpanded
-                ? <ChevronDown className="w-4 h-4 text-cockpit-yellow flex-shrink-0" />
+                ? <ChevronDown className="w-4 h-4 text-[#C2185B] flex-shrink-0" />
                 : <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />
             ) : <span className="w-4" />}
             <LevelIndicator level="campaign" />
@@ -539,7 +539,7 @@ function AdSetBlock({ adset, isExpanded, hasAds, toggle }: {
           <div className="flex items-center gap-2 pl-6">
             {hasAds ? (
               isExpanded
-                ? <ChevronDown className="w-3.5 h-3.5 text-cockpit-yellow flex-shrink-0" />
+                ? <ChevronDown className="w-3.5 h-3.5 text-[#C2185B] flex-shrink-0" />
                 : <ChevronRight className="w-3.5 h-3.5 text-cockpit-secondary flex-shrink-0" />
             ) : <span className="w-3.5" />}
             <LevelIndicator level="adset" />
@@ -595,15 +595,15 @@ function MobileCard({ campaign, expanded, toggle, expandedAdSets, toggleAdSet }:
         onClick={hasAdSets ? toggle : undefined}>
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            {hasAdSets && (expanded ? <ChevronDown className="w-4 h-4 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />)}
+            {hasAdSets && (expanded ? <ChevronDown className="w-4 h-4 text-[#C2185B] flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />)}
             <LevelIndicator level="campaign" />
             <p className="font-medium text-cockpit-primary text-sm truncate">{campaign.name}</p>
           </div>
-          <p className="text-sm font-bold text-cockpit-yellow flex-shrink-0">{fmtEur(campaign.insights.spend)}</p>
+          <p className="text-sm font-bold text-[#C2185B] flex-shrink-0">{fmtEur(campaign.insights.spend)}</p>
         </div>
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1877F2]/10 text-[#1877F2]">Meta</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#C2185B]/10 text-[#C2185B]">Meta</span>
           {hasAdSets && (
             <span className="text-[10px] text-cockpit-secondary">
               {campaign.adsets.length} ens. · {campaign.adsets.reduce((s, a) => s + a.ads.length, 0)} pubs
@@ -623,11 +623,11 @@ function MobileCard({ campaign, expanded, toggle, expandedAdSets, toggleAdSet }:
             onClick={adset.ads.length > 0 ? () => toggleAdSet(adset.id) : undefined}>
             <div className="flex items-center justify-between gap-2 mb-1">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                {adset.ads.length > 0 && (expandedAdSets.has(adset.id) ? <ChevronDown className="w-3 h-3 text-cockpit-yellow flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-cockpit-secondary flex-shrink-0" />)}
+                {adset.ads.length > 0 && (expandedAdSets.has(adset.id) ? <ChevronDown className="w-3 h-3 text-[#C2185B] flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-cockpit-secondary flex-shrink-0" />)}
                 <LevelIndicator level="adset" />
                 <p className="text-xs font-medium text-cockpit-primary truncate">{adset.name}</p>
               </div>
-              <p className="text-xs font-medium text-cockpit-yellow">{fmtEur(adset.insights.spend)}</p>
+              <p className="text-xs font-medium text-[#C2185B]">{fmtEur(adset.insights.spend)}</p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-[10px] mt-1">
               <div><span className="text-cockpit-secondary">Impr. </span><span className="text-cockpit-primary">{fmt(adset.insights.impressions)}</span></div>

@@ -220,7 +220,7 @@ export default function LiensUtilesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-cockpit-yellow" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#C2185B]" />
       </div>
     );
   }
@@ -230,8 +230,8 @@ export default function LiensUtilesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cockpit-yellow/15 flex items-center justify-center">
-            <Link2 className="w-5 h-5 text-cockpit-yellow" />
+          <div className="w-10 h-10 rounded-xl bg-[#C2185B]/15 flex items-center justify-center">
+            <Link2 className="w-5 h-5 text-[#C2185B]" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-cockpit-heading">
@@ -259,7 +259,7 @@ export default function LiensUtilesPage() {
           <p className="text-cockpit-secondary">Aucun lien pour le moment.</p>
           <button
             onClick={openCreateModal}
-            className="mt-4 text-cockpit-yellow font-medium text-sm hover:underline"
+            className="mt-4 text-[#C2185B] font-medium text-sm hover:underline"
           >
             Ajouter votre premier lien
           </button>
@@ -286,7 +286,7 @@ export default function LiensUtilesPage() {
                     "group bg-cockpit-card rounded-card border border-cockpit p-4 hover:shadow-cockpit-lg transition-all cursor-grab active:cursor-grabbing",
                     dragOverId === lien.id &&
                       dragId !== lien.id &&
-                      "border-cockpit-yellow/50 bg-cockpit-yellow/5"
+                      "border-[#C2185B]/50 bg-[#C2185B]/5"
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -330,7 +330,7 @@ export default function LiensUtilesPage() {
                         href={lien.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-1.5 rounded-md hover:bg-cockpit-dark/80 text-cockpit-secondary hover:text-cockpit-info transition-colors"
+                        className="p-1.5 rounded-md hover:bg-cockpit-dark/80 text-cockpit-secondary hover:text-[#D4567A] transition-colors"
                         title="Ouvrir"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -391,7 +391,7 @@ export default function LiensUtilesPage() {
                   value={formNom}
                   onChange={(e) => setFormNom(e.target.value)}
                   placeholder="Ex: Sellsy CRM"
-                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/30 focus:border-cockpit-yellow"
+                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/30 focus:border-[#C2185B]"
                 />
               </div>
 
@@ -408,7 +408,7 @@ export default function LiensUtilesPage() {
                     setFormIconeUrl("");
                   }}
                   placeholder="https://..."
-                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/30 focus:border-cockpit-yellow"
+                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/30 focus:border-[#C2185B]"
                 />
               </div>
 
@@ -425,7 +425,7 @@ export default function LiensUtilesPage() {
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Courte description..."
-                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/30 focus:border-cockpit-yellow"
+                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/30 focus:border-[#C2185B]"
                 />
               </div>
 
@@ -437,7 +437,7 @@ export default function LiensUtilesPage() {
                 <select
                   value={formCategorie}
                   onChange={(e) => setFormCategorie(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-cockpit-yellow/30 focus:border-cockpit-yellow"
+                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/30 focus:border-[#C2185B]"
                 >
                   {CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>

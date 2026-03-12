@@ -34,8 +34,8 @@ export default function PlanningPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-cockpit-yellow/10">
-            <CalendarDays className="w-6 h-6 text-cockpit-yellow" />
+          <div className="p-2.5 rounded-xl bg-[#C2185B]/10">
+            <CalendarDays className="w-6 h-6 text-[#C2185B]" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Planning Réseaux Sociaux</h1>
@@ -54,7 +54,7 @@ export default function PlanningPage() {
       {/* Board */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-cockpit-yellow animate-spin" />
+          <Loader2 className="w-8 h-8 text-[#C2185B] animate-spin" />
         </div>
       ) : error ? (
         <div className="flex-1 flex items-center justify-center">
@@ -62,7 +62,7 @@ export default function PlanningPage() {
             <p className="text-red-500 mb-2">{error}</p>
             <button
               onClick={() => { setLoading(true); setError(null); fetchPosts(); }}
-              className="text-sm text-cockpit-yellow hover:underline"
+              className="text-sm text-[#C2185B] hover:underline"
             >
               Réessayer
             </button>

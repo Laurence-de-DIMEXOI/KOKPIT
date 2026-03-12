@@ -55,6 +55,18 @@
   --color-active: var(--color-marketing);
   --color-active-light: var(--color-marketing-light);
   --color-active-border: var(--color-marketing-border);
+
+  /* Palette Marketing étendue — Cream/Vanilla/Lime/Lemon/Pink Grapefruit/Raspberry */
+  --mk-cream: #FFF8F0;
+  --mk-vanilla: #EDE4CC;
+  --mk-lime: #8DA035;
+  --mk-lime-light: rgba(141, 160, 53, 0.15);
+  --mk-lemon: #E2A90A;
+  --mk-lemon-light: rgba(226, 169, 10, 0.15);
+  --mk-grapefruit: #D4567A;
+  --mk-grapefruit-light: rgba(212, 86, 122, 0.15);
+  --mk-raspberry: #C2185B;
+  --mk-raspberry-light: rgba(194, 24, 91, 0.15);
 }
 [data-espace="administration"] {
   --color-active: var(--color-admin);

@@ -149,7 +149,8 @@ export default function DashboardPage() {
           <p className="text-cockpit-secondary text-sm mb-4">{error}</p>
           <button
             onClick={() => fetchFunnel(true)}
-            className="px-4 py-2 bg-cockpit-yellow text-black font-medium rounded-lg hover:bg-cockpit-yellow/90 transition"
+            className="px-4 py-2 font-medium rounded-lg transition text-white"
+            style={{ backgroundColor: 'var(--mk-raspberry, #C2185B)' }}
           >
             Réessayer
           </button>
@@ -237,7 +238,7 @@ export default function DashboardPage() {
       {/* Entonnoir visuel */}
       <div className="bg-white border border-cockpit rounded-xl p-4 sm:p-5 shadow-cockpit-lg">
         <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-cockpit-yellow" />
+          <BarChart3 className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
           Entonnoir de conversion
         </h2>
         <div className="space-y-4">
@@ -256,7 +257,7 @@ export default function DashboardPage() {
           {/* Arrow */}
           <div className="flex items-center gap-4">
             <div className="w-28 text-right flex-shrink-0">
-              <span className="text-xs text-cockpit-info font-semibold">{kpis.globalConversionDevis}%</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--mk-lime)' }}>{kpis.globalConversionDevis}%</span>
             </div>
             <div className="flex-1 flex items-center justify-center">
               <ChevronDown className="w-4 h-4 text-cockpit-secondary" />
@@ -282,7 +283,7 @@ export default function DashboardPage() {
           {/* Arrow */}
           <div className="flex items-center gap-4">
             <div className="w-28 text-right flex-shrink-0">
-              <span className="text-xs text-cockpit-success font-semibold">{kpis.globalConversionCommande}%</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--mk-grapefruit)' }}>{kpis.globalConversionCommande}%</span>
             </div>
             <div className="flex-1 flex items-center justify-center">
               <ChevronDown className="w-4 h-4 text-cockpit-secondary" />
@@ -311,7 +312,7 @@ export default function DashboardPage() {
       {/* Graphique mensuel — courbes */}
       <div className="bg-white border border-cockpit rounded-xl p-4 sm:p-5 shadow-cockpit-lg">
         <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-cockpit-yellow" />
+          <TrendingUp className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
           Évolution mensuelle
         </h2>
         <RechartsLineChart
@@ -334,7 +335,7 @@ export default function DashboardPage() {
       <div className="bg-white border border-cockpit rounded-xl overflow-hidden shadow-cockpit-lg">
         <div className="p-4 sm:p-5 pb-3">
           <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
-            <FileText className="w-5 h-5 text-cockpit-yellow" />
+            <FileText className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
             Détail mensuel
           </h2>
         </div>
@@ -343,9 +344,9 @@ export default function DashboardPage() {
             <thead className="bg-cockpit border-y border-cockpit">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">Mois</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-yellow">Contacts</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-info">Devis</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-success">Commandes</th>
+                <th className="px-6 py-3 text-center text-xs font-semibold" style={{ color: 'var(--mk-lemon)' }}>Contacts</th>
+                <th className="px-6 py-3 text-center text-xs font-semibold" style={{ color: 'var(--mk-lime)' }}>Devis</th>
+                <th className="px-6 py-3 text-center text-xs font-semibold" style={{ color: 'var(--mk-grapefruit)' }}>Commandes</th>
                 <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-heading">Contact→Devis</th>
                 <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-heading">Devis→Cde</th>
                 <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-heading">Global</th>
@@ -355,15 +356,15 @@ export default function DashboardPage() {
               {monthly.map((m) => (
                 <tr key={m.month} className="hover:bg-cockpit/30 transition">
                   <td className="px-6 py-3 text-sm font-medium text-cockpit-heading">{m.label}</td>
-                  <td className="px-6 py-3 text-center text-sm text-cockpit-yellow font-semibold">{m.contacts}</td>
-                  <td className="px-6 py-3 text-center text-sm text-cockpit-info font-semibold">{m.devis}</td>
-                  <td className="px-6 py-3 text-center text-sm text-cockpit-success font-semibold">{m.commandes}</td>
+                  <td className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--mk-lemon)' }}>{m.contacts}</td>
+                  <td className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--mk-lime)' }}>{m.devis}</td>
+                  <td className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--mk-grapefruit)' }}>{m.commandes}</td>
                   <td className="px-6 py-3 text-center">
                     <span className={clsx(
                       "text-xs font-bold px-2 py-0.5 rounded-full",
-                      m.conversionDevis > 50 ? "bg-cockpit-success/15 text-cockpit-success"
-                        : m.conversionDevis > 20 ? "bg-cockpit-yellow/15 text-cockpit-yellow"
-                        : "bg-cockpit-error/15 text-cockpit-error"
+                      m.conversionDevis > 50 ? "bg-[#8DA035]/15 text-[#8DA035]"
+                        : m.conversionDevis > 20 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
+                        : "bg-[#C2185B]/15 text-[#C2185B]"
                     )}>
                       {m.conversionDevis}%
                     </span>
@@ -371,9 +372,9 @@ export default function DashboardPage() {
                   <td className="px-6 py-3 text-center">
                     <span className={clsx(
                       "text-xs font-bold px-2 py-0.5 rounded-full",
-                      m.conversionCommande > 50 ? "bg-cockpit-success/15 text-cockpit-success"
-                        : m.conversionCommande > 20 ? "bg-cockpit-yellow/15 text-cockpit-yellow"
-                        : "bg-cockpit-error/15 text-cockpit-error"
+                      m.conversionCommande > 50 ? "bg-[#8DA035]/15 text-[#8DA035]"
+                        : m.conversionCommande > 20 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
+                        : "bg-[#C2185B]/15 text-[#C2185B]"
                     )}>
                       {m.conversionCommande}%
                     </span>
@@ -381,9 +382,9 @@ export default function DashboardPage() {
                   <td className="px-6 py-3 text-center">
                     <span className={clsx(
                       "text-xs font-bold px-2 py-0.5 rounded-full",
-                      m.conversionGlobale > 30 ? "bg-cockpit-success/15 text-cockpit-success"
-                        : m.conversionGlobale > 10 ? "bg-cockpit-yellow/15 text-cockpit-yellow"
-                        : "bg-cockpit-error/15 text-cockpit-error"
+                      m.conversionGlobale > 30 ? "bg-[#8DA035]/15 text-[#8DA035]"
+                        : m.conversionGlobale > 10 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
+                        : "bg-[#C2185B]/15 text-[#C2185B]"
                     )}>
                       {m.conversionGlobale}%
                     </span>
@@ -400,7 +401,7 @@ export default function DashboardPage() {
         <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-5">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-cockpit-warning" />
+              <AlertCircle className="w-5 h-5" style={{ color: 'var(--mk-lemon)' }} />
               Contacts sans devis
               <span className="text-xs font-normal text-cockpit-secondary ml-2">
                 ({contactsSansDevis.length} à traiter)
@@ -409,7 +410,8 @@ export default function DashboardPage() {
             {contactsSansDevis.length > 5 && (
               <button
                 onClick={() => setShowAllContacts(!showAllContacts)}
-                className="flex items-center gap-1 text-xs text-cockpit-yellow hover:text-cockpit-yellow/80 transition"
+                className="flex items-center gap-1 text-xs hover:opacity-80 transition"
+                style={{ color: 'var(--mk-raspberry)' }}
               >
                 {showAllContacts ? "Voir moins" : "Voir tout"}
                 {showAllContacts ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -420,11 +422,11 @@ export default function DashboardPage() {
             {(showAllContacts ? contactsSansDevis : contactsSansDevis.slice(0, 5)).map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between p-3 bg-cockpit rounded-lg border border-cockpit/50 hover:border-cockpit-warning/30 transition"
+                className="flex items-center justify-between p-3 bg-cockpit rounded-lg border border-cockpit/50 hover:border-[#E2A90A]/30 transition"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-cockpit-warning/15 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-cockpit-warning" />
+                  <div className="w-8 h-8 rounded-full bg-[#E2A90A]/15 flex items-center justify-center">
+                    <Users className="w-4 h-4" style={{ color: 'var(--mk-lemon)' }} />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-cockpit-heading">{c.name}</p>

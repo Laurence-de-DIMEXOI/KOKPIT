@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { searchEstimates, searchOrders, searchContactByEmail } from "@/lib/sellsy";
+import { searchEstimates, searchOrders, searchContactByEmail, getContact } from "@/lib/sellsy";
 
 // GET — Historique Sellsy live pour un contact
 // Cherche par sellsyContactId, sinon fallback par email
@@ -64,23 +64,53 @@ export async function GET(
       });
     }
 
+    // Sellsy V2 /estimates/search ne filtre PAS par contact_id côté API.
+    // On doit récupérer les documents et filtrer côté serveur.
+    // Stratégie : chercher via l'entreprise liée au contact (third_id) + filtrage exact par contact_id.
+
+    // 1. Récupérer les infos du contact Sellsy pour connaître son entreprise
+    let companyId: number | null = null;
+    try {
+      const contactDetail = await getContact(sellsyContactId);
+      companyId = contactDetail?.company_id || contactDetail?._embed?.company?.id || null;
+    } catch {
+      // Pas grave, on fera sans
+    }
+
+    // 2. Chercher les documents — si on a l'entreprise on filtre par third_id, sinon on prend les récents
+    const searchFilters: Record<string, unknown> = {};
+    if (companyId) {
+      searchFilters.third_ids = [companyId];
+    }
+    // Toujours ajouter un filtre date pour limiter le volume (12 derniers mois)
+    const sinceDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    searchFilters.date = { start: sinceDate };
+
     const [estimatesRes, ordersRes] = await Promise.all([
       searchEstimates({
-        filters: { contact_id: sellsyContactId },
-        limit: 50,
+        filters: searchFilters as any,
+        limit: 100,
         order: "created",
         direction: "desc",
       }),
       searchOrders({
-        filters: { contact_id: sellsyContactId },
-        limit: 50,
+        filters: searchFilters as any,
+        limit: 100,
         order: "created",
         direction: "desc",
       }),
     ]);
 
+    // 3. Filtrage strict côté serveur — ne garder QUE les documents du bon contact
+    const myEstimates = (estimatesRes.data || []).filter(
+      (e) => e.contact_id === sellsyContactId
+    );
+    const myOrders = (ordersRes.data || []).filter(
+      (o) => o.contact_id === sellsyContactId
+    );
+
     return NextResponse.json({
-      estimates: (estimatesRes.data || []).map((e) => ({
+      estimates: myEstimates.map((e) => ({
         id: e.id,
         number: e.number,
         subject: e.subject,
@@ -91,7 +121,7 @@ export async function GET(
         amounts: e.amounts,
         pdf_link: (e as any).pdf_link,
       })),
-      orders: (ordersRes.data || []).map((o) => ({
+      orders: myOrders.map((o) => ({
         id: o.id,
         number: o.number,
         subject: o.subject,
@@ -104,6 +134,14 @@ export async function GET(
       })),
       linked: true,
       resolvedVia,
+      debug: {
+        sellsyContactId,
+        companyId,
+        totalEstimatesFetched: estimatesRes.data?.length || 0,
+        totalOrdersFetched: ordersRes.data?.length || 0,
+        estimatesAfterFilter: myEstimates.length,
+        ordersAfterFilter: myOrders.length,
+      },
     });
   } catch (error: any) {
     console.error("GET /api/contacts/[id]/sellsy-history error:", error);

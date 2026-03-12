@@ -72,7 +72,7 @@ export default function PostChecklist({ postId, items, onUpdate }: PostChecklist
         <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              progress === 100 ? "bg-green-500" : "bg-cockpit-yellow"
+              progress === 100 ? "bg-green-500" : "bg-[#C2185B]"
             }`}
             style={{ width: `${progress}%` }}
           />
@@ -87,7 +87,7 @@ export default function PostChecklist({ postId, items, onUpdate }: PostChecklist
               type="checkbox"
               checked={item.checked}
               onChange={() => toggleItem(item)}
-              className="w-4 h-4 rounded border-gray-300 text-cockpit-yellow focus:ring-cockpit-yellow cursor-pointer"
+              className="w-4 h-4 rounded border-gray-300 text-[#C2185B] focus:ring-[#C2185B] cursor-pointer"
             />
             <span
               className={`flex-1 text-sm ${
@@ -114,12 +114,12 @@ export default function PostChecklist({ postId, items, onUpdate }: PostChecklist
           onChange={(e) => setNewText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addItem()}
           placeholder="Ajouter un élément..."
-          className="flex-1 text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-cockpit-yellow"
+          className="flex-1 text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#C2185B]"
         />
         <button
           onClick={addItem}
           disabled={!newText.trim() || loading}
-          className="p-1.5 rounded-md bg-cockpit-yellow text-white hover:bg-yellow-500 disabled:opacity-40 transition-colors"
+          className="p-1.5 rounded-md bg-[#C2185B] text-white hover:bg-[#A01248] disabled:opacity-40 transition-colors"
         >
           <Plus className="w-4 h-4" />
         </button>
