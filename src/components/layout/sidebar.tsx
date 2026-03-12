@@ -76,15 +76,10 @@ export function Sidebar({
           style={isActive ? {
             backgroundColor: 'var(--color-active-light)',
             color: 'var(--color-active)',
-            borderLeft: '3px solid var(--color-active)',
+            borderLeft: '4px solid var(--color-active)',
+            boxShadow: '0 1px 3px var(--color-active-border)',
           } : undefined}
         >
-          {isActive && (
-            <div
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full"
-              style={{ backgroundColor: 'var(--color-active)' }}
-            />
-          )}
           <Icon className="w-4 h-4 flex-shrink-0" />
           <span>{item.label}</span>
         </Link>
@@ -98,14 +93,15 @@ export function Sidebar({
       {currentSpace && (
         <div className="px-3 pt-4 pb-2">
           <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold"
             style={{
               backgroundColor: 'var(--color-active-light)',
               color: 'var(--color-active)',
-              borderColor: 'var(--color-active)',
+              borderLeft: '4px solid var(--color-active)',
+              boxShadow: '0 1px 4px var(--color-active-border)',
             }}
           >
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-active)' }} />
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--color-active)' }} />
             {currentSpace.label}
           </div>
         </div>
@@ -224,7 +220,7 @@ export function Sidebar({
                   style={isActive ? {
                     backgroundColor: 'var(--color-active-light)',
                     color: 'var(--color-active)',
-                    borderColor: 'color-mix(in srgb, var(--color-active) 30%, transparent)',
+                    borderColor: 'var(--color-active-border)',
                   } : undefined}
                 >
                   {espace.label}

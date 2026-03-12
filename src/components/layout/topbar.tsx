@@ -97,7 +97,7 @@ export function Topbar({
                 {espace.label}
                 {/* Indicateur actif — barre colorée en bas */}
                 {isActive && (
-                  <div className="absolute bottom-0 left-1 right-1 h-[3px] rounded-full" style={{ backgroundColor: 'var(--color-active)' }} />
+                  <div className="absolute bottom-0 left-0.5 right-0.5 h-[3px] rounded-full" style={{ backgroundColor: 'var(--color-active)', boxShadow: '0 1px 6px var(--color-active-border)' }} />
                 )}
               </button>
             );
