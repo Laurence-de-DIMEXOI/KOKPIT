@@ -298,7 +298,8 @@ export default function PostModal({
           <button
             onClick={handleSave}
             disabled={!title.trim() || saving || uploading}
-            className="px-5 py-2 text-sm font-medium text-white bg-cockpit-yellow hover:bg-yellow-500 rounded-lg disabled:opacity-40 transition-colors"
+            className="px-5 py-2 text-sm font-medium text-gray-900 rounded-lg disabled:opacity-40 transition-colors hover:opacity-90"
+            style={{ backgroundColor: 'var(--color-active)' }}
           >
             {saving ? "Enregistrement..." : post ? "Enregistrer" : "Créer le post"}
           </button>

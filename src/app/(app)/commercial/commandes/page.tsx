@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import clsx from "clsx";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
 
 type Period = "today" | "week" | "month" | "year";
@@ -360,7 +361,7 @@ export default function CommandesPage() {
                         </a>
                       )}
                       <a
-                        href={`https://go.sellsy.com/doc/order/${order.id}`}
+                        href={getSellsyUrl('order', order.id)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
@@ -422,7 +423,7 @@ export default function CommandesPage() {
                         <FileText className="w-3.5 h-3.5 text-cockpit-info" />
                       </a>
                     )}
-                    <a href={`https://go.sellsy.com/doc/order/${order.id}`} target="_blank" rel="noopener noreferrer"
+                    <a href={getSellsyUrl('order', order.id)} target="_blank" rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()} className="p-1 rounded hover:bg-cockpit-dark" title="Sellsy">
                       <ExternalLink className="w-3.5 h-3.5 text-cockpit-secondary" />
                     </a>

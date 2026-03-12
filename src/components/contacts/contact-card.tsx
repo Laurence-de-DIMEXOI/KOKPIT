@@ -1,6 +1,7 @@
 'use client';
 
 import { Mail, MessageSquare, ExternalLink } from 'lucide-react';
+import { getSellsyUrl } from '@/lib/sellsy-urls';
 import { Contact } from '@/hooks/use-contacts';
 
 interface ContactCardProps {
@@ -54,7 +55,7 @@ export function ContactCard({ contact }: ContactCardProps) {
         </div>
         {contact.sellsyContactId && (
           <a
-            href={`https://sellsy.com/contact/${contact.sellsyContactId}`}
+            href={getSellsyUrl('contact', contact.sellsyContactId!)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-gray-400 hover:text-yellow-400 transition-colors"

@@ -12,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import clsx from "clsx";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 
 type Period = "week" | "month" | "year" | "all";
 
@@ -356,7 +357,7 @@ export default function PipelinePage() {
                             </a>
                           )}
                           <a
-                            href={`https://go.sellsy.com/doc/estimate/${est.id}`}
+                            href={getSellsyUrl('estimate', est.id)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-1 rounded hover:bg-cockpit-dark transition-colors"

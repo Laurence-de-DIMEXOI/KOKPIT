@@ -1,6 +1,7 @@
 "use client";
 
 import { X, Package, Tag, Euro, Hash, Calendar, Info, ExternalLink } from "lucide-react";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 
 interface SellsyItem {
   id: number;
@@ -44,7 +45,7 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
   const margin = priceHT > 0 && purchasePrice > 0 ? ((priceHT - purchasePrice) / priceHT * 100) : null;
   const tvaRate = priceHT > 0 ? ((priceTTC - priceHT) / priceHT * 100) : null;
 
-  const sellsyUrl = `https://go.sellsy.com/item/${item.id}`;
+  const sellsyUrl = getSellsyUrl('product', item.id);
 
   return (
     <>

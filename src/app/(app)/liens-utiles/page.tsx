@@ -244,7 +244,8 @@ export default function LiensUtilesPage() {
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-cockpit-yellow text-white font-medium text-sm hover:bg-cockpit-yellow/90 transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-gray-900 font-medium text-sm hover:opacity-90 transition-colors"
+          style={{ backgroundColor: 'var(--color-active)' }}
         >
           <Plus className="w-4 h-4" />
           Ajouter un lien
@@ -473,7 +474,8 @@ export default function LiensUtilesPage() {
               <button
                 onClick={handleSubmit}
                 disabled={saving || !formNom || !formUrl}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-cockpit-yellow text-white text-sm font-medium hover:bg-cockpit-yellow/90 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-gray-900 text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-active)' }}
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {editingLien ? "Enregistrer" : "Ajouter"}

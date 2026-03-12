@@ -3,21 +3,27 @@
 import clsx from "clsx";
 
 // ===== COLOR MAP =====
-// Map Tailwind bgColor classes to gradient hex values
+// Palette-based gradients — harmonious per-space tones
 const gradientMap: Record<string, { from: string; to: string; shadow: string }> = {
-  "bg-cockpit-yellow":  { from: "#F4B400", to: "#D9A000", shadow: "rgba(244, 180, 0, 0.30)" },
-  "bg-cockpit-info":    { from: "#03C3EC", to: "#0299C4", shadow: "rgba(3, 195, 236, 0.30)" },
+  // Primary / Total — Citron (commercial palette)
+  "bg-cockpit-yellow":  { from: "#F2BB16", to: "#BF820F", shadow: "rgba(242, 187, 22, 0.30)" },
+  // Info / Devis — Teal (commercial palette)
+  "bg-cockpit-info":    { from: "#118C8C", to: "#0E6973", shadow: "rgba(17, 140, 140, 0.30)" },
+  // Success / Commandes — reste vert (universel positif)
   "bg-cockpit-success": { from: "#71DD37", to: "#5AC42D", shadow: "rgba(113, 221, 55, 0.30)" },
-  "bg-cockpit-warning": { from: "#FFAB00", to: "#E09600", shadow: "rgba(255, 171, 0, 0.30)" },
-  "bg-cockpit-danger":  { from: "#FF3E1D", to: "#E03417", shadow: "rgba(255, 62, 29, 0.30)" },
+  // Warning — Sandy Brown (admin palette)
+  "bg-cockpit-warning": { from: "#ED9F58", to: "#D15F12", shadow: "rgba(237, 159, 88, 0.30)" },
+  // Danger — reste rouge (universel urgent)
+  "bg-cockpit-danger":  { from: "#EF4444", to: "#DC2626", shadow: "rgba(239, 68, 68, 0.30)" },
+  // Leads status colors
   "bg-[#71DD37]":       { from: "#71DD37", to: "#5AC42D", shadow: "rgba(113, 221, 55, 0.30)" },
-  "bg-[#F59E0B]":       { from: "#F59E0B", to: "#D97706", shadow: "rgba(245, 158, 11, 0.30)" },
-  "bg-[#60A5FA]":       { from: "#60A5FA", to: "#3B82F6", shadow: "rgba(96, 165, 250, 0.30)" },
-  "bg-[#34D399]":       { from: "#34D399", to: "#10B981", shadow: "rgba(52, 211, 153, 0.30)" },
-  "bg-[#EF4444]":       { from: "#EF4444", to: "#DC2626", shadow: "rgba(239, 68, 68, 0.30)" },
+  "bg-[#F59E0B]":       { from: "#EE9520", to: "#D15F12", shadow: "rgba(238, 149, 32, 0.30)" },
+  "bg-[#60A5FA]":       { from: "#118C8C", to: "#0E6973", shadow: "rgba(17, 140, 140, 0.30)" },
+  "bg-[#34D399]":       { from: "#849A28", to: "#6B7E1F", shadow: "rgba(132, 154, 40, 0.30)" },
+  "bg-[#EF4444]":       { from: "#E23260", to: "#C2185B", shadow: "rgba(226, 50, 96, 0.30)" },
 };
 
-const fallback = { from: "#F4B400", to: "#D9A000", shadow: "rgba(244, 180, 0, 0.30)" };
+const fallback = { from: "#F2BB16", to: "#BF820F", shadow: "rgba(242, 187, 22, 0.30)" };
 
 // ===== COMPONENT =====
 

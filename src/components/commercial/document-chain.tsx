@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Link2, ChevronRight, AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 import clsx from "clsx";
 
 interface ChainNode {
@@ -156,7 +157,7 @@ export function DocumentChain({ docType, docId, currentNumero }: DocumentChainPr
             )}
           </span>
           <a
-            href={`https://www.sellsy.com/document/${origin.type}/${origin.id}`}
+            href={getSellsyUrl(origin.type === 'estimate' ? 'estimate' : origin.type === 'order' ? 'order' : 'invoice', origin.id)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-500 hover:text-blue-700 inline-flex items-center gap-0.5"

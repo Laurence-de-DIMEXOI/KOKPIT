@@ -23,19 +23,22 @@
   --radius-card: 0.75rem;
   --radius-input: 0.5rem;
 
-  /* Couleurs par espace — saturées */
-  --color-commercial: #66A5ED;
-  --color-commercial-light: rgba(102, 165, 237, 0.15);
-  --color-commercial-border: rgba(102, 165, 237, 0.40);
-  --color-marketing: #7758A3;
-  --color-marketing-light: rgba(119, 88, 163, 0.14);
-  --color-marketing-border: rgba(119, 88, 163, 0.38);
-  --color-admin: #F6C45C;
-  --color-admin-light: rgba(246, 196, 92, 0.18);
-  --color-admin-border: rgba(246, 196, 92, 0.45);
-  --color-achat: #DB3E8C;
-  --color-achat-light: rgba(219, 62, 140, 0.13);
-  --color-achat-border: rgba(219, 62, 140, 0.35);
+  /* Commercial — palette Teal/Citron (#0E6973 → #F2BB16) */
+  --color-commercial: #0E6973;
+  --color-commercial-light: rgba(14, 105, 115, 0.12);
+  --color-commercial-border: rgba(14, 105, 115, 0.35);
+  /* Marketing — palette Cream/Raspberry (Lemon → Raspberry) */
+  --color-marketing: #C2185B;
+  --color-marketing-light: rgba(194, 24, 91, 0.10);
+  --color-marketing-border: rgba(194, 24, 91, 0.30);
+  /* Administration — palette Brick Ember/Bronze Spice (#B92708 → #D15F12) */
+  --color-admin: #D15F12;
+  --color-admin-light: rgba(209, 95, 18, 0.12);
+  --color-admin-border: rgba(209, 95, 18, 0.35);
+  /* Achat — palette Charleston/Light Pink (#E23260 → #FCA9AA) */
+  --color-achat: #E23260;
+  --color-achat-light: rgba(226, 50, 96, 0.10);
+  --color-achat-border: rgba(226, 50, 96, 0.30);
 
   /* Variable active — jaune global par defaut */
   --color-active: #F4B400;

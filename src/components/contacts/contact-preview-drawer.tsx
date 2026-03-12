@@ -6,6 +6,7 @@ import {
   MessageSquare, Loader2, FileText, ShoppingCart,
   ExternalLink, Activity, Send, PhoneCall, RefreshCw,
 } from "lucide-react";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 import { useEffect, useState, useCallback } from "react";
 import { ContactTimeline } from "./contact-timeline";
 import { PriorityGauge } from "./priority-badge";
@@ -242,12 +243,12 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
   // Sellsy PDF URL (ouvre dans Sellsy web)
   const getSellsyEstimateUrl = (sellsyQuoteId: string | null) => {
     if (!sellsyQuoteId) return null;
-    return `https://go.sellsy.com/doc/estimate/${sellsyQuoteId}`;
+    return getSellsyUrl('estimate', sellsyQuoteId);
   };
 
   const getSellsyOrderUrl = (sellsyInvoiceId: string | null) => {
     if (!sellsyInvoiceId) return null;
-    return `https://go.sellsy.com/doc/order/${sellsyInvoiceId}`;
+    return getSellsyUrl('order', sellsyInvoiceId);
   };
 
   return (

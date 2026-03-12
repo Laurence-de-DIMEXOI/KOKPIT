@@ -7,6 +7,7 @@ import {
   User, ShoppingBag, MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 
 interface ContactData {
   id: string;
@@ -284,7 +285,7 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {d.sellsyQuoteId ? (
-                      <a href={`https://go.sellsy.com/doc/estimate/${d.sellsyQuoteId}`} target="_blank" rel="noopener noreferrer"
+                      <a href={getSellsyUrl('estimate', d.sellsyQuoteId!)} target="_blank" rel="noopener noreferrer"
                         className="text-sm font-medium text-[#03C3EC] hover:underline flex items-center gap-1">
                         #{d.sellsyQuoteId} <ExternalLink className="w-3 h-3" />
                       </a>
@@ -312,7 +313,7 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
               <div key={e.id} className="px-4 py-3 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#03C3EC]/30 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <a href={`https://go.sellsy.com/doc/estimate/${e.id}`} target="_blank" rel="noopener noreferrer"
+                    <a href={getSellsyUrl('estimate', e.id)} target="_blank" rel="noopener noreferrer"
                       className="text-sm font-medium text-[#03C3EC] hover:underline flex items-center gap-1">
                       {e.number || `#${e.id}`} <ExternalLink className="w-3 h-3" />
                     </a>
@@ -363,7 +364,7 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
               <div key={v.id} className="px-4 py-3 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#71DD37]/30 transition-colors">
                 <div className="flex items-center justify-between">
                   {v.sellsyInvoiceId ? (
-                    <a href={`https://go.sellsy.com/doc/order/${v.sellsyInvoiceId}`} target="_blank" rel="noopener noreferrer"
+                    <a href={getSellsyUrl('order', v.sellsyInvoiceId!)} target="_blank" rel="noopener noreferrer"
                       className="text-sm font-medium text-[#71DD37] hover:underline flex items-center gap-1">
                       #{v.sellsyInvoiceId} <ExternalLink className="w-3 h-3" />
                     </a>
@@ -389,7 +390,7 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
               <div key={o.id} className="px-4 py-3 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#71DD37]/30 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <a href={`https://go.sellsy.com/doc/order/${o.id}`} target="_blank" rel="noopener noreferrer"
+                    <a href={getSellsyUrl('order', o.id)} target="_blank" rel="noopener noreferrer"
                       className="text-sm font-medium text-[#71DD37] hover:underline flex items-center gap-1">
                       {o.number || `#${o.id}`} <ExternalLink className="w-3 h-3" />
                     </a>
