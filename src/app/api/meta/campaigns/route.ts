@@ -145,15 +145,74 @@ async function metaFetchAll(url: string, accessToken: string): Promise<any[]> {
 
 // ===== BATCH FETCH =====
 
+async function validateToken(accessToken: string): Promise<{
+  valid: boolean;
+  userId?: string;
+  name?: string;
+  scopes?: string[];
+  expiresAt?: string;
+  error?: string;
+}> {
+  try {
+    // 1. Check token debug info
+    const debugRes = await metaFetch(
+      `${META_API_URL}/debug_token?input_token=${accessToken}`,
+      accessToken
+    );
+    if (debugRes?._error) {
+      return { valid: false, error: `Token debug failed: ${debugRes.status} - ${debugRes.body}` };
+    }
+    const tokenData = debugRes?.data;
+    if (!tokenData) {
+      return { valid: false, error: "No token debug data returned" };
+    }
+
+    const isValid = tokenData.is_valid !== false;
+    const expiresAt = tokenData.expires_at
+      ? new Date(tokenData.expires_at * 1000).toISOString()
+      : "never";
+    const scopes = tokenData.scopes || [];
+
+    // 2. Check /me
+    const meRes = await metaFetch(`${META_API_URL}/me?fields=id,name`, accessToken);
+    const userId = meRes?.id;
+    const name = meRes?.name;
+
+    return { valid: isValid, userId, name, scopes, expiresAt };
+  } catch (err: any) {
+    return { valid: false, error: err.message };
+  }
+}
+
 async function fetchBatchHierarchy(
   accessToken: string,
   period: Period = "maximum"
 ): Promise<{ campaigns: MetaCampaign[]; debug: any }> {
   const debug: any = { period, errors: [], counts: {} };
 
+  // 0. Validate token
+  const tokenInfo = await validateToken(accessToken);
+  debug.token = {
+    valid: tokenInfo.valid,
+    userId: tokenInfo.userId,
+    name: tokenInfo.name,
+    scopes: tokenInfo.scopes,
+    expiresAt: tokenInfo.expiresAt,
+  };
+  if (!tokenInfo.valid) {
+    debug.errors.push({ step: "token_validation", message: tokenInfo.error || "Token invalide ou expiré" });
+    return { campaigns: [], debug };
+  }
+  // Check required scopes
+  const requiredScopes = ["ads_read"];
+  const missingScopes = requiredScopes.filter((s) => !tokenInfo.scopes?.includes(s));
+  if (missingScopes.length > 0) {
+    debug.errors.push({ step: "token_scopes", message: `Scopes manquants: ${missingScopes.join(", ")}` });
+  }
+
   // 1. Get ad accounts
   const accountsData = await metaFetch(
-    `${META_API_URL}/me/adaccounts?fields=id,name,account_id`,
+    `${META_API_URL}/me/adaccounts?fields=id,name,account_id,account_status,currency,timezone_name`,
     accessToken
   );
 
@@ -163,11 +222,14 @@ async function fetchBatchHierarchy(
   }
 
   if (!accountsData?.data?.length) {
-    debug.errors.push({ step: "adaccounts", message: "No ad accounts found" });
+    debug.errors.push({ step: "adaccounts", message: "No ad accounts found for this token" });
     return { campaigns: [], debug };
   }
 
-  debug.accounts = accountsData.data.map((a: any) => ({ id: a.id, name: a.name }));
+  debug.accounts = accountsData.data.map((a: any) => ({
+    id: a.id, name: a.name, account_id: a.account_id,
+    status: a.account_status, currency: a.currency, timezone: a.timezone_name,
+  }));
 
   const allCampaigns: MetaCampaign[] = [];
   const dateParam = getDateParam(period);

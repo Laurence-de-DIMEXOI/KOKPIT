@@ -42,13 +42,53 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Parallel: contacts count + 5 dernières campagnes envoyées
-    const [contactsRes, campagnesRes] = await Promise.all([
+    const debugMode = searchParams.get("debug") === "1";
+    const debugInfo: any = {};
+
+    // Validate API key by fetching account info
+    let accountInfo: any = null;
+    try {
+      accountInfo = await brevoFetch("/account");
+      if (debugMode) {
+        debugInfo.account = {
+          email: accountInfo.email,
+          companyName: accountInfo.companyName,
+          plan: accountInfo.plan?.[0]?.type || "unknown",
+        };
+      }
+    } catch (err: any) {
+      if (debugMode) {
+        debugInfo.accountError = err.message;
+      }
+    }
+
+    // Parallel: contacts count + sent campaigns + draft campaigns (for diagnostic)
+    const fetches: Promise<any>[] = [
       brevoFetch("/contacts?limit=1&offset=0"),
       brevoFetch("/emailCampaigns?status=sent&limit=5&sort=desc&type=classic"),
-    ]);
+    ];
+    if (debugMode) {
+      fetches.push(brevoFetch("/emailCampaigns?limit=5&sort=desc&type=classic"));
+    }
+    const [contactsRes, campagnesRes, allCampagnesRes] = await Promise.all(fetches);
 
     const totalContacts = contactsRes.count || 0;
+
+    if (debugMode) {
+      debugInfo.totalContacts = totalContacts;
+      debugInfo.sentCampaignsCount = campagnesRes.count || 0;
+      debugInfo.allCampaignsCount = allCampagnesRes?.count || "N/A";
+      if (campagnesRes.campaigns?.length > 0) {
+        debugInfo.sampleCampaign = {
+          id: campagnesRes.campaigns[0].id,
+          name: campagnesRes.campaigns[0].name,
+          status: campagnesRes.campaigns[0].status,
+          sentDate: campagnesRes.campaigns[0].sentDate,
+          hasStats: !!campagnesRes.campaigns[0].statistics,
+          rawStats: campagnesRes.campaigns[0].statistics,
+        };
+      }
+    }
 
     const campagnes = (campagnesRes.campaigns || []).map((c: any) => {
       const stats = c.statistics?.globalStats || {};
@@ -89,7 +129,7 @@ export async function GET(request: Request) {
           ) / 10
         : 0;
 
-    const result = {
+    const result: any = {
       contacts: { total: totalContacts },
       dernieresCampagnes: campagnes,
       moyennes: {
@@ -98,6 +138,10 @@ export async function GET(request: Request) {
       },
       _cache: { generatedAt: new Date().toISOString() },
     };
+
+    if (debugMode) {
+      result.debug = debugInfo;
+    }
 
     cache = { data: result, timestamp: Date.now() };
 
