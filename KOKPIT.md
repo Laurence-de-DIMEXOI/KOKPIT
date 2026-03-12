@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 11 mars 2026 (v3 — post session Claude Code)
-**Mis à jour par** : Session Claude (stratégie)
+**Dernière mise à jour** : 12 mars 2026 (v4 — post audit terrain Claude Code)
+**Mis à jour par** : Session Claude Code (audit terrain 14 points)
 
 ---
 
@@ -158,24 +158,38 @@ Option B : Topbar horizontale pour les espaces + Sidebar allégée pour le menu 
 - [x] Route `/api/sellsy/diagnostic` supprimée
 - [x] Post test "TEST - Post de vérification" supprimé
 
-### PROCHAINS SPRINTS — NOUVELLES FEATURES
+### AUDIT TERRAIN 12 MARS 2026
+
+| Phase | Description | Commit |
+|-------|-------------|--------|
+| 1+4 | Bugs UI (contraste boutons) + Sellsy URLs centralisé | `29f02dc` |
+| 2+3 | Login redirect par rôle + suppression boutons sync manuels | `b623f08` |
+| 5+9.2 | Recherche globale étendue (6 catégories) + statuts FR | `1211b2b` |
+| 6+9.3 | Commercial dashboard liens Sellsy + traçabilité search | `384767c` |
+| 11 | Dashboard Marketing skeleton loading | `14a531f` |
+| 12 | Diagnostic amélioré Meta + Brevo APIs | `f995680` |
+
+**Utilitaires créés :**
+- `src/lib/sellsy-urls.ts` — `getSellsyUrl(type, id)` pour liens profonds Sellsy
+- `src/lib/sellsy-statuts.ts` — `traduireStatut(status)` pour traduction FR des statuts Sellsy
+
+### PROCHAINS SPRINTS — FEATURES ET CORRECTIONS
 
 Ordre de priorité fondé sur l'impact terrain réel pour DIMEXOI.
 
 | ID | Feature | Pourquoi | Effort est. |
 |----|---------|----------|-------------|
-| X1 | Log d'activité contacts | Manque le plus criant. Logger appels, notes, relances sur chaque fiche. `ActivityLog { contactId, type, note, date, createdBy }` | 1j |
-| X2 | Tâches avec rappels | Évite les devis dans les oubliettes. Vue "Mes tâches". `Task { contactId?, titre, echeance, assigneA, statut }` | 1j |
-| X3 | Recherche globale topbar | Contacts + devis + commandes en parallèle, résultats groupés par type | 0.5j |
 | X4 | Priorité contact | Jauge froid/tiède/chaud calculée à la volée sur signaux Sellsy + Brevo. Voir section 12. | 1j |
 | X5 | Brevo enrichi | Listes dynamiques + webhook Brevo -> KOKPIT (signaux engagement). Voir section 13. | 2j |
-| X6 | Notifications internes | Cloche topbar : token Meta expirant, devis expirant, tâches en retard, SLA 72h | 1j |
-| X7 | Dashboards avec courbes | Évolution devis/mois, taux conversion, panier moyen — Recharts | 2j |
 | X8 | ROI Marketing réel | `CoutMarketing` + dashboard dépenses vs CA. Voir section 14. | 1-2j |
 | X9 | Segmentation RFM | Récence/Fréquence/Montant -> segments Brevo. Voir section 15. | 2j |
-| X10 | SLA 72h leads | Indicateur nouvelles demandes non traitées — alerte responsable | 0.5j |
-| X11 | Responsive mobile | Pages clés utilisables sur téléphone | 1j |
-| — | Espace Achat | À définir | ? |
+| A1 | Espace Achat | Classification ABC, fournisseurs, bons de commande | ? |
+| F1 | Création devis KOKPIT→Sellsy | Formulaire KOKPIT qui crée un devis dans Sellsy via API | 2j |
+| E1 | Espace client externe | Portail client pour suivi commandes, SAV | ? |
+| AUD7 | Leads : matching déterministe | Remplacer estimation IA par correspondance métier (SAM, SDB, CH) | 1j |
+| AUD8 | Contacts : devis/BDC par email | Retrouver historique Sellsy par email (pas seulement contact_id) | 0.5j |
+| AUD10 | Catalogue : code-barres + étiquettes | JsBarcode, modèle ProduitBarcode, impression @media print | 1j |
+| META | Token Meta : renouveler | Vérifier validité via `/api/meta/campaigns?debug=1` | action manuelle |
 
 ---
 
@@ -203,19 +217,42 @@ Ces choix ne sont pas remis en question sans discussion préalable.
 
 ## 8. MODELES PRISMA EN PRODUCTION
 
-- **User** — collaborateurs DIMEXOI (4 rôles)
-- **PlanningCard** — cartes Kanban planning
-- **PlanningChecklist** — items checklist par carte
-- **LiaisonDevisCommande** — liaisons devis<->commande (croisement `contact_id`)
-- **LiaisonDocumentaire** — chaîne documentaire (`parentid` V1, cache permanent) - migré `7eb8ab2`
-- **BrevoSyncLog** — historique synchronisations Sellsy->Brevo - migré
-- **DocArticle** — articles documentation interne - migré
+25 tables. Voir `prisma/schema.prisma` pour le détail complet.
+
+**Core :**
+- **User** — collaborateurs DIMEXOI (4 rôles : ADMIN, DIRECTION, COMMERCIAL, MARKETING)
+- **Showroom** — points de vente
+- **Contact** — contacts CRM (unique par email, lié Sellsy)
+- **Lead** — leads/opportunités
+- **Devis** — devis KOKPIT (lié Sellsy via `sellsyQuoteId`)
+- **Vente** — ventes réalisées
+- **Evenement** — timeline contact (10 types d'événements)
+- **Task** — tâches commerciales avec échéances
+
+**Marketing :**
+- **Campagne** — campagnes pub Meta/Google (+ `metaInsights` JSON)
+- **EmailCampaign** — campagnes email internes
+- **EmailLog** / **SmsLog** — logs envois
+- **BrevoSyncLog** / **BrevoWebhookEvent** — sync et webhooks Brevo
+- **PostPlanning** / **PostChecklist** / **PostAttachment** — planning posts Kanban
+
+**Commercial :**
+- **LiaisonDevisCommande** — liaisons devis↔commande Sellsy
+- **LiaisonDocumentaire** — chaîne documentaire Sellsy V1 (`parentid`)
+- **ObjectifCommercial** — objectifs CA mensuels
+- **DemandePrix** — demandes de prix (ex Glide)
+
+**Système :**
+- **ClickEvent** — tracking UTM/clics
+- **CoutOffline** — coûts offline (salons, print)
+- **AuditLog** — audit trail
+- **LienUtile** — liens utiles équipe
+- **DocArticle** — documentation interne
+- **Workflow** / **EmailTemplate** / **WorkflowExecution** — automatisations
 
 **A créer (prochains sprints) :**
-- `ActivityLog` — log d'activité contacts (X1)
-- `Task` — tâches avec échéances (X2)
 - `CoutMarketing` — coûts marketing pour ROI réel (X8)
-- `BrevoWebhookEvent` — signaux Brevo remontés vers KOKPIT (X5)
+- `ProduitBarcode` — codes-barres catalogue (AUD10)
 
 ---
 
