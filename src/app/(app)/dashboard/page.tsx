@@ -94,10 +94,47 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-cockpit-yellow" />
-          <p className="text-cockpit-secondary">Chargement du funnel...</p>
+      <div className="space-y-4 sm:space-y-5">
+        {/* Header skeleton */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="h-8 w-72 bg-cockpit-card rounded-lg animate-pulse" />
+            <div className="h-4 w-56 bg-cockpit-card rounded mt-2 animate-pulse" />
+          </div>
+          <div className="h-10 w-32 bg-cockpit-card rounded-lg animate-pulse" />
+        </div>
+        {/* KPI cards skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl p-4 bg-cockpit-card animate-pulse h-28">
+              <div className="h-4 w-12 bg-cockpit-dark rounded mb-3" />
+              <div className="h-3 w-24 bg-cockpit-dark rounded mb-2" />
+              <div className="h-7 w-16 bg-cockpit-dark rounded" />
+            </div>
+          ))}
+        </div>
+        {/* Funnel skeleton */}
+        <div className="bg-white border border-cockpit rounded-xl p-5 shadow-cockpit-lg animate-pulse">
+          <div className="h-5 w-48 bg-cockpit-card rounded mb-6" />
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-28 h-4 bg-cockpit-card rounded" />
+              <div className="flex-1 h-10 bg-cockpit-card rounded-lg" />
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-28 h-4 bg-cockpit-card rounded" />
+              <div className="w-3/4 h-10 bg-cockpit-card rounded-lg" />
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-28 h-4 bg-cockpit-card rounded" />
+              <div className="w-1/2 h-10 bg-cockpit-card rounded-lg" />
+            </div>
+          </div>
+        </div>
+        {/* Chart skeleton */}
+        <div className="bg-white border border-cockpit rounded-xl p-5 shadow-cockpit-lg animate-pulse">
+          <div className="h-5 w-40 bg-cockpit-card rounded mb-4" />
+          <div className="h-[300px] bg-cockpit-card rounded-lg" />
         </div>
       </div>
     );
