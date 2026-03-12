@@ -233,6 +233,15 @@ pre {
   color: white;
 }
 
+/* Enhanced card hover */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(50, 71, 92, 0.12);
+}
+
 /* Drawer slide-in animation */
 @keyframes slideIn {
   from { transform: translateX(100%); }

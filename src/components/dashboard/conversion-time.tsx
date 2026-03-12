@@ -101,20 +101,20 @@ export function ConversionTime({
       : null, [previousEstimates, previousOrders]);
 
   return (
-    <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
+    <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)', boxShadow: '0 4px 14px rgba(139, 92, 246, 0.30)' }}>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+        <p className="text-xs sm:text-sm font-semibold text-white/75">
           Temps conversion
         </p>
-        <Clock className="w-5 h-5 text-cockpit-info" />
+        <Clock className="w-5 h-5 text-white/60" />
       </div>
-      <p className="text-2xl sm:text-3xl font-bold text-cockpit-heading">
+      <p className="text-2xl sm:text-3xl font-bold text-white">
         {avgDays !== null ? `${avgDays}j` : "—"}
       </p>
       {avgDays !== null && prevAvgDays !== null ? (
         <VariationBadge current={avgDays} previous={prevAvgDays} inverted />
       ) : (
-        <span className="text-xs text-cockpit-secondary">
+        <span className="text-xs text-white/70">
           {avgDays !== null ? "Moy. devis → commande" : "Pas assez de données"}
         </span>
       )}
