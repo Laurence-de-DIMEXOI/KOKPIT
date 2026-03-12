@@ -197,7 +197,8 @@ export default function TachesPage() {
         </div>
         <button
           onClick={() => { setEditingTask(null); setShowForm(true); }}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F4B400] text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity w-full sm:w-auto"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity w-full sm:w-auto"
+          style={{ backgroundColor: 'var(--color-active)' }}
         >
           <Plus className="w-4 h-4" /> Nouvelle tâche
         </button>

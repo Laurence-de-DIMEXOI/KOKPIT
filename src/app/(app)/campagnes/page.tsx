@@ -268,7 +268,8 @@ export default function CampagnesPage() {
           )}
         </div>
         <button onClick={() => handleSync()} disabled={syncing || loading}
-          className="flex items-center justify-center gap-2 bg-cockpit-yellow text-cockpit-bg px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm w-full sm:w-auto">
+          className="flex items-center justify-center gap-2 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm w-full sm:w-auto"
+          style={{ backgroundColor: 'var(--color-active)' }}>
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {syncing ? "Sync en cours..." : "Synchroniser Meta"}
         </button>
@@ -448,7 +449,8 @@ export default function CampagnesPage() {
           <h3 className="text-base font-semibold text-cockpit-heading mb-2">Aucune campagne</h3>
           <p className="text-cockpit-secondary text-sm mb-6">Synchronise pour importer tes campagnes Meta</p>
           <button onClick={() => handleSync()} disabled={syncing}
-            className="bg-cockpit-yellow text-cockpit-bg px-6 py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm">
+            className="text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 text-sm"
+            style={{ backgroundColor: 'var(--color-active)' }}>
             Synchroniser maintenant
           </button>
         </div>

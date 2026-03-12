@@ -125,7 +125,8 @@ export default function ListesPage() {
           </button>
           <button
             onClick={() => { resetForm(); setShowModal(true); }}
-            className="flex items-center gap-2 bg-cockpit-yellow text-cockpit-bg px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90"
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90"
+            style={{ backgroundColor: 'var(--color-active)' }}
           >
             <Plus className="w-4 h-4" /> Nouvelle liste
           </button>

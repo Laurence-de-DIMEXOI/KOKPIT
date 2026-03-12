@@ -10,29 +10,6 @@ import { MENU_GENERAL } from "@/lib/nav-config";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Role } from "@/lib/auth-utils";
 
-// ===== COULEURS PAR ESPACE =====
-
-const spaceColors: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  commercial: {
-    bg: "bg-blue-50",
-    text: "text-blue-600",
-    border: "border-blue-200",
-    dot: "bg-blue-500",
-  },
-  marketing: {
-    bg: "bg-amber-50",
-    text: "text-amber-600",
-    border: "border-amber-200",
-    dot: "bg-amber-500",
-  },
-  administration: {
-    bg: "bg-emerald-50",
-    text: "text-emerald-600",
-    border: "border-emerald-200",
-    dot: "bg-emerald-500",
-  },
-};
-
 // ===== PROPS =====
 
 interface SidebarProps {
@@ -71,8 +48,6 @@ export function Sidebar({
       ? MENU_GENERAL.filter((item) => canAccessModule(userRole, item.module))
       : [];
 
-  const colors = spaceColors[activeSpaceId] || spaceColors.commercial;
-
   // Helper: lien actif ?
   const isNavActive = (href: string): boolean => {
     // Dashboard pages: exact match
@@ -95,16 +70,19 @@ export function Sidebar({
           className={clsx(
             "flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm relative",
             isActive
-              ? clsx(colors.bg, colors.text, "font-semibold border", colors.border)
+              ? "font-semibold"
               : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           )}
+          style={isActive ? {
+            backgroundColor: 'var(--color-active-light)',
+            color: 'var(--color-active)',
+            borderLeft: '3px solid var(--color-active)',
+          } : undefined}
         >
           {isActive && (
             <div
-              className={clsx(
-                "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full",
-                colors.dot
-              )}
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full"
+              style={{ backgroundColor: 'var(--color-active)' }}
             />
           )}
           <Icon className="w-4 h-4 flex-shrink-0" />
@@ -120,14 +98,14 @@ export function Sidebar({
       {currentSpace && (
         <div className="px-3 pt-4 pb-2">
           <div
-            className={clsx(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border",
-              colors.bg,
-              colors.text,
-              colors.border
-            )}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border"
+            style={{
+              backgroundColor: 'var(--color-active-light)',
+              color: 'var(--color-active)',
+              borderColor: 'var(--color-active)',
+            }}
           >
-            <div className={clsx("w-2 h-2 rounded-full", colors.dot)} />
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-active)' }} />
             {currentSpace.label}
           </div>
         </div>
@@ -238,11 +216,16 @@ export function Sidebar({
                   key={espace.id}
                   onClick={() => onSwitchSpace(espace.id)}
                   className={clsx(
-                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors",
+                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border",
                     isActive
-                      ? "bg-cockpit-yellow/15 text-cockpit-yellow font-semibold border border-cockpit-yellow/30"
-                      : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                      ? "font-semibold"
+                      : "text-gray-500 hover:text-gray-800 hover:bg-gray-100 border-transparent"
                   )}
+                  style={isActive ? {
+                    backgroundColor: 'var(--color-active-light)',
+                    color: 'var(--color-active)',
+                    borderColor: 'color-mix(in srgb, var(--color-active) 30%, transparent)',
+                  } : undefined}
                 >
                   {espace.label}
                 </button>

@@ -22,6 +22,37 @@
   --input-border: #D9DCE3;
   --radius-card: 0.75rem;
   --radius-input: 0.5rem;
+
+  /* Couleurs par espace */
+  --color-commercial: #66A5ED;
+  --color-commercial-light: rgba(102, 165, 237, 0.10);
+  --color-marketing: #7758A3;
+  --color-marketing-light: rgba(119, 88, 163, 0.10);
+  --color-admin: #F6C45C;
+  --color-admin-light: rgba(246, 196, 92, 0.12);
+  --color-achat: #DB3E8C;
+  --color-achat-light: rgba(219, 62, 140, 0.08);
+
+  /* Variable active — jaune global par defaut */
+  --color-active: #F4B400;
+  --color-active-light: rgba(244, 180, 0, 0.10);
+}
+
+[data-espace="commercial"] {
+  --color-active: var(--color-commercial);
+  --color-active-light: var(--color-commercial-light);
+}
+[data-espace="marketing"] {
+  --color-active: var(--color-marketing);
+  --color-active-light: var(--color-marketing-light);
+}
+[data-espace="administration"] {
+  --color-active: var(--color-admin);
+  --color-active-light: var(--color-admin-light);
+}
+[data-espace="achat"] {
+  --color-active: var(--color-achat);
+  --color-active-light: var(--color-achat-light);
 }
 
 * {

@@ -89,14 +89,15 @@ export function Topbar({
                 className={clsx(
                   "px-3 py-3 text-sm font-medium transition-colors relative",
                   isActive
-                    ? "text-gray-900 font-semibold"
+                    ? "font-semibold"
                     : "text-gray-500 hover:text-gray-800"
                 )}
+                style={isActive ? { color: 'var(--color-active)' } : undefined}
               >
                 {espace.label}
-                {/* Indicateur actif — barre jaune en bas */}
+                {/* Indicateur actif — barre colorée en bas */}
                 {isActive && (
-                  <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-cockpit-yellow rounded-full" />
+                  <div className="absolute bottom-0 left-1 right-1 h-[3px] rounded-full" style={{ backgroundColor: 'var(--color-active)' }} />
                 )}
               </button>
             );

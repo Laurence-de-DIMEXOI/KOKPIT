@@ -236,7 +236,7 @@ export default function ContactsPage() {
             className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
             {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
           </button>
-          <button className="bg-cockpit-yellow text-cockpit-bg px-4 py-2 rounded-lg font-semibold hover:opacity-90 text-sm">
+          <button className="text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 text-sm" style={{ backgroundColor: 'var(--color-active)' }}>
             + Nouveau
           </button>
         </div>

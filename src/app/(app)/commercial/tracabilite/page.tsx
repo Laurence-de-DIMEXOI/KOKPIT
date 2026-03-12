@@ -368,7 +368,8 @@ export default function TracabilitePage() {
                 await handleLink(s.estimate.id, s.order.id);
               }
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cockpit-yellow text-white text-xs font-medium hover:bg-cockpit-yellow/90 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: 'var(--color-active)' }}
           >
             <Link2 className="w-3.5 h-3.5" />
             Appliquer toutes

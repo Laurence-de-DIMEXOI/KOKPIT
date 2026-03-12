@@ -79,7 +79,7 @@ export default function AppLayout({
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-cockpit">
+      <div className="min-h-screen bg-cockpit" data-espace={activeSpaceId}>
         {/* Topbar fixe — 48px */}
         <Topbar
           activeSpaceId={activeSpaceId}
