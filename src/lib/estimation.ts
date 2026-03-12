@@ -1,5 +1,9 @@
 /**
- * Estimation IA — Matching articles demande ↔ catalogue Sellsy
+ * Matching déterministe — articles demande ↔ catalogue Sellsy
+ *
+ * Approche : dictionnaire métier DIMEXOI (abréviations mobilier)
+ * + matching par mots-clés normalisés.
+ * Pas d'IA, pas de LLM — correspondance déterministe reproductible.
  *
  * Logique partagée entre :
  * - Webhook (à l'arrivée d'une demande)
@@ -42,6 +46,90 @@ export interface EstimationResult {
   error?: string;
 }
 
+// ===== DICTIONNAIRE METIER DIMEXOI =====
+// Abréviations courantes dans les demandes de prix mobilier
+
+const ABBREVIATIONS: Record<string, string> = {
+  // Pièces
+  "sam": "salle a manger",
+  "sdm": "salle a manger",
+  "sdb": "salle de bain",
+  "sde": "salle d eau",
+  "ch": "chambre",
+  "chb": "chambre",
+  "chs": "chambre",
+  "sal": "salon",
+  "sej": "sejour",
+  "cuis": "cuisine",
+  "bur": "bureau",
+  "ent": "entree",
+  "wc": "toilettes",
+  "ext": "exterieur",
+  "ter": "terrasse",
+  "jar": "jardin",
+  "bal": "balcon",
+  "vrd": "veranda",
+
+  // Meubles courants
+  "canap": "canape",
+  "tab": "table",
+  "chse": "chaise",
+  "lit": "lit",
+  "arm": "armoire",
+  "com": "commode",
+  "buf": "buffet",
+  "bib": "bibliotheque",
+  "etag": "etagere",
+  "tv": "meuble tv",
+  "tlv": "meuble tv",
+  "csl": "console",
+  "bqt": "banquette",
+  "faut": "fauteuil",
+  "tbt": "tabouret",
+  "mat": "matelas",
+  "smr": "sommier",
+  "cdt": "table de chevet",
+  "chvt": "chevet",
+  "dres": "dressing",
+  "pdt": "table de repas",
+  "bse": "table basse",
+
+  // Finitions
+  "bco": "blanc",
+  "blc": "blanc",
+  "nr": "noir",
+  "grs": "gris",
+  "nat": "naturel",
+  "chne": "chene",
+  "noy": "noyer",
+  "wng": "wenge",
+  "teck": "teck",
+  "lac": "laque",
+};
+
+// Synonymes métier pour le matching : variantes possibles d'un même produit
+const SYNONYMES: [string, string][] = [
+  ["canape", "sofa"],
+  ["table basse", "table de salon"],
+  ["table de repas", "table a manger"],
+  ["table a manger", "table salle a manger"],
+  ["chevet", "table de chevet"],
+  ["table de nuit", "chevet"],
+  ["armoire", "penderie"],
+  ["meuble tv", "meuble television"],
+  ["buffet", "bahut"],
+  ["etagere", "bibliotheque"],
+  ["fauteuil", "siege"],
+  ["banquette", "banc"],
+  ["commode", "semainier"],
+  ["lit", "couchage"],
+  ["sommier", "literie"],
+  ["matelas", "literie"],
+  ["dressing", "placard"],
+  ["meuble de rangement", "rangement"],
+  ["meuble de salle de bain", "vasque"],
+];
+
 // ===== MATCHING HELPERS =====
 
 function normalizeString(s: string | null | undefined): string {
@@ -54,43 +142,84 @@ function normalizeString(s: string | null | undefined): string {
     .trim();
 }
 
+/**
+ * Expanse les abréviations métier dans un texte normalisé.
+ * Ex: "table sam chne" → "table salle a manger chene"
+ */
+function expandAbbreviations(text: string): string {
+  const words = text.split(/\s+/);
+  return words
+    .map((w) => ABBREVIATIONS[w] || w)
+    .join(" ");
+}
+
 function extractKeywords(name: string): string[] {
   const stopWords = new Set([
     "de", "du", "le", "la", "les", "un", "une", "des", "en", "et",
-    "avec", "pour", "sur", "par", "dans", "aux", "au",
+    "avec", "pour", "sur", "par", "dans", "aux", "au", "a", "l",
   ]);
-  return normalizeString(name)
+  const expanded = expandAbbreviations(normalizeString(name));
+  return expanded
     .split(/\s+/)
-    .filter((w) => w.length > 2 && !stopWords.has(w));
+    .filter((w) => w.length > 1 && !stopWords.has(w));
+}
+
+/**
+ * Vérifie si deux termes sont synonymes métier.
+ */
+function areSynonyms(a: string, b: string): boolean {
+  if (a === b) return true;
+  for (const [s1, s2] of SYNONYMES) {
+    if ((a.includes(s1) && b.includes(s2)) || (a.includes(s2) && b.includes(s1))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function scoreMatch(articleName: string | null | undefined, sellsyName: string | null | undefined): number {
   if (!articleName || !sellsyName) return 0;
-  const normArticle = normalizeString(articleName);
-  const normSellsy = normalizeString(sellsyName);
+
+  // Normaliser et expanser les abréviations
+  const normArticle = expandAbbreviations(normalizeString(articleName));
+  const normSellsy = expandAbbreviations(normalizeString(sellsyName));
   if (!normArticle || !normSellsy) return 0;
 
+  // Match exact
   if (normArticle === normSellsy) return 100;
+
+  // Inclusion complète
   if (normSellsy.includes(normArticle)) return 90;
   if (normArticle.includes(normSellsy)) return 85;
 
+  // Match synonymes sur chaînes complètes
+  if (areSynonyms(normArticle, normSellsy)) return 88;
+
+  // Match par mots-clés
   const kwArticle = extractKeywords(articleName);
   const kwSellsy = extractKeywords(sellsyName);
   if (kwArticle.length === 0 || kwSellsy.length === 0) return 0;
 
   let matched = 0;
+  let synonymMatched = 0;
   for (const kw of kwArticle) {
     if (kwSellsy.some((s) => s.includes(kw) || kw.includes(s))) {
       matched++;
+    } else if (kwSellsy.some((s) => areSynonyms(kw, s))) {
+      synonymMatched++;
     }
   }
-  return Math.round((matched / kwArticle.length) * 80);
+
+  const directScore = (matched / kwArticle.length) * 80;
+  const synonymScore = (synonymMatched / kwArticle.length) * 60;
+  return Math.round(Math.min(directScore + synonymScore, 95));
 }
 
 // ===== ESTIMATION PRINCIPALE =====
 
 /**
  * Estime la valeur d'une demande en matchant ses articles avec le catalogue Sellsy.
+ * Matching déterministe : abréviations métier + synonymes + mots-clés.
  * Accepte un catalogue pré-chargé pour éviter les appels API multiples en batch.
  */
 export async function estimateDemande(
@@ -133,15 +262,24 @@ export async function estimateDemande(
       const itemName = item.name || item.reference || item.description || "";
       let score = scoreMatch(article.nom, itemName);
 
+      // Fallback sur référence si score faible
       if (score < 50 && item.reference) {
         score = Math.max(score, scoreMatch(article.nom, item.reference) * 0.8);
       }
+      // Fallback sur description
       if (score < 50 && item.description && item.description !== itemName) {
         score = Math.max(score, scoreMatch(article.nom, item.description) * 0.7);
       }
+      // Bonus catégorie
       if (score > 20 && article.categorie) {
         const catScore = scoreMatch(article.categorie, itemName);
         if (catScore > 30) score = Math.min(100, score + 10);
+      }
+      // Bonus finition
+      if (score > 30 && article.finition) {
+        const finNorm = expandAbbreviations(normalizeString(article.finition));
+        const itemNorm = expandAbbreviations(normalizeString(itemName));
+        if (itemNorm.includes(finNorm)) score = Math.min(100, score + 5);
       }
 
       if (score > bestScore && score >= 30) {

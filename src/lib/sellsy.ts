@@ -483,6 +483,25 @@ export interface SellsyContact {
   updated: string;
 }
 
+/**
+ * Cherche un contact Sellsy par email.
+ * Retourne le premier contact trouvé ou null.
+ */
+export async function searchContactByEmail(email: string): Promise<SellsyContact | null> {
+  try {
+    const res = await sellsyFetch<SellsyListResponse<SellsyContact>>(
+      `/contacts/search?limit=1`,
+      {
+        method: "POST",
+        body: JSON.stringify({ filters: { email } }),
+      }
+    );
+    return res.data?.[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function listContacts(params?: {
   limit?: number;
   offset?: number;

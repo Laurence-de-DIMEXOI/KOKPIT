@@ -182,32 +182,32 @@ export default function EmailingPage() {
       <div className="space-y-4 sm:space-y-6 lg:space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="h-8 w-40 bg-gray-200 rounded-lg animate-pulse" />
-            <div className="h-4 w-56 bg-gray-200 rounded mt-2 animate-pulse" />
+            <div className="h-8 w-40 bg-cockpit-dark rounded-lg animate-pulse" />
+            <div className="h-4 w-56 bg-cockpit-dark rounded mt-2 animate-pulse" />
           </div>
-          <div className="h-10 w-44 bg-gray-200 rounded-lg animate-pulse" />
+          <div className="h-10 w-44 bg-cockpit-dark rounded-lg animate-pulse" />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-24 bg-white rounded-xl border border-gray-200 animate-pulse p-4"
+              className="h-24 bg-cockpit-card rounded-card border border-cockpit animate-pulse p-4"
             >
-              <div className="h-3 w-24 bg-gray-200 rounded mb-3" />
-              <div className="h-6 w-16 bg-gray-200 rounded" />
+              <div className="h-3 w-24 bg-cockpit-dark rounded mb-3" />
+              <div className="h-6 w-16 bg-cockpit-dark rounded" />
             </div>
           ))}
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-cockpit-card rounded-card border border-cockpit overflow-hidden">
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
-              className="px-6 py-4 border-b border-gray-100 flex gap-4 animate-pulse"
+              className="px-6 py-4 border-b border-cockpit flex gap-4 animate-pulse"
             >
-              <div className="h-4 w-48 bg-gray-200 rounded" />
-              <div className="h-4 w-16 bg-gray-200 rounded" />
-              <div className="h-4 w-16 bg-gray-200 rounded" />
-              <div className="h-4 w-16 bg-gray-200 rounded ml-auto" />
+              <div className="h-4 w-48 bg-cockpit-dark rounded" />
+              <div className="h-4 w-16 bg-cockpit-dark rounded" />
+              <div className="h-4 w-16 bg-cockpit-dark rounded" />
+              <div className="h-4 w-16 bg-cockpit-dark rounded ml-auto" />
             </div>
           ))}
         </div>
