@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { searchEstimates, searchOrders } from "@/lib/sellsy";
+import { calculatePriority } from "@/lib/contact-priority";
 
 // GET /api/contacts — Liste des contacts avec pagination, recherche, filtres
 const filterSchema = z.object({
   search: z.string().optional(),
   stage: z.enum(["PROSPECT", "LEAD", "CLIENT", "INACTIF"]).optional(),
   showroomId: z.string().optional(),
-  sort: z.enum(["derniere_demande", "dernier_devis", "dernier_bdc", "nom", "date_creation"]).optional().default("derniere_demande"),
+  sort: z.enum(["derniere_demande", "dernier_devis", "dernier_bdc", "nom", "date_creation", "priorite"]).optional().default("derniere_demande"),
   page: z.coerce.number().positive().default(1),
   limit: z.coerce.number().min(1).max(100).default(25),
 });
@@ -167,8 +168,31 @@ export async function GET(request: NextRequest) {
       sortedContacts = [...contacts].sort((a, b) => (idOrder.get(a.id) ?? 999) - (idOrder.get(b.id) ?? 999));
     }
 
+    // Calculate priority for each contact
+    const contactsWithPriority = sortedContacts.map((c: any) => {
+      const priority = calculatePriority(
+        { lifecycleStage: c.lifecycleStage, createdAt: c.createdAt },
+        (c.devis || []).map((d: any) => ({
+          statut: d.statut,
+          dateEnvoi: d.dateEnvoi,
+          createdAt: d.createdAt,
+        })),
+        (c.ventes || []).map((v: any) => ({
+          dateVente: v.dateVente,
+          createdAt: v.createdAt,
+        }))
+      );
+      return { ...c, priority };
+    });
+
+    // Sort by priority if requested
+    let finalContacts = contactsWithPriority;
+    if (filters.sort === "priorite") {
+      finalContacts = [...contactsWithPriority].sort((a, b) => b.priority.score - a.priority.score);
+    }
+
     return NextResponse.json({
-      contacts: sortedContacts,
+      contacts: finalContacts,
       pagination: {
         page: filters.page,
         limit: filters.limit,

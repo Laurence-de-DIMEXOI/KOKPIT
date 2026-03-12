@@ -7,7 +7,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 let cache: { data: unknown; timestamp: number } | null = null;
 
 interface NotificationItem {
-  type: "token_meta" | "devis_expirant" | "sync_brevo";
+  type: "token_meta" | "devis_expirant" | "sync_brevo" | "tache_retard" | "sla_72h";
   message: string;
   severity: "danger" | "warning" | "info";
   href?: string;
@@ -63,7 +63,71 @@ export async function GET() {
       }
     }
 
-    // 2. Vérifier la dernière sync Brevo
+    // 2. Tâches en retard
+    try {
+      const overdueTasks = await prisma.task.count({
+        where: {
+          echeance: { lt: new Date() },
+          statut: { not: "TERMINEE" },
+        },
+      });
+      if (overdueTasks > 0) {
+        items.push({
+          type: "tache_retard",
+          message: `${overdueTasks} tâche${overdueTasks > 1 ? "s" : ""} en retard`,
+          severity: "warning",
+          href: "/commercial/taches",
+        });
+      }
+    } catch {
+      // Silently fail
+    }
+
+    // 3. SLA 72h — leads non traités depuis >72h
+    try {
+      const slaDate = new Date(Date.now() - 72 * 60 * 60 * 1000);
+      const slaLeads = await prisma.contact.count({
+        where: {
+          lifecycleStage: "LEAD",
+          createdAt: { lt: slaDate },
+          devis: { none: {} },
+          evenements: { none: {} },
+        },
+      });
+      if (slaLeads > 0) {
+        items.push({
+          type: "sla_72h",
+          message: `${slaLeads} lead${slaLeads > 1 ? "s" : ""} sans action depuis 72h`,
+          severity: "danger",
+          href: "/contacts?stage=LEAD",
+        });
+      }
+    } catch {
+      // Silently fail
+    }
+
+    // 4. Devis expirants (<5 jours, envoyé il y a ~25-30j)
+    try {
+      const fiveDaysFromExpiry = new Date(Date.now() - 25 * 24 * 60 * 60 * 1000);
+      const expiringDevis = await prisma.devis.count({
+        where: {
+          statut: "ENVOYE",
+          dateEnvoi: { lte: fiveDaysFromExpiry },
+        },
+      });
+      if (expiringDevis > 0) {
+        items.push({
+          type: "devis_expirant",
+          message: `${expiringDevis} devis bientôt expiré${expiringDevis > 1 ? "s" : ""}`,
+          severity: "warning",
+          href: "/commercial/pipeline",
+        });
+      }
+    } catch {
+      // Silently fail
+    }
+
+    // 5. Vérifier la dernière sync Brevo
     try {
       const lastSync = await prisma.brevoSyncLog.findFirst({
         where: { statut: "success" },

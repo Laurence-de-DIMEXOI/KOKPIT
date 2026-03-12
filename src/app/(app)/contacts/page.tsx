@@ -18,6 +18,7 @@ import {
   Ban,
 } from "lucide-react";
 import { ContactPreviewDrawer } from "@/components/contacts/contact-preview-drawer";
+import { PriorityBadge } from "@/components/contacts/priority-badge";
 
 const ITEMS_PER_PAGE = 25;
 
@@ -280,6 +281,7 @@ export default function ContactsPage() {
             <option value="dernier_bdc">Tri: Dernier BDC</option>
             <option value="nom">Tri: Nom A-Z</option>
             <option value="date_creation">Tri: Date création</option>
+            <option value="priorite">Tri: Priorité</option>
           </select>
         </div>
       </div>
@@ -296,6 +298,7 @@ export default function ContactsPage() {
                 <th className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading hidden lg:table-cell">TÉL.</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading">SOURCE</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading">STAGE</th>
+                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading hidden lg:table-cell">PRIORITÉ</th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">DEM.</th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">DEVIS</th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">BDC</th>
@@ -304,7 +307,7 @@ export default function ContactsPage() {
             <tbody className="divide-y divide-cockpit">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center">
+                  <td colSpan={9} className="px-4 py-12 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin" />Chargement...
                     </div>
@@ -336,6 +339,9 @@ export default function ContactsPage() {
                           {c.lifecycleStage || "PROSPECT"}
                         </span>
                       </td>
+                      <td className="px-3 py-3 text-center hidden lg:table-cell">
+                        {c.priority && <PriorityBadge priority={c.priority} />}
+                      </td>
                       <td className="px-3 py-3 text-center text-sm font-medium text-cockpit-primary">
                         {nbDem > 0 ? nbDem : <span className="text-cockpit-secondary text-xs">—</span>}
                       </td>
@@ -362,7 +368,7 @@ export default function ContactsPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-cockpit-secondary">
+                  <td colSpan={9} className="px-4 py-12 text-center text-cockpit-secondary">
                     {totalContacts === 0 ? "Aucun contact en base" : "Aucun contact trouvé avec ces filtres"}
                   </td>
                 </tr>
@@ -396,6 +402,7 @@ export default function ContactsPage() {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${sc.bg} ${sc.text}`}>
                           {c.lifecycleStage || "PROSPECT"}
                         </span>
+                        {c.priority && <PriorityBadge priority={c.priority} />}
                         {nbDem > 0 && <span className="text-[10px] text-cockpit-secondary">{nbDem} dem.</span>}
                         {nbDevis > 0 && (
                           <span className="inline-flex items-center gap-0.5 text-[10px] text-cockpit-info font-semibold">

@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { ContactTimeline } from "./contact-timeline";
+import { PriorityGauge } from "./priority-badge";
+import { calculatePriority } from "@/lib/contact-priority";
+import type { PriorityData } from "./priority-badge";
 
 // Types pour les données API
 interface DemandePrix {
@@ -308,6 +311,20 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
+          {/* Priority Gauge */}
+          {(() => {
+            const priority: PriorityData = calculatePriority(
+              { lifecycleStage: contact.lifecycleStage, createdAt: contact.devis?.[0]?.createdAt || new Date().toISOString() },
+              devis.map(d => ({ statut: d.statut, dateEnvoi: d.dateEnvoi, createdAt: d.createdAt })),
+              ventes.map(v => ({ dateVente: v.dateVente, createdAt: v.createdAt }))
+            );
+            return priority.score > 0 ? (
+              <div className="p-6 border-b border-[#E8EAED]">
+                <PriorityGauge priority={priority} />
+              </div>
+            ) : null;
+          })()}
+
           {/* Informations */}
           <div className="p-6 border-b border-[#E8EAED]">
             <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
