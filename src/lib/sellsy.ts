@@ -616,12 +616,15 @@ export async function listAllCompanies(): Promise<SellsyCompany[]> {
  */
 export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]> {
   const pageSize = 100;
-  // Défaut : 6 mois en arrière au lieu de tout depuis 2024
-  const sinceDate = since || new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  // Pas de limite de date par défaut — tout l'historique Sellsy
+  const sinceDate = since || undefined;
+
+  const filters: Record<string, any> = {};
+  if (sinceDate) filters.date = { start: sinceDate };
 
   // Page 1 — séquentielle pour connaître le total
   const page1 = await searchEstimates({
-    filters: { date: { start: sinceDate } },
+    filters,
     limit: pageSize,
     offset: 0,
     order: "created",
@@ -644,7 +647,7 @@ export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]
       const results = await Promise.all(
         batch.map((offset) =>
           searchEstimates({
-            filters: { date: { start: sinceDate } },
+            filters,
             limit: pageSize,
             offset,
             order: "created",
@@ -658,22 +661,25 @@ export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]
     }
   }
 
-  console.log(`Fetched ${all.length} estimates since ${sinceDate} (${Math.ceil(total / pageSize)} pages)`);
+  console.log(`Fetched ${all.length} estimates (${sinceDate ? `since ${sinceDate}` : "all"}, ${Math.ceil(total / pageSize)} pages)`);
   return all;
 }
 
 /**
- * Récupère TOUS les bons de commande Sellsy depuis une date donnée (défaut: 6 mois).
+ * Récupère TOUS les bons de commande Sellsy (tout l'historique).
  * Page 1 en séquentiel pour connaître le total, puis pages 2-N en parallèle.
  */
 export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
   const pageSize = 100;
-  // Défaut : 6 mois en arrière au lieu de tout depuis 2024
-  const sinceDate = since || new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  // Pas de limite de date par défaut — tout l'historique Sellsy
+  const sinceDate = since || undefined;
+
+  const filters: Record<string, any> = {};
+  if (sinceDate) filters.date = { start: sinceDate };
 
   // Page 1 — séquentielle pour connaître le total
   const page1 = await searchOrders({
-    filters: { date: { start: sinceDate } },
+    filters,
     limit: pageSize,
     offset: 0,
   });
@@ -693,7 +699,7 @@ export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
       const results = await Promise.all(
         batch.map((offset) =>
           searchOrders({
-            filters: { date: { start: sinceDate } },
+            filters,
             limit: pageSize,
             offset,
           })
@@ -705,7 +711,7 @@ export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
     }
   }
 
-  console.log(`Fetched ${all.length} orders since ${sinceDate} (${Math.ceil(total / pageSize)} pages)`);
+  console.log(`Fetched ${all.length} orders (${sinceDate ? `since ${sinceDate}` : "all"}, ${Math.ceil(total / pageSize)} pages)`);
   return all;
 }
 
