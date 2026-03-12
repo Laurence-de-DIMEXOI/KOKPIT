@@ -397,6 +397,76 @@ async function fetchBatchHierarchy(
   return { campaigns: allCampaigns, debug };
 }
 
+// ===== DB SYNC (background) =====
+
+async function syncCampaignsToDB(campaigns: MetaCampaign[]) {
+  for (const campaign of campaigns) {
+    try {
+      const metaInsights = {
+        spend: campaign.insights.spend,
+        impressions: campaign.insights.impressions,
+        clicks: campaign.insights.clicks,
+        conversions: campaign.insights.conversions,
+        cpc: campaign.insights.cpc,
+        ctr: campaign.insights.ctr,
+        budget: campaign.dailyBudget || campaign.lifetimeBudget || 0,
+        status: campaign.status,
+        objective: campaign.objective,
+        adsetsCount: campaign.adsets.length,
+        adsCount: campaign.adsets.reduce((s, a) => s + a.ads.length, 0),
+        adsets: campaign.adsets.map((as) => ({
+          id: as.id, name: as.name, status: as.status,
+          dailyBudget: as.dailyBudget, lifetimeBudget: as.lifetimeBudget,
+          targeting: as.targeting, optimization: as.optimization,
+          insights: {
+            spend: as.insights.spend, impressions: as.insights.impressions,
+            clicks: as.insights.clicks, conversions: as.insights.conversions,
+            cpc: as.insights.cpc, ctr: as.insights.ctr,
+          },
+          ads: as.ads.map((ad) => ({
+            id: ad.id, name: ad.name, status: ad.status, thumbnailUrl: ad.thumbnailUrl,
+            insights: {
+              spend: ad.insights.spend, impressions: ad.insights.impressions,
+              clicks: ad.insights.clicks, conversions: ad.insights.conversions,
+              cpc: ad.insights.cpc, ctr: ad.insights.ctr,
+            },
+          })),
+        })),
+        syncedAt: new Date().toISOString(),
+      };
+
+      const existing = await prisma.campagne.findFirst({ where: { metaCampaignId: campaign.id } });
+      if (existing) {
+        await prisma.campagne.update({
+          where: { id: existing.id },
+          data: {
+            nom: campaign.name,
+            coutTotal: campaign.insights.spend,
+            dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
+            dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
+            actif: campaign.status === "ACTIVE",
+            metaInsights,
+          },
+        });
+      } else {
+        await prisma.campagne.create({
+          data: {
+            nom: campaign.name, plateforme: "META",
+            coutTotal: campaign.insights.spend,
+            dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
+            dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
+            metaCampaignId: campaign.id, actif: campaign.status === "ACTIVE",
+            metaInsights,
+          },
+        });
+      }
+    } catch (err) {
+      console.error(`Sync campagne ${campaign.id}:`, err);
+    }
+  }
+  console.log(`[Meta] Synced ${campaigns.length} campaigns to DB`);
+}
+
 // ===== ROUTE =====
 
 export async function GET(request: NextRequest) {
@@ -416,72 +486,15 @@ export async function GET(request: NextRequest) {
 
     const { campaigns, debug } = await fetchBatchHierarchy(accessToken, period);
 
-    // Sync to DB (only for 'maximum' period — the default full data)
+    // Sync to DB en arrière-plan (non-bloquant) — seulement les campagnes avec données
     if (period === "maximum") {
-      for (const campaign of campaigns) {
-        try {
-          const metaInsights = {
-            spend: campaign.insights.spend,
-            impressions: campaign.insights.impressions,
-            clicks: campaign.insights.clicks,
-            conversions: campaign.insights.conversions,
-            cpc: campaign.insights.cpc,
-            ctr: campaign.insights.ctr,
-            budget: campaign.dailyBudget || campaign.lifetimeBudget || 0,
-            status: campaign.status,
-            objective: campaign.objective,
-            adsetsCount: campaign.adsets.length,
-            adsCount: campaign.adsets.reduce((s, a) => s + a.ads.length, 0),
-            adsets: campaign.adsets.map((as) => ({
-              id: as.id, name: as.name, status: as.status,
-              dailyBudget: as.dailyBudget, lifetimeBudget: as.lifetimeBudget,
-              targeting: as.targeting, optimization: as.optimization,
-              insights: {
-                spend: as.insights.spend, impressions: as.insights.impressions,
-                clicks: as.insights.clicks, conversions: as.insights.conversions,
-                cpc: as.insights.cpc, ctr: as.insights.ctr,
-              },
-              ads: as.ads.map((ad) => ({
-                id: ad.id, name: ad.name, status: ad.status, thumbnailUrl: ad.thumbnailUrl,
-                insights: {
-                  spend: ad.insights.spend, impressions: ad.insights.impressions,
-                  clicks: ad.insights.clicks, conversions: ad.insights.conversions,
-                  cpc: ad.insights.cpc, ctr: ad.insights.ctr,
-                },
-              })),
-            })),
-            syncedAt: new Date().toISOString(),
-          };
-
-          const existing = await prisma.campagne.findFirst({ where: { metaCampaignId: campaign.id } });
-          if (existing) {
-            await prisma.campagne.update({
-              where: { id: existing.id },
-              data: {
-                nom: campaign.name,
-                coutTotal: campaign.insights.spend,
-                dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
-                dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
-                actif: campaign.status === "ACTIVE",
-                metaInsights,
-              },
-            });
-          } else {
-            await prisma.campagne.create({
-              data: {
-                nom: campaign.name, plateforme: "META",
-                coutTotal: campaign.insights.spend,
-                dateDebut: campaign.startDate ? new Date(campaign.startDate) : undefined,
-                dateFin: campaign.endDate ? new Date(campaign.endDate) : undefined,
-                metaCampaignId: campaign.id, actif: campaign.status === "ACTIVE",
-                metaInsights,
-              },
-            });
-          }
-        } catch (err) {
-          console.error(`Sync campagne ${campaign.id}:`, err);
-        }
-      }
+      const campaignsToSync = campaigns.filter(
+        (c) => c.insights.spend > 0 || c.insights.impressions > 0 || c.status === "ACTIVE"
+      );
+      // Fire-and-forget : la réponse part immédiatement
+      syncCampaignsToDB(campaignsToSync).catch((err) =>
+        console.error("Background DB sync error:", err)
+      );
     }
 
     // KPIs
