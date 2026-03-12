@@ -18,6 +18,7 @@ import { KPICard } from "@/components/dashboard/kpi-card";
 import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
 import { DocumentChain } from "@/components/commercial/document-chain";
 import clsx from "clsx";
+import { traduireStatut } from "@/lib/sellsy-statuts";
 
 type Period = "week" | "month" | "year" | "all";
 
@@ -537,7 +538,7 @@ export default function TracabilitePage() {
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-cockpit-info/10 text-cockpit-info">
-                          {order.status || "—"}
+                          {traduireStatut(order.status)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center relative">

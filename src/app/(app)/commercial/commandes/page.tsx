@@ -213,7 +213,7 @@ export default function CommandesPage() {
           ) : (
             <RefreshCw className="w-4 h-4" />
           )}
-          Sync Sellsy
+          Actualiser
         </button>
       </div>
 

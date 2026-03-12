@@ -2,8 +2,111 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { listEstimates, listOrders, listItems } from "@/lib/sellsy";
+import { ESPACES, MENU_GENERAL, type NavItem } from "@/lib/nav-config";
 
-// GET /api/search?q=terme — Recherche globale contacts + tâches
+// ===== Pages statiques depuis nav-config =====
+function searchPages(query: string): { label: string; href: string; espace: string }[] {
+  const q = query.toLowerCase();
+  const results: { label: string; href: string; espace: string }[] = [];
+
+  for (const espace of ESPACES) {
+    if (espace.disabled) continue;
+    for (const item of espace.menu) {
+      if (item.label.toLowerCase().includes(q)) {
+        results.push({ label: item.label, href: item.href, espace: espace.label });
+      }
+    }
+  }
+
+  for (const item of MENU_GENERAL) {
+    if (item.label.toLowerCase().includes(q)) {
+      results.push({ label: item.label, href: item.href, espace: "Général" });
+    }
+  }
+
+  // Dédupliquer par href
+  const seen = new Set<string>();
+  return results.filter((r) => {
+    if (seen.has(r.href)) return false;
+    seen.add(r.href);
+    return true;
+  }).slice(0, 5);
+}
+
+// ===== Recherche Sellsy (filtre côté serveur sur données cachées) =====
+async function searchSellsyEstimates(query: string) {
+  try {
+    const result = await listEstimates({ limit: 100, order: "created", direction: "desc" });
+    const q = query.toLowerCase();
+    return (result.data || [])
+      .filter((e: any) =>
+        (e.number || "").toLowerCase().includes(q) ||
+        (e.reference || "").toLowerCase().includes(q) ||
+        (e.subject || "").toLowerCase().includes(q) ||
+        (e.company_name || "").toLowerCase().includes(q)
+      )
+      .slice(0, 5)
+      .map((e: any) => ({
+        id: e.id,
+        number: e.number,
+        subject: e.subject,
+        company_name: e.company_name,
+        status: e.status,
+        total: e.amounts?.total || "0",
+      }));
+  } catch {
+    return [];
+  }
+}
+
+async function searchSellsyOrders(query: string) {
+  try {
+    const result = await listOrders({ limit: 100, order: "created", direction: "desc" });
+    const q = query.toLowerCase();
+    return (result.data || [])
+      .filter((o: any) =>
+        (o.number || "").toLowerCase().includes(q) ||
+        (o.reference || "").toLowerCase().includes(q) ||
+        (o.subject || "").toLowerCase().includes(q) ||
+        (o.company_name || "").toLowerCase().includes(q)
+      )
+      .slice(0, 5)
+      .map((o: any) => ({
+        id: o.id,
+        number: o.number,
+        subject: o.subject,
+        company_name: o.company_name,
+        status: o.status,
+        total: o.amounts?.total || "0",
+      }));
+  } catch {
+    return [];
+  }
+}
+
+async function searchSellsyProducts(query: string) {
+  try {
+    const result = await listItems({ limit: 100 });
+    const q = query.toLowerCase();
+    return (result.data || [])
+      .filter((p: any) =>
+        (p.name || "").toLowerCase().includes(q) ||
+        (p.reference || "").toLowerCase().includes(q)
+      )
+      .slice(0, 5)
+      .map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        reference: p.reference,
+        unitAmount: p.unit_amount,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+// GET /api/search?q=terme — Recherche globale
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -12,14 +115,13 @@ export async function GET(request: NextRequest) {
 
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q || q.length < 2) {
-    return NextResponse.json({ contacts: [], tasks: [] });
+    return NextResponse.json({ contacts: [], tasks: [], estimates: [], orders: [], products: [], pages: [] });
   }
 
-  const searchTerm = `%${q}%`;
-
   try {
-    const [contacts, tasks] = await Promise.all([
-      // Contacts : nom, prenom, email, telephone ILIKE
+    // Lancer toutes les recherches en parallèle
+    const [contacts, tasks, estimates, orders, products] = await Promise.all([
+      // Contacts Prisma
       prisma.contact.findMany({
         where: {
           OR: [
@@ -40,7 +142,7 @@ export async function GET(request: NextRequest) {
         orderBy: { updatedAt: "desc" },
       }),
 
-      // Tâches : titre, description
+      // Tâches Prisma
       prisma.task.findMany({
         where: {
           OR: [
@@ -58,9 +160,21 @@ export async function GET(request: NextRequest) {
         take: 5,
         orderBy: { createdAt: "desc" },
       }),
+
+      // Devis Sellsy
+      searchSellsyEstimates(q),
+
+      // Commandes Sellsy
+      searchSellsyOrders(q),
+
+      // Produits Sellsy
+      searchSellsyProducts(q),
     ]);
 
-    return NextResponse.json({ contacts, tasks });
+    // Pages (statiques, pas async)
+    const pages = searchPages(q);
+
+    return NextResponse.json({ contacts, tasks, estimates, orders, products, pages });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Erreur serveur";
     console.error("GET /api/search error:", message);
