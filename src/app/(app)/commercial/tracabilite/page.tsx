@@ -1,22 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   GitCompareArrows,
   ShoppingCart,
   FileText,
   AlertTriangle,
-  Loader2,
   RefreshCw,
-  Unlink,
   ExternalLink,
   Check,
   Search,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
-import { DocumentChain } from "@/components/commercial/document-chain";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 import clsx from "clsx";
 import { traduireStatut } from "@/lib/sellsy-statuts";
@@ -73,12 +71,11 @@ interface DocSummary {
 
 interface DevisConverti {
   liaisonId: string;
-  source: "v1";
   estimate: DocSummary;
   order: DocSummary;
   montantDevis: number;
   montantCommande: number;
-  ecart: number;
+  tempsConversion: number | null;
 }
 
 interface Stats {
@@ -89,13 +86,13 @@ interface Stats {
   tauxConversion: number;
   devisEnAttente: number;
   devisExpires: number;
+  tempsConversionMoyen: number | null;
 }
 
-interface V1Progress {
-  checked: number;
-  total: number;
+interface MatchingInfo {
   newLinksCreated: number;
-  complete: boolean;
+  linksFromNumber: number;
+  linksFromContact: number;
 }
 
 type TabKey = "convertis" | "directes" | "non-convertis";
@@ -139,11 +136,8 @@ export default function TracabilitePage() {
   const [commandesSansDevis, setCommandesSansDevis] = useState<DocSummary[]>([]);
   const [devisNonConvertis, setDevisNonConvertis] = useState<DocSummary[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [v1Progress, setV1Progress] = useState<V1Progress | null>(null);
+  const [matchingInfo, setMatchingInfo] = useState<MatchingInfo | null>(null);
   const [cacheDate, setCacheDate] = useState<string | null>(null);
-
-  // Expanded chain row
-  const [expandedChainId, setExpandedChainId] = useState<string | null>(null);
 
   const fetchData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -155,7 +149,7 @@ export default function TracabilitePage() {
       setCommandesSansDevis(data.commandesSansDevis || []);
       setDevisNonConvertis(data.devisNonConvertis || []);
       setStats(data.stats || null);
-      setV1Progress(data.v1Progress || null);
+      setMatchingInfo(data.matching || null);
       setCacheDate(data._cache?.generatedAt || null);
     } catch (err) {
       console.error("Erreur chargement traçabilité:", err);
@@ -250,7 +244,7 @@ export default function TracabilitePage() {
               Traçabilité Devis → Commandes
             </h1>
             <p className="text-sm text-cockpit-secondary">
-              Liaisons automatiques via l&apos;API Sellsy V1
+              Liaisons automatiques par correspondance de numéro
             </p>
           </div>
         </div>
@@ -292,37 +286,12 @@ export default function TracabilitePage() {
         refreshing={refreshing}
       />
 
-      {/* V1 Progress indicator */}
-      {v1Progress && !v1Progress.complete && (
-        <div className="bg-cockpit-info/10 border border-cockpit-info/30 rounded-lg p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 text-cockpit-info animate-spin" />
-            <div>
-              <span className="text-sm font-medium text-cockpit-heading">
-                Résolution automatique V1 en cours
-              </span>
-              <p className="text-xs text-cockpit-secondary mt-0.5">
-                {v1Progress.checked}/{v1Progress.total} commandes vérifiées
-                {v1Progress.newLinksCreated > 0 && ` — ${v1Progress.newLinksCreated} nouvelles liaisons trouvées`}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => fetchData(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: 'var(--color-active)' }}
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Continuer
-          </button>
-        </div>
-      )}
-
-      {v1Progress?.complete && (
+      {/* Nouvelles liaisons trouvées */}
+      {matchingInfo && matchingInfo.newLinksCreated > 0 && (
         <div className="bg-cockpit-success/10 border border-cockpit-success/30 rounded-lg p-3 flex items-center gap-3">
           <CheckCircle2 className="w-4 h-4 text-cockpit-success flex-shrink-0" />
           <span className="text-sm text-cockpit-heading">
-            Toutes les commandes ont été vérifiées via l&apos;API Sellsy V1 ({v1Progress.total} commandes)
+            {matchingInfo.newLinksCreated} nouvelle{matchingInfo.newLinksCreated > 1 ? "s" : ""} liaison{matchingInfo.newLinksCreated > 1 ? "s" : ""} trouvée{matchingInfo.newLinksCreated > 1 ? "s" : ""}
           </span>
         </div>
       )}
@@ -341,7 +310,7 @@ export default function TracabilitePage() {
 
       {/* KPIs */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           <KPICard
             title="Taux de conversion"
             value={`${stats.tauxConversion}%`}
@@ -355,10 +324,16 @@ export default function TracabilitePage() {
             bgColor="bg-cockpit-success"
           />
           <KPICard
+            title="Temps moyen"
+            value={stats.tempsConversionMoyen !== null ? `${stats.tempsConversionMoyen}j` : "—"}
+            icon={<Clock className="w-7 h-7" />}
+            bgColor="bg-cockpit-info"
+          />
+          <KPICard
             title="Commandes directes"
             value={stats.commandesDirectes}
             icon={<ShoppingCart className="w-7 h-7" />}
-            bgColor="bg-cockpit-info"
+            bgColor="bg-cockpit-warning"
           />
           <KPICard
             title="Devis en attente"
@@ -408,25 +383,20 @@ export default function TracabilitePage() {
                   <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">MONTANT DEVIS</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">N° COMMANDE</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">MONTANT COMMANDE</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">ÉCART</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">CHAÎNE</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">CONVERSION</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">SELLSY</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
                 {filteredConvertis.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
-                      Aucune liaison trouvée via l&apos;API Sellsy V1.
-                      {v1Progress && !v1Progress.complete && " Actualiser pour continuer la résolution automatique."}
+                      Aucune liaison devis → commande trouvée.
                     </td>
                   </tr>
                 ) : (
-                  filteredConvertis.map((item) => {
-                    const chainKey = `order-${item.order.id}`;
-                    const isExpanded = expandedChainId === chainKey;
-                    return (
-                      <React.Fragment key={item.liaisonId}>
-                      <tr className="hover:bg-cockpit-dark/50 transition-colors group">
+                  filteredConvertis.map((item) => (
+                      <tr key={item.liaisonId} className="hover:bg-cockpit-dark/50 transition-colors">
                         <td className="px-4 py-3 text-sm">
                           <div className="flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5 text-cockpit-secondary" />
@@ -458,39 +428,38 @@ export default function TracabilitePage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-medium text-cockpit-primary">{formatCurrency(item.montantCommande)}</td>
-                        <td className="px-4 py-3 text-sm text-right">
-                          <span className={clsx(
-                            "font-medium",
-                            item.ecart === 0 ? "text-cockpit-secondary" : item.ecart > 0 ? "text-cockpit-success" : "text-cockpit-danger"
-                          )}>
-                            {item.ecart > 0 ? "+" : ""}{item.ecart}%
-                          </span>
+                        <td className="px-4 py-3 text-center">
+                          {item.tempsConversion !== null && item.tempsConversion !== undefined ? (
+                            <span className={clsx(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                              item.tempsConversion === 0
+                                ? "bg-cockpit-success/10 text-cockpit-success"
+                                : item.tempsConversion <= 7
+                                ? "bg-cockpit-info/10 text-cockpit-info"
+                                : item.tempsConversion <= 30
+                                ? "bg-cockpit-warning/10 text-cockpit-warning"
+                                : "bg-cockpit-danger/10 text-cockpit-danger"
+                            )}>
+                              <Clock className="w-3 h-3" />
+                              {item.tempsConversion === 0 ? "Même jour" : `${item.tempsConversion}j`}
+                            </span>
+                          ) : (
+                            <span className="text-cockpit-secondary text-xs">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => setExpandedChainId(isExpanded ? null : chainKey)}
-                            className={clsx(
-                              "p-1.5 rounded-md transition-colors",
-                              isExpanded
-                                ? "bg-cockpit-info/10 text-cockpit-info"
-                                : "text-cockpit-secondary hover:text-cockpit-info hover:bg-cockpit-info/10"
-                            )}
-                            title="Chaîne documentaire"
+                          <a
+                            href={getSellsyUrl('order', item.order.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-md hover:bg-cockpit-info/10 text-cockpit-secondary hover:text-cockpit-info transition-colors inline-block"
+                            title="Ouvrir dans Sellsy"
                           >
-                            <GitCompareArrows className="w-4 h-4" />
-                          </button>
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
                         </td>
                       </tr>
-                      {isExpanded && (
-                        <tr key={`${item.liaisonId}-chain`}>
-                          <td colSpan={7} className="px-4 py-3 bg-cockpit-dark/30">
-                            <DocumentChain docType="order" docId={item.order.id} currentNumero={item.order.number} />
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                    );
-                  })
+                  ))
                 )}
               </tbody>
             </table>

@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { listAllEstimates, listAllOrders, invalidateSellsyCache, getDocumentParent } from "@/lib/sellsy";
+import { listAllEstimates, listAllOrders, invalidateSellsyCache } from "@/lib/sellsy";
 
-// Cache dédié traçabilité — 5 min (lourd à recalculer)
+// Cache dédié traçabilité — 5 min
 const CACHE_TTL = 5 * 60 * 1000;
 let traceCache: { data: unknown; timestamp: number } | null = null;
-
-// Max V1 calls per request (éviter de surcharger l'API)
-const MAX_V1_CALLS_PER_REQUEST = 20;
 
 function getAmountHT(amounts?: Record<string, any>): number {
   if (!amounts) return 0;
@@ -23,7 +20,36 @@ function daysBetween(dateStr: string): number {
   return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-// GET — Traçabilité via API Sellsy V1 (liaisons réelles parentid)
+/** Jours entre deux dates (conversion devis → commande) */
+function daysBetweenDates(dateA: string | null, dateB: string | null): number | null {
+  if (!dateA || !dateB) return null;
+  const a = new Date(dateA);
+  const b = new Date(dateB);
+  return Math.floor((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Extrait le suffixe numérique d'un document Sellsy.
+ * Ex: "DEPI-07935" → "07935", "BCDI-05394" → "05394"
+ */
+function extractDocNumber(docNumber: string): string | null {
+  const match = docNumber?.match(/[-_](\d{4,})/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Normalise un nom de contact pour comparaison.
+ * "M Damien RIETSCH" → "damien rietsch"
+ */
+function normalizeContactName(name: string | undefined | null): string {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .replace(/^(m|mme|mr|mrs|mlle)\s+/i, "")
+    .trim();
+}
+
+// GET — Traçabilité via matching numéro + contact/montant (instantané)
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -43,95 +69,154 @@ export async function GET(request: NextRequest) {
   if (fresh) invalidateSellsyCache();
 
   try {
-    // 1. Charger en parallèle : données Sellsy V2 + cache V1 local
-    const [estimates, orders, existingV1Links] = await Promise.all([
+    // 1. Charger devis + commandes V2 en parallèle
+    const [estimates, orders] = await Promise.all([
       listAllEstimates(),
       listAllOrders(),
-      prisma.liaisonDocumentaire.findMany({
-        where: { enfantType: "order" },
-      }),
     ]);
 
-    // Maps pour lookup rapide
-    const estimateMap = new Map(estimates.map((e) => [String(e.id), e]));
+    // Charger liaisons existantes en BDD
+    const existingLiaisons = await prisma.liaisonDevisCommande.findMany();
+    const alreadyLinkedOrderIds = new Set(existingLiaisons.map((l) => l.orderId));
+    const alreadyLinkedEstimateIds = new Set(existingLiaisons.map((l) => l.estimateId));
 
-    // Set des orders déjà vérifiés via V1 (en cache local)
-    const checkedOrderIds = new Set(existingV1Links.map((l) => l.enfantSellsyId));
+    // ===== NIVEAU 1 : MATCHING PAR SUFFIXE NUMÉRIQUE =====
+    // Index inversé : suffixe numérique → estimate
+    const estimateBySuffix = new Map<string, typeof estimates[0]>();
+    for (const est of estimates) {
+      const suffix = extractDocNumber(est.number);
+      if (suffix) estimateBySuffix.set(suffix, est);
+    }
 
-    // 2. Résoudre les liaisons V1 pour les orders non encore vérifiés
-    const uncheckedOrders = orders.filter((o) => !checkedOrderIds.has(String(o.id)));
-    const toCheck = uncheckedOrders.slice(0, MAX_V1_CALLS_PER_REQUEST);
-    let newLinksCreated = 0;
+    let linksFromNumber = 0;
+    for (const order of orders) {
+      if (alreadyLinkedOrderIds.has(order.id)) continue;
 
-    for (const order of toCheck) {
+      const suffix = extractDocNumber(order.number);
+      if (!suffix) continue;
+
+      const matchedEstimate = estimateBySuffix.get(suffix);
+      if (!matchedEstimate) continue;
+
+      // Sécurité : vérifier même entreprise si disponible
+      if (
+        matchedEstimate.company_name &&
+        order.company_name &&
+        matchedEstimate.company_name !== order.company_name
+      ) {
+        continue;
+      }
+
       try {
-        const parentInfo = await getDocumentParent("order", String(order.id));
-
-        const hasParent = parentInfo?.parentid && parentInfo.parentid !== "0";
-
-        // Sauvegarder en cache permanent (même si pas de parent → évite de re-call V1)
-        await prisma.liaisonDocumentaire.upsert({
+        await prisma.liaisonDevisCommande.upsert({
           where: {
-            enfantType_enfantSellsyId: {
-              enfantType: "order",
-              enfantSellsyId: String(order.id),
+            estimateId_orderId: {
+              estimateId: matchedEstimate.id,
+              orderId: order.id,
             },
           },
-          update: {
-            parentType: hasParent ? (parentInfo!.linkedtype || "estimate") : "none",
-            parentSellsyId: hasParent ? parentInfo!.parentid! : "0",
-          },
+          update: {},
           create: {
-            enfantType: "order",
-            enfantSellsyId: String(order.id),
-            enfantNumero: order.number || "",
-            parentType: hasParent ? (parentInfo!.linkedtype || "estimate") : "none",
-            parentSellsyId: hasParent ? parentInfo!.parentid! : "0",
-            parentNumero: "",
+            estimateId: matchedEstimate.id,
+            orderId: order.id,
+            createdById: userId,
           },
         });
-
-        // Si parent estimate trouvé → créer la liaison devis-commande automatiquement
-        if (hasParent && (parentInfo!.linkedtype === "estimate" || !parentInfo!.linkedtype)) {
-          const estimateId = parseInt(parentInfo!.parentid!, 10);
-          if (!isNaN(estimateId)) {
-            await prisma.liaisonDevisCommande.upsert({
-              where: {
-                estimateId_orderId: {
-                  estimateId,
-                  orderId: order.id,
-                },
-              },
-              update: {},
-              create: {
-                estimateId,
-                orderId: order.id,
-                createdById: userId,
-              },
-            }).catch(() => {}); // Ignorer si doublon
-            newLinksCreated++;
-          }
-        }
-      } catch (err) {
-        console.warn(`V1 check failed for order ${order.id}:`, err);
+        alreadyLinkedOrderIds.add(order.id);
+        alreadyLinkedEstimateIds.add(matchedEstimate.id);
+        linksFromNumber++;
+      } catch {
+        // Doublon — ignorer
       }
     }
 
-    // 3. Recharger les liaisons après les V1 calls
-    const [allV1Links, allLiaisons] = await Promise.all([
-      prisma.liaisonDocumentaire.findMany({
-        where: { enfantType: "order" },
-      }),
-      prisma.liaisonDevisCommande.findMany(),
-    ]);
+    // ===== NIVEAU 2 : MATCHING PAR CONTACT + MONTANT =====
+    // Pour les commandes non encore liées, chercher un devis avec :
+    // - même nom de contact (normalisé)
+    // - même montant HT (à 1€ près)
+    // - devis antérieur ou même date que la commande
+    let linksFromContact = 0;
 
-    const linkedEstimateIds = new Set(allLiaisons.map((l) => l.estimateId));
-    const linkedOrderIds = new Set(allLiaisons.map((l) => l.orderId));
-    const allCheckedOrderIds = new Set(allV1Links.map((l) => l.enfantSellsyId));
+    // Index : "nom_normalisé::montant_arrondi" → estimate[]
+    const estimatesByContactAmount = new Map<string, typeof estimates[0][]>();
+    for (const est of estimates) {
+      if (alreadyLinkedEstimateIds.has(est.id)) continue;
+      const name = normalizeContactName(est.company_name);
+      if (!name) continue;
+      const amount = Math.round(getAmountHT(est.amounts));
+      const key = `${name}::${amount}`;
+      const list = estimatesByContactAmount.get(key) || [];
+      list.push(est);
+      estimatesByContactAmount.set(key, list);
+    }
+
+    for (const order of orders) {
+      if (alreadyLinkedOrderIds.has(order.id)) continue;
+
+      const name = normalizeContactName(order.company_name);
+      if (!name) continue;
+      const amount = Math.round(getAmountHT(order.amounts));
+      const key = `${name}::${amount}`;
+
+      const candidates = estimatesByContactAmount.get(key);
+      if (!candidates || candidates.length === 0) continue;
+
+      // Prendre le devis le plus récent antérieur à la commande
+      const orderDate = order.date ? new Date(order.date) : null;
+      let bestEstimate: typeof estimates[0] | null = null;
+
+      for (const est of candidates) {
+        if (alreadyLinkedEstimateIds.has(est.id)) continue;
+        const estDate = est.date ? new Date(est.date) : null;
+
+        // Le devis doit être antérieur ou même jour que la commande
+        if (orderDate && estDate && estDate > orderDate) continue;
+
+        // Prendre le plus proche en date
+        if (!bestEstimate) {
+          bestEstimate = est;
+        } else {
+          const bestDate = bestEstimate.date ? new Date(bestEstimate.date) : null;
+          if (estDate && bestDate && estDate > bestDate) {
+            bestEstimate = est;
+          }
+        }
+      }
+
+      if (!bestEstimate) continue;
+
+      try {
+        await prisma.liaisonDevisCommande.upsert({
+          where: {
+            estimateId_orderId: {
+              estimateId: bestEstimate.id,
+              orderId: order.id,
+            },
+          },
+          update: {},
+          create: {
+            estimateId: bestEstimate.id,
+            orderId: order.id,
+            createdById: userId,
+          },
+        });
+        alreadyLinkedOrderIds.add(order.id);
+        alreadyLinkedEstimateIds.add(bestEstimate.id);
+        linksFromContact++;
+      } catch {
+        // Doublon — ignorer
+      }
+    }
+
+    // 3. Recharger toutes les liaisons après matching
+    const allLiaisons = await prisma.liaisonDevisCommande.findMany();
+    const estimateMap = new Map(estimates.map((e) => [String(e.id), e]));
+    const linkedEstimateIdsFinal = new Set(allLiaisons.map((l) => l.estimateId));
+    const linkedOrderIdsFinal = new Set(allLiaisons.map((l) => l.orderId));
 
     // 4. Construire les résultats
 
-    // 4a. Devis convertis (liaison confirmée par V1)
+    // 4a. Devis convertis avec temps de conversion
     const devisConvertis = allLiaisons
       .map((l) => {
         const estimate = estimateMap.get(String(l.estimateId));
@@ -139,12 +224,9 @@ export async function GET(request: NextRequest) {
         if (!estimate || !order) return null;
         const montantDevis = getAmountHT(estimate.amounts);
         const montantCommande = getAmountHT(order.amounts);
-        const ecart = montantDevis > 0
-          ? ((montantCommande - montantDevis) / montantDevis) * 100
-          : 0;
+        const tempsConversion = daysBetweenDates(estimate.date, order.date);
         return {
           liaisonId: l.id,
-          source: "v1" as const,
           estimate: {
             id: estimate.id,
             number: estimate.number,
@@ -165,17 +247,14 @@ export async function GET(request: NextRequest) {
           },
           montantDevis,
           montantCommande,
-          ecart: Math.round(ecart * 10) / 10,
+          tempsConversion, // jours entre devis et commande
         };
       })
       .filter(Boolean);
 
-    // 4b. Commandes directes (V1 a confirmé : pas de parent devis)
+    // 4b. Commandes sans devis lié
     const commandesSansDevis = orders
-      .filter((o) => {
-        if (linkedOrderIds.has(o.id)) return false;
-        return allCheckedOrderIds.has(String(o.id));
-      })
+      .filter((o) => !linkedOrderIdsFinal.has(o.id))
       .map((o) => ({
         id: o.id,
         number: o.number,
@@ -187,14 +266,9 @@ export async function GET(request: NextRequest) {
         amounts: o.amounts,
       }));
 
-    // 4c. Nombre de commandes en attente de vérification V1
-    const commandesEnAttenteV1 = orders
-      .filter((o) => !linkedOrderIds.has(o.id) && !allCheckedOrderIds.has(String(o.id)))
-      .length;
-
-    // 4d. Devis non convertis
+    // 4c. Devis non convertis
     const devisNonConvertis = estimates
-      .filter((e) => !linkedEstimateIds.has(e.id))
+      .filter((e) => !linkedEstimateIdsFinal.has(e.id))
       .map((e) => ({
         id: e.id,
         number: e.number,
@@ -214,9 +288,19 @@ export async function GET(request: NextRequest) {
     const nbCommandesDirectes = commandesSansDevis.length;
     const nbDevisEnAttente = devisNonConvertis.length;
     const nbDevisExpires = devisNonConvertis.filter((e) => e.ageJours > 60).length;
-    const tauxConversion = totalDevis > 0
-      ? Math.round((nbDevisConvertis / totalDevis) * 1000) / 10
-      : 0;
+    const tauxConversion =
+      totalDevis > 0
+        ? Math.round((nbDevisConvertis / totalDevis) * 1000) / 10
+        : 0;
+
+    // Temps de conversion moyen
+    const conversions = devisConvertis
+      .map((d) => (d as any)?.tempsConversion)
+      .filter((t): t is number => t !== null && t !== undefined && t >= 0);
+    const tempsConversionMoyen =
+      conversions.length > 0
+        ? Math.round((conversions.reduce((a, b) => a + b, 0) / conversions.length) * 10) / 10
+        : null;
 
     const result = {
       devisConvertis,
@@ -230,12 +314,12 @@ export async function GET(request: NextRequest) {
         tauxConversion,
         devisEnAttente: nbDevisEnAttente,
         devisExpires: nbDevisExpires,
+        tempsConversionMoyen,
       },
-      v1Progress: {
-        checked: allCheckedOrderIds.size,
-        total: orders.length,
-        newLinksCreated,
-        complete: commandesEnAttenteV1 === 0,
+      matching: {
+        linksFromNumber,
+        linksFromContact,
+        newLinksCreated: linksFromNumber + linksFromContact,
       },
       _cache: { generatedAt: new Date().toISOString() },
     };

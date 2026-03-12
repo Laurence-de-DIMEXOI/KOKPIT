@@ -378,6 +378,31 @@ export async function getOrder(id: number): Promise<{ data: SellsyOrder }> {
   return sellsyFetch<{ data: SellsyOrder }>(`/orders/${id}`);
 }
 
+/**
+ * Récupère les détails bruts d'un order en V2 (tous les champs, non typé)
+ * pour diagnostiquer les champs de liaison disponibles.
+ */
+export async function getOrderRaw(id: number): Promise<Record<string, unknown>> {
+  return sellsyFetch<Record<string, unknown>>(`/orders/${id}?embed[]=company&embed[]=contact`);
+}
+
+/**
+ * Récupère les documents liés à un document via l'API V2.
+ * Essaie /orders/{id}/linked-documents ou /estimates/{id}/linked-documents
+ */
+export async function getLinkedDocumentsV2(
+  doctype: "estimate" | "order",
+  id: number
+): Promise<{ linked: Array<{ id: number; type: string; number: string }> } | null> {
+  try {
+    const result = await sellsyFetch<any>(`/${doctype}s/${id}/linked-documents`);
+    return result;
+  } catch {
+    // Endpoint may not exist — fallback silently
+    return null;
+  }
+}
+
 export async function searchOrders(params: {
   filters: {
     status?: string[];
@@ -713,10 +738,11 @@ const SELLSY_V1_URL = "https://apifeed.sellsy.com/0/";
 export async function sellsyV1Call(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
   const token = await getAccessToken();
 
+  const doIn = JSON.stringify({ method, params });
   const formData = new FormData();
-  formData.append("request", JSON.stringify({ method, params }));
+  formData.append("request", "1");
   formData.append("io_mode", "json");
-  formData.append("do_in", JSON.stringify(params));
+  formData.append("do_in", doIn);
 
   const response = await fetch(SELLSY_V1_URL, {
     method: "POST",
@@ -734,7 +760,8 @@ export async function sellsyV1Call(method: string, params: Record<string, unknow
   const data = await response.json();
 
   if (data.status === "error") {
-    throw new Error(`Sellsy V1 error: ${data.error || JSON.stringify(data)}`);
+    const errDetail = typeof data.error === "object" ? JSON.stringify(data.error) : (data.error || JSON.stringify(data));
+    throw new Error(`Sellsy V1 error: ${errDetail}`);
   }
 
   return data.response;
