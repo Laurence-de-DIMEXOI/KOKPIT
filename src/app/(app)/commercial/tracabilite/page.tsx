@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   GitCompareArrows,
   ShoppingCart,
@@ -171,15 +171,54 @@ export default function TracabilitePage() {
     (doc.subject || "").toLowerCase().includes(sq) ||
     (doc.company_name || "").toLowerCase().includes(sq);
 
-  const filteredConvertis = (period === "all" ? devisConvertis : devisConvertis.filter((item) => {
-    const start = getPeriodStart(period);
-    if (!start) return true;
-    const d = new Date(item.estimate.date || item.order.date || "");
-    return d >= start;
-  })).filter((item) => !sq || matchesSearch(item.estimate) || matchesSearch(item.order));
+  const filteredConvertis = useMemo(() => {
+    const byPeriod = period === "all" ? devisConvertis : devisConvertis.filter((item) => {
+      const start = getPeriodStart(period);
+      if (!start) return true;
+      const d = new Date(item.estimate.date || item.order.date || "");
+      return d >= start;
+    });
+    return byPeriod.filter((item) => !sq || matchesSearch(item.estimate) || matchesSearch(item.order));
+  }, [devisConvertis, period, sq]);
 
-  const filteredDirectes = filterByPeriod(commandesSansDevis, period).filter(matchesSearch);
-  const filteredNonConvertis = filterByPeriod(devisNonConvertis, period).filter(matchesSearch);
+  const filteredDirectes = useMemo(() =>
+    filterByPeriod(commandesSansDevis, period).filter(matchesSearch),
+    [commandesSansDevis, period, sq]
+  );
+
+  const filteredNonConvertis = useMemo(() =>
+    filterByPeriod(devisNonConvertis, period).filter(matchesSearch),
+    [devisNonConvertis, period, sq]
+  );
+
+  // Stats recalculées en fonction des filtres période + recherche
+  const filteredStats = useMemo(() => {
+    const totalDevis = filteredConvertis.length + filteredNonConvertis.length;
+    const nbConvertis = filteredConvertis.length;
+    const tauxConversion = totalDevis > 0
+      ? Math.round((nbConvertis / totalDevis) * 1000) / 10
+      : 0;
+
+    const conversions = filteredConvertis
+      .map((d) => d.tempsConversion)
+      .filter((t): t is number => t !== null && t !== undefined && t >= 0);
+    const tempsConversionMoyen = conversions.length > 0
+      ? Math.round((conversions.reduce((a, b) => a + b, 0) / conversions.length) * 10) / 10
+      : null;
+
+    const nbExpires = filteredNonConvertis.filter((e) => (e.ageJours ?? 0) > 60).length;
+
+    return {
+      totalDevis,
+      totalCommandes: filteredConvertis.length + filteredDirectes.length,
+      devisConvertis: nbConvertis,
+      commandesDirectes: filteredDirectes.length,
+      tauxConversion,
+      devisEnAttente: filteredNonConvertis.length,
+      devisExpires: nbExpires,
+      tempsConversionMoyen,
+    };
+  }, [filteredConvertis, filteredDirectes, filteredNonConvertis]);
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "convertis", label: "Devis → Commandes", count: filteredConvertis.length },
@@ -308,41 +347,39 @@ export default function TracabilitePage() {
         />
       </div>
 
-      {/* KPIs */}
-      {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-          <KPICard
-            title="Taux de conversion"
-            value={`${stats.tauxConversion}%`}
-            icon={<GitCompareArrows className="w-7 h-7" />}
-            bgColor="bg-cockpit-yellow"
-          />
-          <KPICard
-            title="Devis convertis"
-            value={`${stats.devisConvertis} / ${stats.totalDevis}`}
-            icon={<Check className="w-7 h-7" />}
-            bgColor="bg-cockpit-success"
-          />
-          <KPICard
-            title="Temps moyen"
-            value={stats.tempsConversionMoyen !== null ? `${stats.tempsConversionMoyen}j` : "—"}
-            icon={<Clock className="w-7 h-7" />}
-            bgColor="bg-cockpit-info"
-          />
-          <KPICard
-            title="Commandes directes"
-            value={stats.commandesDirectes}
-            icon={<ShoppingCart className="w-7 h-7" />}
-            bgColor="bg-cockpit-warning"
-          />
-          <KPICard
-            title="Devis en attente"
-            value={stats.devisEnAttente}
-            icon={<AlertTriangle className="w-7 h-7" />}
-            bgColor={stats.devisExpires > 0 ? "bg-cockpit-danger" : "bg-cockpit-warning"}
-          />
-        </div>
-      )}
+      {/* KPIs — recalculées selon la période filtrée */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        <KPICard
+          title="Taux de conversion"
+          value={`${filteredStats.tauxConversion}%`}
+          icon={<GitCompareArrows className="w-7 h-7" />}
+          bgColor="bg-cockpit-yellow"
+        />
+        <KPICard
+          title="Devis convertis"
+          value={`${filteredStats.devisConvertis} / ${filteredStats.totalDevis}`}
+          icon={<Check className="w-7 h-7" />}
+          bgColor="bg-cockpit-success"
+        />
+        <KPICard
+          title="Temps moyen"
+          value={filteredStats.tempsConversionMoyen !== null ? `${filteredStats.tempsConversionMoyen}j` : "—"}
+          icon={<Clock className="w-7 h-7" />}
+          bgColor="bg-cockpit-info"
+        />
+        <KPICard
+          title="Commandes directes"
+          value={filteredStats.commandesDirectes}
+          icon={<ShoppingCart className="w-7 h-7" />}
+          bgColor="bg-cockpit-warning"
+        />
+        <KPICard
+          title="Devis en attente"
+          value={filteredStats.devisEnAttente}
+          icon={<AlertTriangle className="w-7 h-7" />}
+          bgColor={filteredStats.devisExpires > 0 ? "bg-cockpit-danger" : "bg-cockpit-warning"}
+        />
+      </div>
 
       {/* Tabs */}
       <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
