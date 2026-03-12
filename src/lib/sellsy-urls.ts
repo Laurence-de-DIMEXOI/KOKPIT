@@ -1,18 +1,20 @@
 // ===== SELLSY URL BUILDER =====
 // Centralise tous les liens vers l'interface Sellsy pour éviter les URLs hardcodées
+// Format réel : https://www.sellsy.com/?_f=estimateOverview&id=53368710
 
 type SellsyDocType = 'estimate' | 'order' | 'invoice' | 'contact' | 'product';
 
-const SELLSY_BASE = 'https://go.sellsy.com';
+const SELLSY_BASE = 'https://www.sellsy.com';
 
-const PATH_MAP: Record<SellsyDocType, string> = {
-  estimate: '/document/estimate',
-  order: '/document/order',
-  invoice: '/document/invoice',
-  contact: '/people',
-  product: '/catalog/product',
+const TYPE_CONFIG: Record<SellsyDocType, { _f: string; extra?: string }> = {
+  estimate: { _f: 'estimateOverview' },
+  order: { _f: 'orderOverview' },
+  invoice: { _f: 'invoiceOverview' },
+  contact: { _f: 'prospectOverview' },
+  product: { _f: 'catalogueitem', extra: '&type=item' },
 };
 
 export function getSellsyUrl(type: SellsyDocType, id: string | number): string {
-  return `${SELLSY_BASE}${PATH_MAP[type]}/${id}`;
+  const cfg = TYPE_CONFIG[type];
+  return `${SELLSY_BASE}/?_f=${cfg._f}&id=${id}${cfg.extra || ''}`;
 }
