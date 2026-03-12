@@ -153,8 +153,8 @@ export default function DashboardPage() {
 
       {/* KPI Cards — Funnel global */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total contacts */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #F4B400 0%, #D9A000 100%)', boxShadow: '0 4px 14px rgba(244, 180, 0, 0.30)' }}>
+        {/* Total contacts — Lemon */}
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #E2A90A 0%, #C89208 100%)', boxShadow: '0 4px 14px rgba(226, 169, 10, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <Users className="w-5 h-5 text-white/70" />
           </div>
@@ -162,8 +162,8 @@ export default function DashboardPage() {
           <p className="text-2xl font-bold text-white">{kpis.totalContacts}</p>
         </div>
 
-        {/* Contacts → Devis */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #03C3EC 0%, #0299C4 100%)', boxShadow: '0 4px 14px rgba(3, 195, 236, 0.30)' }}>
+        {/* Contacts → Devis — Lime */}
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #8DA035 0%, #6E8028 100%)', boxShadow: '0 4px 14px rgba(141, 160, 53, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <FileText className="w-5 h-5 text-white/70" />
             <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
@@ -174,8 +174,8 @@ export default function DashboardPage() {
           <p className="text-2xl font-bold text-white">{kpis.totalWithEstimate}</p>
         </div>
 
-        {/* Devis → Commande */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #71DD37 0%, #5AC42D 100%)', boxShadow: '0 4px 14px rgba(113, 221, 55, 0.30)' }}>
+        {/* Devis → Commande — Pink Grapefruit */}
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #D4567A 0%, #B8406A 100%)', boxShadow: '0 4px 14px rgba(212, 86, 122, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <ShoppingCart className="w-5 h-5 text-white/70" />
             <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
@@ -186,8 +186,8 @@ export default function DashboardPage() {
           <p className="text-2xl font-bold text-white">{kpis.totalWithOrder}</p>
         </div>
 
-        {/* Conversion globale */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #FFAB00 0%, #E09600 100%)', boxShadow: '0 4px 14px rgba(255, 171, 0, 0.30)' }}>
+        {/* Conversion globale — Raspberry */}
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #C2185B 0%, #A01248 100%)', boxShadow: '0 4px 14px rgba(194, 24, 91, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <Target className="w-5 h-5 text-white/70" />
           </div>
@@ -210,7 +210,7 @@ export default function DashboardPage() {
             <div className="flex-1 relative">
               <div
                 className="h-10 rounded-lg flex items-center px-4"
-                style={{ width: "100%", background: "linear-gradient(90deg, #F4B400 0%, #FFCC40 100%)" }}
+                style={{ width: "100%", background: "linear-gradient(90deg, #E2A90A 0%, #C89208 100%)" }}
               >
                 <span className="text-white font-bold text-sm">{kpis.totalContacts}</span>
               </div>
@@ -235,7 +235,7 @@ export default function DashboardPage() {
                   width: kpis.totalContacts > 0
                     ? `${Math.max((kpis.totalWithEstimate / kpis.totalContacts) * 100, 10)}%`
                     : "10%",
-                  background: "linear-gradient(90deg, #03C3EC 0%, #36D1F5 100%)",
+                  background: "linear-gradient(90deg, #8DA035 0%, #6E8028 100%)",
                 }}
               >
                 <span className="text-white font-bold text-sm">{kpis.totalWithEstimate}</span>
@@ -261,7 +261,7 @@ export default function DashboardPage() {
                   width: kpis.totalContacts > 0
                     ? `${Math.max((kpis.totalWithOrder / kpis.totalContacts) * 100, 8)}%`
                     : "8%",
-                  background: "linear-gradient(90deg, #71DD37 0%, #92E85F 100%)",
+                  background: "linear-gradient(90deg, #D4567A 0%, #B8406A 100%)",
                 }}
               >
                 <span className="text-white font-bold text-sm">{kpis.totalWithOrder}</span>
@@ -285,9 +285,9 @@ export default function DashboardPage() {
             Commandes: m.commandes,
           }))}
           series={[
-            { dataKey: "Contacts", name: "Contacts", color: "#F4B400" },
-            { dataKey: "Devis", name: "Devis", color: "#3b82f6" },
-            { dataKey: "Commandes", name: "Commandes", color: "#71DD37" },
+            { dataKey: "Contacts", name: "Contacts", color: "#E2A90A" },
+            { dataKey: "Devis", name: "Devis", color: "#8DA035" },
+            { dataKey: "Commandes", name: "Commandes", color: "#C2185B" },
           ]}
           height={300}
         />
