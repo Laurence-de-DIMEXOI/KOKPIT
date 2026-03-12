@@ -167,7 +167,13 @@ export default function CampagnesPage() {
     totalCampaigns: 0, totalAdSets: 0, totalAds: 0, campaignsWithData: 0,
   });
 
-  useEffect(() => { loadFromCache(); }, []);
+  // Auto-sync au montage : charger le cache DB, puis sync live Meta en arrière-plan
+  useEffect(() => {
+    loadFromCache().then(() => {
+      handleSync("maximum");
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadFromCache = async () => {
     setLoading(true);
@@ -205,7 +211,16 @@ export default function CampagnesPage() {
           });
         }
         setSyncedAt(new Date().toISOString());
-        if (data.debug) setDebugInfo(data.debug);
+        if (data.debug) {
+          setDebugInfo(data.debug);
+          // Afficher l'erreur token expiré de façon visible
+          const tokenError = data.debug?.errors?.find((e: any) =>
+            e.message?.includes("TOKEN_EXPIRED") || e.message?.includes("expiré")
+          );
+          if (tokenError) {
+            setError(tokenError.message);
+          }
+        }
       } else {
         const err = await res.json();
         setError(err.error || "Erreur sync Meta");
@@ -349,9 +364,34 @@ export default function CampagnesPage() {
       )}
 
       {error && (
-        <div className="flex items-center gap-3 p-3 bg-[#FF3E1D]/10 border border-[#FF3E1D]/30 rounded-lg">
-          <AlertCircle className="w-4 h-4 text-[#FF3E1D] flex-shrink-0" />
-          <p className="text-xs text-[#FF3E1D]">{error}</p>
+        <div className={`flex items-start gap-3 p-4 rounded-lg border ${
+          error.includes("TOKEN_EXPIRED") || error.includes("expiré")
+            ? "bg-[#E2A90A]/10 border-[#E2A90A]/30"
+            : "bg-[#FF3E1D]/10 border-[#FF3E1D]/30"
+        }`}>
+          <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+            error.includes("TOKEN_EXPIRED") || error.includes("expiré")
+              ? "text-[#E2A90A]"
+              : "text-[#FF3E1D]"
+          }`} />
+          <div className="space-y-1">
+            {error.includes("TOKEN_EXPIRED:") ? (
+              <>
+                <p className="text-sm font-semibold text-[#E2A90A]">Token Meta expiré</p>
+                <p className="text-xs text-cockpit-secondary">{error.replace("TOKEN_EXPIRED:", "")}</p>
+                <a
+                  href="https://developers.facebook.com/tools/explorer/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-[#E2A90A] hover:underline mt-1"
+                >
+                  Renouveler le token →
+                </a>
+              </>
+            ) : (
+              <p className="text-xs text-[#FF3E1D]">{error}</p>
+            )}
+          </div>
         </div>
       )}
 

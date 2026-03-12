@@ -160,7 +160,17 @@ async function validateToken(accessToken: string): Promise<{
       accessToken
     );
     if (debugRes?._error) {
-      return { valid: false, error: `Token debug failed: ${debugRes.status} - ${debugRes.body}` };
+      // Détecter token expiré
+      const body = debugRes.body || "";
+      if (body.includes("Session has expired") || body.includes("Error validating access token")) {
+        const expMatch = body.match(/expired on ([^.]+)\./);
+        const expDate = expMatch ? expMatch[1] : "date inconnue";
+        return {
+          valid: false,
+          error: `TOKEN_EXPIRED:Le token Meta a expiré le ${expDate}. Rendez-vous sur https://developers.facebook.com/tools/explorer/ pour en générer un nouveau, puis mettez à jour META_ACCESS_TOKEN dans .env.local et sur Vercel.`
+        };
+      }
+      return { valid: false, error: `Token debug failed: ${debugRes.status} - ${body}` };
     }
     const tokenData = debugRes?.data;
     if (!tokenData) {
