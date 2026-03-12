@@ -21,6 +21,7 @@ import {
   Mail,
 } from "lucide-react";
 import clsx from "clsx";
+import { RechartsLineChart } from "@/components/dashboard/line-chart";
 
 // ===== TYPES =====
 
@@ -123,12 +124,6 @@ export default function DashboardPage() {
   const kpis = funnel!.kpis;
   const monthly = funnel!.monthlyFunnel;
   const contactsSansDevis = funnel!.contactsSansDevis;
-
-  // Calcul du max pour les barres du graphique
-  const maxBarValue = Math.max(
-    ...monthly.map((m) => Math.max(m.contacts, m.devis, m.commandes)),
-    1
-  );
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -274,76 +269,26 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Graphique mensuel — barres par mois */}
+      {/* Graphique mensuel — courbes */}
       <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-5">
         <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-cockpit-yellow" />
           Évolution mensuelle
         </h2>
-
-        {/* Légende */}
-        <div className="flex gap-4 mb-4 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-cockpit-yellow/60" />
-            <span className="text-cockpit-secondary">Contacts</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-cockpit-info/60" />
-            <span className="text-cockpit-secondary">Devis</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-cockpit-success/60" />
-            <span className="text-cockpit-secondary">Commandes</span>
-          </div>
-        </div>
-
-        {/* Barres */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {monthly.map((m) => (
-            <div key={m.month} className="bg-cockpit rounded-lg p-4 border border-cockpit/50">
-              <p className="text-xs font-semibold text-cockpit-heading mb-3 text-center">
-                {m.label.split(" ")[0].substring(0, 4)}.
-              </p>
-              {/* Mini barres verticales */}
-              <div className="flex items-end justify-center gap-2 h-24 mb-3">
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <span className="text-[10px] text-cockpit-yellow font-bold">{m.contacts}</span>
-                  <div
-                    className="w-full bg-cockpit-yellow/40 rounded-t"
-                    style={{ height: `${Math.max((m.contacts / maxBarValue) * 80, 4)}px` }}
-                  />
-                </div>
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <span className="text-[10px] text-cockpit-info font-bold">{m.devis}</span>
-                  <div
-                    className="w-full bg-cockpit-info/40 rounded-t"
-                    style={{ height: `${Math.max((m.devis / maxBarValue) * 80, 4)}px` }}
-                  />
-                </div>
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <span className="text-[10px] text-cockpit-success font-bold">{m.commandes}</span>
-                  <div
-                    className="w-full bg-cockpit-success/40 rounded-t"
-                    style={{ height: `${Math.max((m.commandes / maxBarValue) * 80, 4)}px` }}
-                  />
-                </div>
-              </div>
-              {/* Taux de conversion global du mois */}
-              <div className="text-center">
-                <span
-                  className={clsx(
-                    "text-xs font-bold px-2 py-0.5 rounded-full",
-                    m.conversionGlobale > 0
-                      ? "bg-cockpit-success/15 text-cockpit-success"
-                      : "bg-cockpit-dark text-cockpit-secondary"
-                  )}
-                >
-                  {m.conversionGlobale}% conv.
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+        <RechartsLineChart
+          data={monthly.map((m) => ({
+            label: m.label.split(" ")[0].substring(0, 4) + ".",
+            Contacts: m.contacts,
+            Devis: m.devis,
+            Commandes: m.commandes,
+          }))}
+          series={[
+            { dataKey: "Contacts", name: "Contacts", color: "#F4B400" },
+            { dataKey: "Devis", name: "Devis", color: "#3b82f6" },
+            { dataKey: "Commandes", name: "Commandes", color: "#71DD37" },
+          ]}
+          height={300}
+        />
       </div>
 
       {/* Tableau mensuel détaillé */}

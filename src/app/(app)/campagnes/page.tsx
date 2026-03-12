@@ -318,6 +318,36 @@ export default function CampagnesPage() {
         <KPICard title="Conversions" value={fmt(kpis.totalConversions)} icon={<BarChart3 className="w-7 h-7" />} bgColor="bg-cockpit-warning" />
       </div>
 
+      {/* ROI KPIs */}
+      {kpis.totalSpend > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
+            <p className="text-[10px] font-semibold text-cockpit-secondary uppercase mb-1">CPC moyen</p>
+            <p className="text-xl font-bold text-cockpit-heading">
+              {kpis.totalClicks > 0 ? fmtEur(kpis.totalSpend / kpis.totalClicks) : "—"}
+            </p>
+          </div>
+          <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
+            <p className="text-[10px] font-semibold text-cockpit-secondary uppercase mb-1">Coût / conversion</p>
+            <p className="text-xl font-bold text-cockpit-heading">
+              {kpis.totalConversions > 0 ? fmtEur(kpis.totalSpend / kpis.totalConversions) : "—"}
+            </p>
+          </div>
+          <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
+            <p className="text-[10px] font-semibold text-cockpit-secondary uppercase mb-1">CTR moyen</p>
+            <p className="text-xl font-bold text-cockpit-heading">
+              {kpis.totalImpressions > 0 ? ((kpis.totalClicks / kpis.totalImpressions) * 100).toFixed(2) + "%" : "—"}
+            </p>
+          </div>
+          <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
+            <p className="text-[10px] font-semibold text-cockpit-secondary uppercase mb-1">Taux conversion</p>
+            <p className="text-xl font-bold text-cockpit-heading">
+              {kpis.totalClicks > 0 ? ((kpis.totalConversions / kpis.totalClicks) * 100).toFixed(1) + "%" : "—"}
+            </p>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="flex items-center gap-3 p-3 bg-[#FF3E1D]/10 border border-[#FF3E1D]/30 rounded-lg">
           <AlertCircle className="w-4 h-4 text-[#FF3E1D] flex-shrink-0" />

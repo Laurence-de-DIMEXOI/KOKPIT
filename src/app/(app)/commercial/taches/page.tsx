@@ -183,29 +183,29 @@ export default function TachesPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#1F2937] flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-[#F4B400]" />
+          <h1 className="text-xl sm:text-2xl font-bold text-[#1F2937] flex items-center gap-2">
+            <ClipboardList className="w-5 sm:w-6 h-5 sm:h-6 text-[#F4B400]" />
             Mes Tâches
           </h1>
-          <p className="text-sm text-[#8592A3] mt-1">
+          <p className="text-xs sm:text-sm text-[#8592A3] mt-1">
             {counts.A_FAIRE} à faire &middot; {counts.EN_COURS} en cours &middot; {counts.TERMINEE} terminée{counts.TERMINEE > 1 ? "s" : ""}
           </p>
         </div>
         <button
           onClick={() => { setEditingTask(null); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#F4B400] text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F4B400] text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" /> Nouvelle tâche
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
         {(["ALL", "A_FAIRE", "EN_COURS", "TERMINEE"] as FilterStatut[]).map((s) => {
           const label = s === "ALL" ? "Toutes" : STATUT_CONFIG[s as TaskStatut].label;
           const count = counts[s];
@@ -214,7 +214,7 @@ export default function TachesPage() {
               key={s}
               onClick={() => setFilter(s)}
               className={clsx(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                "px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors",
                 filter === s
                   ? "bg-[#F4B400] text-white"
                   : "bg-white border border-[#E8EAED] text-[#32475C] hover:border-[#F4B400]/30"
@@ -227,7 +227,7 @@ export default function TachesPage() {
         </div>
 
         {/* Period filter */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <Calendar className="w-3.5 h-3.5 text-[#8592A3]" />
           {(["week", "month", "year", "all"] as Period[]).map((p) => (
             <button
@@ -268,7 +268,7 @@ export default function TachesPage() {
               <div
                 key={task.id}
                 className={clsx(
-                  "bg-white rounded-xl border px-5 py-4 hover:shadow-sm transition-shadow group",
+                  "bg-white rounded-xl border px-4 sm:px-5 py-3 sm:py-4 hover:shadow-sm transition-shadow group",
                   overdue ? "border-red-200" : "border-[#E8EAED]"
                 )}
               >
@@ -320,7 +320,7 @@ export default function TachesPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => { setEditingTask(task); setShowForm(true); }}
                       className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"

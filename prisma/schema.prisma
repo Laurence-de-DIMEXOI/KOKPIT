@@ -710,6 +710,25 @@ model BrevoSyncLog {
 }
 
 // ============================================================================
+// BREVO WEBHOOK EVENTS
+// ============================================================================
+
+model BrevoWebhookEvent {
+  id        String   @id @default(cuid())
+  event     String   // delivered, opened, clicked, soft_bounce, hard_bounce, unsubscribed, spam
+  email     String
+  messageId String?
+  subject   String?
+  tag       String?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([event])
+  @@index([createdAt])
+}
+
+// ============================================================================
 // DOCUMENTATION (articles d'aide internes)
 // ============================================================================
 
