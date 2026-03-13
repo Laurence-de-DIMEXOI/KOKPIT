@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { searchEstimates, searchOrders } from "@/lib/sellsy";
+// KPIs maintenant 100% Prisma — plus besoin d'appeler l'API Sellsy à chaque page load
 import { calculatePriority } from "@/lib/contact-priority";
 
 // GET /api/contacts — Liste des contacts avec pagination, recherche, filtres
@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
       sortedIds = rawResult.map((r: any) => r.id);
     }
 
-    // Récupérer les contacts et les compteurs Sellsy en parallèle
-    const [contacts, total, prismaKpis, sellsyEstimates, sellsyOrders] = await Promise.all([
+    // Récupérer les contacts et les compteurs depuis la base de données
+    const [contacts, total, prismaKpis] = await Promise.all([
       prisma.contact.findMany({
         where: sortedIds ? { ...where, id: { in: sortedIds } } : where,
         include: {
@@ -131,35 +131,20 @@ export async function GET(request: NextRequest) {
             }),
       }),
       prisma.contact.count({ where }),
-      // KPIs Prisma
+      // KPIs 100% Prisma (plus rapide et fiable que les filtres Sellsy V2 cassés)
       prisma.$transaction([
         prisma.contact.count({ where: { sellsyContactId: { not: null } } }),
         prisma.contact.count({ where: { ventes: { some: {} } } }),
         prisma.vente.aggregate({ _sum: { montant: true } }),
+        prisma.devis.count(),
+        prisma.vente.count(),
       ]),
-      // KPIs Sellsy — devis depuis 2024
-      searchEstimates({
-        filters: { created: { start: "2024-01-01", end: new Date().toISOString().split("T")[0] } },
-        limit: 1,
-      }).catch(() => ({ data: [], pagination: { total: 0 } })),
-      // KPIs Sellsy — commandes depuis 2024
-      searchOrders({
-        filters: { created: { start: "2024-01-01", end: new Date().toISOString().split("T")[0] } },
-        limit: 1,
-      }).catch(() => ({ data: [], pagination: { total: 0 } })),
     ]);
 
-    // Calculer le CA BDC depuis Sellsy si Prisma est vide
-    const prismaCABDC = prismaKpis[2]._sum.montant || 0;
-    const sellsyOrdersTotal = sellsyOrders.pagination.total;
-    const sellsyEstimatesTotal = sellsyEstimates.pagination.total;
-
-    // CA BDC: utiliser les données Sellsy si Prisma est vide
-    let totalCABDC = prismaCABDC;
-    if (totalCABDC === 0 && sellsyOrdersTotal > 0) {
-      // Pas de CA détaillé via search, on met juste le compteur
-      totalCABDC = 0; // sera 0 mais les compteurs Sellsy seront corrects
-    }
+    // KPIs depuis la base de données (sync Sellsy → Prisma)
+    const totalCABDC = prismaKpis[2]._sum.montant || 0;
+    const totalDevisDB = prismaKpis[3] as number;
+    const totalVentesDB = prismaKpis[4] as number;
 
     // Rétablir l'ordre des IDs triés par raw SQL
     let sortedContacts = contacts;
@@ -204,9 +189,8 @@ export async function GET(request: NextRequest) {
         totalLinkedSellsy: prismaKpis[0],
         totalAvecBDC: prismaKpis[1],
         totalCABDC,
-        // Utiliser les compteurs Sellsy quand Prisma est vide
-        totalDevis: sellsyEstimatesTotal || 0,
-        totalVentes: sellsyOrdersTotal || 0,
+        totalDevis: totalDevisDB,
+        totalVentes: totalVentesDB,
       },
     });
   } catch (error: any) {

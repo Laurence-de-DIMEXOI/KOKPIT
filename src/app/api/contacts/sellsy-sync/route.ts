@@ -265,10 +265,19 @@ export async function POST() {
 
     console.log(`Map sellsyId→kokpit: ${sellsyIdToKokpit.size} entrées`);
 
-    // 7. Import estimates as Devis — using `related[]` for reliable matching
+    // 7. Import estimates as Devis — using `related[]` puis fallback `contact_id`
+    const estimatesWithRelated = sellsyEstimates.filter((e) => e.related && e.related.length > 0).length;
+    console.log(`Estimates: ${sellsyEstimates.length} total, ${estimatesWithRelated} with related[]`);
+
     for (const estimate of sellsyEstimates) {
       const relatedIds = (estimate.related || []).map((r) => r.id);
-      const kokpitContact = relatedIds.map((rid) => sellsyIdToKokpit.get(rid)).find(Boolean);
+      let kokpitContact = relatedIds.map((rid) => sellsyIdToKokpit.get(rid)).find(Boolean);
+
+      // Fallback: utiliser contact_id si related[] ne matche pas
+      if (!kokpitContact && estimate.contact_id) {
+        kokpitContact = sellsyIdToKokpit.get(estimate.contact_id);
+      }
+
       if (!kokpitContact) continue;
 
       // Skip if already imported
@@ -299,10 +308,22 @@ export async function POST() {
 
     console.log(`Imported ${result.devisImported} devis`);
 
-    // 8. Import orders as Vente — using `related[]`
+    // 8. Import orders as Vente — using `related[]` OR `contact_id`
+    //    Les orders search n'ont pas toujours `related[]`, on fallback sur contact_id
+    const ordersWithRelated = sellsyOrders.filter((o) => o.related && o.related.length > 0).length;
+    const ordersWithContactId = sellsyOrders.filter((o) => o.contact_id).length;
+    console.log(`Orders: ${sellsyOrders.length} total, ${ordersWithRelated} with related[], ${ordersWithContactId} with contact_id`);
+
     for (const order of sellsyOrders) {
+      // Essayer d'abord par related[], puis fallback sur contact_id
       const relatedIds = (order.related || []).map((r) => r.id);
-      const kokpitContact = relatedIds.map((rid) => sellsyIdToKokpit.get(rid)).find(Boolean);
+      let kokpitContact = relatedIds.map((rid) => sellsyIdToKokpit.get(rid)).find(Boolean);
+
+      // Fallback: utiliser contact_id si related[] ne matche pas
+      if (!kokpitContact && order.contact_id) {
+        kokpitContact = sellsyIdToKokpit.get(order.contact_id);
+      }
+
       if (!kokpitContact) continue;
 
       if (kokpitContact.venteIds.has(String(order.id))) continue;
