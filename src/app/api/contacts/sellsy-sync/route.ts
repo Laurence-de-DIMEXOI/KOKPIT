@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  listAllContacts,
   listAllCompanies,
+  listAllIndividuals,
   listAllEstimates,
   listAllOrders,
-  type SellsyContact,
   type SellsyCompany,
+  type SellsyIndividual,
   type SellsyEstimate,
   type SellsyOrder,
 } from "@/lib/sellsy";
@@ -14,12 +14,11 @@ import {
 /**
  * POST /api/contacts/sellsy-sync
  *
- * Comprehensive Sellsy sync route:
- * 1. Fetches all Sellsy companies, estimates, and orders
- * 2. Matches KOKPIT contacts to Sellsy companies by email or normalized nom+prenom
- * 3. For matched contacts, imports their estimates as Devis and orders as Vente
- * 4. Updates contact lifecycleStage to CLIENT if they have at least 1 Vente
- * 5. Returns detailed summary of linking, import, and update operations
+ * Sync complète KOKPIT ↔ Sellsy :
+ * 1. Récupère companies + individuals + estimates + orders
+ * 2. Matche les contacts KOKPIT par email (companies ET individuals)
+ * 3. Importe les devis/BDC via le champ `related[]` (seule méthode fiable)
+ * 4. Met à jour lifecycleStage → CLIENT si au moins 1 BDC
  */
 
 function normalize(str: string): string {
@@ -31,40 +30,37 @@ function normalize(str: string): string {
     .trim();
 }
 
-function normalizePhone(phone: string): string {
-  return phone
-    .replace(/[\s\-.()]/g, "")
-    .replace(/^(\+262|0262|262)/, "0")
-    .replace(/^(\+33|0033|33)/, "0");
-}
-
-interface SellsyEntityForMatching {
-  id: number;
-  email: string;
-  nom: string;
-  prenom: string;
-  telephone: string;
-  type: "contact" | "company";
-}
-
 // Map Sellsy estimate status to DevisStatut
-function mapEstimateStatusToDevisStatut(status: string): "EN_ATTENTE" | "ENVOYE" | "ACCEPTE" | "REFUSE" | "EXPIRE" {
+function mapEstimateStatus(status: string): "EN_ATTENTE" | "ENVOYE" | "ACCEPTE" | "REFUSE" | "EXPIRE" {
   const statusMap: Record<string, "EN_ATTENTE" | "ENVOYE" | "ACCEPTE" | "REFUSE" | "EXPIRE"> = {
     draft: "EN_ATTENTE",
     sent: "ENVOYE",
+    read: "ENVOYE",
     accepted: "ACCEPTE",
     refused: "REFUSE",
     expired: "EXPIRE",
+    cancelled: "REFUSE",
+    invoiced: "ACCEPTE",
+    partialinvoiced: "ACCEPTE",
+    advanced: "ACCEPTE",
   };
   return statusMap[status?.toLowerCase()] || "EN_ATTENTE";
 }
 
+interface SellsyEntity {
+  id: number;
+  email: string;
+  nom: string;
+  prenom: string;
+  type: "company" | "individual";
+}
+
 interface SyncResult {
   success: boolean;
-  sourceType: "contacts" | "companies";
   totalKokpitContacts: number;
   totalSellsyEntities: number;
   linkedByEmail: number;
+  linkedByName: number;
   alreadyLinked: number;
   suggestions: Array<{
     contactId: string;
@@ -88,10 +84,10 @@ interface SyncResult {
 export async function POST() {
   const result: SyncResult = {
     success: false,
-    sourceType: "companies",
     totalKokpitContacts: 0,
     totalSellsyEntities: 0,
     linkedByEmail: 0,
+    linkedByName: 0,
     alreadyLinked: 0,
     suggestions: [],
     devisImported: 0,
@@ -101,57 +97,45 @@ export async function POST() {
   };
 
   try {
-    // 1. Fetch all Sellsy data in parallel
-    console.log("Fetching Sellsy companies, estimates, and orders...");
-    const [sellsyCompanies, sellsyEstimates, sellsyOrders] = await Promise.all([
-      listAllCompanies(),
-      listAllEstimates(),
-      listAllOrders(),
-    ]);
+    // 1. Fetch ALL Sellsy data SEQUENTIALLY to avoid 429 rate limit
+    const sellsyCompanies = await listAllCompanies();
+    const sellsyIndividuals = await listAllIndividuals();
+    const sellsyEstimates = await listAllEstimates();
+    const sellsyOrders = await listAllOrders();
 
     console.log(
-      `Fetched: ${sellsyCompanies.length} companies, ${sellsyEstimates.length} estimates, ${sellsyOrders.length} orders`
+      `Sellsy sync: ${sellsyCompanies.length} companies, ${sellsyIndividuals.length} individuals, ${sellsyEstimates.length} estimates, ${sellsyOrders.length} orders`
     );
 
-    // 2. Convert companies to matching entities (format: "Prénom Nom" for individuals)
-    let sellsyEntities: SellsyEntityForMatching[] = sellsyCompanies.map(
-      (c: SellsyCompany) => {
-        const parts = (c.name || "").trim().split(/\s+/);
-        const prenom = parts.length > 1 ? parts[0] : "";
-        const nom = parts.length > 1 ? parts.slice(1).join(" ") : parts[0] || "";
-        return {
-          id: c.id,
-          email: (c.email || "").toLowerCase().trim(),
-          nom,
-          prenom,
-          telephone: c.phone || "",
-          type: "company" as const,
-        };
-      }
-    );
+    // 2. Build unified entity pool (companies + individuals)
+    const sellsyEntities: SellsyEntity[] = [];
 
-    result.sourceType = "companies";
+    for (const c of sellsyCompanies) {
+      const parts = (c.name || "").trim().split(/\s+/);
+      sellsyEntities.push({
+        id: c.id,
+        email: (c.email || "").toLowerCase().trim(),
+        nom: parts.length > 1 ? parts.slice(1).join(" ") : parts[0] || "",
+        prenom: parts.length > 1 ? parts[0] : "",
+        type: "company",
+      });
+    }
+
+    for (const ind of sellsyIndividuals) {
+      sellsyEntities.push({
+        id: ind.id,
+        email: (ind.email || "").toLowerCase().trim(),
+        nom: ind.last_name || "",
+        prenom: ind.first_name || "",
+        type: "individual",
+      });
+    }
+
     result.totalSellsyEntities = sellsyEntities.length;
 
-    // 3. Fetch KOKPIT contacts with their relations
-    const kokpitContacts = await prisma.contact.findMany({
-      select: {
-        id: true,
-        email: true,
-        nom: true,
-        prenom: true,
-        telephone: true,
-        sellsyContactId: true,
-        lifecycleStage: true,
-      },
-    });
-
-    result.totalKokpitContacts = kokpitContacts.length;
-    console.log(`Fetched ${kokpitContacts.length} KOKPIT contacts`);
-
-    // 4. Index Sellsy entities by email and normalized nom+prenom
-    const sellsyByEmail = new Map<string, SellsyEntityForMatching>();
-    const sellsyByNormName = new Map<string, SellsyEntityForMatching>();
+    // 3. Index Sellsy entities by email and normalized name
+    const sellsyByEmail = new Map<string, SellsyEntity>();
+    const sellsyByNormName = new Map<string, SellsyEntity>();
 
     for (const se of sellsyEntities) {
       if (se.email) {
@@ -165,14 +149,22 @@ export async function POST() {
       }
     }
 
-    // 5. Create company name to Sellsy company mapping for linking estimates/orders
-    const companyNameToSellsyCompany = new Map<number, SellsyCompany>();
-    for (const company of sellsyCompanies) {
-      companyNameToSellsyCompany.set(company.id, company);
-    }
+    // 4. Fetch KOKPIT contacts
+    const kokpitContacts = await prisma.contact.findMany({
+      select: {
+        id: true,
+        email: true,
+        nom: true,
+        prenom: true,
+        telephone: true,
+        sellsyContactId: true,
+        lifecycleStage: true,
+      },
+    });
 
-    // 6. Match KOKPIT contacts to Sellsy companies
-    console.log("Matching contacts...");
+    result.totalKokpitContacts = kokpitContacts.length;
+
+    // 5. Match KOKPIT contacts to Sellsy entities (by email, then by name)
     for (const kc of kokpitContacts) {
       if (kc.sellsyContactId) {
         result.alreadyLinked++;
@@ -181,7 +173,7 @@ export async function POST() {
 
       const email = kc.email?.toLowerCase().trim();
 
-      // === MATCH BY EMAIL (automatic) ===
+      // Match by email (automatic)
       if (email) {
         const match = sellsyByEmail.get(email);
         if (match) {
@@ -194,23 +186,14 @@ export async function POST() {
         }
       }
 
-      // === MATCH BY NORMALIZED NOM + PRENOM (suggestions) ===
+      // Match by normalized nom + prenom (suggestion)
       const nom = normalize(kc.nom || "");
       const prenom = normalize(kc.prenom || "");
-      const tel = kc.telephone ? normalizePhone(kc.telephone) : "";
 
       if (nom && prenom) {
         const key = `${nom}|${prenom}`;
         const match = sellsyByNormName.get(key);
         if (match) {
-          const sellsyTel = match.telephone
-            ? normalizePhone(match.telephone)
-            : "";
-          const matchType =
-            tel && sellsyTel && tel === sellsyTel
-              ? "nom_prenom_tel"
-              : "nom_prenom";
-
           result.suggestions.push({
             contactId: kc.id,
             kokpitNom: kc.nom || "",
@@ -221,155 +204,148 @@ export async function POST() {
             sellsyNom: match.nom,
             sellsyPrenom: match.prenom,
             sellsyEmail: match.email,
-            sellsyTelephone: match.telephone,
-            matchType,
+            sellsyTelephone: "",
+            matchType: "nom_prenom",
           });
         }
       }
     }
 
     console.log(
-      `Matched: ${result.linkedByEmail} by email, ${result.alreadyLinked} already linked, ${result.suggestions.length} suggestions`
+      `Matching: ${result.linkedByEmail} by email, ${result.alreadyLinked} already linked, ${result.suggestions.length} suggestions`
     );
 
-    // 7. Get linked contacts for importing devis/ventes
+    // 6. Build reverse map: sellsyEntityId → kokpitContactId (for document import)
+    //    Un même client peut avoir un ID company ET un ID individual dans Sellsy.
+    //    On mappe TOUS les IDs qui partagent le même email vers le même contact KOKPIT.
     const linkedContacts = await prisma.contact.findMany({
-      where: {
-        sellsyContactId: { not: null },
-      },
+      where: { sellsyContactId: { not: null } },
       select: {
         id: true,
+        email: true,
         sellsyContactId: true,
-        devis: {
-          select: { id: true, sellsyQuoteId: true },
-        },
-        ventes: {
-          select: { id: true, sellsyInvoiceId: true },
-        },
+        devis: { select: { id: true, sellsyQuoteId: true } },
+        ventes: { select: { id: true, sellsyInvoiceId: true } },
       },
     });
 
-    console.log(`Found ${linkedContacts.length} linked contacts for sync`);
+    // Index: email → all Sellsy entity IDs (company + individual) with that email
+    const emailToSellsyIds = new Map<string, number[]>();
+    for (const se of sellsyEntities) {
+      if (se.email) {
+        const ids = emailToSellsyIds.get(se.email) || [];
+        ids.push(se.id);
+        emailToSellsyIds.set(se.email, ids);
+      }
+    }
 
-    // 8. Import estimates as Devis
-    console.log("Importing estimates as Devis...");
+    const sellsyIdToKokpit = new Map<number, { id: string; devisIds: Set<string>; venteIds: Set<string> }>();
+    for (const lc of linkedContacts) {
+      if (!lc.sellsyContactId) continue;
+      const kokpitRef = {
+        id: lc.id,
+        devisIds: new Set(lc.devis.map((d) => d.sellsyQuoteId || "").filter(Boolean)),
+        venteIds: new Set(lc.ventes.map((v) => v.sellsyInvoiceId || "").filter(Boolean)),
+      };
+
+      // Map le sellsyContactId principal
+      sellsyIdToKokpit.set(Number(lc.sellsyContactId), kokpitRef);
+
+      // Map aussi TOUS les autres IDs Sellsy qui partagent le même email
+      const email = lc.email?.toLowerCase().trim();
+      if (email) {
+        const allIds = emailToSellsyIds.get(email) || [];
+        for (const altId of allIds) {
+          if (!sellsyIdToKokpit.has(altId)) {
+            sellsyIdToKokpit.set(altId, kokpitRef);
+          }
+        }
+      }
+    }
+
+    console.log(`Map sellsyId→kokpit: ${sellsyIdToKokpit.size} entrées`);
+
+    // 7. Import estimates as Devis — using `related[]` for reliable matching
     for (const estimate of sellsyEstimates) {
-      // Find the Sellsy company for this estimate
-      const sellsyCompany = companyNameToSellsyCompany.get(estimate.contact_id);
-      if (!sellsyCompany) continue;
+      const relatedIds = (estimate.related || []).map((r) => r.id);
+      const kokpitContact = relatedIds.map((rid) => sellsyIdToKokpit.get(rid)).find(Boolean);
+      if (!kokpitContact) continue;
 
-      // Find the KOKPIT contact linked to this company
-      const linkedContact = linkedContacts.find(
-        (lc) => lc.sellsyContactId === String(sellsyCompany.id)
-      );
-      if (!linkedContact) continue;
+      // Skip if already imported
+      if (kokpitContact.devisIds.has(String(estimate.id))) continue;
 
-      // Check if this estimate already exists
-      const existingDevis = linkedContact.devis.find(
-        (d) => d.sellsyQuoteId === String(estimate.id)
-      );
-      if (existingDevis) continue;
-
-      // Upsert the Devis
       try {
         await prisma.devis.upsert({
           where: { sellsyQuoteId: String(estimate.id) },
           update: {
-            statut: mapEstimateStatusToDevisStatut(estimate.status),
-            montant: estimate.amounts?.total_excl_tax || 0,
-            dateEnvoi:
-              estimate.status === "sent" ? new Date(estimate.date) : null,
+            statut: mapEstimateStatus(estimate.status),
+            montant: Number(estimate.amounts?.total_excl_tax) || 0,
+            dateEnvoi: estimate.status === "sent" ? new Date(estimate.date) : null,
           },
           create: {
-            contactId: linkedContact.id,
+            contactId: kokpitContact.id,
             sellsyQuoteId: String(estimate.id),
-            montant: estimate.amounts?.total_excl_tax || 0,
-            statut: mapEstimateStatusToDevisStatut(estimate.status),
-            dateEnvoi:
-              estimate.status === "sent" ? new Date(estimate.date) : null,
+            montant: Number(estimate.amounts?.total_excl_tax) || 0,
+            statut: mapEstimateStatus(estimate.status),
+            dateEnvoi: estimate.status === "sent" ? new Date(estimate.date) : null,
           },
         });
+        kokpitContact.devisIds.add(String(estimate.id));
         result.devisImported++;
       } catch (err: any) {
-        result.errors.push(
-          `Failed to upsert Devis ${estimate.id}: ${err.message}`
-        );
+        result.errors.push(`Devis ${estimate.id}: ${err.message}`);
       }
     }
 
-    console.log(`Imported ${result.devisImported} Devis`);
+    console.log(`Imported ${result.devisImported} devis`);
 
-    // 9. Import orders as Vente
-    console.log("Importing orders as Vente...");
+    // 8. Import orders as Vente — using `related[]`
     for (const order of sellsyOrders) {
-      // Find the Sellsy company for this order
-      const sellsyCompany = companyNameToSellsyCompany.get(order.contact_id);
-      if (!sellsyCompany) continue;
+      const relatedIds = (order.related || []).map((r) => r.id);
+      const kokpitContact = relatedIds.map((rid) => sellsyIdToKokpit.get(rid)).find(Boolean);
+      if (!kokpitContact) continue;
 
-      // Find the KOKPIT contact linked to this company
-      const linkedContact = linkedContacts.find(
-        (lc) => lc.sellsyContactId === String(sellsyCompany.id)
-      );
-      if (!linkedContact) continue;
+      if (kokpitContact.venteIds.has(String(order.id))) continue;
 
-      // Check if this order already exists
-      const existingVente = linkedContact.ventes.find(
-        (v) => v.sellsyInvoiceId === String(order.id)
-      );
-      if (existingVente) continue;
-
-      // Upsert the Vente
       try {
         await prisma.vente.upsert({
           where: { sellsyInvoiceId: String(order.id) },
           update: {
-            montant: order.amounts?.total_excl_tax || 0,
+            montant: Number(order.amounts?.total_excl_tax) || 0,
             dateVente: new Date(order.date),
           },
           create: {
-            contactId: linkedContact.id,
+            contactId: kokpitContact.id,
             sellsyInvoiceId: String(order.id),
-            montant: order.amounts?.total_excl_tax || 0,
+            montant: Number(order.amounts?.total_excl_tax) || 0,
             dateVente: new Date(order.date),
           },
         });
+        kokpitContact.venteIds.add(String(order.id));
         result.ventesImported++;
       } catch (err: any) {
-        result.errors.push(
-          `Failed to upsert Vente ${order.id}: ${err.message}`
-        );
+        result.errors.push(`BDC ${order.id}: ${err.message}`);
       }
     }
 
-    console.log(`Imported ${result.ventesImported} Vente`);
+    console.log(`Imported ${result.ventesImported} BDC`);
 
-    // 10. Update lifecycleStage to CLIENT for contacts with at least 1 Vente
-    console.log("Updating lifecycleStage for contacts with Vente...");
+    // 9. Update lifecycleStage to CLIENT for contacts with at least 1 Vente
     const contactsWithVentes = await prisma.contact.findMany({
       where: {
-        ventes: {
-          some: {},
-        },
-        lifecycleStage: {
-          not: "CLIENT",
-        },
+        ventes: { some: {} },
+        lifecycleStage: { not: "CLIENT" },
       },
       select: { id: true },
     });
 
     if (contactsWithVentes.length > 0) {
       await prisma.contact.updateMany({
-        where: {
-          id: {
-            in: contactsWithVentes.map((c) => c.id),
-          },
-        },
+        where: { id: { in: contactsWithVentes.map((c) => c.id) } },
         data: { lifecycleStage: "CLIENT" },
       });
       result.clientsUpdated = contactsWithVentes.length;
     }
-
-    console.log(`Updated ${result.clientsUpdated} contacts to CLIENT`);
 
     result.success = true;
     return NextResponse.json(result);

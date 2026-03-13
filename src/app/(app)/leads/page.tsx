@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
+import { traduireStatut } from "@/lib/sellsy-statuts";
 import {
   Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2,
   ChevronDown, ChevronUp, Package, Phone, Mail, MapPin,
@@ -466,16 +467,20 @@ export default function LeadsPage() {
                     {formatDate(demande.dateCreation)}
                   </span>
 
-                  {/* Estimation catalogue */}
-                  {(demande.estimationTTC || sellsy?.totalEstimatedTTC) ? (
-                    <span className="text-xs font-bold text-[#C2185B] flex-shrink-0 min-w-[80px] text-right" title="Estimation catalogue">
-                      {Number(demande.estimationTTC || sellsy?.totalEstimatedTTC || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-cockpit-secondary flex-shrink-0 min-w-[80px] text-right hidden lg:block" title="Non estimé">
-                      —
-                    </span>
-                  )}
+                  {/* Montant Sellsy (devis ou BDC) */}
+                  {(() => {
+                    const docs = sellsyDocs[demande.contactId];
+                    const sellsyAmt = docs?.orders?.[0]?.amounts?.total_incl_tax || docs?.estimates?.[0]?.amounts?.total_incl_tax;
+                    return sellsyAmt ? (
+                      <span className="text-xs font-bold text-[#C2185B] flex-shrink-0 min-w-[80px] text-right" title="Montant Sellsy TTC">
+                        {Number(sellsyAmt).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-cockpit-secondary flex-shrink-0 min-w-[80px] text-right hidden lg:block">
+                        —
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {/* Détails expandés */}
@@ -584,18 +589,42 @@ export default function LeadsPage() {
                           </div>
                         ) : sellsy ? (
                           <div className="space-y-3">
-                            {/* Total estimé */}
-                            {sellsy.totalEstimatedTTC > 0 && (
-                              <div className="bg-[#C2185B]/10 border border-[#C2185B]/30 p-4 rounded-lg">
-                                <div className="text-xs text-[#C2185B] font-semibold mb-1">ESTIMATION TOTALE</div>
-                                <div className="text-2xl font-bold text-[#C2185B]">
-                                  {Number(sellsy.totalEstimatedTTC).toFixed(2)}€ <span className="text-sm font-normal">TTC</span>
-                                </div>
-                                <div className="text-xs text-cockpit-secondary mt-1">
-                                  {Number(sellsy.totalEstimatedHT).toFixed(2)}€ HT · {sellsy.catalogSize} produits analysés
-                                </div>
-                              </div>
-                            )}
+                            {/* Montant Sellsy réel (devis/BDC) ou estimation */}
+                            {(() => {
+                              const sDocs = sellsyDocs[demande.contactId];
+                              const sellsyAmt = sDocs?.orders?.[0]?.amounts?.total_incl_tax || sDocs?.estimates?.[0]?.amounts?.total_incl_tax;
+                              const sellsyAmtHT = sDocs?.orders?.[0]?.amounts?.total_excl_tax || sDocs?.estimates?.[0]?.amounts?.total_excl_tax;
+                              const docNum = sDocs?.orders?.[0]?.number || sDocs?.estimates?.[0]?.number;
+                              if (sellsyAmt) {
+                                return (
+                                  <div className="bg-[#03C3EC]/10 border border-[#03C3EC]/30 p-4 rounded-lg">
+                                    <div className="text-xs text-[#03C3EC] font-semibold mb-1">MONTANT SELLSY {docNum && `· ${docNum}`}</div>
+                                    <div className="text-2xl font-bold text-[#03C3EC]">
+                                      {Number(sellsyAmt).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}€ <span className="text-sm font-normal">TTC</span>
+                                    </div>
+                                    {sellsyAmtHT && (
+                                      <div className="text-xs text-cockpit-secondary mt-1">
+                                        {Number(sellsyAmtHT).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}€ HT
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              if (sellsy.totalEstimatedTTC > 0) {
+                                return (
+                                  <div className="bg-[#C2185B]/10 border border-[#C2185B]/30 p-4 rounded-lg">
+                                    <div className="text-xs text-[#C2185B] font-semibold mb-1">ESTIMATION CATALOGUE</div>
+                                    <div className="text-2xl font-bold text-[#C2185B]">
+                                      {Number(sellsy.totalEstimatedTTC).toFixed(2)}€ <span className="text-sm font-normal">TTC</span>
+                                    </div>
+                                    <div className="text-xs text-cockpit-secondary mt-1">
+                                      {Number(sellsy.totalEstimatedHT).toFixed(2)}€ HT · {sellsy.catalogSize} produits analysés
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
 
                             {/* Détails par article */}
                             {sellsy.matches.map((m, i) => (
@@ -797,7 +826,7 @@ export default function LeadsPage() {
                                           <div className="flex items-center gap-2">
                                             <FileText className="w-3.5 h-3.5 text-[#03C3EC]" />
                                             <span className="text-xs font-medium text-[#03C3EC]">{est.number || `#${est.id}`}</span>
-                                            {est.status && <span className="text-[10px] text-cockpit-secondary">{est.status}</span>}
+                                            {est.status && <span className="text-[10px] text-cockpit-secondary">{traduireStatut(est.status)}</span>}
                                             <ExternalLink className="w-2.5 h-2.5 text-cockpit-secondary" />
                                           </div>
                                           <span className="text-xs font-bold text-cockpit-primary">
@@ -827,7 +856,7 @@ export default function LeadsPage() {
                                           <div className="flex items-center gap-2">
                                             <ShoppingCart className="w-3.5 h-3.5 text-[#71DD37]" />
                                             <span className="text-xs font-medium text-[#71DD37]">{ord.number || `#${ord.id}`}</span>
-                                            {ord.status && <span className="text-[10px] text-cockpit-secondary">{ord.status}</span>}
+                                            {ord.status && <span className="text-[10px] text-cockpit-secondary">{traduireStatut(ord.status)}</span>}
                                             <ExternalLink className="w-2.5 h-2.5 text-cockpit-secondary" />
                                           </div>
                                           <span className="text-xs font-bold text-cockpit-primary">

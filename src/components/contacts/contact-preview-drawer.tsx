@@ -7,6 +7,7 @@ import {
   ExternalLink, Activity, Send, PhoneCall, RefreshCw,
 } from "lucide-react";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
+import { traduireStatut } from "@/lib/sellsy-statuts";
 import { useEffect, useState, useCallback } from "react";
 import { ContactTimeline } from "./contact-timeline";
 import { PriorityGauge } from "./priority-badge";
@@ -437,7 +438,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
                               <div className="flex items-center gap-2">
                                 <FileText className="w-3.5 h-3.5 text-[#03C3EC]" />
                                 <span className="text-xs font-medium text-[#03C3EC]">{est.number || `#${est.id}`}</span>
-                                {est.status && <span className="text-[10px] text-[#8592A3]">{est.status}</span>}
+                                {est.status && <span className="text-[10px] text-[#8592A3]">{traduireStatut(est.status)}</span>}
                                 <ExternalLink className="w-2.5 h-2.5 text-[#8592A3]" />
                               </div>
                               <div className="text-right">
@@ -497,7 +498,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
                               <div className="flex items-center gap-2">
                                 <ShoppingCart className="w-3.5 h-3.5 text-[#71DD37]" />
                                 <span className="text-xs font-medium text-[#71DD37]">{ord.number || `#${ord.id}`}</span>
-                                {ord.status && <span className="text-[10px] text-[#8592A3]">{ord.status}</span>}
+                                {ord.status && <span className="text-[10px] text-[#8592A3]">{traduireStatut(ord.status)}</span>}
                                 <ExternalLink className="w-2.5 h-2.5 text-[#8592A3]" />
                               </div>
                               <div className="text-right">

@@ -91,6 +91,35 @@ async function sellsyFetch<T>(
     },
   });
 
+  // Retry automatique sur 429 (rate limit) — max 3 tentatives avec backoff
+  if (response.status === 429) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const waitMs = attempt * 15000; // 15s, 30s, 45s
+      console.log(`Sellsy 429 rate limit — attente ${waitMs / 1000}s (tentative ${attempt}/3)`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      const retryToken = await getAccessToken();
+      const retryResponse = await fetch(`${SELLSY_BASE_URL}${path}`, {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${retryToken}`,
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+      });
+      if (retryResponse.ok) {
+        if (retryResponse.status === 204) return {} as T;
+        const retryData = await retryResponse.json();
+        apiCache.set(cacheKey, { data: retryData, expiresAt: Date.now() + CACHE_TTL });
+        return retryData;
+      }
+      if (retryResponse.status !== 429) {
+        const errorBody = await retryResponse.text();
+        throw new Error(`Sellsy API ${retryResponse.status}: ${errorBody}`);
+      }
+    }
+    throw new Error(`Sellsy API 429: rate limit toujours dépassé après 3 tentatives`);
+  }
+
   if (!response.ok) {
     const errorBody = await response.text();
     throw new Error(`Sellsy API ${response.status}: ${errorBody}`);
@@ -573,6 +602,31 @@ export async function searchIndividuals(filters: Record<string, unknown>): Promi
       body: JSON.stringify({ filters }),
     }
   );
+}
+
+/**
+ * Récupère TOUS les individuals Sellsy (particuliers B2C).
+ * Utilise la pagination pour tout récupérer.
+ */
+export async function listAllIndividuals(): Promise<SellsyIndividual[]> {
+  const pageSize = 100;
+  const page1 = await sellsyFetch<SellsyListResponse<SellsyIndividual>>(
+    `/individuals/search?limit=${pageSize}&offset=0`,
+    { method: "POST", body: JSON.stringify({ filters: {} }) }
+  );
+  const all: SellsyIndividual[] = [...page1.data];
+  const total = page1.pagination.total;
+  if (total > pageSize) {
+    for (let offset = pageSize; offset < total; offset += pageSize) {
+      const res = await sellsyFetch<SellsyListResponse<SellsyIndividual>>(
+        `/individuals/search?limit=${pageSize}&offset=${offset}`,
+        { method: "POST", body: JSON.stringify({ filters: {} }) }
+      );
+      all.push(...res.data);
+    }
+  }
+  console.log(`Fetched ${all.length} individuals (${Math.ceil(total / pageSize)} pages)`);
+  return all;
 }
 
 // ===== CONTACTS (PERSONNES) =====
