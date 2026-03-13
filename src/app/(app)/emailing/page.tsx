@@ -216,6 +216,7 @@ export default function EmailingPage() {
   }
 
   const campagnes = data?.dernieresCampagnes || [];
+  const avertissement = (data as any)?._avertissement || null;
   const derniereCampagne =
     campagnes.length > 0
       ? new Date(campagnes[0].dateEnvoi).toLocaleDateString("fr-FR", {
@@ -271,6 +272,20 @@ export default function EmailingPage() {
               Données Brevo indisponibles
             </h3>
             <p className="text-sm text-red-300">{data.error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Avertissement stats à zéro */}
+      {avertissement && (
+        <div className="flex items-start gap-3 p-4 rounded-lg border bg-amber-500/10 border-amber-500/30">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-amber-400 mb-1 text-sm">Statistiques indisponibles</h3>
+            <p className="text-xs text-cockpit-secondary">{avertissement}</p>
+            <p className="text-xs text-cockpit-secondary mt-1">
+              Vérifiez que vos listes de contacts Brevo contiennent des abonnés avant d&apos;envoyer.
+            </p>
           </div>
         </div>
       )}

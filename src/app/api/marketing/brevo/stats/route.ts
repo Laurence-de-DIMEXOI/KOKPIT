@@ -62,22 +62,22 @@ export async function GET(request: Request) {
       }
     }
 
-    // Parallel: contacts count + sent campaigns + draft campaigns (for diagnostic)
-    const fetches: Promise<any>[] = [
+    // Parallel: contacts count + sent campaigns + all campaigns (for drafts/scheduled)
+    const [contactsRes, campagnesRes, allCampagnesRes] = await Promise.all([
       brevoFetch("/contacts?limit=1&offset=0"),
-      brevoFetch("/emailCampaigns?status=sent&limit=5&sort=desc&type=classic"),
-    ];
-    if (debugMode) {
-      fetches.push(brevoFetch("/emailCampaigns?limit=5&sort=desc&type=classic"));
-    }
-    const [contactsRes, campagnesRes, allCampagnesRes] = await Promise.all(fetches);
+      brevoFetch("/emailCampaigns?status=sent&limit=20&sort=desc&type=classic"),
+      brevoFetch("/emailCampaigns?limit=10&sort=desc&type=classic"),
+    ]);
 
     const totalContacts = contactsRes.count || 0;
 
     if (debugMode) {
       debugInfo.totalContacts = totalContacts;
       debugInfo.sentCampaignsCount = campagnesRes.count || 0;
-      debugInfo.allCampaignsCount = allCampagnesRes?.count || "N/A";
+      debugInfo.allCampaignsCount = allCampagnesRes?.count || 0;
+      debugInfo.allCampaignsStatuses = (allCampagnesRes?.campaigns || []).map((c: any) => ({
+        id: c.id, name: c.name, status: c.status,
+      }));
       if (campagnesRes.campaigns?.length > 0) {
         debugInfo.sampleCampaign = {
           id: campagnesRes.campaigns[0].id,
@@ -129,13 +129,28 @@ export async function GET(request: Request) {
           ) / 10
         : 0;
 
+    // Campagnes en préparation (draft, queued, scheduled)
+    const campagnesEnCours = (allCampagnesRes?.campaigns || [])
+      .filter((c: any) => ["draft", "queued", "scheduled"].includes(c.status))
+      .map((c: any) => ({
+        id: c.id,
+        nom: c.name || "Sans nom",
+        status: c.status,
+        dateCreation: c.createdAt,
+        scheduledAt: c.scheduledAt,
+      }));
+
     const result: any = {
       contacts: { total: totalContacts },
       dernieresCampagnes: campagnes,
+      campagnesEnCours,
       moyennes: {
         tauxOuvertureMoyen,
         tauxClicMoyen,
       },
+      _avertissement: campagnesAvecDonnees.length === 0 && campagnes.length > 0
+        ? "Les campagnes envoyées n'ont aucune statistique (listes de destinataires vides ou stats en cours de chargement)."
+        : undefined,
       _cache: { generatedAt: new Date().toISOString() },
     };
 
