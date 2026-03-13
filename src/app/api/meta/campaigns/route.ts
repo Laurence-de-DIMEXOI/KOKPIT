@@ -56,12 +56,16 @@ interface MetaCampaign {
 // ===== HELPERS =====
 
 // Periods mapped to Meta date_preset or custom time_range
-type Period = "today" | "yesterday" | "last_7d" | "last_30d" | "this_month" | "last_month" | "this_year" | "last_year" | "maximum";
+type Period = "today" | "yesterday" | "last_7d" | "last_30d" | "this_month" | "last_month" | "this_year" | "last_year" | "maximum" | "custom";
 
-function getDateParam(period: Period): string {
+function getDateParam(period: Period, since?: string, until?: string): string {
+  // Custom date range : time_range={since:'YYYY-MM-DD',until:'YYYY-MM-DD'}
+  if (period === "custom" && since && until) {
+    return `time_range=${JSON.stringify({ since, until })}`;
+  }
   // Meta supports date_preset values directly
   // "maximum" = last 37 months (max reportable)
-  return `date_preset=${period}`;
+  return `date_preset=${period === "custom" ? "maximum" : period}`;
 }
 
 const INSIGHTS_FIELDS =
@@ -196,9 +200,11 @@ async function validateToken(accessToken: string): Promise<{
 
 async function fetchBatchHierarchy(
   accessToken: string,
-  period: Period = "maximum"
+  period: Period = "maximum",
+  since?: string,
+  until?: string,
 ): Promise<{ campaigns: MetaCampaign[]; debug: any }> {
-  const debug: any = { period, errors: [], counts: {} };
+  const debug: any = { period, since, until, errors: [], counts: {} };
 
   // 0. Validate token
   const tokenInfo = await validateToken(accessToken);
@@ -242,7 +248,7 @@ async function fetchBatchHierarchy(
   }));
 
   const allCampaigns: MetaCampaign[] = [];
-  const dateParam = getDateParam(period);
+  const dateParam = getDateParam(period, since, until);
 
   for (const account of accountsData.data) {
     const accountId = account.id;
@@ -476,15 +482,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "META_ACCESS_TOKEN non configuré" }, { status: 400 });
     }
 
-    // Period param: today, yesterday, last_7d, last_30d, this_month, last_month, this_year, last_year, maximum
+    // Period param + custom date range
     const periodParam = request.nextUrl.searchParams.get("period") || "maximum";
-    const validPeriods: Period[] = ["today", "yesterday", "last_7d", "last_30d", "this_month", "last_month", "this_year", "last_year", "maximum"];
+    const validPeriods: Period[] = ["today", "yesterday", "last_7d", "last_30d", "this_month", "last_month", "this_year", "last_year", "maximum", "custom"];
     const period: Period = validPeriods.includes(periodParam as Period) ? (periodParam as Period) : "maximum";
+    const since = request.nextUrl.searchParams.get("since") || undefined; // YYYY-MM-DD
+    const until = request.nextUrl.searchParams.get("until") || undefined; // YYYY-MM-DD
 
     // Debug mode
     const debugMode = request.nextUrl.searchParams.get("debug") === "1";
 
-    const { campaigns, debug } = await fetchBatchHierarchy(accessToken, period);
+    const { campaigns, debug } = await fetchBatchHierarchy(accessToken, period, since, until);
 
     // Sync to DB en arrière-plan (non-bloquant) — seulement les campagnes avec données
     if (period === "maximum") {

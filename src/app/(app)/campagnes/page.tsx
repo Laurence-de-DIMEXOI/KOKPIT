@@ -84,6 +84,7 @@ const periodOptions = [
   { value: "last_month", label: "Mois dernier" },
   { value: "this_year", label: "Cette année" },
   { value: "last_year", label: "Année dernière" },
+  { value: "custom", label: "Personnalisé" },
 ];
 
 const StatusBadge = ({ status }: { status: string }) => {
@@ -161,6 +162,8 @@ export default function CampagnesPage() {
   const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("maximum");
+  const [customSince, setCustomSince] = useState<string>("");
+  const [customUntil, setCustomUntil] = useState<string>("");
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [kpis, setKpis] = useState({
     totalSpend: 0, totalImpressions: 0, totalClicks: 0, totalConversions: 0,
@@ -192,13 +195,19 @@ export default function CampagnesPage() {
     finally { setLoading(false); }
   };
 
-  const handleSync = async (period?: string) => {
+  const handleSync = async (period?: string, since?: string, until?: string) => {
     const p = period || selectedPeriod;
+    const s = since || customSince;
+    const u = until || customUntil;
     setSyncing(true);
     setError("");
     setDebugInfo(null);
     try {
-      const res = await fetch(`/api/meta/campaigns?period=${p}&debug=1`);
+      let url = `/api/meta/campaigns?period=${p}&debug=1`;
+      if (p === "custom" && s && u) {
+        url += `&since=${s}&until=${u}`;
+      }
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setCampaigns(data.campaigns || []);
@@ -299,8 +308,10 @@ export default function CampagnesPage() {
               value={selectedPeriod}
               onChange={(e) => {
                 setSelectedPeriod(e.target.value);
-                // Auto-sync when changing period
-                handleSync(e.target.value);
+                // Auto-sync when changing period (sauf custom — attend les dates)
+                if (e.target.value !== "custom") {
+                  handleSync(e.target.value);
+                }
               }}
               className="appearance-none bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs text-cockpit-primary cursor-pointer pr-7"
             >
@@ -311,6 +322,37 @@ export default function CampagnesPage() {
             <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
           </div>
         </div>
+
+        {/* Custom date range */}
+        {selectedPeriod === "custom" && (
+          <>
+            <input
+              type="date"
+              value={customSince}
+              onChange={(e) => setCustomSince(e.target.value)}
+              className="bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs text-cockpit-primary"
+              placeholder="Du"
+            />
+            <span className="text-cockpit-secondary text-xs">→</span>
+            <input
+              type="date"
+              value={customUntil}
+              onChange={(e) => setCustomUntil(e.target.value)}
+              className="bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs text-cockpit-primary"
+              placeholder="Au"
+            />
+            <button
+              onClick={() => {
+                if (customSince && customUntil) handleSync("custom", customSince, customUntil);
+              }}
+              disabled={!customSince || !customUntil || syncing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-40 transition-colors"
+              style={{ backgroundColor: "var(--color-active)" }}
+            >
+              Appliquer
+            </button>
+          </>
+        )}
 
         {/* Status filter */}
         <div className="relative inline-block">
