@@ -10,7 +10,7 @@ import {
   ChevronDown, ChevronUp, Package, Phone, Mail, MapPin,
   Euro, User, Calendar, MessageSquare, Tag,
   CheckCircle, XCircle, FileText, Search, Trash2,
-  ExternalLink, ShoppingCart,
+  ExternalLink, ShoppingCart, Send,
 } from "lucide-react";
 
 // ===== TYPES =====
@@ -110,6 +110,8 @@ export default function LeadsPage() {
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
   const [sellsyDocs, setSellsyDocs] = useState<Record<string, { estimates: any[]; orders: any[]; linked: boolean }>>({});
   const [sellsyDocsLoading, setSellsyDocsLoading] = useState<Record<string, boolean>>({});
+  const [relanceLoading, setRelanceLoading] = useState<Record<string, boolean>>({});
+  const [relanceResult, setRelanceResult] = useState<Record<string, { success: boolean; message: string }>>({});
 
   const fetchDemandes = useCallback(async (showLoader = true) => {
     if (showLoader) setRefreshing(true);
@@ -219,6 +221,50 @@ export default function LeadsPage() {
       fetchDemandes(false);
     } catch (err) {
       console.error("Erreur suppression:", err);
+    }
+  };
+
+  // ===== RELANCE COMMERCIAL =====
+
+  const sendRelance = async (demandeId: string, nomClient: string, commercial: string) => {
+    if (relanceLoading[demandeId]) return;
+    if (!confirm(`Envoyer une relance urgente à ${commercial} pour la demande de ${nomClient} ?`)) return;
+
+    setRelanceLoading((prev) => ({ ...prev, [demandeId]: true }));
+    setRelanceResult((prev) => ({ ...prev, [demandeId]: undefined as any }));
+
+    try {
+      const res = await fetch("/api/demandes/relance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ demandeId }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setRelanceResult((prev) => ({
+          ...prev,
+          [demandeId]: {
+            success: true,
+            message: `Relance envoyée à ${data.commercial?.nom} (${data.commercial?.email})`,
+          },
+        }));
+      } else {
+        setRelanceResult((prev) => ({
+          ...prev,
+          [demandeId]: {
+            success: false,
+            message: data.error || "Erreur lors de l'envoi",
+          },
+        }));
+      }
+    } catch (err) {
+      setRelanceResult((prev) => ({
+        ...prev,
+        [demandeId]: { success: false, message: "Erreur de connexion" },
+      }));
+    } finally {
+      setRelanceLoading((prev) => ({ ...prev, [demandeId]: false }));
     }
   };
 
@@ -774,6 +820,42 @@ export default function LeadsPage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Relancer le commercial */}
+                        {demande.assigneA && demande.assigneA !== "Non assigné" && (
+                          <div className="pt-3 border-t border-cockpit">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                sendRelance(demande.id, nomComplet(demande), demande.assigneA || "");
+                              }}
+                              disabled={relanceLoading[demande.id]}
+                              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all w-full justify-center ${
+                                slaExpired
+                                  ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30"
+                                  : "bg-[#E65100]/15 text-[#E65100] hover:bg-[#E65100]/25 border border-[#E65100]/30"
+                              }`}
+                            >
+                              {relanceLoading[demande.id] ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Send className="w-3.5 h-3.5" />
+                              )}
+                              {slaExpired
+                                ? `⚠️ Relancer ${demande.assigneA} — SLA DÉPASSÉ`
+                                : `Relancer ${demande.assigneA}`
+                              }
+                            </button>
+                            {relanceResult[demande.id] && (
+                              <p className={`text-[11px] mt-1.5 text-center font-medium ${
+                                relanceResult[demande.id].success ? "text-green-400" : "text-red-400"
+                              }`}>
+                                {relanceResult[demande.id].success ? "✓ " : "✗ "}
+                                {relanceResult[demande.id].message}
+                              </p>
+                            )}
+                          </div>
+                        )}
 
                         {/* Supprimer (spam) */}
                         <div className="pt-3 border-t border-cockpit">

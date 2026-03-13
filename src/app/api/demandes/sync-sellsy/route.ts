@@ -2,21 +2,18 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  findSellsyContact,
-  findDocumentsByRelated,
-} from "@/lib/sellsy";
 
 /**
  * POST /api/demandes/sync-sellsy
  *
- * Re-vérifie TOUS les leads (sauf PERDU) dans Sellsy via le champ `related`.
- *   - BDC trouvé   → statut = VENTE
- *   - Devis trouvé → statut = DEVIS
- *   - Rien trouvé  → statut = NOUVEAU (correction des faux positifs)
+ * Vérifie les statuts leads en croisant avec les données LOCALES (Prisma).
+ * Plus d'appels API Sellsy séquentiels — tout est en base.
  *
- * IMPORTANT : Les filtres Sellsy V2 (third_ids, contact_id) sont CASSÉS.
- * On utilise `findDocumentsByRelated` qui filtre par `related[].id`.
+ * Logique :
+ *   - Contact a un BDC (Vente) créé APRÈS la demande → VENTE
+ *   - Contact a un Devis créé APRÈS la demande → DEVIS
+ *   - Sinon → NOUVEAU (correction des faux positifs)
+ *   - Statut PERDU = manuel, jamais touché
  */
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -36,99 +33,76 @@ export async function POST() {
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        contactId: true,
+        createdAt: true,
         contact: {
           select: {
             email: true,
-            telephone: true,
-            nom: true,
-            prenom: true,
             leads: {
               where: { statut: { in: ["NOUVEAU", "EN_COURS", "DEVIS", "VENTE"] } },
               orderBy: { createdAt: "desc" as const },
               take: 1,
+              select: { id: true, statut: true },
+            },
+            // Devis et Ventes depuis la base locale (déjà syncés)
+            devis: {
+              select: { id: true, createdAt: true },
+              orderBy: { createdAt: "desc" as const },
+            },
+            ventes: {
+              select: { id: true, createdAt: true },
+              orderBy: { createdAt: "desc" as const },
             },
           },
         },
       },
     });
 
-    const updates: { leadId: string; email: string; oldStatut: string; newStatut: string; thirdId?: number }[] = [];
-    const errors: { email: string; error: string }[] = [];
+    const updates: { leadId: string; email: string; oldStatut: string; newStatut: string }[] = [];
 
-    // 2. Pour chaque demande, vérifier dans Sellsy et corriger le statut
+    // 2. Pour chaque demande, vérifier le statut avec les données locales
     for (const demande of demandes) {
       const contact = demande.contact;
       const lead = contact.leads[0];
       if (!lead) continue;
 
-      // Date de la demande = on ne compte que les docs Sellsy créés APRÈS
       const demandeTs = demande.createdAt.getTime();
 
-      try {
-        // Trouver le tiers Sellsy (individual ou company)
-        const match = await findSellsyContact({
-          email: contact.email,
-          telephone: contact.telephone,
-          nom: contact.nom,
-          prenom: contact.prenom,
+      // Chercher un BDC (Vente) créé APRÈS la demande
+      const recentVente = contact.ventes.find(
+        (v) => v.createdAt.getTime() >= demandeTs
+      );
+
+      // Chercher un Devis créé APRÈS la demande
+      const recentDevis = contact.devis.find(
+        (d) => d.createdAt.getTime() >= demandeTs
+      );
+
+      // Déterminer le statut correct
+      const correctStatut = recentVente
+        ? "VENTE" as const
+        : recentDevis
+          ? "DEVIS" as const
+          : "NOUVEAU" as const;
+
+      // Mettre à jour seulement si le statut est différent
+      if (lead.statut !== correctStatut) {
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: { statut: correctStatut },
         });
-
-        // Pas trouvé dans Sellsy → remettre en NOUVEAU si ce n'était pas déjà le cas
-        if (!match?.thirdId) {
-          if (lead.statut !== "NOUVEAU" && lead.statut !== "EN_COURS") {
-            await prisma.lead.update({
-              where: { id: lead.id },
-              data: { statut: "NOUVEAU" },
-            });
-            updates.push({
-              leadId: lead.id,
-              email: contact.email || "",
-              oldStatut: lead.statut,
-              newStatut: "NOUVEAU",
-            });
-          }
-          continue;
-        }
-
-        // Chercher les documents par `related` (filtrage côté serveur)
-        const { estimates, orders } = await findDocumentsByRelated(match.thirdId);
-
-        // Filtrer par date (créés APRÈS la demande)
-        const recentOrder = orders.find(
-          (o) => new Date(o.created).getTime() >= demandeTs
-        );
-        const recentEstimate = estimates.find(
-          (e) => new Date(e.created).getTime() >= demandeTs
-        );
-
-        // Déterminer le statut correct
-        const correctStatut = recentOrder
-          ? "VENTE" as const
-          : recentEstimate
-            ? "DEVIS" as const
-            : "NOUVEAU" as const;
-
-        // Mettre à jour seulement si le statut est différent
-        if (lead.statut !== correctStatut) {
-          await prisma.lead.update({
-            where: { id: lead.id },
-            data: { statut: correctStatut },
-          });
-          updates.push({
-            leadId: lead.id,
-            email: contact.email || "",
-            oldStatut: lead.statut,
-            newStatut: correctStatut,
-            thirdId: match.thirdId,
-          });
-        }
-      } catch (err: any) {
-        errors.push({ email: contact.email || "", error: err.message || "Erreur Sellsy" });
+        updates.push({
+          leadId: lead.id,
+          email: contact.email || "",
+          oldStatut: lead.statut,
+          newStatut: correctStatut,
+        });
       }
     }
 
-    // 3. Recompter les stats — uniquement les leads liés à des DemandePrix
+    // 3. Recompter les stats
     const demandesAvecLeads = await prisma.demandePrix.findMany({
       where: {
         contact: {
@@ -168,7 +142,6 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       updates,
-      errors: errors.length > 0 ? errors : undefined,
       stats,
       _syncedAt: new Date().toISOString(),
     });
