@@ -551,13 +551,13 @@ export default function LeadsPage() {
                                       </span>
                                     </div>
                                     {/* Alternatives */}
-                                    {m.matchesSellsy.length > 1 && (
+                                    {(m.matchesSellsy?.length || 0) > 1 && (
                                       <details className="mt-1">
                                         <summary className="text-[10px] text-cockpit-secondary cursor-pointer hover:text-cockpit-primary">
-                                          {m.matchesSellsy.length - 1} autre{m.matchesSellsy.length > 2 ? "s" : ""} correspondance{m.matchesSellsy.length > 2 ? "s" : ""}
+                                          {m.matchesSellsy!.length - 1} autre{m.matchesSellsy!.length > 2 ? "s" : ""} correspondance{m.matchesSellsy!.length > 2 ? "s" : ""}
                                         </summary>
                                         <div className="mt-1 space-y-1">
-                                          {m.matchesSellsy.slice(1).map((alt, j) => (
+                                          {m.matchesSellsy!.slice(1).map((alt, j) => (
                                             <div key={j} className="flex items-center justify-between text-xs text-cockpit-secondary">
                                               <span className="truncate mr-2">{alt.name}</span>
                                               <span>{Number(alt.prixTTC).toFixed(0)}€ ({alt.score}%)</span>
