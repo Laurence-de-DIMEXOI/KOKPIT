@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import {
   BarChart3,
@@ -251,7 +251,26 @@ export default function CampagnesPage() {
     });
   };
 
-  const filteredCampaigns = selectedStatus === "ALL" ? campaigns : campaigns.filter((c) => c.status === selectedStatus);
+  const filteredCampaigns = useMemo(() => {
+    let result = selectedStatus === "ALL" ? campaigns : campaigns.filter((c) => c.status === selectedStatus);
+    // Quand un filtre de période est actif, n'afficher que les campagnes ayant dépensé
+    if (selectedPeriod !== "maximum") {
+      result = result.filter((c) => c.insights.spend > 0 || c.insights.impressions > 0);
+    }
+    return result;
+  }, [campaigns, selectedStatus, selectedPeriod]);
+
+  // KPIs calculés sur les campagnes visibles (filtrées)
+  const displayKpis = useMemo(() => ({
+    totalSpend: Math.round(filteredCampaigns.reduce((s, c) => s + c.insights.spend, 0) * 100) / 100,
+    totalImpressions: filteredCampaigns.reduce((s, c) => s + c.insights.impressions, 0),
+    totalClicks: filteredCampaigns.reduce((s, c) => s + c.insights.clicks, 0),
+    totalConversions: filteredCampaigns.reduce((s, c) => s + c.insights.conversions, 0),
+    totalCampaigns: filteredCampaigns.length,
+    totalAdSets: filteredCampaigns.reduce((s, c) => s + c.adsets.length, 0),
+    totalAds: filteredCampaigns.reduce((s, c) => s + c.adsets.reduce((ss, a) => ss + a.ads.length, 0), 0),
+    campaignsWithData: filteredCampaigns.filter((c) => c.insights.spend > 0 || c.insights.impressions > 0).length,
+  }), [filteredCampaigns]);
 
   const toggleCampaign = (id: string) => {
     const next = new Set(expandedCampaigns);
@@ -279,9 +298,9 @@ export default function CampagnesPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">Campagnes</h1>
           <p className="text-cockpit-secondary text-xs sm:text-sm">
-            {kpis.totalCampaigns} campagnes · {kpis.totalAdSets} ensembles · {kpis.totalAds} publicités
-            {kpis.campaignsWithData > 0 && (
-              <span className="text-[#8DA035] ml-1">({kpis.campaignsWithData} avec données)</span>
+            {displayKpis.totalCampaigns} campagnes · {displayKpis.totalAdSets} ensembles · {displayKpis.totalAds} publicités
+            {displayKpis.campaignsWithData > 0 && selectedPeriod !== "maximum" && (
+              <span className="text-[#8DA035] ml-1">(filtrées par dépense)</span>
             )}
           </p>
           {syncedAt && (
@@ -369,37 +388,37 @@ export default function CampagnesPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
-        <KPICard title="Dépenses" value={fmtEur(kpis.totalSpend)} icon={<DollarSign className="w-7 h-7" />} bgColor="bg-mk-lemon" />
-        <KPICard title="Impressions" value={fmt(kpis.totalImpressions)} icon={<Eye className="w-7 h-7" />} bgColor="bg-mk-lime" />
-        <KPICard title="Clics" value={fmt(kpis.totalClicks)} icon={<MousePointer className="w-7 h-7" />} bgColor="bg-mk-grapefruit" />
-        <KPICard title="Conversions" value={fmt(kpis.totalConversions)} icon={<BarChart3 className="w-7 h-7" />} bgColor="bg-mk-raspberry" />
+        <KPICard title="Dépenses" value={fmtEur(displayKpis.totalSpend)} icon={<DollarSign className="w-7 h-7" />} bgColor="bg-mk-lemon" />
+        <KPICard title="Impressions" value={fmt(displayKpis.totalImpressions)} icon={<Eye className="w-7 h-7" />} bgColor="bg-mk-lime" />
+        <KPICard title="Clics" value={fmt(displayKpis.totalClicks)} icon={<MousePointer className="w-7 h-7" />} bgColor="bg-mk-grapefruit" />
+        <KPICard title="Conversions" value={fmt(displayKpis.totalConversions)} icon={<BarChart3 className="w-7 h-7" />} bgColor="bg-mk-raspberry" />
       </div>
 
       {/* ROI KPIs */}
-      {kpis.totalSpend > 0 && (
+      {displayKpis.totalSpend > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
             <p className="text-[10px] font-semibold text-cockpit-secondary uppercase mb-1">CPC moyen</p>
             <p className="text-xl font-bold text-cockpit-heading">
-              {kpis.totalClicks > 0 ? fmtEur(kpis.totalSpend / kpis.totalClicks) : "—"}
+              {displayKpis.totalClicks > 0 ? fmtEur(displayKpis.totalSpend / displayKpis.totalClicks) : "—"}
             </p>
           </div>
           <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
             <p className="text-[10px] font-semibold text-cockpit-secondary uppercase mb-1">Coût / conversion</p>
             <p className="text-xl font-bold text-cockpit-heading">
-              {kpis.totalConversions > 0 ? fmtEur(kpis.totalSpend / kpis.totalConversions) : "—"}
+              {displayKpis.totalConversions > 0 ? fmtEur(displayKpis.totalSpend / displayKpis.totalConversions) : "—"}
             </p>
           </div>
           <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
             <p className="text-[10px] font-semibold text-cockpit-secondary uppercase mb-1">CTR moyen</p>
             <p className="text-xl font-bold text-cockpit-heading">
-              {kpis.totalImpressions > 0 ? ((kpis.totalClicks / kpis.totalImpressions) * 100).toFixed(2) + "%" : "—"}
+              {displayKpis.totalImpressions > 0 ? ((displayKpis.totalClicks / displayKpis.totalImpressions) * 100).toFixed(2) + "%" : "—"}
             </p>
           </div>
           <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
             <p className="text-[10px] font-semibold text-cockpit-secondary uppercase mb-1">Taux conversion</p>
             <p className="text-xl font-bold text-cockpit-heading">
-              {kpis.totalClicks > 0 ? ((kpis.totalConversions / kpis.totalClicks) * 100).toFixed(1) + "%" : "—"}
+              {displayKpis.totalClicks > 0 ? ((displayKpis.totalConversions / displayKpis.totalClicks) * 100).toFixed(1) + "%" : "—"}
             </p>
           </div>
         </div>
