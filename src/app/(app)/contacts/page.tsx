@@ -144,13 +144,20 @@ export default function ContactsPage() {
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
-  // Sellsy sync — automatique au chargement
+  // Sellsy sync — automatique mais pas plus d'une fois par heure
   const sellsySyncTriggered = useRef(false);
   useEffect(() => {
-    if (!sellsySyncTriggered.current) {
-      sellsySyncTriggered.current = true;
-      handleSellsySync();
+    if (sellsySyncTriggered.current) return;
+    sellsySyncTriggered.current = true;
+
+    // Vérifier le cache : ne pas re-sync si fait < 1h
+    const lastSync = localStorage.getItem("kokpit_sellsy_sync_at");
+    const oneHour = 60 * 60 * 1000;
+    if (lastSync && Date.now() - Number(lastSync) < oneHour) {
+      console.log("Sellsy sync skipped — dernière sync <1h");
+      return;
     }
+    handleSellsySync();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -162,6 +169,7 @@ export default function ContactsPage() {
       const res = await fetch("/api/contacts/sellsy-sync", { method: "POST" });
       const data = await res.json();
       setSellsySyncResult(data);
+      localStorage.setItem("kokpit_sellsy_sync_at", String(Date.now()));
       // Refresh contacts si des liaisons / imports ont été faits
       if (data.linkedByEmail > 0 || data.devisImported > 0 || data.ventesImported > 0 || data.clientsUpdated > 0) {
         fetchContacts(true);

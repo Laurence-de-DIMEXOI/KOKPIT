@@ -114,16 +114,20 @@ export default function LeadsPage() {
   const fetchDemandes = useCallback(async (showLoader = true) => {
     if (showLoader) setRefreshing(true);
     try {
-      // 1. Sync statuts avec Sellsy (met à jour NOUVEAU → DEVIS/VENTE)
-      const syncRes = await fetch("/api/demandes/sync-sellsy", { method: "POST" });
-      if (syncRes.ok) {
-        const syncData = await syncRes.json();
-        if (syncData.stats) setStats(syncData.stats);
-      }
+      // Charger demandes ET sync EN PARALLÈLE (afficher les données existantes pendant la sync)
+      const [, listRes] = await Promise.all([
+        fetch("/api/demandes/sync-sellsy", { method: "POST" })
+          .then(async (syncRes) => {
+            if (syncRes.ok) {
+              const syncData = await syncRes.json();
+              if (syncData.stats) setStats(syncData.stats);
+            }
+          })
+          .catch(() => {}),
+        fetch("/api/demandes"),
+      ]);
 
-      // 2. Récupérer les demandes à jour
-      const response = await fetch("/api/demandes");
-      const result = await response.json();
+      const result = await listRes.json();
       const demandesArray = result.data || [];
       setDemandes(demandesArray);
       if (result.stats && !stats.total) setStats(result.stats);

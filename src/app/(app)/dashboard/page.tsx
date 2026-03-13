@@ -142,36 +142,49 @@ export default function DashboardPage() {
 
   const fetchDemandes = useCallback(async () => {
     try {
-      // 1. D'abord synchroniser les statuts avec Sellsy (email → devis/BDC)
-      const syncRes = await fetch("/api/demandes/sync-sellsy", { method: "POST" });
-      if (syncRes.ok) {
-        const syncData = await syncRes.json();
-        if (syncData.stats) {
-          setDemandesStats(syncData.stats);
-        }
-      }
+      // 1. Charger demandes ET lancer sync en parallèle (ne pas attendre la sync)
+      const [, listRes] = await Promise.all([
+        fetch("/api/demandes/sync-sellsy", { method: "POST" })
+          .then(async (syncRes) => {
+            if (syncRes.ok) {
+              const syncData = await syncRes.json();
+              if (syncData.stats) setDemandesStats(syncData.stats);
+            }
+          })
+          .catch(() => {}),
+        fetch("/api/demandes?limit=50"),
+      ]);
 
-      // 2. Récupérer la liste des demandes
-      const res = await fetch("/api/demandes?limit=50");
-      if (!res.ok) return;
-      const data = await res.json();
+      if (!listRes.ok) return;
+      const data = await listRes.json();
       if (data.stats) setDemandesStats(data.stats);
       const demandes: DemandeItem[] = data.data || [];
       setDemandesList(demandes);
 
-      // 3. Pour les demandes DEVIS/VENTE, charger les docs Sellsy
+      // 2. Charger les docs Sellsy EN PARALLÈLE (pas séquentiel)
       const devisVente = demandes.filter(
         (d: DemandeItem) => d.statut === "DEVIS" || d.statut === "VENTE"
       );
-      for (const d of devisVente) {
-        try {
-          const docRes = await fetch(`/api/contacts/${d.contactId}/sellsy-history`);
-          if (docRes.ok) {
-            const docData = await docRes.json();
-            setSellsyDocs((prev) => ({ ...prev, [d.contactId]: docData }));
-          }
-        } catch { /* silencieux */ }
+      // Dédupliquer par contactId
+      const uniqueContactIds = [...new Set(devisVente.map((d) => d.contactId))];
+      const docResults = await Promise.all(
+        uniqueContactIds.map(async (contactId) => {
+          try {
+            const docRes = await fetch(`/api/contacts/${contactId}/sellsy-history`);
+            if (docRes.ok) {
+              const docData = await docRes.json();
+              return { contactId, data: docData };
+            }
+          } catch { /* silencieux */ }
+          return null;
+        })
+      );
+      // Mettre à jour en un seul batch
+      const docsMap: Record<string, any> = {};
+      for (const r of docResults) {
+        if (r) docsMap[r.contactId] = r.data;
       }
+      setSellsyDocs((prev) => ({ ...prev, ...docsMap }));
     } catch {
       // silencieux
     }
