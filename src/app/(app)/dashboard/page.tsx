@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Users,
   TrendingUp,
@@ -19,6 +19,8 @@ import {
   ArrowUpRight,
   Minus,
   Mail,
+  DollarSign,
+  Megaphone,
 } from "lucide-react";
 import clsx from "clsx";
 import { RechartsLineChart } from "@/components/dashboard/line-chart";
@@ -69,6 +71,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showAllContacts, setShowAllContacts] = useState(false);
+  const [metaMonthly, setMetaMonthly] = useState<Record<string, { spend: number; impressions: number; clicks: number; conversions: number }>>({});
 
   const fetchFunnel = useCallback(async (showLoader = true) => {
     if (showLoader) setRefreshing(true);
@@ -88,14 +91,57 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const fetchMetaMonthly = useCallback(async () => {
+    try {
+      const res = await fetch("/api/meta/monthly-spend");
+      if (!res.ok) return;
+      const data = await res.json();
+      const map: Record<string, { spend: number; impressions: number; clicks: number; conversions: number }> = {};
+      for (const m of data.months || []) {
+        map[m.month] = { spend: m.spend, impressions: m.impressions, clicks: m.clicks, conversions: m.conversions };
+      }
+      setMetaMonthly(map);
+    } catch {
+      // silencieux
+    }
+  }, []);
+
   useEffect(() => {
-    if (session?.user) fetchFunnel(true);
-  }, [session, fetchFunnel]);
+    if (session?.user) {
+      fetchFunnel(true);
+      fetchMetaMonthly();
+    }
+  }, [session, fetchFunnel, fetchMetaMonthly]);
+
+  // Tableau statistique : combine funnel (devis/commandes montants) + Meta (budget)
+  // Les hooks doivent être appelés AVANT les early returns
+  const monthly = funnel?.monthlyFunnel || [];
+  const roiTable = useMemo(() => {
+    return monthly.map((m) => {
+      const meta = metaMonthly[m.month] || { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
+      const roas = meta.spend > 0 ? m.commandesAmount / meta.spend : 0;
+      return {
+        month: m.month,
+        label: m.label,
+        devisAmount: m.devisAmount,
+        commandesAmount: m.commandesAmount,
+        metaSpend: meta.spend,
+        roas: Math.round(roas * 100) / 100,
+      };
+    });
+  }, [monthly, metaMonthly]);
+
+  const roiTotals = useMemo(() => {
+    const totalDevis = roiTable.reduce((s, r) => s + r.devisAmount, 0);
+    const totalCommandes = roiTable.reduce((s, r) => s + r.commandesAmount, 0);
+    const totalMeta = roiTable.reduce((s, r) => s + r.metaSpend, 0);
+    const totalRoas = totalMeta > 0 ? Math.round((totalCommandes / totalMeta) * 100) / 100 : 0;
+    return { totalDevis, totalCommandes, totalMeta, totalRoas };
+  }, [roiTable]);
 
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-5">
-        {/* Header skeleton */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="h-8 w-72 bg-cockpit-card rounded-lg animate-pulse" />
@@ -103,7 +149,6 @@ export default function DashboardPage() {
           </div>
           <div className="h-10 w-32 bg-cockpit-card rounded-lg animate-pulse" />
         </div>
-        {/* KPI cards skeleton */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="rounded-xl p-4 bg-cockpit-card animate-pulse h-28">
@@ -113,25 +158,17 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
-        {/* Funnel skeleton */}
         <div className="bg-white border border-cockpit rounded-xl p-5 shadow-cockpit-lg animate-pulse">
           <div className="h-5 w-48 bg-cockpit-card rounded mb-6" />
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-28 h-4 bg-cockpit-card rounded" />
-              <div className="flex-1 h-10 bg-cockpit-card rounded-lg" />
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="w-28 h-4 bg-cockpit-card rounded" />
-              <div className="w-3/4 h-10 bg-cockpit-card rounded-lg" />
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="w-28 h-4 bg-cockpit-card rounded" />
-              <div className="w-1/2 h-10 bg-cockpit-card rounded-lg" />
-            </div>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="w-28 h-4 bg-cockpit-card rounded" />
+                <div className={`flex-1 h-10 bg-cockpit-card rounded-lg`} style={{ width: `${100 - i * 25}%` }} />
+              </div>
+            ))}
           </div>
         </div>
-        {/* Chart skeleton */}
         <div className="bg-white border border-cockpit rounded-xl p-5 shadow-cockpit-lg animate-pulse">
           <div className="h-5 w-40 bg-cockpit-card rounded mb-4" />
           <div className="h-[300px] bg-cockpit-card rounded-lg" />
@@ -160,7 +197,6 @@ export default function DashboardPage() {
   }
 
   const kpis = funnel!.kpis;
-  const monthly = funnel!.monthlyFunnel;
   const contactsSansDevis = funnel!.contactsSansDevis;
 
   return (
@@ -392,6 +428,98 @@ export default function DashboardPage() {
                 </tr>
               ))}
             </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tableau ROI — Montants + Budget Meta + ROAS */}
+      <div className="bg-white border border-cockpit rounded-xl overflow-hidden shadow-cockpit-lg">
+        <div className="p-4 sm:p-5 pb-3">
+          <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
+            <DollarSign className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
+            Performance financière
+            <span className="text-xs font-normal text-cockpit-secondary ml-1">12 derniers mois</span>
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-cockpit border-y border-cockpit">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">Mois</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: 'var(--mk-lime)' }}>
+                  Montant devis
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: 'var(--mk-grapefruit)' }}>
+                  Montant BDC
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: 'var(--mk-lemon)' }}>
+                  <span className="flex items-center justify-end gap-1">
+                    <Megaphone className="w-3.5 h-3.5" />
+                    Budget Meta
+                  </span>
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">ROAS</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cockpit">
+              {roiTable.map((r) => (
+                <tr key={r.month} className="hover:bg-cockpit/30 transition">
+                  <td className="px-4 py-2.5 text-sm font-medium text-cockpit-heading">{r.label}</td>
+                  <td className="px-4 py-2.5 text-right text-sm tabular-nums" style={{ color: 'var(--mk-lime)' }}>
+                    {r.devisAmount > 0 ? r.devisAmount.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-sm tabular-nums" style={{ color: 'var(--mk-grapefruit)' }}>
+                    {r.commandesAmount > 0 ? r.commandesAmount.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-sm tabular-nums" style={{ color: 'var(--mk-lemon)' }}>
+                    {r.metaSpend > 0 ? r.metaSpend.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {r.roas > 0 ? (
+                      <span className={clsx(
+                        "text-xs font-bold px-2 py-0.5 rounded-full",
+                        r.roas >= 3 ? "bg-[#8DA035]/15 text-[#8DA035]"
+                          : r.roas >= 1 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
+                          : "bg-[#C2185B]/15 text-[#C2185B]"
+                      )}>
+                        {r.roas.toFixed(1)}x
+                      </span>
+                    ) : (
+                      <span className="text-xs text-cockpit-secondary">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {/* Ligne total */}
+            <tfoot className="bg-cockpit border-t-2 border-cockpit">
+              <tr className="font-bold">
+                <td className="px-4 py-3 text-sm text-cockpit-heading">Total</td>
+                <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: 'var(--mk-lime)' }}>
+                  {roiTotals.totalDevis > 0 ? roiTotals.totalDevis.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                </td>
+                <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: 'var(--mk-grapefruit)' }}>
+                  {roiTotals.totalCommandes > 0 ? roiTotals.totalCommandes.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                </td>
+                <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: 'var(--mk-lemon)' }}>
+                  {roiTotals.totalMeta > 0 ? roiTotals.totalMeta.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {roiTotals.totalRoas > 0 ? (
+                    <span className={clsx(
+                      "text-sm font-bold px-2.5 py-0.5 rounded-full",
+                      roiTotals.totalRoas >= 3 ? "bg-[#8DA035]/15 text-[#8DA035]"
+                        : roiTotals.totalRoas >= 1 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
+                        : "bg-[#C2185B]/15 text-[#C2185B]"
+                    )}>
+                      {roiTotals.totalRoas.toFixed(1)}x
+                    </span>
+                  ) : (
+                    <span className="text-xs text-cockpit-secondary">—</span>
+                  )}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
