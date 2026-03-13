@@ -92,7 +92,7 @@ export function ChatbotWidget() {
         className={clsx(
           "fixed bottom-6 right-6 z-50",
           "w-14 h-14 rounded-full",
-          "bg-cockpit-yellow text-white",
+          "bg-cockpit-yellow text-gray-900",
           "shadow-lg hover:shadow-xl",
           "flex items-center justify-center",
           "transition-all duration-200",
@@ -167,7 +167,7 @@ export function ChatbotWidget() {
                   className={clsx(
                     "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
                     msg.role === "user"
-                      ? "bg-cockpit-yellow text-white rounded-br-md"
+                      ? "bg-cockpit-yellow text-gray-900 rounded-br-md"
                       : "bg-gray-100 text-[#1F2937] rounded-bl-md"
                   )}
                 >
@@ -231,7 +231,7 @@ export function ChatbotWidget() {
             <button
               onClick={handleSend}
               disabled={!input.trim() || loading || messages.length >= MAX_MESSAGES}
-              className="w-10 h-10 rounded-xl bg-cockpit-yellow text-white flex items-center justify-center hover:bg-cockpit-yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              className="w-10 h-10 rounded-xl bg-cockpit-yellow text-gray-900 flex items-center justify-center hover:bg-cockpit-yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

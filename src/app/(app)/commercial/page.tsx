@@ -445,7 +445,7 @@ export default function CommercialDashboardPage() {
           />
         </div>
 
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #BAD9CE 0%, #8BB8A5 100%)', boxShadow: '0 4px 14px rgba(186, 217, 206, 0.35)' }}>
+        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #5A9E82 0%, #3D7D63 100%)', boxShadow: '0 4px 14px rgba(61, 125, 99, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs sm:text-sm font-semibold text-white/75">
               Produits

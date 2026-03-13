@@ -264,7 +264,7 @@ export default function DocsPage() {
           <button
             onClick={handleSeed}
             disabled={seeding}
-            className="inline-flex items-center gap-2 bg-cockpit-yellow text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-cockpit-yellow/90 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-2 bg-cockpit-yellow text-gray-900 px-6 py-2.5 rounded-lg font-semibold hover:bg-cockpit-yellow/90 transition-colors disabled:opacity-50"
           >
             {seeding ? (
               <Loader2 className="w-4 h-4 animate-spin" />

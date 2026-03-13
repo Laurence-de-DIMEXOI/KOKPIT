@@ -252,7 +252,7 @@ export default function PipelinePage() {
                 className={clsx(
                   "px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors",
                   period === p
-                    ? "bg-cockpit-yellow text-white"
+                    ? "bg-cockpit-yellow text-gray-900"
                     : "text-cockpit-secondary hover:bg-cockpit-dark"
                 )}
               >
