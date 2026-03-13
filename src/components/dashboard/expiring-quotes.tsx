@@ -2,6 +2,7 @@
 
 import { AlertTriangle, CheckCircle, ExternalLink } from "lucide-react";
 import clsx from "clsx";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 
 interface EstimateRow {
   id: number;
@@ -104,9 +105,12 @@ export function ExpiringQuotes({ estimates }: { estimates: EstimateRow[] }) {
           {expiring.slice(0, 8).map((est) => {
             const days = getDaysUntilExpiry(est.expiry_date!);
             return (
-              <div
+              <a
                 key={est.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit"
+                href={getSellsyUrl('estimate', est.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit hover:border-cockpit-warning/40 transition-colors block"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-cockpit-primary truncate">
@@ -134,18 +138,9 @@ export function ExpiringQuotes({ estimates }: { estimates: EstimateRow[] }) {
                         ? "Demain"
                         : `${days}j`}
                   </span>
-                  {est.pdf_link && (
-                    <a
-                      href={est.pdf_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-cockpit-info hover:text-cockpit-info/80 transition-colors"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
+                  <ExternalLink className="w-3.5 h-3.5 text-cockpit-secondary" />
                 </div>
-              </div>
+              </a>
             );
           })}
         </div>
