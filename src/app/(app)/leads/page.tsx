@@ -7,7 +7,7 @@ import {
   Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2,
   ChevronDown, ChevronUp, Package, Phone, Mail, MapPin,
   DollarSign, User, Calendar, MessageSquare, Tag,
-  CheckCircle, XCircle, FileText, Search,
+  CheckCircle, XCircle, FileText, Search, Trash2,
 } from "lucide-react";
 
 // ===== TYPES =====
@@ -163,6 +163,21 @@ export default function LeadsPage() {
       fetchDemandes(false);
     } catch (err) {
       console.error("Erreur update statut:", err);
+    }
+  };
+
+  const deleteDemande = async (demandeId: string, nom: string) => {
+    if (!confirm(`Supprimer la demande de ${nom} ? Cette action est irréversible.`)) return;
+    try {
+      const res = await fetch(`/api/demandes/${demandeId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Erreur lors de la suppression");
+        return;
+      }
+      fetchDemandes(false);
+    } catch (err) {
+      console.error("Erreur suppression:", err);
     }
   };
 
@@ -649,6 +664,20 @@ export default function LeadsPage() {
                               {demande.priorite}
                             </span>
                           )}
+                        </div>
+
+                        {/* Supprimer (spam) */}
+                        <div className="pt-3 border-t border-cockpit">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteDemande(demande.id, `${demande.nom} ${demande.prenom || ""}`.trim());
+                            }}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all w-full justify-center"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Supprimer cette demande
+                          </button>
                         </div>
                       </div>
                     </div>

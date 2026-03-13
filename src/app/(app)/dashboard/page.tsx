@@ -119,6 +119,17 @@ export default function DashboardPage() {
 
   const fetchDemandes = useCallback(async () => {
     try {
+      // 1. D'abord synchroniser les statuts avec Sellsy (email → devis/BDC)
+      const syncRes = await fetch("/api/demandes/sync-sellsy", { method: "POST" });
+      if (syncRes.ok) {
+        const syncData = await syncRes.json();
+        if (syncData.stats) {
+          setDemandesStats(syncData.stats);
+          return; // Les stats du sync sont déjà à jour
+        }
+      }
+
+      // 2. Fallback : récupérer les stats depuis l'API classique
       const res = await fetch("/api/demandes?limit=1000");
       if (!res.ok) return;
       const data = await res.json();
