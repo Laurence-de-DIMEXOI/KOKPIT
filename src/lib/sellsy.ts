@@ -686,6 +686,11 @@ export async function findSellsyContact(params: {
   entityType: "contact" | "individual";
   thirdId: number | null; // L'ID du tiers pour chercher les documents
 } | null> {
+  // Normaliser l'email en lowercase (les commerciaux saisissent parfois en MAJUSCULES)
+  if (params.email) {
+    params = { ...params, email: params.email.toLowerCase().trim() };
+  }
+
   // Helper : normaliser un téléphone en variants (0/262/+262)
   function phoneVariants(tel: string): string[] {
     const phone = tel.replace(/[\s\-\.+]+/g, "");

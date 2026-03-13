@@ -7,7 +7,7 @@ import { getSellsyUrl } from "@/lib/sellsy-urls";
 import {
   Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2,
   ChevronDown, ChevronUp, Package, Phone, Mail, MapPin,
-  DollarSign, User, Calendar, MessageSquare, Tag,
+  Euro, User, Calendar, MessageSquare, Tag,
   CheckCircle, XCircle, FileText, Search, Trash2,
   ExternalLink, ShoppingCart,
 } from "lucide-react";
@@ -423,14 +423,34 @@ export default function LeadsPage() {
                     return (
                       <div className="hidden lg:flex items-center gap-1.5 flex-shrink-0">
                         {docs.estimates.length > 0 && (
-                          <span className="flex items-center gap-0.5 text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded">
-                            <FileText className="w-2.5 h-2.5" />{docs.estimates.length}
-                          </span>
+                          <a
+                            href={getSellsyUrl('estimate', docs.estimates[0].id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-0.5 text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded hover:bg-[#03C3EC]/20 transition-colors"
+                            title={docs.estimates[0].number || 'Devis Sellsy'}
+                          >
+                            <FileText className="w-2.5 h-2.5" />
+                            {docs.estimates[0].number || docs.estimates.length}
+                            {docs.estimates.length > 1 && <span className="opacity-60 ml-0.5">+{docs.estimates.length - 1}</span>}
+                            <ExternalLink className="w-2 h-2 opacity-50" />
+                          </a>
                         )}
                         {docs.orders.length > 0 && (
-                          <span className="flex items-center gap-0.5 text-[10px] font-semibold text-[#71DD37] bg-[#71DD37]/10 px-1.5 py-0.5 rounded">
-                            <ShoppingCart className="w-2.5 h-2.5" />{docs.orders.length}
-                          </span>
+                          <a
+                            href={getSellsyUrl('order', docs.orders[0].id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-0.5 text-[10px] font-semibold text-[#71DD37] bg-[#71DD37]/10 px-1.5 py-0.5 rounded hover:bg-[#71DD37]/20 transition-colors"
+                            title={docs.orders[0].number || 'BDC Sellsy'}
+                          >
+                            <ShoppingCart className="w-2.5 h-2.5" />
+                            {docs.orders[0].number || docs.orders.length}
+                            {docs.orders.length > 1 && <span className="opacity-60 ml-0.5">+{docs.orders.length - 1}</span>}
+                            <ExternalLink className="w-2 h-2 opacity-50" />
+                          </a>
                         )}
                       </div>
                     );
@@ -449,8 +469,7 @@ export default function LeadsPage() {
                   {/* Estimation catalogue */}
                   {(demande.estimationTTC || sellsy?.totalEstimatedTTC) ? (
                     <span className="text-xs font-bold text-[#C2185B] flex-shrink-0 min-w-[80px] text-right" title="Estimation catalogue">
-                      <DollarSign className="w-3 h-3 inline mr-0.5 -mt-0.5" />
-                      {Number(demande.estimationTTC || sellsy?.totalEstimatedTTC || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}€
+                      {Number(demande.estimationTTC || sellsy?.totalEstimatedTTC || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
                     </span>
                   ) : (
                     <span className="text-[10px] text-cockpit-secondary flex-shrink-0 min-w-[80px] text-right hidden lg:block" title="Non estimé">
@@ -492,7 +511,7 @@ export default function LeadsPage() {
                           )}
                           {demande.budget && (
                             <div className="flex items-center gap-2 text-cockpit-primary">
-                              <DollarSign className="w-3.5 h-3.5 text-cockpit-secondary" />
+                              <Euro className="w-3.5 h-3.5 text-cockpit-secondary" />
                               Budget: {demande.budget}
                             </div>
                           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import {
   Users,
@@ -144,7 +144,16 @@ export default function ContactsPage() {
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
-  // Sellsy sync
+  // Sellsy sync — automatique au chargement
+  const sellsySyncTriggered = useRef(false);
+  useEffect(() => {
+    if (!sellsySyncTriggered.current) {
+      sellsySyncTriggered.current = true;
+      handleSellsySync();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSellsySync = async () => {
     setSellsySyncing(true);
     setSellsySyncResult(null);
@@ -227,11 +236,6 @@ export default function ContactsPage() {
           <p className="text-cockpit-secondary text-sm">{totalContacts} contacts en base</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => { setShowSellsyModal(true); if (!sellsySyncResult) handleSellsySync(); }}
-            className="flex items-center gap-1.5 bg-cockpit-info/10 border border-cockpit-info/30 text-cockpit-info px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-info/20 transition-colors">
-            <Link2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Sync Sellsy</span>
-          </button>
           <button onClick={() => fetchContacts(true)} disabled={refreshing}
             className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
             {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}

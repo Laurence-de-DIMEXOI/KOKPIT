@@ -157,6 +157,7 @@ function extractKeywords(name: string): string[] {
   const stopWords = new Set([
     "de", "du", "le", "la", "les", "un", "une", "des", "en", "et",
     "avec", "pour", "sur", "par", "dans", "aux", "au", "a", "l",
+    "cm", "mm", "kg",
   ]);
   const expanded = expandAbbreviations(normalizeString(name));
   return expanded
@@ -275,14 +276,19 @@ export async function estimateDemande(
         const catScore = scoreMatch(article.categorie, itemName);
         if (catScore > 30) score = Math.min(100, score + 10);
       }
-      // Bonus finition
+      // Bonus/malus finition — quand la finition est précisée, on préfère le bon coloris
       if (score > 30 && article.finition) {
         const finNorm = expandAbbreviations(normalizeString(article.finition));
         const itemNorm = expandAbbreviations(normalizeString(itemName));
-        if (itemNorm.includes(finNorm)) score = Math.min(100, score + 5);
+        const descNorm = expandAbbreviations(normalizeString(item.description || ""));
+        if (itemNorm.includes(finNorm) || descNorm.includes(finNorm)) {
+          score = Math.min(100, score + 8); // Match finition → bonus
+        } else if (score < 85) {
+          score = Math.max(0, score - 5); // Finition demandée mais non trouvée → malus léger
+        }
       }
 
-      if (score > bestScore && score >= 30) {
+      if (score > bestScore && score >= 45) {
         bestScore = score;
         bestItem = item;
       }

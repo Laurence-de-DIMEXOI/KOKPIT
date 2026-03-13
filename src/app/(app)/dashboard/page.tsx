@@ -14,13 +14,15 @@ import {
   ChevronUp,
   Target,
   Mail,
-  DollarSign,
+  Euro,
   Megaphone,
   Inbox,
   Wallet,
+  ExternalLink,
 } from "lucide-react";
 import clsx from "clsx";
 import { RechartsLineChart } from "@/components/dashboard/line-chart";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 
 // ===== TYPES =====
 
@@ -68,6 +70,25 @@ interface DemandesStats {
   perdu: number;
 }
 
+interface DemandeItem {
+  id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  meuble: string;
+  statut: string;
+  estimationTTC: number | null;
+  dateCreation: string;
+  contactId: string;
+  showroom: string | null;
+}
+
+interface SellsyDocInfo {
+  estimates: { id: number; number: string; status: string; amounts?: { total_with_tax?: number } }[];
+  orders: { id: number; number: string; status: string; amounts?: { total_with_tax?: number } }[];
+  linked: boolean;
+}
+
 // ===== CONSTANTS =====
 
 const BUDGET_MENSUEL = 1000; // Budget marketing mensuel en euros
@@ -83,6 +104,8 @@ export default function DashboardPage() {
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [metaMonthly, setMetaMonthly] = useState<Record<string, { spend: number; impressions: number; clicks: number; conversions: number }>>({});
   const [demandesStats, setDemandesStats] = useState<DemandesStats>({ total: 0, nouveau: 0, enCours: 0, devis: 0, vente: 0, perdu: 0 });
+  const [demandesList, setDemandesList] = useState<DemandeItem[]>([]);
+  const [sellsyDocs, setSellsyDocs] = useState<Record<string, SellsyDocInfo>>({});
 
   const fetchFunnel = useCallback(async (showLoader = true) => {
     if (showLoader) setRefreshing(true);
@@ -125,16 +148,29 @@ export default function DashboardPage() {
         const syncData = await syncRes.json();
         if (syncData.stats) {
           setDemandesStats(syncData.stats);
-          return; // Les stats du sync sont déjà à jour
         }
       }
 
-      // 2. Fallback : récupérer les stats depuis l'API classique
-      const res = await fetch("/api/demandes?limit=1000");
+      // 2. Récupérer la liste des demandes
+      const res = await fetch("/api/demandes?limit=50");
       if (!res.ok) return;
       const data = await res.json();
-      if (data.stats) {
-        setDemandesStats(data.stats);
+      if (data.stats) setDemandesStats(data.stats);
+      const demandes: DemandeItem[] = data.data || [];
+      setDemandesList(demandes);
+
+      // 3. Pour les demandes DEVIS/VENTE, charger les docs Sellsy
+      const devisVente = demandes.filter(
+        (d: DemandeItem) => d.statut === "DEVIS" || d.statut === "VENTE"
+      );
+      for (const d of devisVente) {
+        try {
+          const docRes = await fetch(`/api/contacts/${d.contactId}/sellsy-history`);
+          if (docRes.ok) {
+            const docData = await docRes.json();
+            setSellsyDocs((prev) => ({ ...prev, [d.contactId]: docData }));
+          }
+        } catch { /* silencieux */ }
       }
     } catch {
       // silencieux
@@ -403,7 +439,7 @@ export default function DashboardPage() {
       <div className="bg-white border border-cockpit rounded-xl overflow-hidden shadow-cockpit-lg">
         <div className="p-4 sm:p-5 pb-3">
           <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
-            <DollarSign className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
+            <Euro className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
             Performance financière
             <span className="text-xs font-normal text-cockpit-secondary ml-1">12 derniers mois</span>
           </h2>
@@ -512,6 +548,97 @@ export default function DashboardPage() {
           height={300}
         />
       </div>
+
+      {/* ===== Derniers devis & commandes des demandes ===== */}
+      {(() => {
+        const devisVente = demandesList.filter(
+          (d) => d.statut === "DEVIS" || d.statut === "VENTE"
+        );
+        if (devisVente.length === 0) return null;
+        return (
+          <div className="bg-white border border-cockpit rounded-xl p-4 sm:p-5 shadow-cockpit-lg">
+            <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5" style={{ color: 'var(--mk-lemon)' }} />
+              Derniers devis & commandes
+              <span className="text-xs font-normal text-cockpit-secondary ml-1">
+                (issus des demandes de prix)
+              </span>
+            </h2>
+            <div className="space-y-2">
+              {devisVente.map((d) => {
+                const docs = sellsyDocs[d.contactId];
+                const estimate = docs?.estimates?.[0];
+                const order = docs?.orders?.[0];
+                return (
+                  <div key={d.id} className="flex items-center justify-between p-3 bg-cockpit-dark rounded-lg border border-cockpit/50 hover:border-[#E2A90A]/30 transition">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={clsx(
+                        "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                        d.statut === "VENTE" ? "bg-[#71DD37]/15" : "bg-[#03C3EC]/15"
+                      )}>
+                        {d.statut === "VENTE"
+                          ? <ShoppingCart className="w-4 h-4 text-[#71DD37]" />
+                          : <FileText className="w-4 h-4 text-[#03C3EC]" />
+                        }
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-cockpit-heading truncate">
+                          {d.prenom} {d.nom}
+                          <span className="text-cockpit-secondary font-normal ml-2 text-xs">{d.meuble}</span>
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-cockpit-secondary">
+                          <span>{new Date(d.dateCreation).toLocaleDateString("fr-FR")}</span>
+                          {d.showroom && <span>· {d.showroom}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                      {/* Lien vers le devis/BDC Sellsy */}
+                      {estimate && (
+                        <a
+                          href={getSellsyUrl("estimate", estimate.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-2 py-1 rounded hover:bg-[#03C3EC]/20 transition-colors"
+                        >
+                          <FileText className="w-3 h-3" />
+                          {estimate.number}
+                          <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                        </a>
+                      )}
+                      {order && (
+                        <a
+                          href={getSellsyUrl("order", order.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[10px] font-semibold text-[#71DD37] bg-[#71DD37]/10 px-2 py-1 rounded hover:bg-[#71DD37]/20 transition-colors"
+                        >
+                          <ShoppingCart className="w-3 h-3" />
+                          {order.number}
+                          <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                        </a>
+                      )}
+                      {/* Montant */}
+                      {(estimate?.amounts?.total_with_tax || order?.amounts?.total_with_tax || d.estimationTTC) && (
+                        <span className="text-xs font-bold text-cockpit-heading min-w-[60px] text-right">
+                          {Number(order?.amounts?.total_with_tax || estimate?.amounts?.total_with_tax || d.estimationTTC || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
+                        </span>
+                      )}
+                      {/* Badge statut */}
+                      <span className={clsx(
+                        "text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                        d.statut === "VENTE" ? "bg-[#71DD37]/15 text-[#71DD37]" : "bg-[#03C3EC]/15 text-[#03C3EC]"
+                      )}>
+                        {d.statut === "VENTE" ? "Vente" : "Devis"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ===== Contacts sans devis — À traiter ===== */}
       {contactsSansDevis.length > 0 && (
