@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Flame, Thermometer, Snowflake } from "lucide-react";
+import { Flame, Thermometer, Snowflake, Zap } from "lucide-react";
 
 export interface PriorityData {
   score: number;
-  level: "cold" | "warm" | "hot";
+  level: "cold" | "warm" | "hot" | "burning";
   reasons: string[];
   color: string;
   label: string;
@@ -15,6 +15,14 @@ const levelIcons = {
   cold: Snowflake,
   warm: Thermometer,
   hot: Flame,
+  burning: Zap,
+};
+
+const bgMap = {
+  cold: "bg-[#8592A3]/10",
+  warm: "bg-[#F4B400]/10",
+  hot: "bg-[#E65100]/10",
+  burning: "bg-[#D32F2F]/10",
 };
 
 export function PriorityBadge({ priority }: { priority: PriorityData }) {
@@ -33,11 +41,6 @@ export function PriorityBadge({ priority }: { priority: PriorityData }) {
   }, [showTooltip]);
 
   const Icon = levelIcons[priority.level];
-  const bgMap = {
-    cold: "bg-[#8592A3]/10",
-    warm: "bg-[#F4B400]/10",
-    hot: "bg-[#E24A4A]/10",
-  };
 
   return (
     <div ref={ref} className="relative inline-flex">
@@ -45,18 +48,16 @@ export function PriorityBadge({ priority }: { priority: PriorityData }) {
         onClick={(e) => { e.stopPropagation(); setShowTooltip(!showTooltip); }}
         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${bgMap[priority.level]}`}
         style={{ color: priority.color }}
-        title={priority.label}
+        title={`${priority.label} (${priority.score}/100)`}
       >
         <Icon className="w-3 h-3" />
         {priority.label}
       </button>
 
       {showTooltip && priority.reasons.length > 0 && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 bg-white rounded-lg shadow-xl border border-[#E8EAED] p-3">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-64 bg-white rounded-lg shadow-xl border border-[#E8EAED] p-3">
           <div className="flex items-center gap-2 mb-2">
-            <div
-              className="w-8 h-2 rounded-full bg-[#E8EAED] overflow-hidden"
-            >
+            <div className="w-10 h-2 rounded-full bg-[#E8EAED] overflow-hidden">
               <div
                 className="h-full rounded-full transition-all"
                 style={{ width: `${priority.score}%`, backgroundColor: priority.color }}
@@ -65,6 +66,17 @@ export function PriorityBadge({ priority }: { priority: PriorityData }) {
             <span className="text-xs font-bold" style={{ color: priority.color }}>
               {priority.score}/100
             </span>
+          </div>
+          <div className="flex gap-1 mb-2 flex-wrap">
+            {[
+              { label: "Intention", max: 50 },
+              { label: "Historique", max: 30 },
+              { label: "Fraîcheur", max: 20 },
+            ].map((comp) => (
+              <span key={comp.label} className="text-[9px] px-1.5 py-0.5 rounded bg-[#F5F6F7] text-[#8592A3]">
+                {comp.label} /{comp.max}
+              </span>
+            ))}
           </div>
           <ul className="space-y-1">
             {priority.reasons.map((r, i) => (

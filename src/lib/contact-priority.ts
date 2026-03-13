@@ -1,21 +1,17 @@
 /**
- * Calcul de priorité contact
+ * Scoring de priorité contact DIMEXOI
  *
- * Signaux :
- * - Devis envoyé >7j sans réponse : +30
- * - Devis expirant <5j : +25
- * - Commande <90j : +20
- * - Devis créé <30j : +20
- * - Inactif >60j (aucune activité) : +15
- * - Dormant >30j (pas de nouveau devis/commande) : +10
+ * Score sur 100 points, 3 composantes :
+ *   Intention (0-50) + Historique (0-30) + Fraîcheur (0-20)
  *
- * Niveaux :
- * - 0-20 : Froid (gris)
- * - 21-50 : Tiède (#F4B400)
- * - 51-100 : Chaud (#E24A4A)
+ * 4 niveaux :
+ *   Froid    (0-25)   — Gris    — Pas de priorité
+ *   Tiède    (26-55)  — Jaune   — À surveiller
+ *   Chaud    (56-80)  — Orange  — À contacter cette semaine
+ *   Brûlant  (81-100) — Rouge   — À contacter aujourd'hui
  */
 
-export type PriorityLevel = "cold" | "warm" | "hot";
+export type PriorityLevel = "cold" | "warm" | "hot" | "burning";
 
 export interface PriorityResult {
   score: number;
@@ -27,116 +23,264 @@ export interface PriorityResult {
 
 interface DevisInfo {
   statut: string;
+  montant?: number;
   dateEnvoi: string | null;
   createdAt: string;
 }
 
 interface VenteInfo {
+  montant?: number;
   dateVente: string | null;
+  createdAt: string;
+}
+
+interface DemandeInfo {
+  dateDemande: string | null;
   createdAt: string;
 }
 
 interface ContactInfo {
   lifecycleStage: string;
   createdAt: string;
-  updatedAt?: string;
 }
 
-function daysBetween(d1: Date, d2: Date): number {
-  return Math.floor((d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24));
+function daysSince(dateStr: string | null | undefined): number {
+  if (!dateStr) return Infinity;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return Infinity;
+  return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// ============================
+// COMPOSANTE 1 : INTENTION (0-50)
+// ============================
+function scoreIntention(
+  devis: DevisInfo[],
+  demandes: DemandeInfo[]
+): { score: number; reasons: string[] } {
+  let score = 0;
+  const reasons: string[] = [];
+
+  // A demandé un devis dans les 7 derniers jours (★★★★★ = +20)
+  const demandeRecente = demandes.find((d) => {
+    const days = daysSince(d.dateDemande || d.createdAt);
+    return days <= 7;
+  });
+  if (demandeRecente) {
+    const days = daysSince(demandeRecente.dateDemande || demandeRecente.createdAt);
+    score += 20;
+    reasons.push(`Demande il y a ${days}j`);
+  }
+
+  // Devis ENVOYÉ ou EN_ATTENTE dans les 30 derniers jours (actif commercialement)
+  const devisEnCours = devis.filter(
+    (d) =>
+      (d.statut === "ENVOYE" || d.statut === "EN_ATTENTE") &&
+      daysSince(d.dateEnvoi || d.createdAt) <= 30
+  );
+
+  // Devis envoyé 8-30j sans réponse → relance nécessaire (★★★ = +15)
+  const devisARelancer = devisEnCours.find((d) => {
+    const days = daysSince(d.dateEnvoi || d.createdAt);
+    return days >= 8 && days <= 30 && d.statut === "ENVOYE";
+  });
+  if (devisARelancer) {
+    const days = daysSince(devisARelancer.dateEnvoi || devisARelancer.createdAt);
+    score += 15;
+    reasons.push(`Devis sans réponse (${days}j)`);
+  }
+
+  // Devis expirant dans < 5 jours (envoyé il y a ~25-30j) (★★★★ = +15)
+  const devisExpirant = devisEnCours.find((d) => {
+    const days = daysSince(d.dateEnvoi || d.createdAt);
+    return days >= 25;
+  });
+  if (devisExpirant) {
+    score += 15;
+    reasons.push("Devis bientôt expiré");
+  }
+
+  // Devis récent (<7j) = intention très fraîche (bonus +10 si pas déjà demande)
+  if (!demandeRecente) {
+    const devisTresFrais = devis.find(
+      (d) => daysSince(d.createdAt) <= 7
+    );
+    if (devisTresFrais) {
+      score += 10;
+      reasons.push("Devis créé cette semaine");
+    }
+  }
+
+  return { score: Math.min(score, 50), reasons };
+}
+
+// ============================
+// COMPOSANTE 2 : HISTORIQUE (0-30)
+// ============================
+function scoreHistorique(
+  devis: DevisInfo[],
+  ventes: VenteInfo[]
+): { score: number; reasons: string[] } {
+  let score = 0;
+  const reasons: string[] = [];
+
+  const nbVentes = ventes.length;
+  const nbDevis = devis.length;
+
+  // 2+ commandes → client fidèle (★★★★★ = +15)
+  if (nbVentes >= 2) {
+    score += 15;
+    reasons.push(`Client fidèle (${nbVentes} commandes)`);
+  }
+  // 1 commande → a déjà acheté (★★★★ = +10)
+  else if (nbVentes === 1) {
+    score += 10;
+    reasons.push("A déjà commandé");
+  }
+
+  // Panier moyen élevé (> 2000€ HT) (★★★ = +8)
+  if (nbVentes > 0) {
+    const totalVentes = ventes.reduce((sum, v) => sum + (v.montant || 0), 0);
+    const panierMoyen = totalVentes / nbVentes;
+    if (panierMoyen > 2000) {
+      score += 8;
+      reasons.push(`Panier moyen ${Math.round(panierMoyen).toLocaleString("fr-FR")} €`);
+    }
+  }
+
+  // Beaucoup de devis sans commande → tire-kicker (★ = -5, malus)
+  if (nbDevis >= 3 && nbVentes === 0) {
+    score -= 5;
+    reasons.push(`${nbDevis} devis sans commande`);
+  }
+
+  // Client inactif >12 mois qui revient (★★★ = +7)
+  if (nbVentes > 0) {
+    const dernierAchat = ventes.reduce((latest, v) => {
+      const d = daysSince(v.dateVente || v.createdAt);
+      return d < latest ? d : latest;
+    }, Infinity);
+    if (dernierAchat > 365) {
+      // Mais s'il a un devis récent → il revient !
+      const devisRecent = devis.find((d) => daysSince(d.createdAt) <= 60);
+      if (devisRecent) {
+        score += 7;
+        reasons.push("Client de retour après >1 an");
+      }
+    }
+  }
+
+  return { score: Math.max(Math.min(score, 30), 0), reasons };
+}
+
+// ============================
+// COMPOSANTE 3 : FRAÎCHEUR (0-20)
+// ============================
+function scoreFraicheur(
+  contact: ContactInfo,
+  devis: DevisInfo[],
+  ventes: VenteInfo[],
+  demandes: DemandeInfo[]
+): { score: number; reasons: string[] } {
+  const reasons: string[] = [];
+
+  // Trouver la date de la dernière activité (demande, devis, ou vente)
+  let lastActivityDays = Infinity;
+
+  for (const d of demandes) {
+    const days = daysSince(d.dateDemande || d.createdAt);
+    if (days < lastActivityDays) lastActivityDays = days;
+  }
+  for (const d of devis) {
+    const days = daysSince(d.dateEnvoi || d.createdAt);
+    if (days < lastActivityDays) lastActivityDays = days;
+  }
+  for (const v of ventes) {
+    const days = daysSince(v.dateVente || v.createdAt);
+    if (days < lastActivityDays) lastActivityDays = days;
+  }
+
+  // Si aucune activité, utiliser la date de création du contact
+  if (lastActivityDays === Infinity) {
+    lastActivityDays = daysSince(contact.createdAt);
+  }
+
+  // Score de fraîcheur décroissant avec le temps
+  let score: number;
+
+  if (lastActivityDays <= 3) {
+    score = 20;
+    reasons.push("Actif dans les 3 derniers jours");
+  } else if (lastActivityDays <= 7) {
+    score = 16;
+    reasons.push("Actif cette semaine");
+  } else if (lastActivityDays <= 14) {
+    score = 12;
+    reasons.push("Actif ces 2 dernières semaines");
+  } else if (lastActivityDays <= 30) {
+    score = 8;
+    reasons.push("Actif ce mois-ci");
+  } else if (lastActivityDays <= 60) {
+    score = 4;
+    reasons.push(`Dernier contact il y a ${lastActivityDays}j`);
+  } else {
+    score = 0;
+    if (lastActivityDays < Infinity) {
+      reasons.push(`Inactif depuis ${lastActivityDays}j`);
+    } else {
+      reasons.push("Aucune activité");
+    }
+  }
+
+  // Devis expiré sans suite → signal éteint (-5)
+  const devisExpire = devis.find(
+    (d) => d.statut === "EXPIRE" || d.statut === "REFUSE"
+  );
+  if (devisExpire && !devis.find((d) => d.statut === "ENVOYE" || d.statut === "EN_ATTENTE")) {
+    score = Math.max(score - 5, 0);
+    reasons.push("Dernier devis expiré/refusé");
+  }
+
+  return { score: Math.min(score, 20), reasons };
+}
+
+// ============================
+// CALCUL PRINCIPAL
+// ============================
 export function calculatePriority(
   contact: ContactInfo,
   devis: DevisInfo[],
-  ventes: VenteInfo[]
+  ventes: VenteInfo[],
+  demandes: DemandeInfo[] = []
 ): PriorityResult {
-  let score = 0;
-  const reasons: string[] = [];
-  const now = new Date();
+  const intention = scoreIntention(devis, demandes);
+  const historique = scoreHistorique(devis, ventes);
+  const fraicheur = scoreFraicheur(contact, devis, ventes, demandes);
 
-  // 1. Devis envoyé >7j sans réponse (statut "sent" ou "read")
-  const pendingDevis = devis.filter(
-    (d) => d.statut === "sent" || d.statut === "read" || d.statut === "ENVOYE"
-  );
-  for (const d of pendingDevis) {
-    const sentDate = new Date(d.dateEnvoi || d.createdAt);
-    const daysSince = daysBetween(now, sentDate);
-    if (daysSince > 7) {
-      score += 30;
-      reasons.push(`Devis en attente depuis ${daysSince}j`);
-      break; // Un seul bonus max
-    }
-  }
+  const totalScore = Math.max(0, Math.min(100,
+    intention.score + historique.score + fraicheur.score
+  ));
 
-  // 2. Devis expirant <5j (statut sent/read, envoyé il y a ~25-30j)
-  for (const d of pendingDevis) {
-    const sentDate = new Date(d.dateEnvoi || d.createdAt);
-    const daysSince = daysBetween(now, sentDate);
-    if (daysSince >= 25 && daysSince <= 30) {
-      score += 25;
-      reasons.push("Devis bientôt expiré");
-      break;
-    }
-  }
-
-  // 3. Commande récente <90j
-  const recentVente = ventes.find((v) => {
-    const d = new Date(v.dateVente || v.createdAt);
-    return daysBetween(now, d) <= 90;
-  });
-  if (recentVente) {
-    score += 20;
-    reasons.push("Commande récente (<90j)");
-  }
-
-  // 4. Devis créé <30j
-  const recentDevis = devis.find((d) => {
-    const created = new Date(d.createdAt);
-    return daysBetween(now, created) <= 30;
-  });
-  if (recentDevis) {
-    score += 20;
-    reasons.push("Devis récent (<30j)");
-  }
-
-  // 5. Inactif >60j — ni devis ni commande depuis 60j
-  const lastActivity = getLastActivityDate(devis, ventes);
-  if (lastActivity) {
-    const daysSinceActivity = daysBetween(now, lastActivity);
-    if (daysSinceActivity > 60) {
-      score += 15;
-      reasons.push(`Inactif depuis ${daysSinceActivity}j`);
-    } else if (daysSinceActivity > 30) {
-      // 6. Dormant >30j
-      score += 10;
-      reasons.push(`Dormant depuis ${daysSinceActivity}j`);
-    }
-  } else {
-    // Aucune activité → check la date de création
-    const daysSinceCreation = daysBetween(now, new Date(contact.createdAt));
-    if (daysSinceCreation > 60) {
-      score += 15;
-      reasons.push("Aucune activité commerciale");
-    } else if (daysSinceCreation > 30) {
-      score += 10;
-      reasons.push("Contact récent sans activité");
-    }
-  }
-
-  // Cap à 100
-  score = Math.min(score, 100);
+  const reasons = [
+    ...intention.reasons,
+    ...historique.reasons,
+    ...fraicheur.reasons,
+  ];
 
   // Déterminer le niveau
   let level: PriorityLevel;
   let color: string;
   let label: string;
 
-  if (score >= 51) {
+  if (totalScore >= 81) {
+    level = "burning";
+    color = "#D32F2F";
+    label = "Brûlant";
+  } else if (totalScore >= 56) {
     level = "hot";
-    color = "#E24A4A";
+    color = "#E65100";
     label = "Chaud";
-  } else if (score >= 21) {
+  } else if (totalScore >= 26) {
     level = "warm";
     color = "#F4B400";
     label = "Tiède";
@@ -146,19 +290,5 @@ export function calculatePriority(
     label = "Froid";
   }
 
-  return { score, level, reasons, color, label };
-}
-
-function getLastActivityDate(devis: DevisInfo[], ventes: VenteInfo[]): Date | null {
-  const dates: Date[] = [];
-
-  for (const d of devis) {
-    dates.push(new Date(d.dateEnvoi || d.createdAt));
-  }
-  for (const v of ventes) {
-    dates.push(new Date(v.dateVente || v.createdAt));
-  }
-
-  if (dates.length === 0) return null;
-  return dates.reduce((latest, d) => (d > latest ? d : latest));
+  return { score: totalScore, level, reasons, color, label };
 }

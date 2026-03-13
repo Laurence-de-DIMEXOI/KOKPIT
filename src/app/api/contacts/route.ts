@@ -153,18 +153,24 @@ export async function GET(request: NextRequest) {
       sortedContacts = [...contacts].sort((a, b) => (idOrder.get(a.id) ?? 999) - (idOrder.get(b.id) ?? 999));
     }
 
-    // Calculate priority for each contact
+    // Calculate priority for each contact (Intention + Historique + Fraîcheur)
     const contactsWithPriority = sortedContacts.map((c: any) => {
       const priority = calculatePriority(
         { lifecycleStage: c.lifecycleStage, createdAt: c.createdAt },
         (c.devis || []).map((d: any) => ({
           statut: d.statut,
+          montant: d.montant,
           dateEnvoi: d.dateEnvoi,
           createdAt: d.createdAt,
         })),
         (c.ventes || []).map((v: any) => ({
+          montant: v.montant,
           dateVente: v.dateVente,
           createdAt: v.createdAt,
+        })),
+        (c.demandesPrix || []).map((dp: any) => ({
+          dateDemande: dp.dateDemande,
+          createdAt: dp.createdAt,
         }))
       );
       return { ...c, priority };
