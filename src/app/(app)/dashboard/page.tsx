@@ -9,18 +9,15 @@ import {
   ShoppingCart,
   RefreshCw,
   Loader2,
-  ArrowRight,
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  BarChart3,
   Target,
-  ArrowDownRight,
-  ArrowUpRight,
-  Minus,
   Mail,
   DollarSign,
   Megaphone,
+  Inbox,
+  Wallet,
 } from "lucide-react";
 import clsx from "clsx";
 import { RechartsLineChart } from "@/components/dashboard/line-chart";
@@ -62,6 +59,19 @@ interface FunnelData {
   contactsSansDevis: ContactSansDevis[];
 }
 
+interface DemandesStats {
+  total: number;
+  nouveau: number;
+  enCours: number;
+  devis: number;
+  vente: number;
+  perdu: number;
+}
+
+// ===== CONSTANTS =====
+
+const BUDGET_MENSUEL = 1000; // Budget marketing mensuel en euros
+
 // ===== COMPONENT =====
 
 export default function DashboardPage() {
@@ -72,6 +82,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [metaMonthly, setMetaMonthly] = useState<Record<string, { spend: number; impressions: number; clicks: number; conversions: number }>>({});
+  const [demandesStats, setDemandesStats] = useState<DemandesStats>({ total: 0, nouveau: 0, enCours: 0, devis: 0, vente: 0, perdu: 0 });
 
   const fetchFunnel = useCallback(async (showLoader = true) => {
     if (showLoader) setRefreshing(true);
@@ -106,16 +117,32 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const fetchDemandes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/demandes?limit=1000");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.stats) {
+        setDemandesStats(data.stats);
+      }
+    } catch {
+      // silencieux
+    }
+  }, []);
+
   useEffect(() => {
     if (session?.user) {
       fetchFunnel(true);
       fetchMetaMonthly();
+      fetchDemandes();
     }
-  }, [session, fetchFunnel, fetchMetaMonthly]);
+  }, [session, fetchFunnel, fetchMetaMonthly, fetchDemandes]);
 
-  // Tableau statistique : combine funnel (devis/commandes montants) + Meta (budget)
-  // Les hooks doivent être appelés AVANT les early returns
+  // ===== HOOKS (avant les early returns) =====
+
   const monthly = funnel?.monthlyFunnel || [];
+
+  // Tableau ROI : combine funnel (devis/commandes montants) + Meta (budget)
   const roiTable = useMemo(() => {
     return monthly.map((m) => {
       const meta = metaMonthly[m.month] || { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
@@ -139,6 +166,30 @@ export default function DashboardPage() {
     return { totalDevis, totalCommandes, totalMeta, totalRoas };
   }, [roiTable]);
 
+  // Budget marketing — mois en cours
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
+  const currentMonthLabel = useMemo(() => {
+    return new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  }, []);
+
+  const currentMonthMeta = metaMonthly[currentMonthKey]?.spend || 0;
+  const budgetDepense = currentMonthMeta; // Meta + Google (Google à ajouter)
+  const budgetRestant = Math.max(BUDGET_MENSUEL - budgetDepense, 0);
+  const budgetPercent = Math.min((budgetDepense / BUDGET_MENSUEL) * 100, 100);
+
+  // KPIs demandes — conversion propre
+  const demandesAvecDevis = demandesStats.devis + demandesStats.vente;
+  const demandesVentes = demandesStats.vente;
+  const convDevis = demandesStats.total > 0 ? Math.round((demandesAvecDevis / demandesStats.total) * 100) : 0;
+  const convVente = demandesAvecDevis > 0 ? Math.round((demandesVentes / demandesAvecDevis) * 100) : 0;
+  const convGlobale = demandesStats.total > 0 ? Math.round((demandesVentes / demandesStats.total) * 100) : 0;
+
+  // ===== EARLY RETURNS =====
+
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-5">
@@ -160,18 +211,16 @@ export default function DashboardPage() {
         </div>
         <div className="bg-white border border-cockpit rounded-xl p-5 shadow-cockpit-lg animate-pulse">
           <div className="h-5 w-48 bg-cockpit-card rounded mb-6" />
-          <div className="space-y-4">
+          <div className="h-3 w-full bg-cockpit-card rounded-full mb-4" />
+          <div className="grid grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="w-28 h-4 bg-cockpit-card rounded" />
-                <div className={`flex-1 h-10 bg-cockpit-card rounded-lg`} style={{ width: `${100 - i * 25}%` }} />
-              </div>
+              <div key={i} className="h-12 bg-cockpit-card rounded" />
             ))}
           </div>
         </div>
         <div className="bg-white border border-cockpit rounded-xl p-5 shadow-cockpit-lg animate-pulse">
           <div className="h-5 w-40 bg-cockpit-card rounded mb-4" />
-          <div className="h-[300px] bg-cockpit-card rounded-lg" />
+          <div className="h-[200px] bg-cockpit-card rounded-lg" />
         </div>
       </div>
     );
@@ -189,30 +238,29 @@ export default function DashboardPage() {
             className="px-4 py-2 font-medium rounded-lg transition text-white"
             style={{ backgroundColor: 'var(--mk-raspberry, #C2185B)' }}
           >
-            Réessayer
+            R&eacute;essayer
           </button>
         </div>
       </div>
     );
   }
 
-  const kpis = funnel!.kpis;
   const contactsSansDevis = funnel!.contactsSansDevis;
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {/* Header */}
+      {/* ===== Header ===== */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">
-            Marketing — Funnel de conversion
+            Marketing — Suivi de conversion
           </h1>
           <p className="text-cockpit-secondary text-sm">
-            Suivi du parcours client : Contact → Devis → Commande
+            Demandes du site &rarr; Devis &rarr; Commande
           </p>
         </div>
         <button
-          onClick={() => fetchFunnel(true)}
+          onClick={() => { fetchFunnel(true); fetchMetaMonthly(); fetchDemandes(); }}
           disabled={refreshing}
           className="flex items-center gap-2 bg-cockpit-dark border border-cockpit px-4 py-2.5 rounded-lg font-medium hover:bg-cockpit-card transition disabled:opacity-50 text-sm"
         >
@@ -225,39 +273,44 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* KPI Cards — Funnel global */}
+      {/* ===== KPI Cards — Funnel Demandes ===== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total contacts — Lemon */}
+        {/* Demandes reçues — Lemon */}
         <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #E2A90A 0%, #C89208 100%)', boxShadow: '0 4px 14px rgba(226, 169, 10, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
-            <Users className="w-5 h-5 text-white/70" />
+            <Inbox className="w-5 h-5 text-white/70" />
           </div>
-          <p className="text-white/75 text-xs mb-1">Contacts Sellsy</p>
-          <p className="text-2xl font-bold text-white">{kpis.totalContacts}</p>
+          <p className="text-white/75 text-xs mb-1">Demandes reçues</p>
+          <p className="text-2xl font-bold text-white">{demandesStats.total}</p>
+          <p className="text-white/60 text-[10px] mt-1">
+            {demandesStats.nouveau} nouvelle{demandesStats.nouveau > 1 ? "s" : ""} &middot; {demandesStats.enCours} en cours
+          </p>
         </div>
 
-        {/* Contacts → Devis — Lime */}
+        {/* Devis envoyés — Lime */}
         <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #8DA035 0%, #6E8028 100%)', boxShadow: '0 4px 14px rgba(141, 160, 53, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <FileText className="w-5 h-5 text-white/70" />
             <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
-              {kpis.globalConversionDevis}%
+              {convDevis}%
             </span>
           </div>
           <p className="text-white/75 text-xs mb-1">Ont un devis</p>
-          <p className="text-2xl font-bold text-white">{kpis.totalWithEstimate}</p>
+          <p className="text-2xl font-bold text-white">{demandesAvecDevis}</p>
+          <p className="text-white/60 text-[10px] mt-1">Demande &rarr; Devis</p>
         </div>
 
-        {/* Devis → Commande — Pink Grapefruit */}
+        {/* Ventes signées — Pink Grapefruit */}
         <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #D4567A 0%, #B8406A 100%)', boxShadow: '0 4px 14px rgba(212, 86, 122, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <ShoppingCart className="w-5 h-5 text-white/70" />
             <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
-              {kpis.globalConversionCommande}%
+              {convVente}%
             </span>
           </div>
           <p className="text-white/75 text-xs mb-1">Ont commandé</p>
-          <p className="text-2xl font-bold text-white">{kpis.totalWithOrder}</p>
+          <p className="text-2xl font-bold text-white">{demandesVentes}</p>
+          <p className="text-white/60 text-[10px] mt-1">Devis &rarr; Commande</p>
         </div>
 
         {/* Conversion globale — Raspberry */}
@@ -266,173 +319,76 @@ export default function DashboardPage() {
             <Target className="w-5 h-5 text-white/70" />
           </div>
           <p className="text-white/75 text-xs mb-1">Conversion globale</p>
-          <p className="text-2xl font-bold text-white">{kpis.globalConversionGlobale}%</p>
-          <p className="text-white/60 text-[10px] mt-1">Contact → Commande</p>
+          <p className="text-2xl font-bold text-white">{convGlobale}%</p>
+          <p className="text-white/60 text-[10px] mt-1">Demande &rarr; Commande</p>
         </div>
       </div>
 
-      {/* Entonnoir visuel */}
+      {/* ===== Suivi Budget Marketing ===== */}
       <div className="bg-white border border-cockpit rounded-xl p-4 sm:p-5 shadow-cockpit-lg">
-        <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
-          Entonnoir de conversion
-        </h2>
-        <div className="space-y-4">
-          {/* Contacts */}
-          <div className="flex items-center gap-4">
-            <div className="w-28 text-sm text-cockpit-secondary text-right flex-shrink-0">Contacts</div>
-            <div className="flex-1 relative">
-              <div
-                className="h-10 rounded-lg flex items-center px-4"
-                style={{ width: "100%", background: "linear-gradient(90deg, #E2A90A 0%, #C89208 100%)" }}
-              >
-                <span className="text-white font-bold text-sm">{kpis.totalContacts}</span>
-              </div>
-            </div>
-          </div>
-          {/* Arrow */}
-          <div className="flex items-center gap-4">
-            <div className="w-28 text-right flex-shrink-0">
-              <span className="text-xs font-semibold" style={{ color: 'var(--mk-lime)' }}>{kpis.globalConversionDevis}%</span>
-            </div>
-            <div className="flex-1 flex items-center justify-center">
-              <ChevronDown className="w-4 h-4 text-cockpit-secondary" />
-            </div>
-          </div>
-          {/* Devis */}
-          <div className="flex items-center gap-4">
-            <div className="w-28 text-sm text-cockpit-secondary text-right flex-shrink-0">Devis</div>
-            <div className="flex-1 relative">
-              <div
-                className="h-10 rounded-lg flex items-center px-4"
-                style={{
-                  width: kpis.totalContacts > 0
-                    ? `${Math.max((kpis.totalWithEstimate / kpis.totalContacts) * 100, 10)}%`
-                    : "10%",
-                  background: "linear-gradient(90deg, #8DA035 0%, #6E8028 100%)",
-                }}
-              >
-                <span className="text-white font-bold text-sm">{kpis.totalWithEstimate}</span>
-              </div>
-            </div>
-          </div>
-          {/* Arrow */}
-          <div className="flex items-center gap-4">
-            <div className="w-28 text-right flex-shrink-0">
-              <span className="text-xs font-semibold" style={{ color: 'var(--mk-grapefruit)' }}>{kpis.globalConversionCommande}%</span>
-            </div>
-            <div className="flex-1 flex items-center justify-center">
-              <ChevronDown className="w-4 h-4 text-cockpit-secondary" />
-            </div>
-          </div>
-          {/* Commandes */}
-          <div className="flex items-center gap-4">
-            <div className="w-28 text-sm text-cockpit-secondary text-right flex-shrink-0">Commandes</div>
-            <div className="flex-1 relative">
-              <div
-                className="h-10 rounded-lg flex items-center px-4"
-                style={{
-                  width: kpis.totalContacts > 0
-                    ? `${Math.max((kpis.totalWithOrder / kpis.totalContacts) * 100, 8)}%`
-                    : "8%",
-                  background: "linear-gradient(90deg, #D4567A 0%, #B8406A 100%)",
-                }}
-              >
-                <span className="text-white font-bold text-sm">{kpis.totalWithOrder}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Graphique mensuel — courbes */}
-      <div className="bg-white border border-cockpit rounded-xl p-4 sm:p-5 shadow-cockpit-lg">
-        <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
-          Évolution mensuelle
-        </h2>
-        <RechartsLineChart
-          data={monthly.map((m) => ({
-            label: m.label.split(" ")[0].substring(0, 4) + ".",
-            Contacts: m.contacts,
-            Devis: m.devis,
-            Commandes: m.commandes,
-          }))}
-          series={[
-            { dataKey: "Contacts", name: "Contacts", color: "#E2A90A" },
-            { dataKey: "Devis", name: "Devis", color: "#8DA035" },
-            { dataKey: "Commandes", name: "Commandes", color: "#C2185B" },
-          ]}
-          height={300}
-        />
-      </div>
-
-      {/* Tableau mensuel détaillé */}
-      <div className="bg-white border border-cockpit rounded-xl overflow-hidden shadow-cockpit-lg">
-        <div className="p-4 sm:p-5 pb-3">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
-            <FileText className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
-            Détail mensuel
+            <Wallet className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
+            Budget Marketing
+            <span className="text-xs font-normal text-cockpit-secondary ml-1 capitalize">
+              {currentMonthLabel}
+            </span>
           </h2>
+          <div className="text-right">
+            <p className={clsx(
+              "text-2xl font-bold",
+              budgetRestant < 200 ? "text-[#C2185B]" : budgetRestant < 500 ? "text-[#E2A90A]" : "text-[#8DA035]"
+            )}>
+              {budgetRestant.toLocaleString("fr-FR")} &euro;
+            </p>
+            <p className="text-xs text-cockpit-secondary">restant</p>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-cockpit border-y border-cockpit">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">Mois</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold" style={{ color: 'var(--mk-lemon)' }}>Contacts</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold" style={{ color: 'var(--mk-lime)' }}>Devis</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold" style={{ color: 'var(--mk-grapefruit)' }}>Commandes</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-heading">Contact→Devis</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-heading">Devis→Cde</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-cockpit-heading">Global</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cockpit">
-              {monthly.map((m) => (
-                <tr key={m.month} className="hover:bg-cockpit/30 transition">
-                  <td className="px-6 py-3 text-sm font-medium text-cockpit-heading">{m.label}</td>
-                  <td className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--mk-lemon)' }}>{m.contacts}</td>
-                  <td className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--mk-lime)' }}>{m.devis}</td>
-                  <td className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--mk-grapefruit)' }}>{m.commandes}</td>
-                  <td className="px-6 py-3 text-center">
-                    <span className={clsx(
-                      "text-xs font-bold px-2 py-0.5 rounded-full",
-                      m.conversionDevis > 50 ? "bg-[#8DA035]/15 text-[#8DA035]"
-                        : m.conversionDevis > 20 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
-                        : "bg-[#C2185B]/15 text-[#C2185B]"
-                    )}>
-                      {m.conversionDevis}%
-                    </span>
-                  </td>
-                  <td className="px-6 py-3 text-center">
-                    <span className={clsx(
-                      "text-xs font-bold px-2 py-0.5 rounded-full",
-                      m.conversionCommande > 50 ? "bg-[#8DA035]/15 text-[#8DA035]"
-                        : m.conversionCommande > 20 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
-                        : "bg-[#C2185B]/15 text-[#C2185B]"
-                    )}>
-                      {m.conversionCommande}%
-                    </span>
-                  </td>
-                  <td className="px-6 py-3 text-center">
-                    <span className={clsx(
-                      "text-xs font-bold px-2 py-0.5 rounded-full",
-                      m.conversionGlobale > 30 ? "bg-[#8DA035]/15 text-[#8DA035]"
-                        : m.conversionGlobale > 10 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
-                        : "bg-[#C2185B]/15 text-[#C2185B]"
-                    )}>
-                      {m.conversionGlobale}%
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        {/* Barre de progression */}
+        <div className="w-full h-3 bg-cockpit rounded-full overflow-hidden mb-4">
+          <div
+            className="h-full rounded-full transition-all duration-700 ease-out"
+            style={{
+              width: `${budgetPercent}%`,
+              background: budgetPercent > 90
+                ? 'linear-gradient(90deg, #C2185B, #D4567A)'
+                : budgetPercent > 70
+                ? 'linear-gradient(90deg, #E2A90A, #C89208)'
+                : 'linear-gradient(90deg, #8DA035, #6E8028)',
+            }}
+          />
+        </div>
+
+        {/* Détail dépenses */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center p-3 bg-cockpit/50 rounded-lg">
+            <p className="text-xs text-cockpit-secondary mb-1">Budget mensuel</p>
+            <p className="text-sm font-bold text-cockpit-heading">
+              {BUDGET_MENSUEL.toLocaleString("fr-FR")} &euro;
+            </p>
+          </div>
+          <div className="text-center p-3 bg-cockpit/50 rounded-lg">
+            <p className="text-xs text-cockpit-secondary mb-1 flex items-center justify-center gap-1">
+              <Megaphone className="w-3 h-3" /> Meta Ads
+            </p>
+            <p className="text-sm font-bold" style={{ color: 'var(--mk-lemon)' }}>
+              {currentMonthMeta.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} &euro;
+            </p>
+          </div>
+          <div className="text-center p-3 bg-cockpit/50 rounded-lg">
+            <p className="text-xs text-cockpit-secondary mb-1">Restant</p>
+            <p className={clsx(
+              "text-sm font-bold",
+              budgetRestant < 200 ? "text-[#C2185B]" : "text-[#8DA035]"
+            )}>
+              {budgetRestant.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} &euro;
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Tableau ROI — Montants + Budget Meta + ROAS */}
+      {/* ===== Tableau ROI — Performance financière ===== */}
       <div className="bg-white border border-cockpit rounded-xl overflow-hidden shadow-cockpit-lg">
         <div className="p-4 sm:p-5 pb-3">
           <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
@@ -466,13 +422,13 @@ export default function DashboardPage() {
                 <tr key={r.month} className="hover:bg-cockpit/30 transition">
                   <td className="px-4 py-2.5 text-sm font-medium text-cockpit-heading">{r.label}</td>
                   <td className="px-4 py-2.5 text-right text-sm tabular-nums" style={{ color: 'var(--mk-lime)' }}>
-                    {r.devisAmount > 0 ? r.devisAmount.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                    {r.devisAmount > 0 ? r.devisAmount.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "\u2014"}
                   </td>
                   <td className="px-4 py-2.5 text-right text-sm tabular-nums" style={{ color: 'var(--mk-grapefruit)' }}>
-                    {r.commandesAmount > 0 ? r.commandesAmount.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                    {r.commandesAmount > 0 ? r.commandesAmount.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "\u2014"}
                   </td>
                   <td className="px-4 py-2.5 text-right text-sm tabular-nums" style={{ color: 'var(--mk-lemon)' }}>
-                    {r.metaSpend > 0 ? r.metaSpend.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                    {r.metaSpend > 0 ? r.metaSpend.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "\u2014"}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     {r.roas > 0 ? (
@@ -485,7 +441,7 @@ export default function DashboardPage() {
                         {r.roas.toFixed(1)}x
                       </span>
                     ) : (
-                      <span className="text-xs text-cockpit-secondary">—</span>
+                      <span className="text-xs text-cockpit-secondary">&mdash;</span>
                     )}
                   </td>
                 </tr>
@@ -496,13 +452,13 @@ export default function DashboardPage() {
               <tr className="font-bold">
                 <td className="px-4 py-3 text-sm text-cockpit-heading">Total</td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: 'var(--mk-lime)' }}>
-                  {roiTotals.totalDevis > 0 ? roiTotals.totalDevis.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                  {roiTotals.totalDevis > 0 ? roiTotals.totalDevis.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "\u2014"}
                 </td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: 'var(--mk-grapefruit)' }}>
-                  {roiTotals.totalCommandes > 0 ? roiTotals.totalCommandes.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                  {roiTotals.totalCommandes > 0 ? roiTotals.totalCommandes.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "\u2014"}
                 </td>
                 <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: 'var(--mk-lemon)' }}>
-                  {roiTotals.totalMeta > 0 ? roiTotals.totalMeta.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "—"}
+                  {roiTotals.totalMeta > 0 ? roiTotals.totalMeta.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : "\u2014"}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {roiTotals.totalRoas > 0 ? (
@@ -515,7 +471,7 @@ export default function DashboardPage() {
                       {roiTotals.totalRoas.toFixed(1)}x
                     </span>
                   ) : (
-                    <span className="text-xs text-cockpit-secondary">—</span>
+                    <span className="text-xs text-cockpit-secondary">&mdash;</span>
                   )}
                 </td>
               </tr>
@@ -524,7 +480,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Contacts sans devis — À traiter */}
+      {/* ===== Évolution mensuelle — courbes ===== */}
+      <div className="bg-white border border-cockpit rounded-xl p-4 sm:p-5 shadow-cockpit-lg">
+        <h2 className="text-base font-bold text-cockpit-heading mb-4 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5" style={{ color: 'var(--mk-raspberry)' }} />
+          Évolution mensuelle
+        </h2>
+        <RechartsLineChart
+          data={monthly.map((m) => ({
+            label: m.label.split(" ")[0].substring(0, 4) + ".",
+            Contacts: m.contacts,
+            Devis: m.devis,
+            Commandes: m.commandes,
+          }))}
+          series={[
+            { dataKey: "Contacts", name: "Contacts", color: "#E2A90A" },
+            { dataKey: "Devis", name: "Devis", color: "#8DA035" },
+            { dataKey: "Commandes", name: "Commandes", color: "#C2185B" },
+          ]}
+          height={300}
+        />
+      </div>
+
+      {/* ===== Contacts sans devis — À traiter ===== */}
       {contactsSansDevis.length > 0 && (
         <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-5">
           <div className="flex items-center justify-between mb-2">
