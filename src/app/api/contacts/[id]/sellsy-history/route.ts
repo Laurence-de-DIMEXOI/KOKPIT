@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { searchEstimates, searchOrders, searchContactByEmail, getContact } from "@/lib/sellsy";
+import { findSellsyContact, findDocumentsByRelated } from "@/lib/sellsy";
 
 // GET — Historique Sellsy live pour un contact
-// Cherche par sellsyContactId, sinon fallback par email
+// Cherche dans individuals (B2C) puis contacts (B2B)
+// Filtre les documents par le champ `related` (les filtres Sellsy V2 sont cassés)
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -20,42 +21,22 @@ export async function GET(
   try {
     const contact = await prisma.contact.findUnique({
       where: { id },
-      select: { sellsyContactId: true, email: true, nom: true, prenom: true },
+      select: { email: true, nom: true, prenom: true, telephone: true },
     });
 
     if (!contact) {
       return NextResponse.json({ error: "Contact non trouvé" }, { status: 404 });
     }
 
-    // Résoudre le contact_id Sellsy
-    let sellsyContactId: number | null = null;
-    let resolvedVia: "sellsy_id" | "email" | null = null;
+    // 1. Trouver le tiers Sellsy (individual ou company)
+    const match = await findSellsyContact({
+      email: contact.email,
+      telephone: contact.telephone,
+      nom: contact.nom,
+      prenom: contact.prenom,
+    });
 
-    // 1. Essayer par sellsyContactId direct
-    if (contact.sellsyContactId) {
-      const parsed = parseInt(contact.sellsyContactId, 10);
-      if (!isNaN(parsed)) {
-        sellsyContactId = parsed;
-        resolvedVia = "sellsy_id";
-      }
-    }
-
-    // 2. Fallback : chercher le contact dans Sellsy par email
-    if (!sellsyContactId && contact.email) {
-      const sellsyContact = await searchContactByEmail(contact.email);
-      if (sellsyContact) {
-        sellsyContactId = sellsyContact.id;
-        resolvedVia = "email";
-
-        // Sauvegarder le sellsyContactId trouvé pour les prochaines fois
-        await prisma.contact.update({
-          where: { id },
-          data: { sellsyContactId: String(sellsyContact.id) },
-        }).catch(() => {}); // Ignorer si échec (pas bloquant)
-      }
-    }
-
-    if (!sellsyContactId) {
+    if (!match?.thirdId) {
       return NextResponse.json({
         estimates: [],
         orders: [],
@@ -64,53 +45,12 @@ export async function GET(
       });
     }
 
-    // Sellsy V2 /estimates/search ne filtre PAS par contact_id côté API.
-    // On doit récupérer les documents et filtrer côté serveur.
-    // Stratégie : chercher via l'entreprise liée au contact (third_id) + filtrage exact par contact_id.
-
-    // 1. Récupérer les infos du contact Sellsy pour connaître son entreprise
-    let companyId: number | null = null;
-    try {
-      const contactDetail = await getContact(sellsyContactId);
-      companyId = contactDetail?.company_id || contactDetail?._embed?.company?.id || null;
-    } catch {
-      // Pas grave, on fera sans
-    }
-
-    // 2. Chercher les documents — si on a l'entreprise on filtre par third_id, sinon on prend les récents
-    const searchFilters: Record<string, unknown> = {};
-    if (companyId) {
-      searchFilters.third_ids = [companyId];
-    }
-    // Toujours ajouter un filtre date pour limiter le volume (12 derniers mois)
-    const sinceDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    searchFilters.date = { start: sinceDate };
-
-    const [estimatesRes, ordersRes] = await Promise.all([
-      searchEstimates({
-        filters: searchFilters as any,
-        limit: 100,
-        order: "created",
-        direction: "desc",
-      }),
-      searchOrders({
-        filters: searchFilters as any,
-        limit: 100,
-        order: "created",
-        direction: "desc",
-      }),
-    ]);
-
-    // 3. Filtrage strict côté serveur — ne garder QUE les documents du bon contact
-    const myEstimates = (estimatesRes.data || []).filter(
-      (e) => e.contact_id === sellsyContactId
-    );
-    const myOrders = (ordersRes.data || []).filter(
-      (o) => o.contact_id === sellsyContactId
-    );
+    // 2. Chercher les documents par le champ `related` (filtrage côté serveur)
+    //    Les filtres Sellsy V2 (third_ids, contact_id, individual_ids) sont TOUS cassés.
+    const { estimates, orders } = await findDocumentsByRelated(match.thirdId);
 
     return NextResponse.json({
-      estimates: myEstimates.map((e) => ({
+      estimates: estimates.map((e) => ({
         id: e.id,
         number: e.number,
         subject: e.subject,
@@ -121,7 +61,7 @@ export async function GET(
         amounts: e.amounts,
         pdf_link: (e as any).pdf_link,
       })),
-      orders: myOrders.map((o) => ({
+      orders: orders.map((o) => ({
         id: o.id,
         number: o.number,
         subject: o.subject,
@@ -133,15 +73,8 @@ export async function GET(
         pdf_link: (o as any).pdf_link,
       })),
       linked: true,
-      resolvedVia,
-      debug: {
-        sellsyContactId,
-        companyId,
-        totalEstimatesFetched: estimatesRes.data?.length || 0,
-        totalOrdersFetched: ordersRes.data?.length || 0,
-        estimatesAfterFilter: myEstimates.length,
-        ordersAfterFilter: myOrders.length,
-      },
+      resolvedVia: match.resolvedVia,
+      entityType: match.entityType,
     });
   } catch (error: any) {
     console.error("GET /api/contacts/[id]/sellsy-history error:", error);

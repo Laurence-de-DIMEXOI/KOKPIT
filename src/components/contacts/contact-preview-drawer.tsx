@@ -388,98 +388,10 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
             </div>
           </div>
 
-          {/* Devis Sellsy */}
+          {/* Documents Sellsy (unifié) */}
           <div className="p-6 border-b border-[#E8EAED]">
             <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
-              <FileText className="w-4 h-4 inline-block mr-2 -mt-0.5" />Devis Sellsy
-              {nbDevis > 0 && (
-                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#03C3EC]/10 text-[#03C3EC]">{nbDevis}</span>
-              )}
-              {totalDevisHT > 0 && (
-                <span className="ml-2 text-xs font-normal text-[#32475C]">{formatEuro(totalDevisHT)} HT</span>
-              )}
-            </h3>
-            {devis.length > 0 ? (
-              <div className="space-y-2">
-                {devis.map((d) => {
-                  const url = getSellsyEstimateUrl(d.sellsyQuoteId);
-                  const statutCfg = devisStatutConfig[d.statut] || devisStatutConfig.EN_ATTENTE;
-                  return (
-                    <div key={d.id} className="px-4 py-3 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#03C3EC]/30 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {url ? (
-                            <a href={url} target="_blank" rel="noopener noreferrer"
-                              className="text-sm font-medium text-[#03C3EC] hover:underline flex items-center gap-1">
-                              {d.sellsyQuoteId ? `#${d.sellsyQuoteId}` : "Devis"}
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          ) : (
-                            <span className="text-sm font-medium text-[#32475C]">Devis</span>
-                          )}
-                          <span className={`text-xs font-semibold ${statutCfg.color}`}>{statutCfg.label}</span>
-                        </div>
-                        <span className="text-sm font-bold text-[#32475C]">{formatEuro(d.montant)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-[#8592A3]">
-                        <Calendar className="w-3 h-3" />
-                        {d.dateEnvoi ? formatDate(d.dateEnvoi) : formatDate(d.createdAt)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-[#8592A3]">Aucun devis</p>
-            )}
-          </div>
-
-          {/* Bons de commande (Ventes) */}
-          <div className="p-6 border-b border-[#E8EAED]">
-            <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
-              <ShoppingCart className="w-4 h-4 inline-block mr-2 -mt-0.5" />Bons de commande
-              {nbVentes > 0 && (
-                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#71DD37]/10 text-[#71DD37]">{nbVentes}</span>
-              )}
-              {totalVentesHT > 0 && (
-                <span className="ml-2 text-xs font-normal text-[#32475C]">{formatEuro(totalVentesHT)} HT</span>
-              )}
-            </h3>
-            {ventes.length > 0 ? (
-              <div className="space-y-2">
-                {ventes.map((v) => {
-                  const url = getSellsyOrderUrl(v.sellsyInvoiceId);
-                  return (
-                    <div key={v.id} className="px-4 py-3 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#71DD37]/30 transition-colors">
-                      <div className="flex items-center justify-between">
-                        {url ? (
-                          <a href={url} target="_blank" rel="noopener noreferrer"
-                            className="text-sm font-medium text-[#71DD37] hover:underline flex items-center gap-1">
-                            {v.sellsyInvoiceId ? `#${v.sellsyInvoiceId}` : "BDC"}
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        ) : (
-                          <span className="text-sm font-medium text-[#32475C]">BDC</span>
-                        )}
-                        <span className="text-sm font-bold text-[#71DD37]">{formatEuro(v.montant)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-[#8592A3]">
-                        <Calendar className="w-3 h-3" />
-                        {formatDate(v.dateVente)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-[#8592A3]">Aucun bon de commande</p>
-            )}
-          </div>
-
-          {/* Historique Sellsy (live) */}
-          <div className="p-6 border-b border-[#E8EAED]">
-            <h3 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider mb-4">
-              <ExternalLink className="w-4 h-4 inline-block mr-2 -mt-0.5" />Historique Sellsy
+              <FileText className="w-4 h-4 inline-block mr-2 -mt-0.5" />Documents Sellsy
               {sellsyLinked && (
                 <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#71DD37]/10 text-[#71DD37]">
                   {sellsyResolvedVia === "email" ? "via email" : "lié"}
@@ -490,101 +402,148 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-5 h-5 animate-spin text-[#8592A3]" />
               </div>
-            ) : !sellsyLinked ? (
-              <p className="text-sm text-[#8592A3]">Contact non lié à Sellsy</p>
-            ) : (
-              <div className="space-y-3">
-                {/* Devis Sellsy live */}
-                {sellsyEstimates.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-[#03C3EC] mb-2">Devis ({sellsyEstimates.length})</p>
-                    <div className="space-y-1.5">
-                      {sellsyEstimates.slice(0, 5).map((est: any) => {
-                        const montant = est.amounts?.total_excl_tax ?? est.amounts?.total ?? 0;
-                        return (
-                          <a
-                            key={est.id}
-                            href={getSellsyUrl('estimate', est.id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#03C3EC]/30 transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <FileText className="w-3.5 h-3.5 text-[#03C3EC]" />
-                              <span className="text-xs font-medium text-[#03C3EC]">{est.number || `#${est.id}`}</span>
-                              {est.status && (
-                                <span className="text-[10px] text-[#8592A3]">{est.status}</span>
-                              )}
-                              <ExternalLink className="w-2.5 h-2.5 text-[#8592A3]" />
-                            </div>
-                            <div className="text-right">
-                              <span className="text-xs font-bold text-[#32475C]">
-                                {typeof montant === "number" ? formatEuro(montant) : montant}
-                              </span>
-                              {est.date && (
-                                <span className="text-[10px] text-[#8592A3] ml-2">{formatDate(est.date)}</span>
-                              )}
-                            </div>
-                          </a>
-                        );
-                      })}
-                      {sellsyEstimates.length > 5 && (
-                        <p className="text-xs text-[#8592A3] text-center">
-                          +{sellsyEstimates.length - 5} autres devis
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+            ) : (() => {
+              // Priorité : données live Sellsy > données DB
+              const liveEstimates = sellsyLinked ? sellsyEstimates : [];
+              const liveOrders = sellsyLinked ? sellsyOrders : [];
+              const hasLive = liveEstimates.length > 0 || liveOrders.length > 0;
+              const hasDb = devis.length > 0 || ventes.length > 0;
 
-                {/* BDC Sellsy live */}
-                {sellsyOrders.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-[#71DD37] mb-2">Commandes ({sellsyOrders.length})</p>
-                    <div className="space-y-1.5">
-                      {sellsyOrders.slice(0, 5).map((ord: any) => {
-                        const montant = ord.amounts?.total_excl_tax ?? ord.amounts?.total ?? 0;
-                        return (
-                          <a
-                            key={ord.id}
-                            href={getSellsyUrl('order', ord.id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#71DD37]/30 transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <ShoppingCart className="w-3.5 h-3.5 text-[#71DD37]" />
-                              <span className="text-xs font-medium text-[#71DD37]">{ord.number || `#${ord.id}`}</span>
-                              {ord.status && (
-                                <span className="text-[10px] text-[#8592A3]">{ord.status}</span>
-                              )}
-                              <ExternalLink className="w-2.5 h-2.5 text-[#8592A3]" />
-                            </div>
-                            <div className="text-right">
-                              <span className="text-xs font-bold text-[#32475C]">
-                                {typeof montant === "number" ? formatEuro(montant) : montant}
-                              </span>
-                              {ord.date && (
-                                <span className="text-[10px] text-[#8592A3] ml-2">{formatDate(ord.date)}</span>
-                              )}
-                            </div>
-                          </a>
-                        );
-                      })}
-                      {sellsyOrders.length > 5 && (
-                        <p className="text-xs text-[#8592A3] text-center">
-                          +{sellsyOrders.length - 5} autres commandes
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+              if (!hasLive && !hasDb) {
+                return (
+                  <p className="text-sm text-[#8592A3]">
+                    {sellsyLinked ? "Aucun document trouvé dans Sellsy" : "Contact non lié à Sellsy"}
+                  </p>
+                );
+              }
 
-                {sellsyEstimates.length === 0 && sellsyOrders.length === 0 && (
-                  <p className="text-sm text-[#8592A3]">Aucun document trouvé dans Sellsy</p>
-                )}
-              </div>
-            )}
+              const showEstimates = hasLive ? liveEstimates : [];
+              const showOrders = hasLive ? liveOrders : [];
+              const dbDevis = !hasLive ? devis : [];
+              const dbVentes = !hasLive ? ventes : [];
+
+              return (
+                <div className="space-y-4">
+                  {/* Devis — live Sellsy */}
+                  {showEstimates.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#03C3EC] mb-2">Devis ({showEstimates.length})</p>
+                      <div className="space-y-1.5">
+                        {showEstimates.slice(0, 5).map((est: any) => {
+                          const montant = est.amounts?.total_excl_tax ?? est.amounts?.total ?? 0;
+                          return (
+                            <a key={est.id} href={getSellsyUrl('estimate', est.id)} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#03C3EC]/30 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-3.5 h-3.5 text-[#03C3EC]" />
+                                <span className="text-xs font-medium text-[#03C3EC]">{est.number || `#${est.id}`}</span>
+                                {est.status && <span className="text-[10px] text-[#8592A3]">{est.status}</span>}
+                                <ExternalLink className="w-2.5 h-2.5 text-[#8592A3]" />
+                              </div>
+                              <div className="text-right">
+                                <span className="text-xs font-bold text-[#32475C]">{typeof montant === "number" ? formatEuro(montant) : montant}</span>
+                                {est.date && <span className="text-[10px] text-[#8592A3] ml-2">{formatDate(est.date)}</span>}
+                              </div>
+                            </a>
+                          );
+                        })}
+                        {showEstimates.length > 5 && <p className="text-xs text-[#8592A3] text-center">+{showEstimates.length - 5} autres devis</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Devis — fallback DB */}
+                  {dbDevis.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#03C3EC] mb-2">Devis ({dbDevis.length})</p>
+                      <div className="space-y-1.5">
+                        {dbDevis.map((d) => {
+                          const url = getSellsyEstimateUrl(d.sellsyQuoteId);
+                          const statutCfg = devisStatutConfig[d.statut] || devisStatutConfig.EN_ATTENTE;
+                          return (
+                            <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#03C3EC]/30 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-3.5 h-3.5 text-[#03C3EC]" />
+                                {url ? (
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#03C3EC] hover:underline flex items-center gap-1">
+                                    {d.sellsyQuoteId ? `#${d.sellsyQuoteId}` : "Devis"} <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                ) : (
+                                  <span className="text-xs font-medium text-[#32475C]">Devis</span>
+                                )}
+                                <span className={`text-[10px] font-semibold ${statutCfg.color}`}>{statutCfg.label}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-xs font-bold text-[#32475C]">{formatEuro(d.montant)}</span>
+                                <span className="text-[10px] text-[#8592A3] ml-2">{d.dateEnvoi ? formatDate(d.dateEnvoi) : formatDate(d.createdAt)}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Commandes — live Sellsy */}
+                  {showOrders.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#71DD37] mb-2">Commandes ({showOrders.length})</p>
+                      <div className="space-y-1.5">
+                        {showOrders.slice(0, 5).map((ord: any) => {
+                          const montant = ord.amounts?.total_excl_tax ?? ord.amounts?.total ?? 0;
+                          return (
+                            <a key={ord.id} href={getSellsyUrl('order', ord.id)} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#71DD37]/30 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <ShoppingCart className="w-3.5 h-3.5 text-[#71DD37]" />
+                                <span className="text-xs font-medium text-[#71DD37]">{ord.number || `#${ord.id}`}</span>
+                                {ord.status && <span className="text-[10px] text-[#8592A3]">{ord.status}</span>}
+                                <ExternalLink className="w-2.5 h-2.5 text-[#8592A3]" />
+                              </div>
+                              <div className="text-right">
+                                <span className="text-xs font-bold text-[#32475C]">{typeof montant === "number" ? formatEuro(montant) : montant}</span>
+                                {ord.date && <span className="text-[10px] text-[#8592A3] ml-2">{formatDate(ord.date)}</span>}
+                              </div>
+                            </a>
+                          );
+                        })}
+                        {showOrders.length > 5 && <p className="text-xs text-[#8592A3] text-center">+{showOrders.length - 5} autres commandes</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Commandes — fallback DB */}
+                  {dbVentes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#71DD37] mb-2">Commandes ({dbVentes.length})</p>
+                      <div className="space-y-1.5">
+                        {dbVentes.map((v) => {
+                          const url = getSellsyOrderUrl(v.sellsyInvoiceId);
+                          return (
+                            <div key={v.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F6F7] border border-[#E8EAED] hover:border-[#71DD37]/30 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <ShoppingCart className="w-3.5 h-3.5 text-[#71DD37]" />
+                                {url ? (
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#71DD37] hover:underline flex items-center gap-1">
+                                    {v.sellsyInvoiceId ? `#${v.sellsyInvoiceId}` : "BDC"} <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                ) : (
+                                  <span className="text-xs font-medium text-[#32475C]">BDC</span>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <span className="text-xs font-bold text-[#71DD37]">{formatEuro(v.montant)}</span>
+                                <span className="text-[10px] text-[#8592A3] ml-2">{formatDate(v.dateVente)}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Activité */}

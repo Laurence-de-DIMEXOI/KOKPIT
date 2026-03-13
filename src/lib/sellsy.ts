@@ -159,6 +159,11 @@ export interface SellsyOwnerEmbed {
   type: string; // "staff"
 }
 
+export interface SellsyRelated {
+  id: number;
+  type: string; // "individual" | "company" | "contact"
+}
+
 export interface SellsyEstimate {
   id: number;
   number: string;
@@ -174,6 +179,7 @@ export interface SellsyEstimate {
   owner?: SellsyOwnerEmbed;
   assigned_staff_id?: number;
   amounts?: SellsyAmounts;
+  related?: SellsyRelated[];
   _embed?: {
     company?: { id: number; name: string };
     contact?: { id: number; first_name: string; last_name: string };
@@ -197,6 +203,7 @@ export interface SellsyOrder {
   owner?: SellsyOwnerEmbed;
   assigned_staff_id?: number;
   amounts?: SellsyAmounts;
+  related?: SellsyRelated[];
   _embed?: {
     company?: { id: number; name: string };
     contact?: { id: number; first_name: string; last_name: string };
@@ -436,6 +443,51 @@ export async function searchOrders(params: {
   );
 }
 
+/**
+ * Cherche les devis et BDC liés à un individual/company par le champ `related`.
+ *
+ * IMPORTANT : Les filtres `third_ids`, `contact_id`, `individual_ids` de l'API Sellsy V2
+ * sont TOUS CASSÉS pour ce compte — ils retournent TOUS les documents.
+ * La seule méthode fiable : récupérer les N derniers documents et filtrer
+ * côté serveur par `related[].id`.
+ *
+ * @param thirdId - L'ID de l'individual ou company Sellsy
+ * @param limit - Nombre de documents récents à scanner (défaut 200)
+ */
+export async function findDocumentsByRelated(
+  thirdId: number,
+  limit = 200
+): Promise<{ estimates: SellsyEstimate[]; orders: SellsyOrder[] }> {
+  // Récupérer les N derniers devis et BDC
+  const [estimatesRes, ordersRes] = await Promise.all([
+    searchEstimates({
+      filters: {} as any,
+      limit: Math.min(limit, 100),
+      order: "created",
+      direction: "desc",
+    }),
+    searchOrders({
+      filters: {} as any,
+      limit: Math.min(limit, 100),
+      order: "created",
+      direction: "desc",
+    }),
+  ]);
+
+  // Filtrer par related[].id === thirdId
+  const matchEstimates = (estimatesRes.data || []).filter((e) =>
+    e.related?.some((r) => r.id === thirdId)
+  );
+
+  const matchOrders = (ordersRes.data || []).filter((o) =>
+    o.related?.some((r) => r.id === thirdId)
+  );
+
+  console.log(`[findDocsByRelated] thirdId=${thirdId}: ${matchEstimates.length}/${estimatesRes.data?.length || 0} devis, ${matchOrders.length}/${ordersRes.data?.length || 0} BDC`);
+
+  return { estimates: matchEstimates, orders: matchOrders };
+}
+
 // ===== ENTREPRISES (COMPANIES) =====
 
 export interface SellsyCompany {
@@ -495,6 +547,34 @@ export async function searchCompanies(params: {
   );
 }
 
+// ===== INDIVIDUALS (PARTICULIERS B2C) =====
+
+export interface SellsyIndividual {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  mobile_number: string;
+  type: string;
+  created: string;
+  updated: string;
+}
+
+/**
+ * Recherche un particulier (individual) dans Sellsy par email, téléphone ou nom.
+ * Les individuals sont des clients B2C — les devis/BDC sont liés directement à eux.
+ */
+export async function searchIndividuals(filters: Record<string, unknown>): Promise<SellsyListResponse<SellsyIndividual>> {
+  return sellsyFetch<SellsyListResponse<SellsyIndividual>>(
+    `/individuals/search?limit=5`,
+    {
+      method: "POST",
+      body: JSON.stringify({ filters }),
+    }
+  );
+}
+
 // ===== CONTACTS (PERSONNES) =====
 
 export interface SellsyContact {
@@ -509,17 +589,59 @@ export interface SellsyContact {
 }
 
 /**
- * Récupère un contact Sellsy par ID, avec embed company.
- * Retourne le contact avec company_id si disponible.
+ * Récupère un contact Sellsy par ID, avec embed company ET individual.
+ * Retourne le contact avec company_id ou individual_id si disponible.
+ * En Sellsy V2, les documents sont liés aux "tiers" (third) qui peuvent être
+ * une entreprise (company) OU un particulier (individual).
  */
-export async function getContact(id: number): Promise<(SellsyContact & { company_id?: number; _embed?: { company?: { id: number; name: string } } }) | null> {
+export async function getContact(id: number): Promise<(SellsyContact & {
+  company_id?: number;
+  individual_id?: number;
+  _embed?: {
+    company?: { id: number; name: string };
+    individual?: { id: number; name: string };
+  };
+}) | null> {
+  // Essayer d'abord avec embed company + individual
   try {
-    const res = await sellsyFetch<SellsyContact & { company_id?: number; _embed?: { company?: { id: number; name: string } } }>(
-      `/contacts/${id}?embed[]=company`
+    const res = await sellsyFetch<SellsyContact & {
+      company_id?: number;
+      individual_id?: number;
+      _embed?: {
+        company?: { id: number; name: string };
+        individual?: { id: number; name: string };
+      };
+    }>(
+      `/contacts/${id}?embed[]=company&embed[]=individual`
     );
     return res || null;
   } catch {
-    return null;
+    // Si embed cause une 400, fallback progressif
+    try {
+      const res = await sellsyFetch<SellsyContact & {
+        company_id?: number;
+        individual_id?: number;
+        _embed?: {
+          company?: { id: number; name: string };
+        };
+      }>(
+        `/contacts/${id}?embed[]=company`
+      );
+      return res || null;
+    } catch {
+      // Dernier essai sans embed
+      try {
+        const res = await sellsyFetch<SellsyContact & {
+          company_id?: number;
+          individual_id?: number;
+        }>(
+          `/contacts/${id}`
+        );
+        return res || null;
+      } catch {
+        return null;
+      }
+    }
   }
 }
 
@@ -537,6 +659,248 @@ export async function searchContactByEmail(email: string): Promise<SellsyContact
       }
     );
     return res.data?.[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Recherche multi-critères d'un contact/individual Sellsy.
+ * Essaie : email → téléphone → nom/prénom.
+ * Cherche dans CONTACTS ET INDIVIDUALS (particuliers B2C).
+ *
+ * IMPORTANT : Les documents Sellsy (devis, BDC) sont liés aux "tiers" (third_ids).
+ * - Pour un contact, le tiers est la company liée.
+ * - Pour un individual, l'individual EST le tiers directement.
+ *
+ * Retourne { thirdId, resolvedVia, entityType } ou null.
+ */
+export async function findSellsyContact(params: {
+  email?: string | null;
+  telephone?: string | null;
+  nom?: string | null;
+  prenom?: string | null;
+}): Promise<{
+  contact: SellsyContact | SellsyIndividual;
+  resolvedVia: "email" | "phone" | "name";
+  entityType: "contact" | "individual";
+  thirdId: number | null; // L'ID du tiers pour chercher les documents
+} | null> {
+  // Helper : normaliser un téléphone en variants (0/262/+262)
+  function phoneVariants(tel: string): string[] {
+    const phone = tel.replace(/[\s\-\.+]+/g, "");
+    const variants = [phone];
+    if (phone.startsWith("0")) variants.push("262" + phone.slice(1));
+    if (phone.startsWith("262")) variants.push("0" + phone.slice(3));
+    return variants;
+  }
+
+  // Helper : distance de Levenshtein pour matching souple
+  function levenshtein(a: string, b: string): number {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const m: number[][] = [];
+    for (let j = 0; j <= b.length; j++) {
+      m[j] = [];
+      for (let i = 0; i <= a.length; i++) {
+        if (j === 0) { m[j][i] = i; continue; }
+        if (i === 0) { m[j][i] = j; continue; }
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        m[j][i] = Math.min(m[j][i - 1] + 1, m[j - 1][i] + 1, m[j - 1][i - 1] + cost);
+      }
+    }
+    return m[b.length][a.length];
+  }
+
+  // Helper : vérifier que le prénom correspond (souple — gère "Cécile" vs "Celine", typos etc.)
+  function prenomMatch(found: string, expected: string | null | undefined): boolean {
+    if (!expected) return true; // Pas de prénom à vérifier
+    const a = found.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const b = expected.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // Match exact (sans accents)
+    if (a === b) return true;
+    // Match par distance d'édition ≤ 2 (gère Cécile/Celine, fautes de frappe)
+    if (Math.abs(a.length - b.length) <= 2 && levenshtein(a, b) <= 2) return true;
+    // Match par préfixe commun (Jean-François → Jean, Marie-Claire → Marie)
+    const aBase = a.split(/[-\s]/)[0];
+    const bBase = b.split(/[-\s]/)[0];
+    if (aBase === bBase && aBase.length >= 3) return true;
+    return false;
+  }
+
+  // ============================================
+  // A. Chercher dans les INDIVIDUALS (B2C)
+  //    Les individuals SONT les tiers directement
+  // ============================================
+
+  // A1. Par email
+  if (params.email) {
+    try {
+      const res = await searchIndividuals({ email: params.email });
+      if (res.data?.[0]) {
+        return {
+          contact: res.data[0] as any,
+          resolvedVia: "email",
+          entityType: "individual",
+          thirdId: res.data[0].id,
+        };
+      }
+    } catch { /* email search not supported or failed */ }
+  }
+
+  // A2. Par téléphone (essayer les deux noms de champ possibles)
+  if (params.telephone) {
+    for (const variant of phoneVariants(params.telephone)) {
+      for (const field of ["phone", "mobile", "phone_number"]) {
+        try {
+          const res = await searchIndividuals({ [field]: variant });
+          if (res.data?.[0]) {
+            return {
+              contact: res.data[0] as any,
+              resolvedVia: "phone",
+              entityType: "individual",
+              thirdId: res.data[0].id,
+            };
+          }
+        } catch { /* essayer le champ suivant */ }
+      }
+    }
+  }
+
+  // A3. Par nom (essayer "name" pour le nom complet, car individuals n'ont peut-être pas first_name/last_name comme filtres)
+  if (params.nom) {
+    // Essai 1 : filtre "name" (nom complet)
+    const nameVariants = [
+      params.prenom ? `${params.prenom} ${params.nom}` : params.nom,
+      params.prenom ? `${params.nom} ${params.prenom}` : null,
+      params.nom, // Juste le nom de famille
+    ].filter(Boolean);
+    for (const nameQuery of nameVariants) {
+      try {
+        const res = await searchIndividuals({ name: nameQuery });
+        if (res.data?.[0]) {
+          const match = res.data.find((i: any) => {
+            const fname = i.first_name || (i as any).name?.split(' ')[0] || '';
+            return prenomMatch(fname, params.prenom);
+          });
+          if (match) {
+            return {
+              contact: match as any,
+              resolvedVia: "name",
+              entityType: "individual",
+              thirdId: match.id,
+            };
+          }
+        }
+      } catch { /* essayer le variant suivant */ }
+    }
+    // Essai 2 : filtres séparés last_name/first_name (au cas où)
+    try {
+      const filters: Record<string, string> = { last_name: params.nom };
+      if (params.prenom) filters.first_name = params.prenom;
+      const res = await searchIndividuals(filters);
+      if (res.data?.[0]) {
+        return { contact: res.data[0] as any, resolvedVia: "name", entityType: "individual", thirdId: res.data[0].id };
+      }
+    } catch { /* pas supporté */ }
+  }
+
+  // A4. Chercher dans les COMPANIES par nom (B2C = company de type "individual/person")
+  if (params.nom) {
+    try {
+      const nameQuery = params.prenom ? `${params.prenom} ${params.nom}` : params.nom;
+      const res = await searchCompanies({ filters: { name: nameQuery }, limit: 5 });
+      if (res.data?.[0]) {
+        // Pour les companies, l'ID de la company EST le thirdId
+        return {
+          contact: res.data[0] as any,
+          resolvedVia: "name",
+          entityType: "individual", // C'est un tiers direct
+          thirdId: res.data[0].id,
+        };
+      }
+      // Aussi essayer juste le nom de famille
+      if (params.prenom) {
+        const res2 = await searchCompanies({ filters: { name: params.nom }, limit: 5 });
+        const companyMatch = res2.data?.find((c) => {
+          const nameParts = c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/);
+          const prenomNorm = (params.prenom || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          return nameParts.some(part => part.length >= 3 && prenomNorm.length >= 3 && part.substring(0, 3) === prenomNorm.substring(0, 3));
+        });
+        if (companyMatch) {
+          return {
+            contact: companyMatch as any,
+            resolvedVia: "name",
+            entityType: "individual",
+            thirdId: companyMatch.id,
+          };
+        }
+      }
+    } catch { /* company search failed */ }
+  }
+
+  // ============================================
+  // B. Chercher dans les CONTACTS (B2B)
+  //    Pour les contacts, il faut ensuite trouver la company liée
+  // ============================================
+
+  // B1. Par email
+  if (params.email) {
+    const c = await searchContactByEmail(params.email);
+    if (c) {
+      const thirdId = await resolveContactThirdId(c.id);
+      return { contact: c, resolvedVia: "email", entityType: "contact", thirdId };
+    }
+  }
+
+  // B2. Par téléphone
+  if (params.telephone) {
+    try {
+      for (const variant of phoneVariants(params.telephone)) {
+        const res = await sellsyFetch<SellsyListResponse<SellsyContact>>(
+          `/contacts/search?limit=1`,
+          { method: "POST", body: JSON.stringify({ filters: { phone_number: variant } }) }
+        );
+        if (res.data?.[0]) {
+          const thirdId = await resolveContactThirdId(res.data[0].id);
+          return { contact: res.data[0], resolvedVia: "phone", entityType: "contact", thirdId };
+        }
+      }
+    } catch { /* silently fail */ }
+  }
+
+  // B3. Par nom + prénom (vérifier le prénom !)
+  if (params.nom) {
+    try {
+      const filters: Record<string, string> = { last_name: params.nom };
+      if (params.prenom) filters.first_name = params.prenom;
+      const res = await sellsyFetch<SellsyListResponse<SellsyContact>>(
+        `/contacts/search?limit=5`,
+        { method: "POST", body: JSON.stringify({ filters }) }
+      );
+      const match = res.data?.find((c) => prenomMatch(c.first_name, params.prenom));
+      if (match) {
+        const thirdId = await resolveContactThirdId(match.id);
+        return { contact: match, resolvedVia: "name", entityType: "contact", thirdId };
+      }
+    } catch { /* silently fail */ }
+  }
+
+  return null;
+}
+
+/**
+ * Résout le third_id (company) pour un contact Sellsy.
+ * Appelle getContact avec embed pour trouver la company liée.
+ */
+async function resolveContactThirdId(contactId: number): Promise<number | null> {
+  try {
+    const detail = await getContact(contactId);
+    return detail?.company_id
+      || detail?._embed?.company?.id
+      || (detail as any)?.individual_id
+      || detail?._embed?.individual?.id
+      || null;
   } catch {
     return null;
   }

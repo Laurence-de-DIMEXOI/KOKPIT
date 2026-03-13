@@ -3,20 +3,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  searchContactByEmail,
-  searchEstimates,
-  searchOrders,
+  findSellsyContact,
+  findDocumentsByRelated,
 } from "@/lib/sellsy";
 
 /**
  * POST /api/demandes/sync-sellsy
  *
- * Pour chaque demande avec un lead en statut NOUVEAU ou EN_COURS,
- * vérifie dans Sellsy (via l'email du contact) si un devis ou un BDC existe.
- *   - Devis trouvé → statut = DEVIS
+ * Re-vérifie TOUS les leads (sauf PERDU) dans Sellsy via le champ `related`.
  *   - BDC trouvé   → statut = VENTE
+ *   - Devis trouvé → statut = DEVIS
+ *   - Rien trouvé  → statut = NOUVEAU (correction des faux positifs)
  *
- * Retourne les stats mises à jour.
+ * IMPORTANT : Les filtres Sellsy V2 (third_ids, contact_id) sont CASSÉS.
+ * On utilise `findDocumentsByRelated` qui filtre par `related[].id`.
  */
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -25,23 +25,27 @@ export async function POST() {
   }
 
   try {
-    // 1. Récupérer toutes les demandes avec lead NOUVEAU ou EN_COURS
+    // 1. Récupérer TOUTES les demandes avec un lead (sauf PERDU = statut manuel)
     const demandes = await prisma.demandePrix.findMany({
       where: {
         contact: {
           leads: {
             some: {
-              statut: { in: ["NOUVEAU", "EN_COURS"] },
+              statut: { in: ["NOUVEAU", "EN_COURS", "DEVIS", "VENTE"] },
             },
           },
         },
       },
       include: {
         contact: {
-          include: {
+          select: {
+            email: true,
+            telephone: true,
+            nom: true,
+            prenom: true,
             leads: {
-              where: { statut: { in: ["NOUVEAU", "EN_COURS"] } },
-              orderBy: { createdAt: "desc" },
+              where: { statut: { in: ["NOUVEAU", "EN_COURS", "DEVIS", "VENTE"] } },
+              orderBy: { createdAt: "desc" as const },
               take: 1,
             },
           },
@@ -49,84 +53,78 @@ export async function POST() {
       },
     });
 
-    const updates: { leadId: string; email: string; oldStatut: string; newStatut: string; sellsyContactId?: number }[] = [];
+    const updates: { leadId: string; email: string; oldStatut: string; newStatut: string; thirdId?: number }[] = [];
     const errors: { email: string; error: string }[] = [];
 
-    // 2. Pour chaque demande, chercher dans Sellsy par email
-    //    IMPORTANT : on ne cherche que les devis/BDC créés APRÈS la demande,
-    //    pour ne pas confondre un ancien achat avec un traitement de cette demande.
+    // 2. Pour chaque demande, vérifier dans Sellsy et corriger le statut
     for (const demande of demandes) {
-      const email = demande.contact.email;
-      const lead = demande.contact.leads[0];
-      if (!email || !lead) continue;
+      const contact = demande.contact;
+      const lead = contact.leads[0];
+      if (!lead) continue;
 
       // Date de la demande = on ne compte que les docs Sellsy créés APRÈS
       const demandeTs = demande.createdAt.getTime();
 
       try {
-        // Chercher le contact Sellsy par email
-        const sellsyContact = await searchContactByEmail(email);
-        if (!sellsyContact) continue; // Pas de contact Sellsy → reste en NOUVEAU
-
-        const contactId = sellsyContact.id;
-
-        // Chercher les BDC du contact, puis filtrer ceux créés après la demande
-        const ordersRes = await searchOrders({
-          filters: { contact_id: contactId },
-          limit: 10,
-          order: "created",
-          direction: "desc",
+        // Trouver le tiers Sellsy (individual ou company)
+        const match = await findSellsyContact({
+          email: contact.email,
+          telephone: contact.telephone,
+          nom: contact.nom,
+          prenom: contact.prenom,
         });
 
-        const recentOrder = (ordersRes.data || []).find(
-          (o: any) => new Date(o.created).getTime() >= demandeTs
-        );
-
-        if (recentOrder) {
-          await prisma.lead.update({
-            where: { id: lead.id },
-            data: { statut: "VENTE" },
-          });
-          updates.push({
-            leadId: lead.id,
-            email,
-            oldStatut: lead.statut,
-            newStatut: "VENTE",
-            sellsyContactId: contactId,
-          });
+        // Pas trouvé dans Sellsy → remettre en NOUVEAU si ce n'était pas déjà le cas
+        if (!match?.thirdId) {
+          if (lead.statut !== "NOUVEAU" && lead.statut !== "EN_COURS") {
+            await prisma.lead.update({
+              where: { id: lead.id },
+              data: { statut: "NOUVEAU" },
+            });
+            updates.push({
+              leadId: lead.id,
+              email: contact.email || "",
+              oldStatut: lead.statut,
+              newStatut: "NOUVEAU",
+            });
+          }
           continue;
         }
 
-        // Chercher les devis du contact, puis filtrer ceux créés après la demande
-        const estimatesRes = await searchEstimates({
-          filters: { contact_id: contactId },
-          limit: 10,
-          order: "created",
-          direction: "desc",
-        });
+        // Chercher les documents par `related` (filtrage côté serveur)
+        const { estimates, orders } = await findDocumentsByRelated(match.thirdId);
 
-        const recentEstimate = (estimatesRes.data || []).find(
-          (e: any) => new Date(e.created).getTime() >= demandeTs
+        // Filtrer par date (créés APRÈS la demande)
+        const recentOrder = orders.find(
+          (o) => new Date(o.created).getTime() >= demandeTs
+        );
+        const recentEstimate = estimates.find(
+          (e) => new Date(e.created).getTime() >= demandeTs
         );
 
-        if (recentEstimate) {
+        // Déterminer le statut correct
+        const correctStatut = recentOrder
+          ? "VENTE" as const
+          : recentEstimate
+            ? "DEVIS" as const
+            : "NOUVEAU" as const;
+
+        // Mettre à jour seulement si le statut est différent
+        if (lead.statut !== correctStatut) {
           await prisma.lead.update({
             where: { id: lead.id },
-            data: { statut: "DEVIS" },
+            data: { statut: correctStatut },
           });
           updates.push({
             leadId: lead.id,
-            email,
+            email: contact.email || "",
             oldStatut: lead.statut,
-            newStatut: "DEVIS",
-            sellsyContactId: contactId,
+            newStatut: correctStatut,
+            thirdId: match.thirdId,
           });
-          continue;
         }
-
-        // Rien trouvé après la date de demande → statut inchangé
       } catch (err: any) {
-        errors.push({ email, error: err.message || "Erreur Sellsy" });
+        errors.push({ email: contact.email || "", error: err.message || "Erreur Sellsy" });
       }
     }
 
