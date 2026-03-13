@@ -53,10 +53,15 @@ export async function POST() {
     const errors: { email: string; error: string }[] = [];
 
     // 2. Pour chaque demande, chercher dans Sellsy par email
+    //    IMPORTANT : on ne cherche que les devis/BDC créés APRÈS la demande,
+    //    pour ne pas confondre un ancien achat avec un traitement de cette demande.
     for (const demande of demandes) {
       const email = demande.contact.email;
       const lead = demande.contact.leads[0];
       if (!email || !lead) continue;
+
+      // Date de la demande = on ne compte que les docs Sellsy créés APRÈS
+      const demandeTs = demande.createdAt.getTime();
 
       try {
         // Chercher le contact Sellsy par email
@@ -65,14 +70,19 @@ export async function POST() {
 
         const contactId = sellsyContact.id;
 
-        // Chercher les BDC (priorité haute — si BDC existe → VENTE)
+        // Chercher les BDC du contact, puis filtrer ceux créés après la demande
         const ordersRes = await searchOrders({
           filters: { contact_id: contactId },
-          limit: 1,
+          limit: 10,
+          order: "created",
+          direction: "desc",
         });
 
-        if (ordersRes.data && ordersRes.data.length > 0) {
-          // BDC trouvé → statut VENTE
+        const recentOrder = (ordersRes.data || []).find(
+          (o: any) => new Date(o.created).getTime() >= demandeTs
+        );
+
+        if (recentOrder) {
           await prisma.lead.update({
             where: { id: lead.id },
             data: { statut: "VENTE" },
@@ -87,14 +97,19 @@ export async function POST() {
           continue;
         }
 
-        // Chercher les devis
+        // Chercher les devis du contact, puis filtrer ceux créés après la demande
         const estimatesRes = await searchEstimates({
           filters: { contact_id: contactId },
-          limit: 1,
+          limit: 10,
+          order: "created",
+          direction: "desc",
         });
 
-        if (estimatesRes.data && estimatesRes.data.length > 0) {
-          // Devis trouvé → statut DEVIS
+        const recentEstimate = (estimatesRes.data || []).find(
+          (e: any) => new Date(e.created).getTime() >= demandeTs
+        );
+
+        if (recentEstimate) {
           await prisma.lead.update({
             where: { id: lead.id },
             data: { statut: "DEVIS" },
@@ -109,7 +124,7 @@ export async function POST() {
           continue;
         }
 
-        // Rien trouvé → on ne change pas le statut
+        // Rien trouvé après la date de demande → statut inchangé
       } catch (err: any) {
         errors.push({ email, error: err.message || "Erreur Sellsy" });
       }
