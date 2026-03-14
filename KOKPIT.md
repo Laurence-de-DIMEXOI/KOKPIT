@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 13 mars 2026 (v8 — AUD10+11 — scoring 4 niveaux + sync complète)
-**Mis à jour par** : Session Claude (stratégie)
+**Dernière mise à jour** : 14 mars 2026 (v9 — AUD12 — perf sync Prisma + relance commercial + SLA intelligent)
+**Mis à jour par** : Session Claude Code (AUD12)
 
 ---
 
@@ -57,6 +57,8 @@
 - `src/lib/sellsy-sync/route.ts` — sync complète réécrite : individuals + companies + multi-ID par email + retry 429 backoff
 - `src/lib/sellsy-statuts.ts` — `traduireStatut(status)` — 30+ statuts traduits en français
 - `src/lib/contact-priority.ts` — scoring 4 niveaux (Intention + Historique + Fraîcheur) calculé à la volée
+- `src/app/api/demandes/sync-sellsy/route.ts` — sync statuts leads 100% Prisma (0 appel API Sellsy) ✅ réécrit f5911fc
+- `src/app/api/demandes/relance/route.ts` — envoi email relance commercial via Brevo (fallback Resend) ✅ f5911fc
 
 **⚠️ Règle critique API Sellsy V2** : Les filtres `third_ids`, `contact_id`, `individual_ids` sont cassés — ils retournent TOUS les documents au lieu de filtrer. Solution : utiliser `findDocumentsByRelated()` — récupérer les N derniers documents et filtrer côté serveur par `related[].id`. Ne jamais utiliser ces filtres V2 directement.
 
@@ -229,6 +231,10 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | AUD11 | KPIs contacts 100% Prisma (fiable) — 1 377 devis · 139 BDC · 156 991€ CA | `059e17d` |
 | AUD11 | Scoring 4 niveaux — Intention+Historique+Fraîcheur · tooltip détaillé | `ddf18ac` |
 | AUD11 | Performance — Promise.all parallèle · cache localStorage contacts (1x/heure) | `8b9c234` |
+| AUD12 | Devis à relancer cliquables → liens Sellsy | `92b54de` |
+| AUD12 | Sync leads 100% Prisma — 0 appel API Sellsy (3min → <1s) | `f5911fc` |
+| AUD12 | Bouton relance commercial — email urgent Brevo au commercial assigné | `f5911fc` |
+| AUD12 | SLA masqué quand statut DEVIS ou VENTE (demande traitée) | `2dc583d` |
 | AUD8 | Historique Sellsy par email — fallback + auto-save sellsyContactId | `f64344c` |
 | AUD10 | Skeletons cockpit (catalogue + emailing) — classes cockpit-* | `f64344c` |
 | C1 | Tri + filtre Pipeline devis | ✅ |
@@ -249,20 +255,22 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - [x] Route `/api/sellsy/diagnostic` supprimée
 - [x] Post test "TEST - Post de vérification" supprimé
 
-### 🔧 RESTE À FAIRE — SUITE AUDIT 12 MARS
+### 🔧 RESTE À FAIRE — SUITE AUDIT
 
 | # | Item | Priorité | Notes |
 |---|------|----------|-------|
 | ~~AUD7~~ | ~~Matching produits déterministe sur leads~~ | ✅ | estimation.ts — f64344c |
 | ~~AUD8~~ | ~~Retrouver devis/BDC par email dans le drawer contacts~~ | ✅ | searchContactByEmail() — f64344c |
 | ~~AUD10~~ | ~~Skeletons cockpit (catalogue + emailing)~~ | ✅ | f64344c |
+| ~~AUD-NAV~~ | ~~Login : redirect par rôle~~ | ✅ | b623f08 |
+| ~~AUD-SEARCH~~ | ~~Recherche globale étendue (6 catégories)~~ | ✅ | 1211b2b |
+| ~~AUD-TRAC~~ | ~~Traçabilité : search bar + liens~~ | ✅ | 384767c |
+| ~~AUD12~~ | ~~Sync leads perf — 100% Prisma~~ | ✅ | f5911fc |
+| ~~AUD12~~ | ~~Relance commercial par email~~ | ✅ | f5911fc |
+| ~~AUD12~~ | ~~SLA intelligent (masqué si traité)~~ | ✅ | 2dc583d |
 | AUD10-CB | Code-barres + impression étiquettes catalogue | 🟡 | Modèle ProduitBarcode, JsBarcode, CSS print — pas encore fait |
-| AUD-META | Debug Meta Ads — tout à zéro | 🔴 | Tester `/api/meta/campaigns?debug=1` — token possiblement expiré |
-| AUD-BREVO | Debug campagne Brevo "Semaines Privilege" à zéro | 🔴 | Tester `/api/marketing/brevo/stats?debug=1&fresh=true` |
-| AUD-NAV | Login : redirect par rôle + moderniser formulaire | 🟡 | Phase 2 du plan |
-| AUD-SEARCH | Recherche globale étendue (devis, commandes, produits, pages) | 🟡 | Phase 5 |
-| AUD-TRAC | Traçabilité : liaisons API automatiques + barre recherche | 🟡 | Phase 9 |
-| AUD10-CB | Code-barres + impression étiquettes catalogue | 🟡 | Phase 10 — ProduitBarcode, JsBarcode |
+| AUD-META | Debug Meta Ads — tout à zéro | 🔴 | Tester `/api/meta/campaigns?debug=1` — token possiblement expiré (config, pas code) |
+| AUD-BREVO | Debug campagne Brevo "Semaines Privilege" à zéro | 🔴 | Tester `/api/marketing/brevo/stats?debug=1&fresh=true` (config, pas code) |
 
 ---
 
@@ -290,6 +298,9 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Sync contacts auto | Cache localStorage 1x/heure max | Évite sync 6min à chaque visite |
 | Sellsy V2 filtres | CASSÉS — utiliser `findDocumentsByRelated()` uniquement | Confirmé AUD10 |
 | Montants Sellsy | Toujours `Number()` — champ `total_incl_tax` | String→Float, bon nom champ |
+| Sync statuts leads | 100% Prisma local — 0 appel API Sellsy | 3min → <1s — f5911fc |
+| Relance commercial | Email Brevo transactional (fallback Resend) + log Evenement RELANCE | f5911fc |
+| SLA leads | Masqué si statut DEVIS ou VENTE — la demande est traitée | 2dc583d |
 
 ---
 
@@ -304,10 +315,12 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **PlanningChecklist** — items checklist
 - **LiaisonDevisCommande** — liaisons devis↔commande
 - **LiaisonDocumentaire** — chaîne documentaire parentid V1 ✅
+- **Lead** — leads avec `slaDeadline` (72h), `statut` (NOUVEAU/EN_COURS/DEVIS/VENTE), `commercialId`
+- **Evenement** — log d'événements par contact/lead (types : CREATION_LEAD, EMAIL_ENVOYE, APPEL, NOTE, **RELANCE**, DEVIS_ENVOYE…) ✅
 - **BrevoSyncLog** — historique sync Sellsy→Brevo ✅
 - **DocArticle** — articles documentation ✅
 
-**Données en base au 13 mars 2026** : 1 243 contacts · 1 377 devis · 139 BDC · 156 991€ CA · 85 contacts auto-upgradés PROSPECT→CLIENT
+**Données en base au 14 mars 2026** : 1 243 contacts · 1 377 devis · 139 BDC · 156 991€ CA · 85 contacts auto-upgradés PROSPECT→CLIENT
 
 **À créer (prochains sprints) :**
 - `ActivityLog` — log d'activité contacts (X1)
@@ -330,7 +343,9 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | `SELLSY_CLIENT_SECRET` | ✅ Vercel | API Sellsy V2 + V1 |
 | `META_ACCESS_TOKEN` | ✅ Vercel | Feed Instagram + Meta Ads |
 | `META_ACCESS_TOKEN_EXPIRES_AT` | ⚠️ À ajouter | Alerte expiration token |
-| `BREVO_API_KEY` | ✅ Vercel | Stats email + sync + webhooks |
+| `BREVO_API_KEY` | ✅ Vercel | Stats email + sync + webhooks + relance commercial |
+| `BREVO_SENDER_EMAIL` | ✅ .env.local | Expéditeur emails transactionnels (`laurence.payet@dimexoi.fr`) |
+| `RESEND_API_KEY` | ⚠️ Optionnel | Fallback envoi email si Brevo indispo |
 | `BREVO_WEBHOOK_SECRET` | ⚠️ À créer | Authentification webhooks Brevo (X5) |
 | `ANTHROPIC_API_KEY` | ✅ Vercel | Chatbot M4C |
 | `NEXTAUTH_SECRET` | ✅ Vercel | Auth |
@@ -566,11 +581,11 @@ model ConfigABC {
 | X7 | Dashboards avec courbes | Évolution devis/mois, taux conversion, panier moyen | 2j |
 | X8 | ROI Marketing réel | CoutMarketing + dashboard dépenses vs CA | 1-2j |
 | X9 | Segmentation RFM | Récence/Fréquence/Montant → segments Brevo | 2j |
-| X10 | SLA 72h leads | Alerte nouvelles demandes non traitées | 0.5j |
+| ~~X10~~ | ~~SLA 72h leads + relance commercial~~ | ✅ Déployé `f5911fc`+`2dc583d` — SLA + bouton relance email | — |
 | X11 | Responsive mobile | Pages clés sur téléphone | 1j |
 | F1 | Création devis KOKPIT → Sellsy | KOKPIT écrit dans Sellsy via API | ? |
 | E1 | Espace client externe | Site séparé connecté à KOKPIT — suivi de commande | ? |
 
 ---
 
-*KOKPIT.md — feuille de route DIMEXOI — v8 — 13 mars 2026*
+*KOKPIT.md — feuille de route DIMEXOI — v9 — 14 mars 2026*
