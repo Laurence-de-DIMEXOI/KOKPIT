@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import {
+  searchEstimates,
+  listOrders,
+  searchIndividuals,
+} from "@/lib/sellsy";
 
 const cronSchema = z.object({
-  job: z.enum(["sla-check", "relance", "cross-sell"]),
+  job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy"]),
 });
 
 // POST - Execute scheduled jobs
@@ -56,6 +61,8 @@ export async function POST(request: NextRequest) {
         return await relanceJob();
       case "cross-sell":
         return await crossSellJob();
+      case "sync-sellsy":
+        return await syncSellsyJob();
       default:
         return NextResponse.json(
           { error: "Job invalide" },
@@ -274,11 +281,226 @@ async function crossSellJob() {
   }
 }
 
-// GET - Health check
+// Sync Sellsy: Pre-link contacts + import devis/BDC + update lead statuses
+async function syncSellsyJob() {
+  try {
+    // ── ÉTAPE 0 : Pré-lier les contacts sans sellsyContactId ──
+    const unlinkeds = await prisma.contact.findMany({
+      where: {
+        sellsyContactId: null,
+        leads: { some: { statut: { in: ["NOUVEAU", "EN_COURS"] } } },
+      },
+      select: { id: true, email: true },
+    });
+
+    let linked = 0;
+    for (const c of unlinkeds) {
+      if (!c.email) continue;
+      try {
+        const res = await searchIndividuals({ email: c.email.toLowerCase().trim() });
+        const match = res.data?.[0];
+        if (match) {
+          await prisma.contact.update({
+            where: { id: c.id },
+            data: { sellsyContactId: String(match.id) },
+          });
+          linked++;
+        }
+      } catch { /* Skip rate limit */ }
+    }
+
+    // ── ÉTAPE 1 : Micro-refresh devis + BDC (14 derniers jours) ──
+    const since14j = new Date();
+    since14j.setDate(since14j.getDate() - 14);
+    const sinceStr = since14j.toISOString().split("T")[0];
+
+    let freshDevis = 0;
+    let freshVentes = 0;
+
+    // Map sellsyContactId → kokpitContactId
+    const contactsBySellsyId = new Map<string, string>();
+    const kokpitContacts = await prisma.contact.findMany({
+      select: { id: true, sellsyContactId: true },
+    });
+    for (const c of kokpitContacts) {
+      if (c.sellsyContactId) {
+        for (const sid of c.sellsyContactId.split(",")) {
+          contactsBySellsyId.set(sid.trim(), c.id);
+        }
+      }
+    }
+
+    // Fetch recent estimates
+    try {
+      const estRes = await searchEstimates({
+        filters: { date: { start: sinceStr } },
+        limit: 100, offset: 0, order: "created", direction: "desc",
+      });
+      for (const est of estRes.data || []) {
+        const relatedIds = (est.related || []).map((r) => String(r.id));
+        const kokpitContactId =
+          relatedIds.map((rid) => contactsBySellsyId.get(rid)).find(Boolean) ||
+          (est.contact_id ? contactsBySellsyId.get(String(est.contact_id)) : undefined);
+        if (!kokpitContactId) continue;
+        try {
+          await prisma.devis.upsert({
+            where: { sellsyQuoteId: String(est.id) },
+            update: {
+              statut: mapEstimateStatus(est.status),
+              montant: Number(est.amounts?.total_excl_tax) || 0,
+              numero: est.number || undefined,
+              dateEnvoi: est.status === "sent" ? new Date(est.date) : undefined,
+            },
+            create: {
+              contactId: kokpitContactId,
+              sellsyQuoteId: String(est.id),
+              numero: est.number || null,
+              montant: Number(est.amounts?.total_excl_tax) || 0,
+              statut: mapEstimateStatus(est.status),
+              dateEnvoi: est.status === "sent" ? new Date(est.date) : undefined,
+            },
+          });
+          freshDevis++;
+        } catch { /* ignore */ }
+      }
+    } catch (err) {
+      console.warn("Cron sync-sellsy: estimates skipped:", err);
+    }
+
+    // Fetch recent orders
+    try {
+      const ordRes = await listOrders({
+        limit: 100, offset: 0, order: "created", direction: "desc",
+      });
+      const recentOrders = (ordRes.data || []).filter(
+        (o) => new Date(o.created) >= since14j
+      );
+      for (const ord of recentOrders) {
+        const relatedIds = (ord.related || []).map((r) => String(r.id));
+        const kokpitContactId =
+          relatedIds.map((rid) => contactsBySellsyId.get(rid)).find(Boolean) ||
+          (ord.contact_id ? contactsBySellsyId.get(String(ord.contact_id)) : undefined);
+        if (!kokpitContactId) continue;
+        try {
+          await prisma.vente.upsert({
+            where: { sellsyInvoiceId: String(ord.id) },
+            update: { montant: Number(ord.amounts?.total_excl_tax) || 0 },
+            create: {
+              contactId: kokpitContactId,
+              sellsyInvoiceId: String(ord.id),
+              montant: Number(ord.amounts?.total_excl_tax) || 0,
+              dateVente: new Date(ord.date || ord.created),
+            },
+          });
+          freshVentes++;
+        } catch { /* ignore */ }
+      }
+    } catch (err) {
+      console.warn("Cron sync-sellsy: orders skipped:", err);
+    }
+
+    // ── ÉTAPE 2 : Vérifier statuts leads ──
+    const demandes = await prisma.demandePrix.findMany({
+      where: {
+        contact: {
+          leads: { some: { statut: { in: ["NOUVEAU", "EN_COURS", "DEVIS", "VENTE"] } } },
+        },
+      },
+      select: {
+        id: true, contactId: true, createdAt: true,
+        contact: {
+          select: {
+            leads: {
+              where: { statut: { in: ["NOUVEAU", "EN_COURS", "DEVIS", "VENTE"] } },
+              orderBy: { createdAt: "desc" as const },
+              take: 1,
+              select: { id: true, statut: true },
+            },
+            devis: { select: { id: true, createdAt: true }, orderBy: { createdAt: "desc" as const } },
+            ventes: { select: { id: true, createdAt: true }, orderBy: { createdAt: "desc" as const } },
+          },
+        },
+      },
+    });
+
+    let statusUpdates = 0;
+    for (const demande of demandes) {
+      const lead = demande.contact.leads[0];
+      if (!lead) continue;
+      const demandeTs = demande.createdAt.getTime();
+      const recentVente = demande.contact.ventes.find((v) => v.createdAt.getTime() >= demandeTs);
+      const recentDevis = demande.contact.devis.find((d) => d.createdAt.getTime() >= demandeTs);
+      const correctStatut = recentVente ? "VENTE" : recentDevis ? "DEVIS" : lead.statut;
+      if (lead.statut !== correctStatut) {
+        await prisma.lead.update({ where: { id: lead.id }, data: { statut: correctStatut } });
+        statusUpdates++;
+      }
+    }
+
+    console.log(`Cron sync-sellsy: ${linked} linked, ${freshDevis} devis, ${freshVentes} ventes, ${statusUpdates} statuts mis à jour`);
+
+    return NextResponse.json({
+      job: "sync-sellsy",
+      status: "completed",
+      message: `Sync terminée: ${freshDevis} devis, ${freshVentes} ventes importés, ${statusUpdates} statuts corrigés`,
+      details: { linked, freshDevis, freshVentes, statusUpdates, since: sinceStr },
+    });
+  } catch (error) {
+    console.error("Cron sync-sellsy error:", error);
+    return NextResponse.json(
+      { error: "Erreur lors du sync-sellsy" },
+      { status: 500 }
+    );
+  }
+}
+
+function mapEstimateStatus(
+  status: string
+): "EN_ATTENTE" | "ENVOYE" | "ACCEPTE" | "REFUSE" | "EXPIRE" {
+  const statusMap: Record<string, "EN_ATTENTE" | "ENVOYE" | "ACCEPTE" | "REFUSE" | "EXPIRE"> = {
+    draft: "EN_ATTENTE", sent: "ENVOYE", read: "ENVOYE",
+    accepted: "ACCEPTE", refused: "REFUSE", expired: "EXPIRE",
+    cancelled: "REFUSE", invoiced: "ACCEPTE", partialinvoiced: "ACCEPTE", advanced: "ACCEPTE",
+  };
+  return statusMap[status?.toLowerCase()] || "EN_ATTENTE";
+}
+
+// GET - Vercel Cron handler (Vercel appelle en GET) + health check
 export async function GET(request: NextRequest) {
-  return NextResponse.json({
-    status: "ok",
-    availableJobs: ["sla-check", "relance", "cross-sell"],
-    message: "Cron endpoint is ready. Use POST with job parameter.",
-  });
+  const jobParam = request.nextUrl.searchParams.get("job");
+
+  // Si pas de job → health check
+  if (!jobParam) {
+    return NextResponse.json({
+      status: "ok",
+      availableJobs: ["sla-check", "relance", "cross-sell", "sync-sellsy"],
+      message: "Cron endpoint is ready. Use GET/POST with job parameter.",
+    });
+  }
+
+  // Auth check (Vercel Cron envoie CRON_SECRET)
+  const cronSecret = process.env.CRON_SECRET || process.env.CRON_API_SECRET;
+  if (cronSecret) {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+  }
+
+  try {
+    const { job } = cronSchema.parse({ job: jobParam });
+    switch (job) {
+      case "sla-check": return await slaCheck();
+      case "relance": return await relanceJob();
+      case "cross-sell": return await crossSellJob();
+      case "sync-sellsy": return await syncSellsyJob();
+      default: return NextResponse.json({ error: "Job invalide" }, { status: 400 });
+    }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Job invalide", details: error.errors }, { status: 400 });
+    }
+    console.error("Cron GET error:", error);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
 }

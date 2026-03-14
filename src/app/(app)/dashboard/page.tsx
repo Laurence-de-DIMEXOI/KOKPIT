@@ -142,49 +142,14 @@ export default function DashboardPage() {
 
   const fetchDemandes = useCallback(async () => {
     try {
-      // 1. Charger demandes ET lancer sync en parallèle (ne pas attendre la sync)
-      const [, listRes] = await Promise.all([
-        fetch("/api/demandes/sync-sellsy", { method: "POST" })
-          .then(async (syncRes) => {
-            if (syncRes.ok) {
-              const syncData = await syncRes.json();
-              if (syncData.stats) setDemandesStats(syncData.stats);
-            }
-          })
-          .catch(() => {}),
-        fetch("/api/demandes?limit=50"),
-      ]);
-
+      // Lecture directe depuis la base — instantané (sync tourne en background via cron)
+      const listRes = await fetch("/api/demandes?limit=50");
       if (!listRes.ok) return;
       const data = await listRes.json();
       if (data.stats) setDemandesStats(data.stats);
       const demandes: DemandeItem[] = data.data || [];
       setDemandesList(demandes);
-
-      // 2. Charger les docs Sellsy EN PARALLÈLE (pas séquentiel)
-      const devisVente = demandes.filter(
-        (d: DemandeItem) => d.statut === "DEVIS" || d.statut === "VENTE"
-      );
-      // Dédupliquer par contactId
-      const uniqueContactIds = [...new Set(devisVente.map((d) => d.contactId))];
-      const docResults = await Promise.all(
-        uniqueContactIds.map(async (contactId) => {
-          try {
-            const docRes = await fetch(`/api/contacts/${contactId}/sellsy-history`);
-            if (docRes.ok) {
-              const docData = await docRes.json();
-              return { contactId, data: docData };
-            }
-          } catch { /* silencieux */ }
-          return null;
-        })
-      );
-      // Mettre à jour en un seul batch
-      const docsMap: Record<string, any> = {};
-      for (const r of docResults) {
-        if (r) docsMap[r.contactId] = r.data;
-      }
-      setSellsyDocs((prev) => ({ ...prev, ...docsMap }));
+      // Les données devis/ventes sont déjà incluses via contact (API /api/demandes)
     } catch {
       // silencieux
     }

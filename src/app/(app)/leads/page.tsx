@@ -51,9 +51,11 @@ interface Demande {
   devisId?: string | null;
   devisCount?: number;
   devisMontant?: number | null;
+  devisList?: { id: string; numero: string | null; montant: number; statut: string; createdAt: string | null }[];
   venteId?: string | null;
   venteCount?: number;
   venteMontant?: number | null;
+  ventesList?: { id: string; montant: number; dateVente: string | null; createdAt: string | null }[];
   dateCreation: string;
   dateDemande?: string | null;
 }
@@ -115,31 +117,19 @@ export default function LeadsPage() {
   const [sellsyResults, setSellsyResults] = useState<Record<string, SellsyResult>>({});
   const [sellsyLoading, setSellsyLoading] = useState<Record<string, boolean>>({});
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
-  const [sellsyDocs, setSellsyDocs] = useState<Record<string, { estimates: any[]; orders: any[]; linked: boolean }>>({});
-  const [sellsyDocsLoading, setSellsyDocsLoading] = useState<Record<string, boolean>>({});
+  // sellsyDocs supprimé — données devis/ventes directement dans chaque demande (via DB)
   const [relanceLoading, setRelanceLoading] = useState<Record<string, boolean>>({});
   const [relanceResult, setRelanceResult] = useState<Record<string, { success: boolean; message: string }>>({});
 
   const fetchDemandes = useCallback(async (showLoader = true) => {
     if (showLoader) setRefreshing(true);
     try {
-      // Charger demandes ET sync EN PARALLÈLE (afficher les données existantes pendant la sync)
-      const [, listRes] = await Promise.all([
-        fetch("/api/demandes/sync-sellsy", { method: "POST" })
-          .then(async (syncRes) => {
-            if (syncRes.ok) {
-              const syncData = await syncRes.json();
-              if (syncData.stats) setStats(syncData.stats);
-            }
-          })
-          .catch(() => {}),
-        fetch("/api/demandes"),
-      ]);
-
+      // Lecture directe depuis la base — instantané (le sync tourne en background via cron)
+      const listRes = await fetch("/api/demandes");
       const result = await listRes.json();
       const demandesArray = result.data || [];
       setDemandes(demandesArray);
-      if (result.stats && !stats.total) setStats(result.stats);
+      if (result.stats) setStats(result.stats);
       setLastUpdate(new Date());
     } catch (error) {
       console.error("Erreur:", error);
@@ -149,29 +139,7 @@ export default function LeadsPage() {
     }
   }, []);
 
-  // Fetch documents Sellsy (devis/BDC) pour un contact spécifique
-  const fetchSellsyDocs = useCallback(async (contactId: string) => {
-    if (sellsyDocs[contactId] || sellsyDocsLoading[contactId]) return;
-    setSellsyDocsLoading((prev) => ({ ...prev, [contactId]: true }));
-    try {
-      const res = await fetch(`/api/contacts/${contactId}/sellsy-history`);
-      if (res.ok) {
-        const data = await res.json();
-        setSellsyDocs((prev) => ({
-          ...prev,
-          [contactId]: {
-            estimates: data.estimates || [],
-            orders: data.orders || [],
-            linked: data.linked || false,
-          },
-        }));
-      }
-    } catch {
-      // silencieux
-    } finally {
-      setSellsyDocsLoading((prev) => ({ ...prev, [contactId]: false }));
-    }
-  }, [sellsyDocs, sellsyDocsLoading]);
+  // fetchSellsyDocs supprimé — les données devis/ventes sont incluses dans chaque demande (via DB)
 
   useEffect(() => {
     fetchDemandes(true);
@@ -283,7 +251,6 @@ export default function LeadsPage() {
     } else {
       setExpandedId(id);
       fetchSellsyMatch(id);
-      if (contactId) fetchSellsyDocs(contactId);
     }
   };
 
@@ -534,42 +501,6 @@ export default function LeadsPage() {
                           </>
                         );
                       }
-                      // Priorité 2 : données Sellsy live (après expand)
-                      const docs = sellsyDocs[demande.contactId];
-                      if (docs?.linked && (docs.estimates.length > 0 || docs.orders.length > 0)) {
-                        return (
-                          <>
-                            {docs.estimates.length > 0 && (
-                              <a
-                                href={getSellsyUrl('estimate', docs.estimates[0].id)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center gap-0.5 text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded hover:bg-[#03C3EC]/20 transition-colors"
-                                title={docs.estimates[0].number || 'Devis Sellsy'}
-                              >
-                                <FileText className="w-2.5 h-2.5" />
-                                <span className="truncate max-w-[80px]">{docs.estimates[0].number || `D-${docs.estimates.length}`}</span>
-                                <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
-                              </a>
-                            )}
-                            {docs.orders.length > 0 && (
-                              <a
-                                href={getSellsyUrl('order', docs.orders[0].id)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center gap-0.5 text-[10px] font-semibold text-[#71DD37] bg-[#71DD37]/10 px-1.5 py-0.5 rounded hover:bg-[#71DD37]/20 transition-colors"
-                                title={docs.orders[0].number || 'BDC Sellsy'}
-                              >
-                                <ShoppingCart className="w-2.5 h-2.5" />
-                                <span className="truncate max-w-[80px]">{docs.orders[0].number || `B-${docs.orders.length}`}</span>
-                                <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
-                              </a>
-                            )}
-                          </>
-                        );
-                      }
                       return <span className="text-[10px] text-cockpit-secondary">—</span>;
                     })()}
                   </div>
@@ -584,16 +515,11 @@ export default function LeadsPage() {
                     {formatDate(demande.dateCreation)}
                   </span>
 
-                  {/* 9. Montant — BASE en priorité */}
+                  {/* 9. Montant — depuis la DB (instantané) */}
                   {(() => {
-                    // Priorité 1 : données en base (instantané)
-                    const dbAmt = demande.venteMontant || demande.devisMontant;
-                    // Priorité 2 : données Sellsy live (après expand)
-                    const docs = sellsyDocs[demande.contactId];
-                    const sellsyAmt = docs?.orders?.[0]?.amounts?.total_incl_tax || docs?.estimates?.[0]?.amounts?.total_incl_tax;
-                    const amount = dbAmt || sellsyAmt;
+                    const amount = demande.venteMontant || demande.devisMontant;
                     return amount ? (
-                      <span className="text-xs font-bold text-[#C2185B] text-right" title={dbAmt ? "Montant HT (base)" : "Montant TTC (Sellsy)"}>
+                      <span className="text-xs font-bold text-[#C2185B] text-right" title="Montant HT (base)">
                         {Number(amount).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
                       </span>
                     ) : (
@@ -708,24 +634,17 @@ export default function LeadsPage() {
                           </div>
                         ) : sellsy ? (
                           <div className="space-y-3">
-                            {/* Montant Sellsy réel (devis/BDC) ou estimation */}
+                            {/* Montant réel (devis/BDC) depuis la DB */}
                             {(() => {
-                              const sDocs = sellsyDocs[demande.contactId];
-                              const sellsyAmt = sDocs?.orders?.[0]?.amounts?.total_incl_tax || sDocs?.estimates?.[0]?.amounts?.total_incl_tax;
-                              const sellsyAmtHT = sDocs?.orders?.[0]?.amounts?.total_excl_tax || sDocs?.estimates?.[0]?.amounts?.total_excl_tax;
-                              const docNum = sDocs?.orders?.[0]?.number || sDocs?.estimates?.[0]?.number;
-                              if (sellsyAmt) {
+                              const dbAmt = demande.venteMontant || demande.devisMontant;
+                              const docNum = demande.devisRef;
+                              if (dbAmt) {
                                 return (
                                   <div className="bg-[#03C3EC]/10 border border-[#03C3EC]/30 p-4 rounded-lg">
                                     <div className="text-xs text-[#03C3EC] font-semibold mb-1">MONTANT SELLSY {docNum && `· ${docNum}`}</div>
                                     <div className="text-2xl font-bold text-[#03C3EC]">
-                                      {Number(sellsyAmt).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}€ <span className="text-sm font-normal">TTC</span>
+                                      {Number(dbAmt).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}€ <span className="text-sm font-normal">HT</span>
                                     </div>
-                                    {sellsyAmtHT && (
-                                      <div className="text-xs text-cockpit-secondary mt-1">
-                                        {Number(sellsyAmtHT).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}€ HT
-                                      </div>
-                                    )}
                                   </div>
                                 );
                               }
@@ -942,94 +861,70 @@ export default function LeadsPage() {
                       </div>
                     </div>
 
-                    {/* Documents Sellsy */}
-                    {(() => {
-                      const docs = sellsyDocs[demande.contactId];
-                      const isLoadingDocs = sellsyDocsLoading[demande.contactId];
-                      return (
-                        <div className="col-span-1 lg:col-span-3 pt-4 border-t border-cockpit">
-                          <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2 mb-3">
-                            <FileText className="w-4 h-4 text-[#C2185B]" />
-                            Documents Sellsy
-                            {docs?.linked && (
-                              <span className="text-[10px] px-2 py-0.5 bg-[#71DD37]/10 text-[#71DD37] rounded-full font-bold">lié</span>
+                    {/* Documents Sellsy — données depuis la DB (instantané) */}
+                    {((demande.devisList?.length || 0) > 0 || (demande.ventesList?.length || 0) > 0) && (
+                      <div className="col-span-1 lg:col-span-3 pt-4 border-t border-cockpit">
+                        <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2 mb-3">
+                          <FileText className="w-4 h-4 text-[#C2185B]" />
+                          Documents Sellsy
+                          <span className="text-[10px] px-2 py-0.5 bg-[#71DD37]/10 text-[#71DD37] rounded-full font-bold">lié</span>
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Devis */}
+                          <div>
+                            <p className="text-xs font-semibold text-[#03C3EC] mb-2">
+                              Devis ({demande.devisList?.length || 0})
+                            </p>
+                            {(demande.devisList?.length || 0) > 0 ? (
+                              <div className="space-y-1.5">
+                                {demande.devisList!.slice(0, 5).map((d) => (
+                                  <a key={d.id} href={getSellsyUrl('estimate', d.id)} target="_blank" rel="noopener noreferrer"
+                                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-cockpit-dark border border-cockpit hover:border-[#03C3EC]/30 transition-colors">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-3.5 h-3.5 text-[#03C3EC]" />
+                                      <span className="text-xs font-medium text-[#03C3EC]">{d.numero || `#${d.id}`}</span>
+                                      {d.statut && <span className="text-[10px] text-cockpit-secondary">{traduireStatut(d.statut)}</span>}
+                                      <ExternalLink className="w-2.5 h-2.5 text-cockpit-secondary" />
+                                    </div>
+                                    <span className="text-xs font-bold text-cockpit-primary">
+                                      {Number(d.montant).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €
+                                    </span>
+                                  </a>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-cockpit-secondary">Aucun devis</p>
                             )}
-                          </h3>
-                          {isLoadingDocs ? (
-                            <div className="flex items-center gap-2 text-cockpit-secondary text-sm py-2">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Chargement des documents Sellsy...
-                            </div>
-                          ) : !docs ? (
-                            <p className="text-xs text-cockpit-secondary">Chargement...</p>
-                          ) : !docs.linked ? (
-                            <p className="text-xs text-cockpit-secondary">Contact non lié à Sellsy</p>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {/* Devis */}
-                              <div>
-                                <p className="text-xs font-semibold text-[#03C3EC] mb-2">
-                                  Devis ({docs.estimates.length})
-                                </p>
-                                {docs.estimates.length > 0 ? (
-                                  <div className="space-y-1.5">
-                                    {docs.estimates.slice(0, 5).map((est: any) => {
-                                      const montant = est.amounts?.total_excl_tax ?? est.amounts?.total ?? 0;
-                                      return (
-                                        <a key={est.id} href={getSellsyUrl('estimate', est.id)} target="_blank" rel="noopener noreferrer"
-                                          className="flex items-center justify-between px-3 py-2 rounded-lg bg-cockpit-dark border border-cockpit hover:border-[#03C3EC]/30 transition-colors">
-                                          <div className="flex items-center gap-2">
-                                            <FileText className="w-3.5 h-3.5 text-[#03C3EC]" />
-                                            <span className="text-xs font-medium text-[#03C3EC]">{est.number || `#${est.id}`}</span>
-                                            {est.status && <span className="text-[10px] text-cockpit-secondary">{traduireStatut(est.status)}</span>}
-                                            <ExternalLink className="w-2.5 h-2.5 text-cockpit-secondary" />
-                                          </div>
-                                          <span className="text-xs font-bold text-cockpit-primary">
-                                            {typeof montant === "number" ? Number(montant).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " €" : montant}
-                                          </span>
-                                        </a>
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-cockpit-secondary">Aucun devis</p>
-                                )}
-                              </div>
+                          </div>
 
-                              {/* Commandes / BDC */}
-                              <div>
-                                <p className="text-xs font-semibold text-[#71DD37] mb-2">
-                                  Commandes ({docs.orders.length})
-                                </p>
-                                {docs.orders.length > 0 ? (
-                                  <div className="space-y-1.5">
-                                    {docs.orders.slice(0, 5).map((ord: any) => {
-                                      const montant = ord.amounts?.total_excl_tax ?? ord.amounts?.total ?? 0;
-                                      return (
-                                        <a key={ord.id} href={getSellsyUrl('order', ord.id)} target="_blank" rel="noopener noreferrer"
-                                          className="flex items-center justify-between px-3 py-2 rounded-lg bg-cockpit-dark border border-cockpit hover:border-[#71DD37]/30 transition-colors">
-                                          <div className="flex items-center gap-2">
-                                            <ShoppingCart className="w-3.5 h-3.5 text-[#71DD37]" />
-                                            <span className="text-xs font-medium text-[#71DD37]">{ord.number || `#${ord.id}`}</span>
-                                            {ord.status && <span className="text-[10px] text-cockpit-secondary">{traduireStatut(ord.status)}</span>}
-                                            <ExternalLink className="w-2.5 h-2.5 text-cockpit-secondary" />
-                                          </div>
-                                          <span className="text-xs font-bold text-cockpit-primary">
-                                            {typeof montant === "number" ? Number(montant).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " €" : montant}
-                                          </span>
-                                        </a>
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-cockpit-secondary">Aucune commande</p>
-                                )}
+                          {/* Commandes / BDC */}
+                          <div>
+                            <p className="text-xs font-semibold text-[#71DD37] mb-2">
+                              Commandes ({demande.ventesList?.length || 0})
+                            </p>
+                            {(demande.ventesList?.length || 0) > 0 ? (
+                              <div className="space-y-1.5">
+                                {demande.ventesList!.slice(0, 5).map((v) => (
+                                  <a key={v.id} href={getSellsyUrl('order', v.id)} target="_blank" rel="noopener noreferrer"
+                                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-cockpit-dark border border-cockpit hover:border-[#71DD37]/30 transition-colors">
+                                    <div className="flex items-center gap-2">
+                                      <ShoppingCart className="w-3.5 h-3.5 text-[#71DD37]" />
+                                      <span className="text-xs font-medium text-[#71DD37]">BDC #{v.id}</span>
+                                      <ExternalLink className="w-2.5 h-2.5 text-cockpit-secondary" />
+                                    </div>
+                                    <span className="text-xs font-bold text-cockpit-primary">
+                                      {Number(v.montant).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €
+                                    </span>
+                                  </a>
+                                ))}
                               </div>
-                            </div>
-                          )}
+                            ) : (
+                              <p className="text-xs text-cockpit-secondary">Aucune commande</p>
+                            )}
+                          </div>
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

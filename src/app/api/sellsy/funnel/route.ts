@@ -1,24 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listCompanies, listAllEstimates, listAllOrders, invalidateSellsyCache } from "@/lib/sellsy";
-
-// Cache dédié funnel (5 minutes)
-let funnelCache: { data: any; timestamp: number; months: number } | null = null;
-const FUNNEL_CACHE_TTL = 5 * 60 * 1000;
+import { funnelCache as sharedFunnelCache } from "@/lib/api-cache";
 
 // GET /api/sellsy/funnel - Funnel marketing: contacts → devis → commandes
 // Params: months (nombre de mois à analyser, défaut 12), fresh (bypass cache)
+// Cache: 10 minutes (via api-cache partagé)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const monthsBack = Math.min(parseInt(searchParams.get("months") || "12", 10), 24);
     const fresh = searchParams.get("fresh") === "true";
 
-    // Cache check
-    if (!fresh && funnelCache && funnelCache.months === monthsBack && Date.now() - funnelCache.timestamp < FUNNEL_CACHE_TTL) {
-      return NextResponse.json(funnelCache.data);
-    }
+    const cacheKey = `funnel_${monthsBack}`;
 
-    if (fresh) invalidateSellsyCache();
+    // Cache check (10 min)
+    if (!fresh) {
+      const cached = sharedFunnelCache.get(cacheKey);
+      if (cached) return NextResponse.json({ ...cached, _fromCache: true });
+    } else {
+      invalidateSellsyCache();
+      sharedFunnelCache.invalidate();
+    }
 
     // Calculer la date since à partir du nombre de mois demandé (+ 1 mois de marge)
     const sinceDate = new Date();
@@ -210,12 +212,15 @@ export async function GET(request: NextRequest) {
       _cache: { generatedAt: new Date().toISOString() },
     };
 
-    // Stocker en cache
-    funnelCache = { data: responseData, timestamp: Date.now(), months: monthsBack };
+    // Stocker en cache partagé (10 min)
+    sharedFunnelCache.set(cacheKey, responseData);
 
     return NextResponse.json(responseData);
   } catch (error: any) {
     console.error("Erreur funnel:", error);
+    // Retourner stale data si dispo
+    const stale = sharedFunnelCache.getStale(`funnel_12`);
+    if (stale) return NextResponse.json({ ...stale.data, _stale: true });
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

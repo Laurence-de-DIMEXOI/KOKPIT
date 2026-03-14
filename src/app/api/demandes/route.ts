@@ -44,14 +44,14 @@ export async function GET(request: NextRequest) {
               // Devis via CONTACT (pas via lead — leadId souvent null)
               devis: {
                 orderBy: { createdAt: "desc" },
-                take: 3,
-                select: { id: true, sellsyQuoteId: true, numero: true, montant: true, statut: true },
+                take: 10,
+                select: { id: true, sellsyQuoteId: true, numero: true, montant: true, statut: true, createdAt: true },
               },
               // Ventes/BDC via CONTACT
               ventes: {
                 orderBy: { createdAt: "desc" },
-                take: 3,
-                select: { id: true, sellsyInvoiceId: true, montant: true, dateVente: true },
+                take: 10,
+                select: { id: true, sellsyInvoiceId: true, montant: true, dateVente: true, createdAt: true },
               },
             },
           },
@@ -101,10 +101,25 @@ export async function GET(request: NextRequest) {
         devisId: demande.contact.devis?.[0]?.sellsyQuoteId || null,
         devisCount: demande.contact.devis?.length || 0,
         devisMontant: demande.contact.devis?.[0]?.montant || null,
+        // Liste complète des devis (pour vue expandée — plus besoin d'appel Sellsy)
+        devisList: (demande.contact.devis || []).map((d) => ({
+          id: d.sellsyQuoteId,
+          numero: d.numero,
+          montant: d.montant,
+          statut: d.statut,
+          createdAt: d.createdAt?.toISOString() || null,
+        })),
         // Ventes/BDC liés au contact
         venteId: demande.contact.ventes?.[0]?.sellsyInvoiceId || null,
         venteCount: demande.contact.ventes?.length || 0,
         venteMontant: demande.contact.ventes?.[0]?.montant || null,
+        // Liste complète des ventes (pour vue expandée)
+        ventesList: (demande.contact.ventes || []).map((v) => ({
+          id: v.sellsyInvoiceId,
+          montant: v.montant,
+          dateVente: v.dateVente?.toISOString() || null,
+          createdAt: v.createdAt?.toISOString() || null,
+        })),
         // Dates
         dateCreation: demande.createdAt.toISOString(),
         dateDemande: demande.dateDemande?.toISOString() || null,
