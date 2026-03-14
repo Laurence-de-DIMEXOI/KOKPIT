@@ -177,7 +177,7 @@ export function Topbar({
                   className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <User className="w-4 h-4" />
-                  Profil
+                  Mon Profil
                 </Link>
                 <button
                   onClick={() => signOut({ callbackUrl: "/login" })}

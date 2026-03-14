@@ -5,7 +5,6 @@ import {
   Megaphone,
   Zap,
   Mail,
-  Settings,
   ShoppingCart,
   Package,
   FileText,
@@ -74,7 +73,6 @@ export const ESPACES: Espace[] = [
       { label: "Nos Réseaux", href: "/nos-reseaux", icon: Share2, module: "nos-reseaux" },
       { label: "Liens utiles", href: "/liens-utiles", icon: Link2, module: "liens-utiles" },
       { label: "Automatisations", href: "/automatisations", icon: Zap, module: "automatisations" },
-      { label: "Paramètres", href: "/parametres", icon: Settings, module: "parametres" },
     ],
   },
   {
