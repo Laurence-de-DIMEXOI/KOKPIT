@@ -11,6 +11,7 @@ import {
   ShoppingCart,
   Package,
   LayoutDashboard,
+  Inbox,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
@@ -56,6 +57,15 @@ interface ProductResult {
   unitAmount: string;
 }
 
+interface LeadResult {
+  id: string;
+  statut: string;
+  source: string;
+  priorite: string;
+  createdAt: string;
+  contact: { nom: string; prenom: string; email: string };
+}
+
 interface PageResult {
   label: string;
   href: string;
@@ -65,6 +75,7 @@ interface PageResult {
 interface SearchResults {
   contacts: ContactResult[];
   tasks: TaskResult[];
+  leads: LeadResult[];
   estimates: EstimateResult[];
   orders: OrderResult[];
   products: ProductResult[];
@@ -82,6 +93,22 @@ const statutLabels: Record<string, string> = {
   A_FAIRE: "À faire",
   EN_COURS: "En cours",
   TERMINEE: "Terminée",
+};
+
+const leadStatutLabels: Record<string, string> = {
+  NOUVEAU: "Nouveau",
+  EN_COURS: "En cours",
+  DEVIS: "Devis",
+  VENTE: "Vente",
+  PERDU: "Perdu",
+};
+
+const leadStatutColors: Record<string, string> = {
+  NOUVEAU: "text-cockpit-info",
+  EN_COURS: "text-cockpit-warning",
+  DEVIS: "text-[#9C27B0]",
+  VENTE: "text-cockpit-success",
+  PERDU: "text-cockpit-danger",
 };
 
 export function GlobalSearch() {
@@ -164,6 +191,7 @@ export function GlobalSearch() {
   const totalResults =
     (results?.contacts?.length || 0) +
     (results?.tasks?.length || 0) +
+    (results?.leads?.length || 0) +
     (results?.estimates?.length || 0) +
     (results?.orders?.length || 0) +
     (results?.products?.length || 0) +
@@ -183,7 +211,7 @@ export function GlobalSearch() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-96 bg-cockpit-card rounded-xl shadow-cockpit-lg border border-cockpit z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 w-[32rem] bg-cockpit-card rounded-xl shadow-cockpit-lg border border-cockpit z-50 overflow-hidden">
           {/* Search input */}
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-cockpit">
             <Search className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />
@@ -191,7 +219,7 @@ export function GlobalSearch() {
               ref={inputRef}
               value={query}
               onChange={(e) => handleChange(e.target.value)}
-              placeholder="Contact, devis, commande, produit, page..."
+              placeholder="Contact, demande, devis, commande, produit..."
               className="flex-1 text-sm outline-none bg-transparent text-cockpit-primary placeholder:text-cockpit-secondary/60"
               autoFocus
             />
@@ -257,6 +285,37 @@ export function GlobalSearch() {
                           </span>
                         </div>
                         <p className="text-xs text-cockpit-secondary truncate">{c.email}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Leads / Demandes */}
+                {results.leads && results.leads.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1.5 bg-cockpit-dark text-[11px] font-semibold text-cockpit-secondary uppercase tracking-wider flex items-center gap-1.5">
+                      <Inbox className="w-3 h-3" /> Demandes
+                    </div>
+                    {results.leads.map((l) => (
+                      <button
+                        key={l.id}
+                        onClick={() => navigate(`/leads`)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-cockpit-yellow/5 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-cockpit-primary">
+                            {l.contact.prenom} {l.contact.nom}
+                          </span>
+                          <span className={`text-[11px] font-semibold ${leadStatutColors[l.statut] || "text-cockpit-secondary"}`}>
+                            {leadStatutLabels[l.statut] || l.statut}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-cockpit-secondary truncate">{l.contact.email}</p>
+                          <span className="text-[10px] text-cockpit-secondary">
+                            {l.source} · {new Date(l.createdAt).toLocaleDateString("fr-FR")}
+                          </span>
+                        </div>
                       </button>
                     ))}
                   </div>

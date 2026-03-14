@@ -115,12 +115,12 @@ export async function GET(request: NextRequest) {
 
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q || q.length < 2) {
-    return NextResponse.json({ contacts: [], tasks: [], estimates: [], orders: [], products: [], pages: [] });
+    return NextResponse.json({ contacts: [], tasks: [], leads: [], estimates: [], orders: [], products: [], pages: [] });
   }
 
   try {
     // Lancer toutes les recherches en parallèle
-    const [contacts, tasks, estimates, orders, products] = await Promise.all([
+    const [contacts, tasks, leads, estimates, orders, products] = await Promise.all([
       // Contacts Prisma
       prisma.contact.findMany({
         where: {
@@ -161,6 +161,29 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: "desc" },
       }),
 
+      // Leads / Demandes Prisma
+      prisma.lead.findMany({
+        where: {
+          OR: [
+            { contact: { nom: { contains: q, mode: "insensitive" } } },
+            { contact: { prenom: { contains: q, mode: "insensitive" } } },
+            { contact: { email: { contains: q, mode: "insensitive" } } },
+            { notes: { contains: q, mode: "insensitive" } },
+            { source: { equals: q.toUpperCase() as any } },
+          ],
+        },
+        select: {
+          id: true,
+          statut: true,
+          source: true,
+          priorite: true,
+          createdAt: true,
+          contact: { select: { nom: true, prenom: true, email: true } },
+        },
+        take: 5,
+        orderBy: { createdAt: "desc" },
+      }),
+
       // Devis Sellsy
       searchSellsyEstimates(q),
 
@@ -174,7 +197,7 @@ export async function GET(request: NextRequest) {
     // Pages (statiques, pas async)
     const pages = searchPages(q);
 
-    return NextResponse.json({ contacts, tasks, estimates, orders, products, pages });
+    return NextResponse.json({ contacts, tasks, leads, estimates, orders, products, pages });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Erreur serveur";
     console.error("GET /api/search error:", message);
