@@ -54,39 +54,48 @@ export function BarcodeLabel({ reference, name, priceHT, priceTTC, description }
       <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="utf-8">
         <title>Étiquette ${reference}</title>
         <style>
           @page {
             size: 62mm 100mm;
-            margin: 3mm;
+            margin: 0;
           }
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            padding: 4mm;
-            width: 56mm;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
           }
           .label {
+            width: 62mm;
+            height: 100mm;
+            padding: 4mm 3mm;
             text-align: center;
-            border: 1px solid #ccc;
-            border-radius: 3mm;
-            padding: 3mm;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
           }
           .brand {
             font-size: 7pt;
             color: #8592A3;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 2mm;
+            letter-spacing: 2px;
+            margin-bottom: 3mm;
           }
           .name {
             font-size: 10pt;
             font-weight: bold;
             color: #1F2937;
-            margin-bottom: 1mm;
-            line-height: 1.2;
-            max-height: 2.4em;
+            line-height: 1.3;
+            max-height: 3.9em;
             overflow: hidden;
+            margin-bottom: 2mm;
+            padding: 0 2mm;
           }
           .ref {
             font-family: monospace;
@@ -94,31 +103,35 @@ export function BarcodeLabel({ reference, name, priceHT, priceTTC, description }
             color: #03C3EC;
             background: #f0f9ff;
             display: inline-block;
-            padding: 0.5mm 2mm;
+            padding: 1mm 3mm;
             border-radius: 1mm;
-            margin-bottom: 2mm;
+            margin-bottom: 3mm;
           }
           .price-ttc {
             font-size: 16pt;
             font-weight: bold;
             color: #1F2937;
-            margin: 2mm 0;
+            margin-bottom: 1mm;
           }
           .price-ht {
             font-size: 8pt;
             color: #8592A3;
-            margin-bottom: 2mm;
-          }
-          .barcode svg {
-            width: 100%;
-            height: auto;
+            margin-bottom: 3mm;
           }
           .barcode-container {
-            margin-top: 2mm;
+            width: 100%;
+          }
+          .barcode-container svg {
+            width: 90%;
+            height: auto;
+            max-height: 20mm;
+          }
+          @media screen {
+            body { background: #f5f6f7; padding: 20px; }
+            .label { background: white; border: 1px solid #ccc; border-radius: 4px; }
           }
           @media print {
-            body { padding: 0; }
-            .label { border: none; }
+            body { background: white; min-height: auto; }
           }
         </style>
       </head>
@@ -126,8 +139,8 @@ export function BarcodeLabel({ reference, name, priceHT, priceTTC, description }
         <div class="label">
           <div class="brand">DIMEXOI</div>
           <div class="name">${name.replace(/"/g, "&quot;")}</div>
-          <div class="ref">${reference}</div>
-          <div class="price-ttc">${formatEuro(priceTTC)}</div>
+          <div class="ref">Réf : ${reference}</div>
+          <div class="price-ttc">Prix TTC : ${formatEuro(priceTTC)}</div>
           <div class="price-ht">${formatEuro(priceHT)} HT</div>
           <div class="barcode-container" id="barcode-target"></div>
         </div>
@@ -139,17 +152,17 @@ export function BarcodeLabel({ reference, name, priceHT, priceTTC, description }
             JsBarcode(svg, "${reference.replace(/"/g, '\\"')}", {
               format: "CODE128",
               width: 1.5,
-              height: 35,
+              height: 30,
               displayValue: true,
-              fontSize: 10,
+              fontSize: 9,
               margin: 2,
               background: "transparent",
               lineColor: "#1F2937",
             });
-            setTimeout(function() { window.print(); }, 300);
+            setTimeout(function() { window.print(); }, 500);
           } catch(e) {
             document.getElementById("barcode-target").textContent = "${reference}";
-            setTimeout(function() { window.print(); }, 300);
+            setTimeout(function() { window.print(); }, 500);
           }
         <\/script>
       </body>
