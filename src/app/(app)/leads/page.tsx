@@ -416,6 +416,7 @@ export default function LeadsPage() {
             const sellsyIsLoading = sellsyLoading[demande.id];
             const articles = demande.articles as Article[] | null;
             const slaExpired = isSlaExpired(demande.slaDeadline);
+            const isTraite = demande.statut === "DEVIS" || demande.statut === "VENTE";
 
             return (
               <div
@@ -440,7 +441,7 @@ export default function LeadsPage() {
                       <span className="font-semibold text-cockpit-primary text-sm truncate">
                         {nomComplet(demande)}
                       </span>
-                      {slaExpired && (
+                      {slaExpired && !isTraite && (
                         <span className="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded font-semibold">
                           SLA
                         </span>
@@ -794,8 +795,8 @@ export default function LeadsPage() {
                           </div>
                         )}
 
-                        {/* SLA */}
-                        {demande.slaDeadline && (
+                        {/* SLA — masqué si traité (DEVIS/VENTE) */}
+                        {demande.slaDeadline && !isTraite && (
                           <div>
                             <label className="text-xs text-cockpit-secondary mb-1.5 block">SLA (72h)</label>
                             <div className={`p-3 rounded-lg text-sm font-semibold ${
@@ -821,8 +822,8 @@ export default function LeadsPage() {
                           )}
                         </div>
 
-                        {/* Relancer le commercial */}
-                        {demande.assigneA && demande.assigneA !== "Non assigné" && (
+                        {/* Relancer le commercial — masqué si traité (DEVIS/VENTE) */}
+                        {demande.assigneA && demande.assigneA !== "Non assigné" && !isTraite && (
                           <div className="pt-3 border-t border-cockpit">
                             <button
                               onClick={(e) => {
