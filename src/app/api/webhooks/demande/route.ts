@@ -126,17 +126,57 @@ function buildArticlesHtml(articles: Article[]): string {
   </table>`;
 }
 
+/** Envoyer un email via Brevo. Retourne true si envoyé, false sinon. */
+async function sendBrevoEmail(
+  brevoApiKey: string,
+  senderEmail: string,
+  to: string,
+  toName: string,
+  subject: string,
+  htmlContent: string
+): Promise<boolean> {
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": brevoApiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "KÒKPIT", email: senderEmail },
+        to: [{ email: to, name: toName }],
+        subject,
+        htmlContent,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`[EMAIL] Brevo ERREUR ${response.status}: ${errorBody}`);
+      return false;
+    }
+    const result = await response.json();
+    console.log(`[EMAIL] Brevo OK → ${to} — messageId: ${result.messageId || "?"}`);
+    return true;
+  } catch (err) {
+    console.error("[EMAIL] Brevo fetch error:", err);
+    return false;
+  }
+}
+
+/** Envoyer la notification de nouvelle demande au commercial. Retourne true si OK. */
 async function sendEmailNotification(
   to: string, toName: string,
   nom: string, prenom: string, meuble: string,
   telephone: string | null, email: string, showroom: string | null,
   budget: string | null, articles: Article[] | null, message: string | null,
   sourceDetail: string | null = null
-) {
+): Promise<boolean> {
   const brevoApiKey = process.env.BREVO_API_KEY;
   if (!brevoApiKey) {
     console.error("[EMAIL] BREVO_API_KEY manquante — email NON envoyé à", to);
-    return;
+    return false;
   }
 
   const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@dimexoi.fr";
@@ -174,34 +214,62 @@ async function sendEmailNotification(
 </body>
 </html>`.trim();
 
-  try {
-    console.log(`[EMAIL] Envoi notification demande → ${to} (${toName}) — ${meuble}`);
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "api-key": brevoApiKey,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        sender: { name: "KÒKPIT", email: senderEmail },
-        to: [{ email: to, name: toName }],
-        subject: `🛋️ Nouvelle demande site web : ${meuble}${nbArticles > 1 ? ` (${nbArticles} articles)` : ""}`,
-        htmlContent,
-      }),
-    });
+  console.log(`[EMAIL] Envoi notification demande → ${to} (${toName}) — ${meuble}`);
+  return sendBrevoEmail(brevoApiKey, senderEmail, to, toName,
+    `🛋️ Nouvelle demande site web : ${meuble}${nbArticles > 1 ? ` (${nbArticles} articles)` : ""}`,
+    htmlContent
+  );
+}
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error(`[EMAIL] Brevo ERREUR ${response.status}: ${errorBody}`);
-      console.error(`[EMAIL] Sender: ${senderEmail}, To: ${to}`);
-    } else {
-      const result = await response.json();
-      console.log(`[EMAIL] Brevo OK — messageId: ${result.messageId || "?"}`);
-    }
-  } catch (err) {
-    console.error("[EMAIL] Brevo fetch error:", err);
-  }
+/** Envoyer une alerte à Laurence si l'email au commercial a échoué */
+async function sendFailureAlert(
+  commercialEmail: string,
+  nom: string, prenom: string, meuble: string,
+  telephone: string | null, email: string, showroom: string | null,
+  erreurDetail: string
+) {
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  if (!brevoApiKey) return;
+
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@dimexoi.fr";
+  const nomComplet = `${prenom} ${nom}`.trim();
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;">
+<div style="max-width:600px;margin:0 auto;padding:20px;border:1px solid #e0e0e0;border-radius:8px;">
+  <h2 style="color:#dc2626;">🚨 Échec envoi email commercial</h2>
+  <p>Bonjour Laurence,</p>
+  <p>Une demande a été reçue mais <strong>l'email de notification au commercial a échoué</strong>.</p>
+  <div style="background:#fef2f2;padding:15px;border-left:4px solid #dc2626;margin:20px 0;">
+    <p><strong>Destinataire prévu :</strong> ${commercialEmail}</p>
+    <p><strong>Erreur :</strong> ${erreurDetail}</p>
+  </div>
+  <div style="background:#f9fafb;padding:15px;border-left:4px solid #f59e0b;margin:20px 0;">
+    <p><strong>Contact :</strong> ${nomComplet}</p>
+    <p><strong>Téléphone :</strong> ${telephone || "Non fourni"}</p>
+    <p><strong>Email :</strong> ${email}</p>
+    <p><strong>Produit :</strong> ${meuble}</p>
+    ${showroom ? `<p><strong>Showroom :</strong> ${showroom}</p>` : ""}
+  </div>
+  <p style="margin-top:20px;">
+    <a href="https://kokpit-kappa.vercel.app/leads" style="background:#dc2626;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">
+      Voir dans KÒKPIT
+    </a>
+  </p>
+  <hr style="border:none;border-top:1px solid #e0e0e0;margin:30px 0;">
+  <p style="font-size:12px;color:#666;">Alerte automatique KÒKPIT — action requise</p>
+</div>
+</body>
+</html>`.trim();
+
+  await sendBrevoEmail(brevoApiKey, senderEmail,
+    "laurence.payet@dimexoi.fr", "Laurence",
+    `🚨 Échec notification demande : ${nomComplet} — ${meuble}`,
+    htmlContent
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -385,14 +453,28 @@ export async function POST(request: NextRequest) {
     const notifEmail = commercial?.email || "commercial@dimexoi.fr";
     const notifName = commercial?.nom || "Commercial";
 
+    let emailSent = false;
     try {
-      await sendEmailNotification(
+      emailSent = await sendEmailNotification(
         notifEmail, notifName,
         nom, prenom, meuble, telephone, email, showroom,
         budget, articles, message, sourceDetail
       );
     } catch (err) {
       console.error("[WEBHOOK] Email notification error:", err);
+    }
+
+    // Si l'email au commercial a échoué → alerter Laurence
+    if (!emailSent) {
+      console.error(`[WEBHOOK] Email NON envoyé à ${notifEmail} — envoi alerte à Laurence`);
+      try {
+        await sendFailureAlert(
+          notifEmail, nom, prenom, meuble, telephone, email, showroom,
+          "L'email de notification n'a pas pu être transmis au commercial"
+        );
+      } catch (alertErr) {
+        console.error("[WEBHOOK] Alerte Laurence aussi échouée:", alertErr);
+      }
     }
 
     // Estimation automatique — AWAIT pour garantir l'exécution sur serverless
