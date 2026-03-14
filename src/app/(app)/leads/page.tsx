@@ -47,6 +47,10 @@ interface Demande {
   commercialId?: string | null;
   notes?: string | null;
   slaDeadline?: string | null;
+  devisRef?: string | null;
+  devisId?: string | null;
+  devisCount?: number;
+  devisMontant?: number | null;
   dateCreation: string;
   dateDemande?: string | null;
 }
@@ -397,7 +401,21 @@ export default function LeadsPage() {
       </div>
 
       {/* Demandes list */}
-      <div className="space-y-3">
+      <div className="space-y-2">
+        {/* En-tête colonnes — visible lg+ */}
+        {!loading && filteredDemandes.length > 0 && (
+          <div className="hidden lg:grid grid-cols-[20px_1fr_120px_100px_120px_130px_90px_80px_80px] items-center gap-2 px-3 sm:px-4 py-1.5 text-[10px] font-semibold text-cockpit-secondary uppercase tracking-wider">
+            <span />
+            <span>Contact</span>
+            <span className="hidden sm:block">Showroom</span>
+            <span>Budget</span>
+            <span>Assigné</span>
+            <span>N° Devis / BDC</span>
+            <span className="text-center">Statut</span>
+            <span className="text-right">Date</span>
+            <span className="text-right">Montant</span>
+          </div>
+        )}
         {loading ? (
           <div className="bg-cockpit-card rounded-card border border-cockpit p-12 text-center">
             <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
@@ -425,24 +443,24 @@ export default function LeadsPage() {
                   isExpanded ? "border-[#C2185B]/50 shadow-cockpit-lg" : "border-cockpit hover:border-[#C2185B]/30"
                 }`}
               >
-                {/* Row principal — cliquable */}
+                {/* Row principal — cliquable — grille fixe pour alignement */}
                 <div
-                  className="flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer"
+                  className="grid grid-cols-[20px_1fr_90px_80px_80px] sm:grid-cols-[20px_1fr_110px_90px_80px_80px] lg:grid-cols-[20px_1fr_120px_100px_120px_130px_90px_80px_80px] items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer"
                   onClick={() => toggleExpand(demande.id, demande.contactId)}
                 >
-                  {/* Icône expand */}
-                  <div className="flex-shrink-0 text-cockpit-secondary">
+                  {/* 1. Icône expand */}
+                  <div className="text-cockpit-secondary">
                     {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </div>
 
-                  {/* Contact */}
-                  <div className="flex-1 min-w-0">
+                  {/* 2. Contact — flexible */}
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-cockpit-primary text-sm truncate">
                         {nomComplet(demande)}
                       </span>
                       {slaExpired && !isTraite && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded font-semibold">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded font-semibold flex-shrink-0">
                           SLA
                         </span>
                       )}
@@ -452,84 +470,109 @@ export default function LeadsPage() {
                     </p>
                   </div>
 
-                  {/* Showroom */}
-                  <div className="hidden md:block text-xs text-cockpit-secondary min-w-[100px]">
+                  {/* 3. Showroom — sm+ */}
+                  <div className="hidden sm:block text-xs text-cockpit-secondary truncate">
                     {demande.showroom || "—"}
                   </div>
 
-                  {/* Budget */}
-                  <div className="hidden lg:block text-xs text-cockpit-secondary min-w-[100px]">
+                  {/* 4. Budget — lg+ */}
+                  <div className="hidden lg:block text-xs text-cockpit-secondary truncate">
                     {demande.budget || "—"}
                   </div>
 
-                  {/* Assigné */}
-                  <div className="hidden xl:flex items-center gap-1.5 text-xs text-cockpit-secondary min-w-[120px]">
-                    <User className="w-3 h-3" />
+                  {/* 5. Assigné — lg+ */}
+                  <div className="hidden lg:flex items-center gap-1 text-xs text-cockpit-secondary truncate">
+                    <User className="w-3 h-3 flex-shrink-0" />
                     <span className="truncate">{demande.assigneA || "Non assigné"}</span>
                   </div>
 
-                  {/* Indicateurs Sellsy docs */}
-                  {(() => {
-                    const docs = sellsyDocs[demande.contactId];
-                    if (!docs || !docs.linked) return null;
-                    return (
-                      <div className="hidden lg:flex items-center gap-1.5 flex-shrink-0">
-                        {docs.estimates.length > 0 && (
+                  {/* 6. N° Devis / BDC — lg+ (colonne fixe) */}
+                  <div className="hidden lg:flex items-center gap-1.5">
+                    {(() => {
+                      const docs = sellsyDocs[demande.contactId];
+                      // Priorité 1 : données Sellsy en live (via sellsyDocs)
+                      if (docs?.linked && (docs.estimates.length > 0 || docs.orders.length > 0)) {
+                        return (
+                          <>
+                            {docs.estimates.length > 0 && (
+                              <a
+                                href={getSellsyUrl('estimate', docs.estimates[0].id)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-0.5 text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded hover:bg-[#03C3EC]/20 transition-colors"
+                                title={docs.estimates[0].number || 'Devis Sellsy'}
+                              >
+                                <FileText className="w-2.5 h-2.5" />
+                                <span className="truncate max-w-[80px]">{docs.estimates[0].number || `D-${docs.estimates.length}`}</span>
+                                <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
+                              </a>
+                            )}
+                            {docs.orders.length > 0 && (
+                              <a
+                                href={getSellsyUrl('order', docs.orders[0].id)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-0.5 text-[10px] font-semibold text-[#71DD37] bg-[#71DD37]/10 px-1.5 py-0.5 rounded hover:bg-[#71DD37]/20 transition-colors"
+                                title={docs.orders[0].number || 'BDC Sellsy'}
+                              >
+                                <ShoppingCart className="w-2.5 h-2.5" />
+                                <span className="truncate max-w-[80px]">{docs.orders[0].number || `B-${docs.orders.length}`}</span>
+                                <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
+                              </a>
+                            )}
+                          </>
+                        );
+                      }
+                      // Priorité 2 : données en base (devisRef stocké via sync)
+                      if (demande.devisRef) {
+                        return demande.devisId ? (
                           <a
-                            href={getSellsyUrl('estimate', docs.estimates[0].id)}
+                            href={getSellsyUrl('estimate', demande.devisId)}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-0.5 text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded hover:bg-[#03C3EC]/20 transition-colors"
-                            title={docs.estimates[0].number || 'Devis Sellsy'}
+                            title={demande.devisRef}
                           >
                             <FileText className="w-2.5 h-2.5" />
-                            {docs.estimates[0].number || docs.estimates.length}
-                            {docs.estimates.length > 1 && <span className="opacity-60 ml-0.5">+{docs.estimates.length - 1}</span>}
-                            <ExternalLink className="w-2 h-2 opacity-50" />
+                            <span className="truncate max-w-[80px]">{demande.devisRef}</span>
+                            <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
                           </a>
-                        )}
-                        {docs.orders.length > 0 && (
-                          <a
-                            href={getSellsyUrl('order', docs.orders[0].id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-0.5 text-[10px] font-semibold text-[#71DD37] bg-[#71DD37]/10 px-1.5 py-0.5 rounded hover:bg-[#71DD37]/20 transition-colors"
-                            title={docs.orders[0].number || 'BDC Sellsy'}
-                          >
-                            <ShoppingCart className="w-2.5 h-2.5" />
-                            {docs.orders[0].number || docs.orders.length}
-                            {docs.orders.length > 1 && <span className="opacity-60 ml-0.5">+{docs.orders.length - 1}</span>}
-                            <ExternalLink className="w-2 h-2 opacity-50" />
-                          </a>
-                        )}
-                      </div>
-                    );
-                  })()}
+                        ) : (
+                          <span className="text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded">
+                            <FileText className="w-2.5 h-2.5 inline mr-0.5" />
+                            {demande.devisRef}
+                          </span>
+                        );
+                      }
+                      return <span className="text-[10px] text-cockpit-secondary">—</span>;
+                    })()}
+                  </div>
 
-                  {/* Statut */}
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${statusColor.bg} ${statusColor.text}`}>
+                  {/* 7. Statut */}
+                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold text-center ${statusColor.bg} ${statusColor.text}`}>
                     {demande.statut === "EN_COURS" ? "En cours" : demande.statut.charAt(0) + demande.statut.slice(1).toLowerCase()}
                   </span>
 
-                  {/* Date */}
-                  <span className="text-xs text-cockpit-secondary flex-shrink-0 hidden sm:block min-w-[80px] text-right">
+                  {/* 8. Date */}
+                  <span className="text-xs text-cockpit-secondary text-right">
                     {formatDate(demande.dateCreation)}
                   </span>
 
-                  {/* Montant Sellsy (devis ou BDC) */}
+                  {/* 9. Montant Sellsy */}
                   {(() => {
                     const docs = sellsyDocs[demande.contactId];
                     const sellsyAmt = docs?.orders?.[0]?.amounts?.total_incl_tax || docs?.estimates?.[0]?.amounts?.total_incl_tax;
-                    return sellsyAmt ? (
-                      <span className="text-xs font-bold text-[#C2185B] flex-shrink-0 min-w-[80px] text-right" title="Montant Sellsy TTC">
-                        {Number(sellsyAmt).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
+                    const dbAmt = demande.devisMontant;
+                    const amount = sellsyAmt || dbAmt;
+                    return amount ? (
+                      <span className="text-xs font-bold text-[#C2185B] text-right" title="Montant TTC">
+                        {Number(amount).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
                       </span>
                     ) : (
-                      <span className="text-[10px] text-cockpit-secondary flex-shrink-0 min-w-[80px] text-right hidden lg:block">
-                        —
-                      </span>
+                      <span className="text-[10px] text-cockpit-secondary text-right">—</span>
                     );
                   })()}
                 </div>

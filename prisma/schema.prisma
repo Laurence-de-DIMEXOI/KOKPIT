@@ -294,6 +294,7 @@ model Devis {
   leadId              String?
   contactId           String
   sellsyQuoteId       String?   @unique
+  numero              String?   // Ex: "DEPI-08028" — numéro lisible Sellsy
   montant             Float
   statut              DevisStatut @default(EN_ATTENTE)
   dateEnvoi           DateTime?

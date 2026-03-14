@@ -39,6 +39,11 @@ export async function GET(request: NextRequest) {
                 take: 1,
                 include: {
                   commercial: { select: { id: true, nom: true, email: true } },
+                  devis: {
+                    orderBy: { createdAt: "desc" },
+                    take: 3,
+                    select: { id: true, sellsyQuoteId: true, numero: true, montant: true, statut: true },
+                  },
                 },
               },
             },
@@ -84,6 +89,11 @@ export async function GET(request: NextRequest) {
         assigneA: lead?.commercial?.nom || "Non assigné",
         assigneEmail: lead?.commercial?.email || null,
         commercialId: lead?.commercialId || null,
+        // Devis liés au lead
+        devisRef: lead?.devis?.[0]?.numero || lead?.devis?.[0]?.sellsyQuoteId || null,
+        devisId: lead?.devis?.[0]?.sellsyQuoteId || null,
+        devisCount: lead?.devis?.length || 0,
+        devisMontant: lead?.devis?.[0]?.montant || null,
         // Dates
         dateCreation: demande.createdAt.toISOString(),
         dateDemande: demande.dateDemande?.toISOString() || null,

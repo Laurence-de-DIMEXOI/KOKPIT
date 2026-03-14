@@ -135,12 +135,14 @@ export async function POST() {
             update: {
               statut: mapEstimateStatus(est.status),
               montant: Number(est.amounts?.total_excl_tax) || 0,
+              numero: est.number || undefined,
               dateEnvoi:
                 est.status === "sent" ? new Date(est.date) : undefined,
             },
             create: {
               contactId: kokpitContactId,
               sellsyQuoteId: String(est.id),
+              numero: est.number || null,
               montant: Number(est.amounts?.total_excl_tax) || 0,
               statut: mapEstimateStatus(est.status),
               dateEnvoi:
