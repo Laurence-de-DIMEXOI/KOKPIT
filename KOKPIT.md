@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 14 mars 2026 (v9 — AUD12 — perf sync Prisma + relance commercial + SLA intelligent)
-**Mis à jour par** : Session Claude Code (AUD12)
+**Dernière mise à jour** : 14 mars 2026 (v10 — bilan audit complet + micro-refresh fix + sprint 14 mars)
+**Mis à jour par** : Session Claude Code (Sprint 14 mars)
 
 ---
 
@@ -57,7 +57,7 @@
 - `src/lib/sellsy-sync/route.ts` — sync complète réécrite : individuals + companies + multi-ID par email + retry 429 backoff
 - `src/lib/sellsy-statuts.ts` — `traduireStatut(status)` — 30+ statuts traduits en français
 - `src/lib/contact-priority.ts` — scoring 4 niveaux (Intention + Historique + Fraîcheur) calculé à la volée
-- `src/app/api/demandes/sync-sellsy/route.ts` — sync statuts leads 100% Prisma (0 appel API Sellsy) ✅ réécrit f5911fc
+- `src/app/api/demandes/sync-sellsy/route.ts` — pré-lier contacts + micro-refresh devis/BDC 14j + check statuts Prisma ✅ réécrit 5d0727e
 - `src/app/api/demandes/relance/route.ts` — envoi email relance commercial via Brevo (fallback Resend) ✅ f5911fc
 
 **⚠️ Règle critique API Sellsy V2** : Les filtres `third_ids`, `contact_id`, `individual_ids` sont cassés — ils retournent TOUS les documents au lieu de filtrer. Solution : utiliser `findDocumentsByRelated()` — récupérer les N derniers documents et filtrer côté serveur par `related[].id`. Ne jamais utiliser ces filtres V2 directement.
@@ -235,6 +235,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | AUD12 | Sync leads 100% Prisma — 0 appel API Sellsy (3min → <1s) | `f5911fc` |
 | AUD12 | Bouton relance commercial — email urgent Brevo au commercial assigné | `f5911fc` |
 | AUD12 | SLA masqué quand statut DEVIS ou VENTE (demande traitée) | `2dc583d` |
+| AUD12 | Micro-refresh Sellsy 14j + pré-lier contacts sans sellsyContactId | `be9c999`→`5d0727e` |
 | AUD8 | Historique Sellsy par email — fallback + auto-save sellsyContactId | `f64344c` |
 | AUD10 | Skeletons cockpit (catalogue + emailing) — classes cockpit-* | `f64344c` |
 | C1 | Tri + filtre Pipeline devis | ✅ |
@@ -269,8 +270,8 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | ~~AUD12~~ | ~~Relance commercial par email~~ | ✅ | f5911fc |
 | ~~AUD12~~ | ~~SLA intelligent (masqué si traité)~~ | ✅ | 2dc583d |
 | AUD10-CB | Code-barres + impression étiquettes catalogue | 🟡 | Modèle ProduitBarcode, JsBarcode, CSS print — pas encore fait |
-| AUD-META | Debug Meta Ads — tout à zéro | 🔴 | Tester `/api/meta/campaigns?debug=1` — token possiblement expiré (config, pas code) |
-| AUD-BREVO | Debug campagne Brevo "Semaines Privilege" à zéro | 🔴 | Tester `/api/marketing/brevo/stats?debug=1&fresh=true` (config, pas code) |
+| ~~AUD-META~~ | ~~Debug Meta Ads~~ | ✅ | Token ok — ajouter filtre "mois en cours" par défaut |
+| AUD-BREVO | Debug campagne Brevo "Semaines Privilege" à zéro | 🟡 | À régler prochainement |
 
 ---
 
@@ -298,7 +299,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Sync contacts auto | Cache localStorage 1x/heure max | Évite sync 6min à chaque visite |
 | Sellsy V2 filtres | CASSÉS — utiliser `findDocumentsByRelated()` uniquement | Confirmé AUD10 |
 | Montants Sellsy | Toujours `Number()` — champ `total_incl_tax` | String→Float, bon nom champ |
-| Sync statuts leads | 100% Prisma local — 0 appel API Sellsy | 3min → <1s — f5911fc |
+| Sync statuts leads | Pré-lier + micro-refresh 14j (2-5 appels API) + check Prisma | 3min → ~3s — 5d0727e |
 | Relance commercial | Email Brevo transactional (fallback Resend) + log Evenement RELANCE | f5911fc |
 | SLA leads | Masqué si statut DEVIS ou VENTE — la demande est traitée | 2dc583d |
 
@@ -585,7 +586,9 @@ model ConfigABC {
 | X11 | Responsive mobile | Pages clés sur téléphone | 1j |
 | F1 | Création devis KOKPIT → Sellsy | KOKPIT écrit dans Sellsy via API | ? |
 | E1 | Espace client externe | Site séparé connecté à KOKPIT — suivi de commande | ? |
+| **ADM1** | **Espace Administration** | Collaborateurs, congés, paramètres — à spécifier avec l'équipe | ? |
+| **ACH1** | **Espace Achat complet** | Classification ABC (specs section 17) + commandes fournisseurs + réassort | 2j+ |
 
 ---
 
-*KOKPIT.md — feuille de route DIMEXOI — v9 — 14 mars 2026*
+*KOKPIT.md — feuille de route DIMEXOI — v10 — 14 mars 2026*
