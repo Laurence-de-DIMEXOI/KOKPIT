@@ -380,8 +380,13 @@ export default function ContactsPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-cockpit-secondary">
-                    {totalContacts === 0 ? "Aucun contact en base" : "Aucun contact trouvé avec ces filtres"}
+                  <td colSpan={9} className="px-4 py-12 text-center">
+                    <p className="text-cockpit-heading font-semibold mb-1">
+                      {totalContacts === 0 ? "Aucun contact trouvé" : "Aucun contact trouvé"}
+                    </p>
+                    <p className="text-cockpit-secondary text-sm">
+                      {totalContacts === 0 ? "Les données apparaîtront dès qu'il y en aura." : "Essaie avec moins de filtres."}
+                    </p>
                   </td>
                 </tr>
               )}

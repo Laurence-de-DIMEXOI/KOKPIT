@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import clsx from "clsx";
+import { getMeteoReunion, meteoStyles, type ConditionMeteo } from "@/lib/meteo";
 
 // Lazy load chatbot — pas besoin au premier render
 const ChatbotWidget = dynamic(
@@ -24,6 +25,7 @@ export default function AppLayout({
   const { data: session, status } = useSession();
   const [isClient, setIsClient] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [meteo, setMeteo] = useState<ConditionMeteo>("soleil");
 
   const {
     activeSpaceId,
@@ -37,6 +39,7 @@ export default function AppLayout({
 
   useEffect(() => {
     setIsClient(true);
+    getMeteoReunion().then(setMeteo).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -79,7 +82,7 @@ export default function AppLayout({
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-cockpit" data-espace={activeSpaceId}>
+      <div className="min-h-screen bg-cockpit" data-espace={activeSpaceId} style={meteoStyles[meteo]}>
         {/* Topbar fixe — 48px */}
         <Topbar
           activeSpaceId={activeSpaceId}

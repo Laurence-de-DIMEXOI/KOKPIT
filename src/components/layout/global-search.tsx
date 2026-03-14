@@ -238,8 +238,9 @@ export function GlobalSearch() {
                 Tapez au moins 2 caractères
               </div>
             ) : results && totalResults === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-cockpit-secondary">
-                Aucun résultat pour &quot;{query}&quot;
+              <div className="px-4 py-6 text-center">
+                <p className="text-sm text-cockpit-heading font-semibold mb-1">Aucun résultat</p>
+                <p className="text-xs text-cockpit-secondary">Vérifie l&apos;orthographe ou essaie un autre terme.</p>
               </div>
             ) : results ? (
               <>

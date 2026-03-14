@@ -484,8 +484,9 @@ export default function TracabilitePage() {
               <tbody className="divide-y divide-cockpit">
                 {filteredConvertis.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
-                      Aucune liaison devis → commande trouvée.
+                    <td colSpan={7} className="px-4 py-8 text-center">
+                      <p className="text-cockpit-heading font-semibold mb-1">Aucune liaison trouvée</p>
+                      <p className="text-cockpit-secondary text-sm">Sellsy n&apos;a pas remonté de lien pour ce document.</p>
                     </td>
                   </tr>
                 ) : (

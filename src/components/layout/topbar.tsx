@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Menu, LogOut, User, ChevronDown, Lock } from "lucide-react";
 import clsx from "clsx";
@@ -8,6 +8,14 @@ import Link from "next/link";
 import { NotificationBell } from "./notification-bell";
 import { GlobalSearch } from "./global-search";
 import type { Espace } from "@/lib/nav-config";
+
+function getSalutation(prenom: string): string {
+  const heure = new Date().getHours();
+  if (heure >= 5 && heure < 13) return `Bonjour ${prenom} ☀️`;
+  if (heure >= 13 && heure < 18) return `Bonne après-midi ${prenom}`;
+  if (heure >= 18 && heure < 22) return `Bonne soirée ${prenom} 🌙`;
+  return `Bonsoir ${prenom}`;
+}
 
 interface TopbarProps {
   activeSpaceId: string;
@@ -27,6 +35,10 @@ export function Topbar({
   const { data: session } = useSession();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
+  const salutation = useMemo(
+    () => getSalutation(session?.user?.prenom || ""),
+    [session?.user?.prenom]
+  );
 
   // Fermer le dropdown avatar au clic extérieur
   useEffect(() => {
@@ -110,6 +122,11 @@ export function Topbar({
 
       {/* Right: Search + Notifications + Avatar */}
       <div className="flex items-center gap-2">
+        {session?.user?.prenom && (
+          <span className="hidden lg:inline text-sm text-gray-500">
+            {salutation}
+          </span>
+        )}
         <div className="hidden md:block">
           <GlobalSearch />
         </div>

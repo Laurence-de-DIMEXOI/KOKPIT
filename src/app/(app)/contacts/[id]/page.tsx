@@ -618,8 +618,8 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
         ) : evenements.length === 0 ? (
           <div className="text-center py-8">
             <Clock className="w-8 h-8 mx-auto mb-2 text-[#E8EAED]" />
-            <p className="text-sm text-[#8592A3]">Aucune activité enregistrée</p>
-            <p className="text-xs text-[#8592A3] mt-1">Ajoutez des notes, appels ou relances</p>
+            <p className="text-sm font-semibold text-cockpit-heading">Aucune activité enregistrée</p>
+            <p className="text-xs text-[#8592A3] mt-1">Les actions sur ce contact apparaîtront ici.</p>
           </div>
         ) : (
           <div className="relative">

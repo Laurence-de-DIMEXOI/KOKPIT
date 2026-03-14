@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 import { traduireStatut } from "@/lib/sellsy-statuts";
+import { celebrerVente } from "@/lib/confetti";
 import {
   Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2,
   ChevronDown, ChevronUp, Package, Phone, Mail, MapPin,
@@ -186,6 +187,7 @@ export default function LeadsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leadId, statut: newStatut }),
       });
+      if (newStatut === "VENTE") celebrerVente();
       fetchDemandes(false);
     } catch (err) {
       console.error("Erreur update statut:", err);
@@ -401,8 +403,9 @@ export default function LeadsPage() {
           </div>
         ) : filteredDemandes.length === 0 ? (
           <div className="bg-cockpit-card rounded-card border border-cockpit p-12 text-center">
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-cockpit-secondary" />
-            <p className="text-cockpit-secondary">Aucune demande</p>
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-cockpit-secondary opacity-40" />
+            <p className="text-cockpit-heading font-semibold mb-1">Aucune demande en attente</p>
+            <p className="text-cockpit-secondary text-sm">L&apos;équipe peut souffler.</p>
           </div>
         ) : (
           filteredDemandes.map((demande) => {

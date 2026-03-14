@@ -255,8 +255,11 @@ export default function TachesPage() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-[#E8EAED]">
           <ClipboardList className="w-12 h-12 text-[#E8EAED] mx-auto mb-3" />
+          <p className="text-cockpit-heading font-semibold mb-1">
+            {filter === "ALL" ? "Tout est fait ✅" : "Aucune tâche avec ce statut"}
+          </p>
           <p className="text-[#8592A3] text-sm">
-            {filter === "ALL" ? "Aucune tâche pour le moment" : "Aucune tâche avec ce statut"}
+            {filter === "ALL" ? "Rare, mais ça arrive." : "Essaie un autre filtre."}
           </p>
         </div>
       ) : (

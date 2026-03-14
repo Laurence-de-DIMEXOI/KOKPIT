@@ -370,9 +370,10 @@ export default function PipelinePage() {
                     </div>
                   ))}
                   {colEstimates.length === 0 && (
-                    <p className="text-xs text-cockpit-secondary text-center py-4">
-                      Aucun devis
-                    </p>
+                    <div className="text-center py-4">
+                      <p className="text-xs text-cockpit-secondary">Pas de devis en cours</p>
+                      <p className="text-[10px] text-cockpit-secondary/60 mt-0.5">Le calme avant la tempête 🌴</p>
+                    </div>
                   )}
                 </div>
               </div>
