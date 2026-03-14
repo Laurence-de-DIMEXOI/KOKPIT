@@ -221,9 +221,9 @@ function VariationBadge({
     <span
       className={clsx(
         "inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-        isNeutral && "bg-white/15 text-white/70",
-        isUp && "bg-white/25 text-white",
-        !isUp && !isNeutral && "bg-black/15 text-white/90"
+        isNeutral && "bg-black/20 text-white/80",
+        isUp && "bg-black/20 text-white",
+        !isUp && !isNeutral && "bg-black/20 text-white/90"
       )}
     >
       {isNeutral ? (
