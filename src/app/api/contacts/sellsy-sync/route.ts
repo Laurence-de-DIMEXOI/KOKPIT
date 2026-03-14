@@ -287,6 +287,7 @@ export async function POST() {
         await prisma.devis.upsert({
           where: { sellsyQuoteId: String(estimate.id) },
           update: {
+            numero: estimate.number || null,
             statut: mapEstimateStatus(estimate.status),
             montant: Number(estimate.amounts?.total_excl_tax) || 0,
             dateEnvoi: estimate.status === "sent" ? new Date(estimate.date) : null,
@@ -294,6 +295,7 @@ export async function POST() {
           create: {
             contactId: kokpitContact.id,
             sellsyQuoteId: String(estimate.id),
+            numero: estimate.number || null,
             montant: Number(estimate.amounts?.total_excl_tax) || 0,
             statut: mapEstimateStatus(estimate.status),
             dateEnvoi: estimate.status === "sent" ? new Date(estimate.date) : null,

@@ -211,7 +211,7 @@ export function GlobalSearch() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-[32rem] bg-cockpit-card rounded-xl shadow-cockpit-lg border border-cockpit z-50 overflow-hidden">
+        <div className="absolute top-full right-0 mt-1 w-[32rem] bg-cockpit-card rounded-xl shadow-cockpit-lg border border-cockpit z-50 overflow-hidden">
           {/* Search input */}
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-cockpit">
             <Search className="w-4 h-4 text-cockpit-secondary flex-shrink-0" />

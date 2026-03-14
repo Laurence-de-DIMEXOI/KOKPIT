@@ -169,7 +169,6 @@ export async function GET(request: NextRequest) {
             { contact: { prenom: { contains: q, mode: "insensitive" } } },
             { contact: { email: { contains: q, mode: "insensitive" } } },
             { notes: { contains: q, mode: "insensitive" } },
-            { source: { equals: q.toUpperCase() as any } },
           ],
         },
         select: {

@@ -121,10 +121,18 @@ export default function LeadsPage() {
   const [relanceLoading, setRelanceLoading] = useState<Record<string, boolean>>({});
   const [relanceResult, setRelanceResult] = useState<Record<string, { success: boolean; message: string }>>({});
 
-  const fetchDemandes = useCallback(async (showLoader = true) => {
+  const fetchDemandes = useCallback(async (showLoader = true, syncSellsy = false) => {
     if (showLoader) setRefreshing(true);
     try {
-      // Lecture directe depuis la base — instantané (le sync tourne en background via cron)
+      // Si sync Sellsy demandé, lancer en premier (met à jour devis/BDC en base)
+      if (syncSellsy) {
+        try {
+          await fetch("/api/contacts/sellsy-sync", { method: "POST" });
+        } catch (err) {
+          console.error("Sync Sellsy error:", err);
+        }
+      }
+      // Lecture directe depuis la base
       const listRes = await fetch("/api/demandes");
       const result = await listRes.json();
       const demandesArray = result.data || [];
@@ -308,7 +316,7 @@ export default function LeadsPage() {
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
           <button
-            onClick={() => fetchDemandes(true)}
+            onClick={() => fetchDemandes(true, true)}
             disabled={refreshing}
             className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
           >

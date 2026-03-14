@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
         assigneEmail: lead?.commercial?.email || null,
         commercialId: lead?.commercialId || null,
         // Devis liés au contact (stockés en base via sync-sellsy)
-        devisRef: demande.contact.devis?.[0]?.numero || demande.contact.devis?.[0]?.sellsyQuoteId || null,
+        devisRef: demande.contact.devis?.[0]?.numero || null,
         devisId: demande.contact.devis?.[0]?.sellsyQuoteId || null,
         devisCount: demande.contact.devis?.length || 0,
         devisMontant: demande.contact.devis?.[0]?.montant || null,
