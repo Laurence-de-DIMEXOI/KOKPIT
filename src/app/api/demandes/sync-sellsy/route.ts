@@ -5,18 +5,20 @@ import { prisma } from "@/lib/prisma";
 import {
   searchEstimates,
   listOrders,
+  searchIndividuals,
 } from "@/lib/sellsy";
 
 /**
  * POST /api/demandes/sync-sellsy
  *
- * 1. Micro-refresh : importe les devis/BDC Sellsy des 14 derniers jours (2 appels API max)
- * 2. Vérifie les statuts leads en croisant avec les données locales Prisma
+ * 1. Pré-lier : assigne sellsyContactId aux contacts avec leads actifs mais sans ID Sellsy
+ * 2. Micro-refresh : importe les devis/BDC Sellsy des 14 derniers jours (2 appels API)
+ * 3. Vérifie les statuts leads en croisant avec les données locales Prisma
  *
  * Logique statuts :
  *   - Contact a un BDC (Vente) créé APRÈS la demande → VENTE
  *   - Contact a un Devis créé APRÈS la demande → DEVIS
- *   - Sinon → NOUVEAU (correction des faux positifs)
+ *   - Sinon → reste inchangé (pas de régression)
  *   - Statut PERDU = manuel, jamais touché
  */
 
@@ -41,8 +43,6 @@ function mapEstimateStatus(
   return statusMap[status?.toLowerCase()] || "EN_ATTENTE";
 }
 
-// Pas de mapOrderStatus — le modèle Vente n'a pas de champ statut
-
 export async function POST() {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -50,32 +50,63 @@ export async function POST() {
   }
 
   try {
-    // ── ÉTAPE 0 : Micro-refresh Sellsy (devis + BDC des 14 derniers jours) ──
-    // 2 appels API seulement — pas N×3 comme avant
+    // ── ÉTAPE 0 : Pré-lier les contacts sans sellsyContactId ──
+    // Trouver les contacts avec un lead actif (NOUVEAU/EN_COURS) mais sans ID Sellsy
+    const unlinkeds = await prisma.contact.findMany({
+      where: {
+        sellsyContactId: null,
+        leads: {
+          some: {
+            statut: { in: ["NOUVEAU", "EN_COURS"] },
+          },
+        },
+      },
+      select: { id: true, email: true },
+    });
+
+    let linked = 0;
+    for (const c of unlinkeds) {
+      if (!c.email) continue;
+      try {
+        const res = await searchIndividuals({ email: c.email.toLowerCase().trim() });
+        const match = res.data?.[0];
+        if (match) {
+          await prisma.contact.update({
+            where: { id: c.id },
+            data: { sellsyContactId: String(match.id) },
+          });
+          linked++;
+        }
+      } catch {
+        // Skip — Sellsy rate limit ou erreur réseau
+      }
+    }
+    if (linked > 0) {
+      console.log(`Pre-link: ${linked}/${unlinkeds.length} contacts liés à Sellsy`);
+    }
+
+    // ── ÉTAPE 1 : Micro-refresh Sellsy (devis + BDC des 14 derniers jours) ──
     const since14j = new Date();
     since14j.setDate(since14j.getDate() - 14);
-    const sinceStr = since14j.toISOString().split("T")[0]; // "2026-03-01"
+    const sinceStr = since14j.toISOString().split("T")[0];
 
     let freshDevis = 0;
     let freshVentes = 0;
 
     // Map sellsyContactId → kokpitContactId pour le matching
     const contactsBySellsyId = new Map<string, string>();
-    const contactsByEmail = new Map<string, string>();
     const kokpitContacts = await prisma.contact.findMany({
       select: { id: true, email: true, sellsyContactId: true },
     });
     for (const c of kokpitContacts) {
       if (c.sellsyContactId) {
-        // sellsyContactId peut contenir plusieurs IDs séparés par des virgules
         for (const sid of c.sellsyContactId.split(",")) {
           contactsBySellsyId.set(sid.trim(), c.id);
         }
       }
-      if (c.email) contactsByEmail.set(c.email.toLowerCase().trim(), c.id);
     }
 
-    // Fetch recent estimates (1 appel API)
+    // Fetch recent estimates (1 appel API Sellsy)
     try {
       const estRes = await searchEstimates({
         filters: { date: { start: sinceStr } },
@@ -85,10 +116,12 @@ export async function POST() {
         direction: "desc",
       });
 
+      console.log(`Micro-refresh: ${estRes.data?.length || 0} estimates depuis ${sinceStr}`);
+
       for (const est of estRes.data || []) {
         // Trouver le contact KOKPIT via related[] ou contact_id
         const relatedIds = (est.related || []).map((r) => String(r.id));
-        let kokpitContactId =
+        const kokpitContactId =
           relatedIds.map((rid) => contactsBySellsyId.get(rid)).find(Boolean) ||
           (est.contact_id
             ? contactsBySellsyId.get(String(est.contact_id))
@@ -123,7 +156,7 @@ export async function POST() {
       console.warn("Micro-refresh estimates skipped:", err);
     }
 
-    // Fetch recent orders (1 appel API)
+    // Fetch recent orders (1 appel API Sellsy)
     try {
       const ordRes = await listOrders({
         limit: 100,
@@ -132,14 +165,13 @@ export async function POST() {
         direction: "desc",
       });
 
-      // Filtrer manuellement les orders des 14 derniers jours
       const recentOrders = (ordRes.data || []).filter(
         (o) => new Date(o.created) >= since14j
       );
 
       for (const ord of recentOrders) {
         const relatedIds = (ord.related || []).map((r) => String(r.id));
-        let kokpitContactId =
+        const kokpitContactId =
           relatedIds
             .map((rid) => contactsBySellsyId.get(rid))
             .find(Boolean) ||
@@ -172,10 +204,10 @@ export async function POST() {
     }
 
     console.log(
-      `Micro-refresh: ${freshDevis} devis, ${freshVentes} ventes (since ${sinceStr})`
+      `Micro-refresh: ${freshDevis} devis, ${freshVentes} ventes upserted (since ${sinceStr})`
     );
 
-    // ── ÉTAPE 1 : Récupérer les demandes avec leads ──
+    // ── ÉTAPE 2 : Récupérer les demandes avec leads ──
     const demandes = await prisma.demandePrix.findMany({
       where: {
         contact: {
@@ -221,7 +253,7 @@ export async function POST() {
       newStatut: string;
     }[] = [];
 
-    // ── ÉTAPE 2 : Vérifier les statuts avec les données locales ──
+    // ── ÉTAPE 3 : Vérifier les statuts avec les données locales ──
     for (const demande of demandes) {
       const contact = demande.contact;
       const lead = contact.leads[0];
@@ -240,7 +272,7 @@ export async function POST() {
         ? ("VENTE" as const)
         : recentDevis
           ? ("DEVIS" as const)
-          : ("NOUVEAU" as const);
+          : lead.statut; // Pas de régression — on ne force plus NOUVEAU
 
       if (lead.statut !== correctStatut) {
         await prisma.lead.update({
@@ -256,7 +288,7 @@ export async function POST() {
       }
     }
 
-    // ── ÉTAPE 3 : Recompter les stats ──
+    // ── ÉTAPE 4 : Recompter les stats ──
     const demandesAvecLeads = await prisma.demandePrix.findMany({
       where: {
         contact: {
@@ -301,6 +333,7 @@ export async function POST() {
       success: true,
       updates,
       stats,
+      _preLink: { unlinked: unlinkeds.length, linked },
       _microRefresh: { freshDevis, freshVentes, since: sinceStr },
       _syncedAt: new Date().toISOString(),
     });
