@@ -4,8 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listAllEstimates, listAllOrders, invalidateSellsyCache } from "@/lib/sellsy";
 
-// Cache dédié traçabilité — 5 min
+// Cache dédié traçabilité — 5 min fresh, 1h stale-while-revalidate
 const CACHE_TTL = 5 * 60 * 1000;
+const STALE_TTL = 60 * 60 * 1000; // 1h — retourne stale data plutôt que rien
 let traceCache: { data: unknown; timestamp: number } | null = null;
 
 function getAmountHT(amounts?: Record<string, any>): number {
@@ -60,10 +61,36 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const fresh = searchParams.get("fresh") === "true";
+  const mode = searchParams.get("mode"); // "stats" = retourne seulement stats cachées
 
-  // Return cache if valid
+  // ── Mode stats : retourne instantanément les stats du cache ──
+  if (mode === "stats") {
+    if (traceCache) {
+      const cacheData = traceCache.data as Record<string, unknown>;
+      const stale = Date.now() - traceCache.timestamp >= CACHE_TTL;
+      return NextResponse.json({
+        stats: cacheData.stats,
+        matching: cacheData.matching,
+        _cache: { ...(cacheData._cache as Record<string, unknown>), stale },
+      });
+    }
+    return NextResponse.json({ stats: null, matching: null, _cache: null });
+  }
+
+  // ── Cache frais (< 5min) → retour immédiat ──
   if (!fresh && traceCache && Date.now() - traceCache.timestamp < CACHE_TTL) {
     return NextResponse.json(traceCache.data);
+  }
+
+  // ── SWR : cache périmé (5min–1h) → retour stale + header X-Stale ──
+  if (!fresh && traceCache && Date.now() - traceCache.timestamp < STALE_TTL) {
+    const cacheData = traceCache.data as Record<string, unknown>;
+    const response = NextResponse.json({
+      ...cacheData,
+      _cache: { ...(cacheData._cache as Record<string, unknown>), stale: true },
+    });
+    response.headers.set("X-Stale", "true");
+    return response;
   }
 
   if (fresh) invalidateSellsyCache();

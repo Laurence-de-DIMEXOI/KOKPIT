@@ -125,9 +125,50 @@ function AgeBadge({ jours }: { jours: number }) {
   );
 }
 
+// ── Skeletons indépendants ──
+function KPISkeleton() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="h-24 bg-cockpit-card rounded-xl border border-cockpit animate-pulse p-4">
+          <div className="h-3 w-24 bg-cockpit-dark rounded mb-3" />
+          <div className="h-6 w-16 bg-cockpit-dark rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
+      <div className="flex border-b border-cockpit">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex-1 px-4 py-3">
+            <div className="h-4 w-32 bg-cockpit-dark rounded animate-pulse mx-auto" />
+          </div>
+        ))}
+      </div>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="px-4 py-3 border-b border-cockpit flex gap-4 animate-pulse">
+          <div className="h-4 w-24 bg-cockpit-dark rounded" />
+          <div className="h-4 w-32 bg-cockpit-dark rounded" />
+          <div className="h-4 w-20 bg-cockpit-dark rounded ml-auto" />
+          <div className="h-4 w-24 bg-cockpit-dark rounded" />
+          <div className="h-4 w-20 bg-cockpit-dark rounded" />
+          <div className="h-4 w-12 bg-cockpit-dark rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TracabilitePage() {
-  const [loading, setLoading] = useState(true);
+  // ── Chargement progressif en 2 phases ──
+  const [statsReady, setStatsReady] = useState(false);   // Phase 1 : KPIs
+  const [dataReady, setDataReady] = useState(false);      // Phase 2 : Tables
   const [refreshing, setRefreshing] = useState(false);
+  const [isStale, setIsStale] = useState(false);          // Données périmées en cours de revalidation
   const [activeTab, setActiveTab] = useState<TabKey>("convertis");
   const [period, setPeriod] = useState<Period>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -139,10 +180,28 @@ export default function TracabilitePage() {
   const [matchingInfo, setMatchingInfo] = useState<MatchingInfo | null>(null);
   const [cacheDate, setCacheDate] = useState<string | null>(null);
 
-  const fetchData = useCallback(async (showRefresh = false) => {
-    if (showRefresh) setRefreshing(true);
+  // Phase 1 : charger les stats depuis le cache (instantané)
+  const fetchStats = useCallback(async () => {
     try {
-      const url = showRefresh ? "/api/sellsy/tracabilite?fresh=true" : "/api/sellsy/tracabilite";
+      const res = await fetch("/api/sellsy/tracabilite?mode=stats");
+      const data = await res.json();
+      if (data.stats) {
+        setStats(data.stats);
+        setMatchingInfo(data.matching || null);
+        setCacheDate(data._cache?.generatedAt || null);
+        setStatsReady(true);
+        return data._cache?.stale ?? true; // retourne si les données sont stale
+      }
+      return true; // pas de cache → stale
+    } catch {
+      return true;
+    }
+  }, []);
+
+  // Phase 2 : charger les données complètes (tables + matching)
+  const fetchFullData = useCallback(async (freshForce = false) => {
+    try {
+      const url = freshForce ? "/api/sellsy/tracabilite?fresh=true" : "/api/sellsy/tracabilite";
       const res = await fetch(url);
       const data = await res.json();
       setDevisConvertis(data.devisConvertis || []);
@@ -151,17 +210,49 @@ export default function TracabilitePage() {
       setStats(data.stats || null);
       setMatchingInfo(data.matching || null);
       setCacheDate(data._cache?.generatedAt || null);
+      setStatsReady(true);
+      setDataReady(true);
+      setIsStale(!!data._cache?.stale);
+
+      // Si données stale, relancer en background pour rafraîchir
+      if (data._cache?.stale && !freshForce) {
+        fetch("/api/sellsy/tracabilite?fresh=true")
+          .then((r) => r.json())
+          .then((freshData) => {
+            setDevisConvertis(freshData.devisConvertis || []);
+            setCommandesSansDevis(freshData.commandesSansDevis || []);
+            setDevisNonConvertis(freshData.devisNonConvertis || []);
+            setStats(freshData.stats || null);
+            setMatchingInfo(freshData.matching || null);
+            setCacheDate(freshData._cache?.generatedAt || null);
+            setIsStale(false);
+          })
+          .catch(() => {}); // silencieux
+      }
     } catch (err) {
       console.error("Erreur chargement traçabilité:", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
+  // Rafraîchissement manuel
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchFullData(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchFullData]);
+
+  // ── Chargement initial en 2 phases ──
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    (async () => {
+      // Phase 1 : stats instantanées depuis cache
+      const stale = await fetchStats();
+      // Phase 2 : données complètes (tables)
+      await fetchFullData(false);
+    })();
+  }, [fetchStats, fetchFullData]);
 
   // Period-filtered data
   const sq = searchQuery.toLowerCase();
@@ -226,54 +317,10 @@ export default function TracabilitePage() {
     { key: "non-convertis", label: "Devis non convertis", count: filteredNonConvertis.length },
   ];
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cockpit-dark animate-pulse" />
-            <div>
-              <div className="h-6 w-64 bg-cockpit-dark rounded animate-pulse" />
-              <div className="h-4 w-80 bg-cockpit-dark rounded mt-1 animate-pulse" />
-            </div>
-          </div>
-          <div className="h-10 w-28 bg-cockpit-dark rounded-lg animate-pulse" />
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 bg-cockpit-card rounded-xl border border-cockpit animate-pulse p-4">
-              <div className="h-3 w-24 bg-cockpit-dark rounded mb-3" />
-              <div className="h-6 w-16 bg-cockpit-dark rounded" />
-            </div>
-          ))}
-        </div>
-        <div className="bg-cockpit-card rounded-xl border border-cockpit overflow-hidden">
-          <div className="flex border-b border-cockpit">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex-1 px-4 py-3">
-                <div className="h-4 w-32 bg-cockpit-dark rounded animate-pulse mx-auto" />
-              </div>
-            ))}
-          </div>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="px-4 py-3 border-b border-cockpit flex gap-4 animate-pulse">
-              <div className="h-4 w-24 bg-cockpit-dark rounded" />
-              <div className="h-4 w-32 bg-cockpit-dark rounded" />
-              <div className="h-4 w-20 bg-cockpit-dark rounded ml-auto" />
-              <div className="h-4 w-24 bg-cockpit-dark rounded" />
-              <div className="h-4 w-20 bg-cockpit-dark rounded" />
-              <div className="h-4 w-12 bg-cockpit-dark rounded" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header — toujours visible */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-cockpit-info/15 flex items-center justify-center">
             <GitCompareArrows className="w-5 h-5 text-cockpit-info" />
@@ -284,6 +331,9 @@ export default function TracabilitePage() {
             </h1>
             <p className="text-sm text-cockpit-secondary">
               Liaisons automatiques par correspondance de numéro
+              {isStale && (
+                <span className="ml-2 text-cockpit-warning text-xs">(actualisation en cours…)</span>
+              )}
             </p>
           </div>
         </div>
@@ -307,7 +357,7 @@ export default function TracabilitePage() {
             ))}
           </div>
           <button
-            onClick={() => fetchData(true)}
+            onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-cockpit text-cockpit-primary text-sm font-medium hover:bg-cockpit-dark/80 transition-colors disabled:opacity-50"
           >
@@ -321,7 +371,7 @@ export default function TracabilitePage() {
       <FreshnessIndicator
         label="Données Sellsy"
         cacheDate={cacheDate}
-        onRefresh={() => fetchData(true)}
+        onRefresh={handleRefresh}
         refreshing={refreshing}
       />
 
@@ -347,41 +397,48 @@ export default function TracabilitePage() {
         />
       </div>
 
-      {/* KPIs — recalculées selon la période filtrée */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-        <KPICard
-          title="Taux de conversion"
-          value={`${filteredStats.tauxConversion}%`}
-          icon={<GitCompareArrows className="w-7 h-7" />}
-          bgColor="bg-cockpit-yellow"
-        />
-        <KPICard
-          title="Devis convertis"
-          value={`${filteredStats.devisConvertis} / ${filteredStats.totalDevis}`}
-          icon={<Check className="w-7 h-7" />}
-          bgColor="bg-cockpit-success"
-        />
-        <KPICard
-          title="Temps moyen"
-          value={filteredStats.tempsConversionMoyen !== null ? `${filteredStats.tempsConversionMoyen}j` : "—"}
-          icon={<Clock className="w-7 h-7" />}
-          bgColor="bg-cockpit-info"
-        />
-        <KPICard
-          title="Commandes directes"
-          value={filteredStats.commandesDirectes}
-          icon={<ShoppingCart className="w-7 h-7" />}
-          bgColor="bg-cockpit-warning"
-        />
-        <KPICard
-          title="Devis en attente"
-          value={filteredStats.devisEnAttente}
-          icon={<AlertTriangle className="w-7 h-7" />}
-          bgColor={filteredStats.devisExpires > 0 ? "bg-cockpit-danger" : "bg-cockpit-warning"}
-        />
-      </div>
+      {/* ── KPIs — Phase 1 : s'affichent dès que les stats sont prêtes ── */}
+      {!statsReady ? (
+        <KPISkeleton />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <KPICard
+            title="Taux de conversion"
+            value={`${filteredStats.tauxConversion}%`}
+            icon={<GitCompareArrows className="w-7 h-7" />}
+            bgColor="bg-cockpit-yellow"
+          />
+          <KPICard
+            title="Devis convertis"
+            value={`${filteredStats.devisConvertis} / ${filteredStats.totalDevis}`}
+            icon={<Check className="w-7 h-7" />}
+            bgColor="bg-cockpit-success"
+          />
+          <KPICard
+            title="Temps moyen"
+            value={filteredStats.tempsConversionMoyen !== null ? `${filteredStats.tempsConversionMoyen}j` : "—"}
+            icon={<Clock className="w-7 h-7" />}
+            bgColor="bg-cockpit-info"
+          />
+          <KPICard
+            title="Commandes directes"
+            value={filteredStats.commandesDirectes}
+            icon={<ShoppingCart className="w-7 h-7" />}
+            bgColor="bg-cockpit-warning"
+          />
+          <KPICard
+            title="Devis en attente"
+            value={filteredStats.devisEnAttente}
+            icon={<AlertTriangle className="w-7 h-7" />}
+            bgColor={filteredStats.devisExpires > 0 ? "bg-cockpit-danger" : "bg-cockpit-warning"}
+          />
+        </div>
+      )}
 
-      {/* Tabs */}
+      {/* ── Tables — Phase 2 : s'affichent quand les données complètes arrivent ── */}
+      {!dataReady ? (
+        <TableSkeleton />
+      ) : (
       <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
         <div className="flex border-b border-cockpit">
           {tabs.map((tab) => (
@@ -637,6 +694,7 @@ export default function TracabilitePage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
