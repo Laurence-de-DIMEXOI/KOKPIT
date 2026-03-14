@@ -161,7 +161,7 @@ export default function CampagnesPage() {
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("maximum");
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("this_month");
   const [customSince, setCustomSince] = useState<string>("");
   const [customUntil, setCustomUntil] = useState<string>("");
   const [debugInfo, setDebugInfo] = useState<any>(null);
@@ -173,7 +173,7 @@ export default function CampagnesPage() {
   // Auto-sync au montage : charger le cache DB, puis sync live Meta en arrière-plan
   useEffect(() => {
     loadFromCache().then(() => {
-      handleSync("maximum");
+      handleSync("this_month");
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

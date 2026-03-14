@@ -170,7 +170,7 @@ export default function TracabilitePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [isStale, setIsStale] = useState(false);          // Données périmées en cours de revalidation
   const [activeTab, setActiveTab] = useState<TabKey>("convertis");
-  const [period, setPeriod] = useState<Period>("all");
+  const [period, setPeriod] = useState<Period>("year");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [devisConvertis, setDevisConvertis] = useState<DevisConverti[]>([]);

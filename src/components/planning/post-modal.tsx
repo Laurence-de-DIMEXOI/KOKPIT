@@ -115,14 +115,19 @@ export default function PostModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-start justify-center sm:pt-16 px-0 sm:px-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-5rem)] flex flex-col">
+      {/* Modal — bottom sheet mobile, centered desktop */}
+      <div className="relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full max-w-2xl max-h-[85dvh] sm:max-h-[calc(100vh-5rem)] flex flex-col">
+        {/* Poignée mobile */}
+        <div className="sm:hidden flex justify-center pt-2 pb-0">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+
         {/* Header */}
-        <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-xl shrink-0">
+        <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-xl shrink-0">
           <h2 className="text-lg font-bold text-gray-800">
             {post ? "Modifier le post" : "Nouveau post"}
           </h2>
@@ -146,7 +151,7 @@ export default function PostModal({
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-y-auto flex-1 min-h-0">
           {/* Image de couverture */}
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">
@@ -160,7 +165,7 @@ export default function PostModal({
                 <img
                   src={coverImage}
                   alt="Couverture"
-                  className="w-full h-44 object-cover"
+                  className="w-full h-32 sm:h-44 object-cover"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-3">
                   <button
@@ -230,7 +235,7 @@ export default function PostModal({
           </div>
 
           {/* Colonne (statut) + Date côte à côte */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Colonne</label>
               <select
@@ -288,7 +293,7 @@ export default function PostModal({
         </div>
 
         {/* Footer */}
-        <div className="bg-white border-t border-gray-100 px-6 py-4 flex justify-end gap-3 rounded-b-xl shrink-0">
+        <div className="bg-white border-t border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex justify-end gap-3 rounded-b-xl shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
