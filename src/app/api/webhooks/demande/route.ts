@@ -134,7 +134,10 @@ async function sendEmailNotification(
   sourceDetail: string | null = null
 ) {
   const brevoApiKey = process.env.BREVO_API_KEY;
-  if (!brevoApiKey) return;
+  if (!brevoApiKey) {
+    console.error("[EMAIL] BREVO_API_KEY manquante — email NON envoyé à", to);
+    return;
+  }
 
   const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@dimexoi.fr";
   const nomComplet = `${prenom} ${nom}`.trim();
@@ -172,7 +175,8 @@ async function sendEmailNotification(
 </html>`.trim();
 
   try {
-    await fetch("https://api.brevo.com/v3/smtp/email", {
+    console.log(`[EMAIL] Envoi notification demande → ${to} (${toName}) — ${meuble}`);
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
         accept: "application/json",
@@ -186,8 +190,17 @@ async function sendEmailNotification(
         htmlContent,
       }),
     });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`[EMAIL] Brevo ERREUR ${response.status}: ${errorBody}`);
+      console.error(`[EMAIL] Sender: ${senderEmail}, To: ${to}`);
+    } else {
+      const result = await response.json();
+      console.log(`[EMAIL] Brevo OK — messageId: ${result.messageId || "?"}`);
+    }
   } catch (err) {
-    console.error("Brevo error:", err);
+    console.error("[EMAIL] Brevo fetch error:", err);
   }
 }
 
@@ -368,21 +381,26 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Notification email au commercial — fire-and-forget
-    // Envoi unique à commercial@dimexoi.fr (ou au commercial assigné)
+    // Notification email au commercial — AWAIT obligatoire sur Vercel serverless
     const notifEmail = commercial?.email || "commercial@dimexoi.fr";
     const notifName = commercial?.nom || "Commercial";
 
-    sendEmailNotification(
-      notifEmail, notifName,
-      nom, prenom, meuble, telephone, email, showroom,
-      budget, articles, message, sourceDetail
-    ).catch(err => console.error("Email notification error:", err));
+    try {
+      await sendEmailNotification(
+        notifEmail, notifName,
+        nom, prenom, meuble, telephone, email, showroom,
+        budget, articles, message, sourceDetail
+      );
+    } catch (err) {
+      console.error("[WEBHOOK] Email notification error:", err);
+    }
 
-    // Estimation IA automatique (fire-and-forget, best effort)
-    estimateAndSave(demande.id).catch(err =>
-      console.error("Auto-estimation error:", err)
-    );
+    // Estimation automatique — AWAIT pour garantir l'exécution sur serverless
+    try {
+      await estimateAndSave(demande.id);
+    } catch (err) {
+      console.error("[WEBHOOK] Auto-estimation error:", err);
+    }
 
     return NextResponse.json({
       success: true,
