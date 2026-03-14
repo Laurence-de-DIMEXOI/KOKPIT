@@ -51,6 +51,9 @@ interface Demande {
   devisId?: string | null;
   devisCount?: number;
   devisMontant?: number | null;
+  venteId?: string | null;
+  venteCount?: number;
+  venteMontant?: number | null;
   dateCreation: string;
   dateDemande?: string | null;
 }
@@ -486,11 +489,53 @@ export default function LeadsPage() {
                     <span className="truncate">{demande.assigneA || "Non assigné"}</span>
                   </div>
 
-                  {/* 6. N° Devis / BDC — lg+ (colonne fixe) */}
+                  {/* 6. N° Devis / BDC — lg+ (colonne fixe) — données BASE en priorité */}
                   <div className="hidden lg:flex items-center gap-1.5">
                     {(() => {
+                      // Priorité 1 : données en BASE (instantané, pas d'appel API)
+                      if (demande.devisRef || demande.venteId) {
+                        return (
+                          <>
+                            {demande.devisRef && (
+                              demande.devisId ? (
+                                <a
+                                  href={getSellsyUrl('estimate', demande.devisId)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center gap-0.5 text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded hover:bg-[#03C3EC]/20 transition-colors"
+                                  title={demande.devisRef}
+                                >
+                                  <FileText className="w-2.5 h-2.5" />
+                                  <span className="truncate max-w-[80px]">{demande.devisRef}</span>
+                                  <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
+                                </a>
+                              ) : (
+                                <span className="text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded">
+                                  <FileText className="w-2.5 h-2.5 inline mr-0.5" />
+                                  {demande.devisRef}
+                                </span>
+                              )
+                            )}
+                            {demande.venteId && (
+                              <a
+                                href={getSellsyUrl('order', demande.venteId)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-0.5 text-[10px] font-semibold text-[#71DD37] bg-[#71DD37]/10 px-1.5 py-0.5 rounded hover:bg-[#71DD37]/20 transition-colors"
+                                title="BDC Sellsy"
+                              >
+                                <ShoppingCart className="w-2.5 h-2.5" />
+                                <span className="truncate max-w-[60px]">BDC</span>
+                                <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
+                              </a>
+                            )}
+                          </>
+                        );
+                      }
+                      // Priorité 2 : données Sellsy live (après expand)
                       const docs = sellsyDocs[demande.contactId];
-                      // Priorité 1 : données Sellsy en live (via sellsyDocs)
                       if (docs?.linked && (docs.estimates.length > 0 || docs.orders.length > 0)) {
                         return (
                           <>
@@ -525,28 +570,6 @@ export default function LeadsPage() {
                           </>
                         );
                       }
-                      // Priorité 2 : données en base (devisRef stocké via sync)
-                      if (demande.devisRef) {
-                        return demande.devisId ? (
-                          <a
-                            href={getSellsyUrl('estimate', demande.devisId)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-0.5 text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded hover:bg-[#03C3EC]/20 transition-colors"
-                            title={demande.devisRef}
-                          >
-                            <FileText className="w-2.5 h-2.5" />
-                            <span className="truncate max-w-[80px]">{demande.devisRef}</span>
-                            <ExternalLink className="w-2 h-2 opacity-50 flex-shrink-0" />
-                          </a>
-                        ) : (
-                          <span className="text-[10px] font-semibold text-[#03C3EC] bg-[#03C3EC]/10 px-1.5 py-0.5 rounded">
-                            <FileText className="w-2.5 h-2.5 inline mr-0.5" />
-                            {demande.devisRef}
-                          </span>
-                        );
-                      }
                       return <span className="text-[10px] text-cockpit-secondary">—</span>;
                     })()}
                   </div>
@@ -561,14 +584,16 @@ export default function LeadsPage() {
                     {formatDate(demande.dateCreation)}
                   </span>
 
-                  {/* 9. Montant Sellsy */}
+                  {/* 9. Montant — BASE en priorité */}
                   {(() => {
+                    // Priorité 1 : données en base (instantané)
+                    const dbAmt = demande.venteMontant || demande.devisMontant;
+                    // Priorité 2 : données Sellsy live (après expand)
                     const docs = sellsyDocs[demande.contactId];
                     const sellsyAmt = docs?.orders?.[0]?.amounts?.total_incl_tax || docs?.estimates?.[0]?.amounts?.total_incl_tax;
-                    const dbAmt = demande.devisMontant;
-                    const amount = sellsyAmt || dbAmt;
+                    const amount = dbAmt || sellsyAmt;
                     return amount ? (
-                      <span className="text-xs font-bold text-[#C2185B] text-right" title="Montant TTC">
+                      <span className="text-xs font-bold text-[#C2185B] text-right" title={dbAmt ? "Montant HT (base)" : "Montant TTC (Sellsy)"}>
                         {Number(amount).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
                       </span>
                     ) : (
