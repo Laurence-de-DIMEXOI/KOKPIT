@@ -1,7 +1,7 @@
 "use client";
 
 import { Post, LABEL_CONFIG } from "./types";
-import { CalendarDays, CheckSquare, Paperclip, GripVertical } from "lucide-react";
+import { CalendarDays, CalendarCheck, CheckSquare, Paperclip, GripVertical } from "lucide-react";
 
 interface KanbanCardProps {
   post: Post;
@@ -75,7 +75,15 @@ export default function KanbanCard({ post, onClick, onDragStart }: KanbanCardPro
 
         {/* Badges row */}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {/* Due date */}
+          {/* Scheduled date (date de publication) */}
+          {post.scheduledDate && (
+            <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded text-[#7758A3] bg-[#F3E8FF]">
+              <CalendarCheck className="w-3 h-3" />
+              {new Date(post.scheduledDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+            </span>
+          )}
+
+          {/* Due date (échéance) */}
           {dueDateInfo && (
             <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${dueDateInfo.className}`}>
               <CalendarDays className="w-3 h-3" />
