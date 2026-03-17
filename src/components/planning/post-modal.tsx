@@ -30,6 +30,9 @@ export default function PostModal({
   const [dueDate, setDueDate] = useState(
     post?.dueDate ? new Date(post.dueDate).toISOString().slice(0, 10) : ""
   );
+  const [scheduledDate, setScheduledDate] = useState(
+    post?.scheduledDate ? new Date(post.scheduledDate).toISOString().slice(0, 10) : ""
+  );
   const [coverImage, setCoverImage] = useState(post?.coverImage || "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -92,6 +95,7 @@ export default function PostModal({
         statut,
         labels,
         dueDate: dueDate || null,
+        scheduledDate: scheduledDate || null,
         coverImage: coverImage.trim() || null,
       });
       onClose();
@@ -234,8 +238,8 @@ export default function PostModal({
             />
           </div>
 
-          {/* Colonne (statut) + Date côte à côte */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {/* Colonne + Dates */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Colonne</label>
               <select
@@ -253,7 +257,18 @@ export default function PostModal({
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 <CalendarDays className="w-4 h-4 inline mr-1" />
-                Date d&apos;échéance
+                Date publication
+              </label>
+              <input
+                type="date"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/50 focus:border-[#C2185B]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Échéance
               </label>
               <input
                 type="date"

@@ -4,14 +4,29 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 // GET /api/planning — Tous les posts du kanban
-export async function GET() {
+// ?mois=2026-03 → filtre par scheduledDate dans le mois (pour calendrier)
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const mois = searchParams.get("mois");
+
+    const where: Record<string, unknown> = {};
+    if (mois) {
+      const [year, month] = mois.split("-").map(Number);
+      if (year && month) {
+        const start = new Date(year, month - 1, 1);
+        const end = new Date(year, month, 0, 23, 59, 59, 999);
+        where.scheduledDate = { gte: start, lte: end };
+      }
+    }
+
     const posts = await prisma.postPlanning.findMany({
+      where,
       include: {
         checklist: { orderBy: { position: "asc" } },
         attachments: { orderBy: { createdAt: "desc" } },
@@ -39,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, statut, labels, dueDate, coverImage } = body;
+    const { title, description, statut, labels, dueDate, scheduledDate, coverImage } = body;
 
     if (!title?.trim()) {
       return NextResponse.json(
@@ -63,6 +78,7 @@ export async function POST(request: NextRequest) {
         position,
         labels: labels || [],
         dueDate: dueDate ? new Date(dueDate) : null,
+        scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
         coverImage: coverImage || null,
         createdById: session.user.id,
       },

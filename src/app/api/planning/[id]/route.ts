@@ -16,7 +16,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { title, description, statut, position, labels, dueDate, coverImage } = body;
+    const { title, description, statut, position, labels, dueDate, scheduledDate, coverImage } = body;
 
     const updateData: any = { updatedAt: new Date() };
     if (title !== undefined) updateData.title = title.trim();
@@ -25,6 +25,7 @@ export async function PUT(
     if (position !== undefined) updateData.position = position;
     if (labels !== undefined) updateData.labels = labels;
     if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
+    if (scheduledDate !== undefined) updateData.scheduledDate = scheduledDate ? new Date(scheduledDate) : null;
     if (coverImage !== undefined) updateData.coverImage = coverImage || null;
 
     const post = await prisma.postPlanning.update({

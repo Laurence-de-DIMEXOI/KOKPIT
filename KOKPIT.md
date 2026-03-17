@@ -251,6 +251,10 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | M3 | Nos Réseaux + Feed Instagram | `acc6902` |
 | M4 | Docs + FAQ + Chatbot (Claude Haiku) | `678964d` |
 | NAV | Navigation Option B — Topbar + Sidebar | `293621c` |
+| M5 | Vue Calendrier mensuel Planning | Toggle Kanban/Calendrier, scheduledDate, légende labels, impression checklist |
+| M5-seed | Seed cartes Marketing Mars 2026 | 13 cartes injectées via script |
+| PROFIL | Mon Profil — formulaire éditable + session refresh JWT | `e9bc82f` |
+| C-STAFF | Nom commercial sur devis/commandes dashboard | API /api/sellsy/staffs |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée
@@ -290,6 +294,8 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Vert/Rouge | Toujours universels — jamais remplacés couleur espace | Lisibilité sémantique |
 | Accent global | `#F4B400` hors-espace uniquement | Cohérence identité |
 | DnD | HTML5 natif | Pas de dépendance externe |
+| Vue Planning | Toggle Kanban + Calendrier, pas de librairie externe | CSS Grid natif, même modèle PostPlanning |
+| Vue par défaut | Calendrier (localStorage kokpit_planning_vue) | Demande Laurence 17/03/2026 |
 | Positions Kanban | Gap de 1000 | Réordonnancement sans recalcul |
 | Chatbot | claude-haiku-4-5-20251001 | Coût réduit |
 | Cache Sellsy | 3 min (revalidate: 180) | Équilibre fraîcheur/perf |
@@ -312,7 +318,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **Devis** — 1 377 devis importés depuis Sellsy
 - **Vente** — 139 BDC importés (156 991€ CA)
 - **DemandePrix** — demandes de prix (formulaire site web)
-- **PlanningCard** — cartes Kanban
+- **PostPlanning** — cartes Kanban + `scheduledDate` (calendrier mensuel) + 7 labels Contenu (AVIS_CLIENTS, FIDELISATION, TEASING_AVRIL, VIDEO_REEL, BLOG_SEO, EMAIL_BREVO, STORY)
 - **PlanningChecklist** — items checklist
 - **LiaisonDevisCommande** — liaisons devis↔commande
 - **LiaisonDocumentaire** — chaîne documentaire parentid V1 ✅

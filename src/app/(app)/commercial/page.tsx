@@ -48,6 +48,8 @@ interface EstimateRow {
   expiry_date?: string;
   amounts?: SellsyAmounts;
   pdf_link?: string;
+  owner?: { id: number; type: string };
+  assigned_staff_id?: number;
 }
 
 interface OrderRow {
@@ -61,6 +63,8 @@ interface OrderRow {
   company_name?: string;
   amounts?: SellsyAmounts;
   pdf_link?: string;
+  owner?: { id: number; type: string };
+  assigned_staff_id?: number;
 }
 
 // ===== DATE HELPERS =====
@@ -249,6 +253,7 @@ export default function CommercialDashboardPage() {
   // Raw data from Sellsy
   const [allEstimates, setAllEstimates] = useState<EstimateRow[]>([]);
   const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
+  const [staffMap, setStaffMap] = useState<Map<number, string>>(new Map());
   const [totalProducts, setTotalProducts] = useState(0);
   const [monthlyEvolution, setMonthlyEvolution] = useState<Array<{
     month: string;
@@ -267,23 +272,31 @@ export default function CommercialDashboardPage() {
       const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
 
       // Fetch estimates with date filter, orders sorted desc, products count, and funnel for charts
-      const [estRes, ordRes, itemsRes, funnelRes] = await Promise.all([
+      const [estRes, ordRes, itemsRes, funnelRes, staffRes] = await Promise.all([
         fetch(
           `/api/sellsy/estimates?limit=100&created_start=${encodeURIComponent(yearStart)}`
         ),
         fetch("/api/sellsy/orders?limit=100"),
         fetch("/api/sellsy/items?limit=1"),
         fetch("/api/sellsy/funnel?months=12"),
+        fetch("/api/sellsy/staffs"),
       ]);
 
       const estData = await estRes.json();
       const ordData = await ordRes.json();
       const itemsData = await itemsRes.json();
       const funnelData = await funnelRes.json();
+      const staffData = await staffRes.json();
 
       setAllEstimates(estData.estimates || []);
       setAllOrders(ordData.orders || []);
       setTotalProducts(itemsData.pagination?.total || 0);
+
+      const map = new Map<number, string>();
+      (staffData.staffs || []).forEach((s: { id: number; name: string }) => {
+        map.set(s.id, s.name);
+      });
+      setStaffMap(map);
 
       if (funnelData.success && funnelData.monthlyFunnel) {
         setMonthlyEvolution(funnelData.monthlyFunnel);
@@ -581,6 +594,13 @@ export default function CommercialDashboardPage() {
                       {est.date &&
                         ` • ${new Date(est.date).toLocaleDateString("fr-FR")}`}
                     </p>
+                    {(() => {
+                      const ownerId = est.owner?.id || est.assigned_staff_id;
+                      const ownerName = ownerId ? staffMap.get(ownerId) : undefined;
+                      return ownerName ? (
+                        <p className="text-[10px] text-cockpit-info mt-0.5">{ownerName}</p>
+                      ) : null;
+                    })()}
                   </div>
                   <span className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
                     {formatCurrency(getAmount(est))}
@@ -627,6 +647,13 @@ export default function CommercialDashboardPage() {
                       {order.date &&
                         ` • ${new Date(order.date).toLocaleDateString("fr-FR")}`}
                     </p>
+                    {(() => {
+                      const ownerId = order.owner?.id || order.assigned_staff_id;
+                      const ownerName = ownerId ? staffMap.get(ownerId) : undefined;
+                      return ownerName ? (
+                        <p className="text-[10px] text-cockpit-info mt-0.5">{ownerName}</p>
+                      ) : null;
+                    })()}
                   </div>
                   <span className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
                     {formatCurrency(getAmount(order))}

@@ -569,6 +569,13 @@ enum PostLabel {
   CONTEXTE_PUBLICITE
   PARCOURS_FIDELISATION
   CANAL_STORY
+  AVIS_CLIENTS
+  FIDELISATION
+  TEASING_AVRIL
+  VIDEO_REEL
+  BLOG_SEO
+  EMAIL_BREVO
+  STORY
 }
 
 model PostPlanning {
@@ -577,9 +584,10 @@ model PostPlanning {
   description String?
   statut      PostStatut  @default(IDEE)
   position    Int         @default(0)
-  dueDate     DateTime?
-  labels      PostLabel[] @default([])
-  coverImage  String?
+  dueDate       DateTime?
+  scheduledDate DateTime?
+  labels        PostLabel[] @default([])
+  coverImage    String?
   createdById String
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -592,6 +600,7 @@ model PostPlanning {
   @@index([statut])
   @@index([createdById])
   @@index([dueDate])
+  @@index([scheduledDate])
 }
 
 model PostChecklist {
