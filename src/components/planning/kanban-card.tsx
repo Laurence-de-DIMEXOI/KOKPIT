@@ -35,13 +35,13 @@ export default function KanbanCard({ post, onClick, onDragStart }: KanbanCardPro
       onClick={onClick}
       className="bg-white rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow group"
     >
-      {/* Cover image */}
+      {/* Cover image — affichage complet sans recadrage */}
       {post.coverImage && (
-        <div className="h-28 w-full overflow-hidden rounded-t-lg">
+        <div className="w-full overflow-hidden rounded-t-lg bg-gray-50">
           <img
             src={post.coverImage}
             alt=""
-            className="w-full h-full object-cover"
+            className="w-full object-contain max-h-48"
           />
         </div>
       )}
