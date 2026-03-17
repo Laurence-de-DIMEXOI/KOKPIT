@@ -5,6 +5,43 @@ import { prisma } from "@/lib/prisma";
 import { listAllOrders, type SellsyOrder } from "@/lib/sellsy";
 import { calculerNiveau, getDebutFenetre, CLUB_LEVELS } from "@/data/club-grandis";
 
+// Helper : fetch un individual Sellsy par son ID
+async function fetchIndividualName(id: number): Promise<{ nom: string; prenom: string; email: string }> {
+  try {
+    const token = process.env.SELLSY_ACCESS_TOKEN;
+    const res = await fetch(`https://api.sellsy.com/v2/individuals/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { nom: "Inconnu", prenom: "", email: "" };
+    const data = await res.json();
+    return {
+      nom: data.last_name || data.name || "Inconnu",
+      prenom: data.first_name || "",
+      email: data.email || "",
+    };
+  } catch {
+    return { nom: "Inconnu", prenom: "", email: "" };
+  }
+}
+
+// Helper : fetch une company Sellsy par son ID
+async function fetchCompanyName(id: number): Promise<{ nom: string; email: string }> {
+  try {
+    const token = process.env.SELLSY_ACCESS_TOKEN;
+    const res = await fetch(`https://api.sellsy.com/v2/companies/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { nom: "Inconnu", email: "" };
+    const data = await res.json();
+    return {
+      nom: data.name || "Inconnu",
+      email: data.email || "",
+    };
+  } catch {
+    return { nom: "Inconnu", email: "" };
+  }
+}
+
 /**
  * POST /api/club/sync
  *
@@ -27,11 +64,12 @@ export async function POST() {
     const orders = await listAllOrders(sinceISO);
     console.log(`[Club Sync] ${orders.length} commandes récupérées`);
 
-    // 2. Grouper par contact (related[0].id = le tiers)
+    // 2. Grouper par tiers (related[0].id)
     const contactMap = new Map<
       string,
       {
         contactId: string;
+        relatedType: string; // "individual" | "company"
         email: string;
         nom: string;
         prenom: string;
@@ -51,20 +89,30 @@ export async function POST() {
       // Montant HT de la commande (Sellsy retourne des strings)
       const montant = Number(order.amounts?.total_excl_tax) || 0;
 
-      // Infos contact depuis l'embed
-      const contactEmbed = order._embed?.contact;
-      const companyEmbed = order._embed?.company;
-
-      const nom = contactEmbed?.last_name || companyEmbed?.name || "Inconnu";
-      const prenom = contactEmbed?.first_name || "";
-      const email = ""; // On récupérera l'email plus tard si besoin
-
       if (existing) {
         existing.nbCommandes += 1;
         existing.totalMontant += montant;
       } else {
+        // Extraire le nom depuis les embeds ou les champs directs
+        const contactEmbed = order._embed?.contact;
+        const companyEmbed = order._embed?.company;
+
+        let nom = "Inconnu";
+        let prenom = "";
+        let email = "";
+
+        if (related.type === "individual" && contactEmbed) {
+          nom = contactEmbed.last_name || "Inconnu";
+          prenom = contactEmbed.first_name || "";
+        } else if (related.type === "company" && companyEmbed) {
+          nom = companyEmbed.name || "Inconnu";
+        } else if (order.company_name) {
+          nom = order.company_name;
+        }
+
         contactMap.set(contactId, {
           contactId,
+          relatedType: related.type || "unknown",
           email,
           nom,
           prenom,
@@ -76,7 +124,32 @@ export async function POST() {
 
     console.log(`[Club Sync] ${contactMap.size} contacts identifiés`);
 
-    // 3. Pour chaque contact qualifié, calculer le niveau et upsert
+    // 3. Pour les contacts encore "Inconnu", fetch les noms depuis Sellsy
+    const unknowns = [...contactMap.entries()].filter(([, d]) => d.nom === "Inconnu");
+    if (unknowns.length > 0) {
+      console.log(`[Club Sync] Récupération noms pour ${unknowns.length} contacts inconnus…`);
+      // Batch de 10 requêtes en parallèle
+      for (let i = 0; i < unknowns.length; i += 10) {
+        const batch = unknowns.slice(i, i + 10);
+        await Promise.all(
+          batch.map(async ([id, data]) => {
+            const numId = parseInt(id, 10);
+            if (data.relatedType === "individual") {
+              const info = await fetchIndividualName(numId);
+              data.nom = info.nom;
+              data.prenom = info.prenom;
+              data.email = info.email;
+            } else {
+              const info = await fetchCompanyName(numId);
+              data.nom = info.nom;
+              data.email = info.email;
+            }
+          })
+        );
+      }
+    }
+
+    // 4. Pour chaque contact qualifié, calculer le niveau et upsert
     let synced = 0;
     let upgraded = 0;
     let nouveaux = 0;
@@ -107,6 +180,14 @@ export async function POST() {
             totalCommandes: data.nbCommandes,
             totalMontant: Number(data.totalMontant) || 0,
             dernierSync: new Date(),
+            // Mettre à jour le nom si on avait "Inconnu" avant
+            ...(existant.nom === "Inconnu" && data.nom !== "Inconnu"
+              ? { nom: data.nom, prenom: data.prenom }
+              : {}),
+            // Mettre à jour l'email si on en a un maintenant
+            ...(existant.email === "" && data.email
+              ? { email: data.email }
+              : {}),
             // Reset sync flags si le niveau a changé
             ...(wasUpgraded
               ? { brevoSynced: false, sellsySynced: false }

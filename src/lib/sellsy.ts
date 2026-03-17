@@ -1100,11 +1100,15 @@ export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
   const filters: Record<string, any> = {};
   if (sinceDate) filters.date = { start: sinceDate };
 
+  // Embed contact + company pour récupérer les noms
+  const embed = ["contact", "company"];
+
   // Page 1 — séquentielle pour connaître le total
   const page1 = await searchOrders({
     filters,
     limit: pageSize,
     offset: 0,
+    embed,
   });
 
   const all: SellsyOrder[] = [...page1.data];
@@ -1125,6 +1129,7 @@ export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
             filters,
             limit: pageSize,
             offset,
+            embed,
           })
         )
       );
