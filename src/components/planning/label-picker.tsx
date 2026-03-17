@@ -10,7 +10,7 @@ interface LabelPickerProps {
 const ALL_LABELS = Object.keys(LABEL_CONFIG) as PostLabel[];
 
 // Regroupe les labels par catégorie
-const CATEGORIES: LabelCategory[] = ["Piliers", "Parcours", "Contexte", "Canal"];
+const CATEGORIES: LabelCategory[] = ["Piliers", "Parcours", "Contexte", "Canal", "Contenu"];
 
 function getLabelsByCategory(category: LabelCategory): PostLabel[] {
   return ALL_LABELS.filter((l) => LABEL_CONFIG[l].category === category);
