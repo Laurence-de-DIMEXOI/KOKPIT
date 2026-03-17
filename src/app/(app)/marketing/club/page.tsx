@@ -91,8 +91,15 @@ function getLevelConfig(niveau: number): ClubLevel {
   return CLUB_LEVELS.find((l) => l.niveau === niveau) || CLUB_LEVELS[0];
 }
 
+// Club green gradient
+const CLUB_GRADIENT = {
+  from: "#6b7318",
+  to: "#3a3d0d",
+  shadow: "rgba(81, 87, 18, 0.30)",
+};
+
 // ============================================================================
-// PAGE — Monochrome blanc + mousse #515712
+// PAGE
 // ============================================================================
 
 export default function ClubGrandisPage() {
@@ -106,6 +113,8 @@ export default function ClubGrandisPage() {
   const [search, setSearch] = useState("");
   const [filterNiveau, setFilterNiveau] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+
+  const da = CLUB_DA;
 
   const loadStats = useCallback(async () => {
     try {
@@ -193,30 +202,25 @@ export default function ClubGrandisPage() {
     setSyncingBrevo(false);
   };
 
-  const da = CLUB_DA;
-
-  // @font-face pour les polices commerciales (dès qu'elles sont dans public/fonts/)
+  // @font-face pour les polices commerciales
   const fontFaceCSS = `
     @font-face {
       font-family: 'Perandory';
-      src: url('/fonts/Perandory-Regular.woff2') format('woff2'),
-           url('/fonts/Perandory-Regular.otf') format('opentype');
+      src: url('/fonts/Perandory/Perandory-Regular.otf') format('opentype');
       font-weight: 400;
       font-style: normal;
       font-display: swap;
     }
     @font-face {
       font-family: 'Perandory';
-      src: url('/fonts/Perandory-Bold.woff2') format('woff2'),
-           url('/fonts/Perandory-Bold.otf') format('opentype');
+      src: url('/fonts/Perandory/Perandory-Regular.otf') format('opentype');
       font-weight: 700;
       font-style: normal;
       font-display: swap;
     }
     @font-face {
       font-family: 'Burgues Script';
-      src: url('/fonts/BurguesScript.woff2') format('woff2'),
-           url('/fonts/BurguesScript.otf') format('opentype');
+      src: url('/fonts/Burgues%20Script%20Regular/Burgues%20Script%20Regular.otf') format('opentype');
       font-weight: 400;
       font-style: normal;
       font-display: swap;
@@ -224,7 +228,7 @@ export default function ClubGrandisPage() {
   `;
 
   return (
-    <div className={`min-h-screen bg-white ${cormorant.variable}`}>
+    <div className={`space-y-4 sm:space-y-5 ${cormorant.variable}`}>
       <style dangerouslySetInnerHTML={{ __html: fontFaceCSS }} />
 
       {/* Toast */}
@@ -237,147 +241,211 @@ export default function ClubGrandisPage() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* ================================================================ */}
-        {/* HEADER */}
-        {/* ================================================================ */}
-        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-12">
-          <div className="flex items-center gap-5">
-            <img
-              src="/images/club-grandis-logo.svg"
-              alt="Club Grandis"
-              className="h-28 w-auto"
-            />
-            <div>
-              <h1
-                className="text-4xl font-bold tracking-tight"
-                style={{ fontFamily: da.fontDisplay, color: da.primary }}
-              >
-                Club Grandis
-              </h1>
-              <p
-                className="text-lg mt-1"
-                style={{ color: da.primary, fontFamily: da.fontAccent, fontStyle: "italic" }}
-              >
-                Croître ensemble
+      {/* ================================================================ */}
+      {/* LOGO centré + grand */}
+      {/* ================================================================ */}
+      <div className="flex justify-center pt-2 pb-2">
+        <img
+          src="/images/club-grandis-logo.svg"
+          alt="Club Grandis"
+          className="h-40 sm:h-48 w-auto"
+        />
+      </div>
+
+      {/* ================================================================ */}
+      {/* HEADER — style KOKPIT */}
+      {/* ================================================================ */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1
+            className="text-2xl sm:text-3xl font-bold mb-1"
+            style={{ fontFamily: da.fontDisplay, color: da.primary }}
+          >
+            Club Grandis
+          </h1>
+          <p className="text-cockpit-secondary text-sm">
+            Programme de fidélité · {stats?.totalMembres || 0} membres
+          </p>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: da.primary }}
+        >
+          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {syncing ? "Synchronisation…" : "Synchroniser Sellsy"}
+        </button>
+      </div>
+
+      {/* ================================================================ */}
+      {/* KPI CARDS — gradient style KOKPIT */}
+      {/* ================================================================ */}
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl p-4 bg-cockpit-card animate-pulse h-20" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div
+            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${CLUB_GRADIENT.from} 0%, ${CLUB_GRADIENT.to} 100%)`,
+              boxShadow: `0 4px 14px ${CLUB_GRADIENT.shadow}`,
+            }}
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">Membres</p>
+              <p className="text-lg sm:text-xl font-bold text-white">{stats?.totalMembres || 0}</p>
+            </div>
+          </div>
+
+          <div
+            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${CLUB_GRADIENT.from} 0%, ${CLUB_GRADIENT.to} 100%)`,
+              boxShadow: `0 4px 14px ${CLUB_GRADIENT.shadow}`,
+            }}
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">CA total</p>
+              <p className="text-lg sm:text-xl font-bold text-white">{formatMontant(stats?.totalCA || 0)}</p>
+            </div>
+          </div>
+
+          <div
+            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${CLUB_GRADIENT.from} 0%, ${CLUB_GRADIENT.to} 100%)`,
+              boxShadow: `0 4px 14px ${CLUB_GRADIENT.shadow}`,
+            }}
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">Niveau max</p>
+              <p className="text-lg sm:text-xl font-bold text-white">
+                {stats?.parNiveau ? (() => {
+                  const highestWithMembers = [...stats.parNiveau].reverse().find(p => p.count > 0);
+                  return highestWithMembers ? getLevelConfig(highestWithMembers.niveau).nom : "—";
+                })() : "—"}
               </p>
             </div>
           </div>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: da.primary }}
-          >
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {syncing ? "Synchronisation…" : "Synchroniser Sellsy"}
-          </button>
-        </header>
 
-        {/* ================================================================ */}
-        {/* STATS CARDS — monochrome */}
-        {/* ================================================================ */}
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-28 rounded-xl border animate-pulse" style={{ borderColor: da.border }} />
-            ))}
+          <div
+            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${CLUB_GRADIENT.from} 0%, ${CLUB_GRADIENT.to} 100%)`,
+              boxShadow: `0 4px 14px ${CLUB_GRADIENT.shadow}`,
+            }}
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">Dernier sync</p>
+              <p className="text-sm sm:text-base font-bold text-white truncate">
+                {stats?.dernierSync
+                  ? new Date(stats.dernierSync).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
+                  : "—"}
+              </p>
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            {CLUB_LEVELS.map((level) => {
-              const count = stats?.parNiveau.find((p) => p.niveau === level.niveau)?.count || 0;
-              const isActive = filterNiveau === level.niveau;
-              return (
-                <button
-                  key={level.niveau}
-                  onClick={() => setFilterNiveau(isActive ? null : level.niveau)}
-                  className="rounded-xl p-4 text-left transition-all border"
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* NIVEAUX — cards filtrables */}
+      {/* ================================================================ */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
+        <h2
+          className="text-lg font-bold mb-4"
+          style={{ fontFamily: da.fontDisplay, color: da.primary }}
+        >
+          Répartition par niveau
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {CLUB_LEVELS.map((level) => {
+            const count = stats?.parNiveau.find((p) => p.niveau === level.niveau)?.count || 0;
+            const isActive = filterNiveau === level.niveau;
+            return (
+              <button
+                key={level.niveau}
+                onClick={() => { setFilterNiveau(isActive ? null : level.niveau); setPage(1); }}
+                className="rounded-xl p-3 sm:p-4 text-left transition-all border hover:-translate-y-0.5"
+                style={{
+                  backgroundColor: isActive ? da.primary : undefined,
+                  borderColor: isActive ? da.primary : "var(--color-border, #E8EAED)",
+                  boxShadow: isActive ? `0 4px 12px rgba(81,87,18,0.25)` : undefined,
+                }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: isActive ? "#fff" : da.primary,
+                      color: isActive ? da.primary : "#fff",
+                    }}
+                  >
+                    {level.chiffre}
+                  </span>
+                  <span
+                    className="text-xs font-medium truncate"
+                    style={{ color: isActive ? "rgba(255,255,255,0.7)" : undefined }}
+                  >
+                    {level.nom}
+                  </span>
+                </div>
+                <p
+                  className="text-2xl font-bold"
                   style={{
-                    backgroundColor: isActive ? da.primary : "#fff",
-                    borderColor: isActive ? da.primary : da.border,
-                    boxShadow: isActive ? `0 4px 12px rgba(81,87,18,0.25)` : undefined,
+                    color: isActive ? "#fff" : da.primary,
+                    fontFamily: da.fontDisplay,
                   }}
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span
-                      className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor: isActive ? "#fff" : da.primary,
-                        color: isActive ? da.primary : "#fff",
-                      }}
-                    >
-                      {level.chiffre}
-                    </span>
-                    <span
-                      className="text-xs font-medium truncate"
-                      style={{ color: isActive ? "rgba(255,255,255,0.7)" : da.textMuted }}
-                    >
-                      {level.nom}
-                    </span>
-                  </div>
-                  <p
-                    className="text-3xl font-bold"
-                    style={{ color: isActive ? "#fff" : da.primary, fontFamily: da.fontDisplay }}
-                  >
-                    {count}
-                  </p>
-                  <p
-                    className="text-[11px] mt-1"
-                    style={{ color: isActive ? "rgba(255,255,255,0.6)" : da.textMuted }}
-                  >
-                    -{level.remise}%
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  {count}
+                </p>
+                <p
+                  className="text-[11px] mt-1"
+                  style={{ color: isActive ? "rgba(255,255,255,0.6)" : undefined }}
+                >
+                  -{level.remise}%
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-        {/* Summary row */}
-        {stats && (
-          <div
-            className="flex flex-wrap gap-6 mb-8 px-4 py-3 rounded-lg border"
-            style={{ borderColor: da.border }}
-          >
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4" style={{ color: da.primary }} />
-              <span className="text-sm font-medium" style={{ color: da.primary }}>
-                {stats.totalMembres} membres
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" style={{ color: da.primary }} />
-              <span className="text-sm font-medium" style={{ color: da.primary }}>
-                CA total : {formatMontant(stats.totalCA)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-sm" style={{ color: da.textMuted }}>
-              Dernier sync : {formatDate(stats.dernierSync)}
-            </div>
-          </div>
-        )}
-
-        {/* ================================================================ */}
-        {/* SEARCH + FILTER */}
-        {/* ================================================================ */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      {/* ================================================================ */}
+      {/* SEARCH + FILTER — style KOKPIT */}
+      {/* ================================================================ */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: da.textMuted }} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
             <input
               type="text"
               placeholder="Rechercher un membre…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-all"
-              style={{ borderColor: da.border, color: da.primary }}
+              className="w-full pl-10 pr-4 py-2.5 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary text-sm focus:outline-none"
             />
           </div>
           <select
             value={filterNiveau || ""}
             onChange={(e) => { setFilterNiveau(e.target.value ? parseInt(e.target.value) : null); setPage(1); }}
-            className="px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-all"
-            style={{ borderColor: da.border, color: da.primary }}
+            className="bg-cockpit-input border border-cockpit-input px-3 py-2.5 rounded-input text-xs text-cockpit-primary"
           >
             <option value="">Tous les niveaux</option>
             {CLUB_LEVELS.map((l) => (
@@ -387,210 +455,205 @@ export default function ClubGrandisPage() {
             ))}
           </select>
         </div>
+      </div>
 
-        {/* ================================================================ */}
-        {/* TABLE */}
-        {/* ================================================================ */}
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: da.border }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ backgroundColor: da.primary }}>
-                  <th className="text-left px-4 py-3 font-semibold text-white">Membre</th>
-                  <th className="text-left px-4 py-3 font-semibold text-white hidden md:table-cell">Email</th>
-                  <th className="text-center px-4 py-3 font-semibold text-white">Niveau</th>
-                  <th className="text-center px-4 py-3 font-semibold text-white hidden sm:table-cell">Cmd</th>
-                  <th className="text-right px-4 py-3 font-semibold text-white">CA</th>
-                  <th className="text-center px-4 py-3 font-semibold text-white hidden lg:table-cell">Sellsy</th>
-                  <th className="text-center px-4 py-3 font-semibold text-white hidden lg:table-cell">Brevo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  [...Array(5)].map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={7} className="px-4 py-4">
-                        <div className="h-4 rounded animate-pulse bg-gray-100" />
-                      </td>
-                    </tr>
-                  ))
-                ) : membresData?.membres.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center" style={{ color: da.textMuted }}>
-                      <Crown className="w-8 h-8 mx-auto mb-2" style={{ color: da.border }} />
-                      <p>Aucun membre trouvé</p>
-                      <p className="text-xs mt-1">
-                        Lancez une synchronisation Sellsy pour peupler le Club
-                      </p>
+      {/* ================================================================ */}
+      {/* TABLE — style KOKPIT */}
+      {/* ================================================================ */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b border-cockpit" style={{ backgroundColor: da.primary }}>
+              <tr>
+                <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold text-white">MEMBRE</th>
+                <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold text-white hidden md:table-cell">EMAIL</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-white">NIVEAU</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden sm:table-cell">CMD</th>
+                <th className="text-right px-4 lg:px-6 py-3 text-xs font-semibold text-white">CA</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden lg:table-cell">SELLSY</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden lg:table-cell">BREVO</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cockpit">
+              {loading ? (
+                [...Array(5)].map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={7} className="px-4 py-4">
+                      <div className="h-4 rounded animate-pulse bg-cockpit-dark" />
                     </td>
                   </tr>
-                ) : (
-                  membresData?.membres.map((m, idx) => {
-                    const level = getLevelConfig(m.niveau);
-                    return (
-                      <tr
-                        key={m.id}
-                        className="border-t transition-colors hover:bg-gray-50"
-                        style={{ borderColor: da.border }}
-                      >
-                        <td className="px-4 py-3">
-                          <p className="font-medium" style={{ color: da.primary }}>
-                            {m.prenom} {m.nom}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell" style={{ color: da.textMuted }}>
-                          {m.email || "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full text-white"
-                            style={{ backgroundColor: da.primary }}
-                          >
-                            {level.chiffre}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center hidden sm:table-cell font-medium" style={{ color: da.primary }}>
-                          {m.totalCommandes}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold" style={{ color: da.primary }}>
-                          {formatMontant(m.totalMontant)}
-                        </td>
-                        <td className="px-4 py-3 text-center hidden lg:table-cell">
-                          <span
-                            className={`inline-block w-2.5 h-2.5 rounded-full ${m.sellsySynced ? "bg-green-500" : "bg-orange-400"}`}
-                            title={m.sellsySynced ? "Synchronisé" : "En attente"}
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-center hidden lg:table-cell">
-                          <span
-                            className={`inline-block w-2.5 h-2.5 rounded-full ${m.brevoSynced ? "bg-green-500" : "bg-orange-400"}`}
-                            title={m.brevoSynced ? "Synchronisé" : "En attente"}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {membresData && membresData.pagination.totalPages > 1 && (
-            <div
-              className="flex items-center justify-between px-4 py-3 border-t"
-              style={{ borderColor: da.border }}
-            >
-              <p className="text-xs" style={{ color: da.textMuted }}>
-                {membresData.pagination.total} membres · Page {page}/{membresData.pagination.totalPages}
-              </p>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                  style={{ color: da.primary }}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(membresData.pagination.totalPages, p + 1))}
-                  disabled={page >= membresData.pagination.totalPages}
-                  className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                  style={{ color: da.primary }}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+                ))
+              ) : membresData?.membres.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center">
+                    <Crown className="w-8 h-8 mx-auto mb-2 text-cockpit-secondary opacity-40" />
+                    <p className="text-cockpit-primary font-medium">Aucun membre trouvé</p>
+                    <p className="text-cockpit-secondary text-xs mt-1">
+                      Lancez une synchronisation Sellsy pour peupler le Club
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                membresData?.membres.map((m) => {
+                  const level = getLevelConfig(m.niveau);
+                  return (
+                    <tr
+                      key={m.id}
+                      className="hover:bg-cockpit-dark transition-colors"
+                    >
+                      <td className="px-4 lg:px-6 py-3">
+                        <span className="font-medium text-sm" style={{ color: da.primary }}>
+                          {m.prenom} {m.nom}
+                        </span>
+                      </td>
+                      <td className="px-4 lg:px-6 py-3 text-cockpit-secondary text-xs truncate max-w-[200px] hidden md:table-cell">
+                        {m.email || "—"}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+                          style={{ backgroundColor: da.primary }}
+                        >
+                          {level.chiffre}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-center hidden sm:table-cell text-sm font-medium text-cockpit-primary">
+                        {m.totalCommandes}
+                      </td>
+                      <td className="px-4 lg:px-6 py-3 text-right font-semibold text-sm text-cockpit-heading">
+                        {formatMontant(m.totalMontant)}
+                      </td>
+                      <td className="px-3 py-3 text-center hidden lg:table-cell">
+                        <span
+                          className={`inline-block w-2.5 h-2.5 rounded-full ${m.sellsySynced ? "bg-cockpit-success" : "bg-cockpit-warning"}`}
+                          title={m.sellsySynced ? "Synchronisé" : "En attente"}
+                        />
+                      </td>
+                      <td className="px-3 py-3 text-center hidden lg:table-cell">
+                        <span
+                          className={`inline-block w-2.5 h-2.5 rounded-full ${m.brevoSynced ? "bg-cockpit-success" : "bg-cockpit-warning"}`}
+                          title={m.brevoSynced ? "Synchronisé" : "En attente"}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* ================================================================ */}
-        {/* SYNC ACTIONS */}
-        {/* ================================================================ */}
-        <div className="mt-8 rounded-xl p-6 border" style={{ borderColor: da.border }}>
-          <h3
-            className="text-lg font-bold mb-4"
-            style={{ fontFamily: da.fontDisplay, color: da.primary }}
-          >
-            Actions de synchronisation
-          </h3>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handleSyncTags}
-              disabled={syncingTags}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:shadow-sm disabled:opacity-50"
-              style={{ borderColor: da.primary, color: da.primary }}
-            >
-              {syncingTags ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
-              {syncingTags ? "Synchronisation…" : "Sync tags Sellsy"}
-            </button>
-            <button
-              onClick={handleSyncBrevo}
-              disabled={syncingBrevo}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:shadow-sm disabled:opacity-50"
-              style={{ borderColor: da.primary, color: da.primary }}
-            >
-              {syncingBrevo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-              {syncingBrevo ? "Synchronisation…" : "Sync segments Brevo"}
-            </button>
-          </div>
-          <p className="text-xs mt-3" style={{ color: da.textMuted }}>
-            Les tags Sellsy (&quot;CLUB - Niv 1&quot; à &quot;CLUB - Niv 5&quot;) et les segments Brevo
-            (&quot;Club Grandis · I&quot; à &quot;Club Grandis · V&quot;) sont mis à jour pour les membres
-            non encore synchronisés.
-          </p>
-        </div>
-
-        {/* ================================================================ */}
-        {/* LÉGENDE NIVEAUX */}
-        {/* ================================================================ */}
-        <div className="mt-8 rounded-xl p-6 border" style={{ borderColor: da.border }}>
-          <h3
-            className="text-lg font-bold mb-4"
-            style={{ fontFamily: da.fontDisplay, color: da.primary }}
-          >
-            Niveaux du programme
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {CLUB_LEVELS.map((level) => (
-              <div
-                key={level.niveau}
-                className="rounded-lg p-4 border"
-                style={{ borderColor: da.border }}
+        {/* Pagination */}
+        {membresData && membresData.pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 lg:px-6 py-3 border-t border-cockpit">
+            <p className="text-xs text-cockpit-secondary">
+              {membresData.pagination.total} membres · Page {page}/{membresData.pagination.totalPages}
+            </p>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-md hover:bg-cockpit-dark disabled:opacity-30 transition-colors text-cockpit-primary"
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white"
-                    style={{ backgroundColor: da.primary }}
-                  >
-                    {level.chiffre}
-                  </span>
-                  <span
-                    className="font-semibold text-sm"
-                    style={{ color: da.primary, fontFamily: da.fontDisplay }}
-                  >
-                    {level.nom}
-                  </span>
-                </div>
-                <p className="text-xs mt-1" style={{ color: da.textMuted }}>
-                  {level.condition}
-                </p>
-                <p className="text-sm font-bold mt-1" style={{ color: da.primary }}>
-                  -{level.remise}%
-                </p>
-                {level.permanent && (
-                  <p
-                    className="text-[10px] mt-1"
-                    style={{ color: da.textMuted, fontFamily: da.fontAccent, fontStyle: "italic" }}
-                  >
-                    Permanent · Sur invitation
-                  </p>
-                )}
-              </div>
-            ))}
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(membresData.pagination.totalPages, p + 1))}
+                disabled={page >= membresData.pagination.totalPages}
+                className="p-1.5 rounded-md hover:bg-cockpit-dark disabled:opacity-30 transition-colors text-cockpit-primary"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* ================================================================ */}
+      {/* SYNC ACTIONS — style KOKPIT */}
+      {/* ================================================================ */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
+        <h3
+          className="text-lg font-bold text-cockpit-heading mb-4"
+          style={{ fontFamily: da.fontDisplay, color: da.primary }}
+        >
+          Actions de synchronisation
+        </h3>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={handleSyncTags}
+            disabled={syncingTags}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:opacity-90 disabled:opacity-50 text-white"
+            style={{ backgroundColor: da.primary, borderColor: da.primary }}
+          >
+            {syncingTags ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
+            {syncingTags ? "Synchronisation…" : "Sync tags Sellsy"}
+          </button>
+          <button
+            onClick={handleSyncBrevo}
+            disabled={syncingBrevo}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ borderColor: da.primary, color: da.primary }}
+          >
+            {syncingBrevo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+            {syncingBrevo ? "Synchronisation…" : "Sync segments Brevo"}
+          </button>
+        </div>
+        <p className="text-xs text-cockpit-secondary mt-3">
+          Les tags Sellsy (&quot;CLUB - Niv 1&quot; à &quot;CLUB - Niv 5&quot;) et les segments Brevo
+          (&quot;Club Grandis · I&quot; à &quot;Club Grandis · V&quot;) sont mis à jour pour les membres
+          non encore synchronisés.
+        </p>
+        {stats?.dernierSync && (
+          <p className="text-xs text-cockpit-secondary mt-2">
+            Dernier sync : {formatDate(stats.dernierSync)}
+          </p>
+        )}
+      </div>
+
+      {/* ================================================================ */}
+      {/* LÉGENDE NIVEAUX — style KOKPIT */}
+      {/* ================================================================ */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
+        <h3
+          className="text-lg font-bold text-cockpit-heading mb-4"
+          style={{ fontFamily: da.fontDisplay, color: da.primary }}
+        >
+          Niveaux du programme
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {CLUB_LEVELS.map((level) => (
+            <div
+              key={level.niveau}
+              className="rounded-xl p-4 bg-cockpit-dark border border-cockpit/50"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span
+                  className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white"
+                  style={{ backgroundColor: da.primary }}
+                >
+                  {level.chiffre}
+                </span>
+                <span
+                  className="font-semibold text-sm"
+                  style={{ color: da.primary, fontFamily: da.fontDisplay }}
+                >
+                  {level.nom}
+                </span>
+              </div>
+              <p className="text-xs text-cockpit-secondary mt-1">
+                {level.condition}
+              </p>
+              <p className="text-sm font-bold mt-1" style={{ color: da.primary }}>
+                -{level.remise}%
+              </p>
+              {level.permanent && (
+                <p className="text-[10px] text-cockpit-secondary mt-1" style={{ fontFamily: da.fontAccent, fontStyle: "italic" }}>
+                  Permanent · Sur invitation
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
