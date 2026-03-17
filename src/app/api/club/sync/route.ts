@@ -158,7 +158,13 @@ export async function POST() {
     let upgraded = 0;
     let nouveaux = 0;
 
+    // Noms internes à exclure (commandes internes)
+    const EXCLUDED_NAMES = ["DIMEXOI", "ORDER DIMEXOI"];
+
     for (const [contactId, data] of contactMap) {
+      // Exclure les contacts internes (commandes Dimexoi à Dimexoi)
+      if (EXCLUDED_NAMES.some((n) => data.nom.toUpperCase().includes(n))) continue;
+
       // Vérifier si le contact atteint au moins le niv 1 (1 cmd ≥ 500€)
       const niveauCalcule = calculerNiveau(data.nbCommandes, data.totalMontant, 0);
       if (niveauCalcule < 1) continue; // Pas qualifié
