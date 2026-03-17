@@ -54,8 +54,8 @@ export async function POST() {
       const contactId = String(related.id);
       const existing = contactMap.get(contactId);
 
-      // Montant HT de la commande (Sellsy retourne des strings)
-      const montant = Number(order.amounts?.total_excl_tax) || 0;
+      // Montant TTC de la commande (Sellsy retourne des strings)
+      const montant = Number(order.amounts?.total_incl_tax) || 0;
 
       if (existing) {
         existing.nbCommandes += 1;

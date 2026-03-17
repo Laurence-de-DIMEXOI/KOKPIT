@@ -206,6 +206,26 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ success: true, membre: updated });
       }
 
+      case "set-niveau": {
+        const niv = parseInt(value, 10);
+        if (isNaN(niv) || niv < 1 || niv > 5) {
+          return NextResponse.json({ error: "Niveau invalide (1-5)" }, { status: 400 });
+        }
+        const updated = await prisma.clubMembre.update({
+          where: { id },
+          data: {
+            niveau: niv,
+            brevoSynced: false,
+            sellsySynced: false,
+          },
+        });
+        const lvl = CLUB_LEVELS.find((l) => l.niveau === niv);
+        console.log(
+          `[Club] Niveau modifié → ${lvl?.chiffre} (${lvl?.nom}) : ${membre.prenom} ${membre.nom}`
+        );
+        return NextResponse.json({ success: true, membre: updated });
+      }
+
       default:
         return NextResponse.json({ error: `Action inconnue : ${action}` }, { status: 400 });
     }

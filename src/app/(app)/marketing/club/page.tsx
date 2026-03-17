@@ -379,7 +379,7 @@ export default function ClubGrandisPage() {
               <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">CA total</p>
+              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">CA TTC</p>
               <p className="text-lg sm:text-xl font-bold text-white">{formatMontant(stats?.totalCA || 0)}</p>
             </div>
           </div>
@@ -532,7 +532,7 @@ export default function ClubGrandisPage() {
                 <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold text-white hidden md:table-cell">EMAIL</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white">NIVEAU</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden sm:table-cell">CMD</th>
-                <th className="text-right px-4 lg:px-6 py-3 text-xs font-semibold text-white">CA</th>
+                <th className="text-right px-4 lg:px-6 py-3 text-xs font-semibold text-white">CA TTC</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden lg:table-cell">CODE PROMO</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden sm:table-cell">BON</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white w-10"></th>
