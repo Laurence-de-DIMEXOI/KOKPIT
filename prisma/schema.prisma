@@ -803,7 +803,10 @@ model ClubMembre {
   dernierSync     DateTime?
   brevoSynced     Boolean  @default(false)
   sellsySynced    Boolean  @default(false)
-  exclu           Boolean  @default(false) // soft-delete : retiré du programme
+  exclu           Boolean  @default(false)  // soft-delete : retiré du programme
+  codePromo       String?                  // code promo unique (ex: CLUB-III-A7K9)
+  bonUtilise      Boolean  @default(false) // le client a utilisé son bon de remise
+  dateBonUtilise  DateTime?                // date d'utilisation du bon
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -1266,6 +1266,41 @@ export async function ensureTagsExist(tagNames: string[]): Promise<Map<string, n
   return map;
 }
 
+// ===== FETCH INDIVIDUAL / COMPANY DETAILS =====
+
+/** Récupère les détails d'un individual Sellsy (nom, prénom, email) */
+export async function fetchIndividualDetails(
+  id: number
+): Promise<{ nom: string; prenom: string; email: string }> {
+  try {
+    const data = await sellsyFetch<Record<string, unknown>>(`/individuals/${id}`);
+    return {
+      nom: (data.last_name as string) || (data.name as string) || "Inconnu",
+      prenom: (data.first_name as string) || "",
+      email: (data.email as string) || "",
+    };
+  } catch (err) {
+    console.error(`[Sellsy] Erreur fetch individual ${id}:`, err);
+    return { nom: "Inconnu", prenom: "", email: "" };
+  }
+}
+
+/** Récupère les détails d'une company Sellsy (nom, email) */
+export async function fetchCompanyDetails(
+  id: number
+): Promise<{ nom: string; email: string }> {
+  try {
+    const data = await sellsyFetch<Record<string, unknown>>(`/companies/${id}`);
+    return {
+      nom: (data.name as string) || "Inconnu",
+      email: (data.email as string) || "",
+    };
+  } catch (err) {
+    console.error(`[Sellsy] Erreur fetch company ${id}:`, err);
+    return { nom: "Inconnu", email: "" };
+  }
+}
+
 // ===== API V1 VIA TOKEN V2 =====
 // Ref: https://help.sellsy.com/fr/articles/8544417-utiliser-l-api-v1-via-des-acces-api-v2
 // Prérequis : activer le scope "API V1" dans Sellsy > Paramètres > Portail développeur

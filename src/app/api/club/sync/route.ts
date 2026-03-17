@@ -2,45 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { listAllOrders, type SellsyOrder } from "@/lib/sellsy";
+import {
+  listAllOrders,
+  type SellsyOrder,
+  fetchIndividualDetails,
+  fetchCompanyDetails,
+} from "@/lib/sellsy";
 import { calculerNiveau, getDebutFenetre, CLUB_LEVELS } from "@/data/club-grandis";
-
-// Helper : fetch un individual Sellsy par son ID
-async function fetchIndividualName(id: number): Promise<{ nom: string; prenom: string; email: string }> {
-  try {
-    const token = process.env.SELLSY_ACCESS_TOKEN;
-    const res = await fetch(`https://api.sellsy.com/v2/individuals/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return { nom: "Inconnu", prenom: "", email: "" };
-    const data = await res.json();
-    return {
-      nom: data.last_name || data.name || "Inconnu",
-      prenom: data.first_name || "",
-      email: data.email || "",
-    };
-  } catch {
-    return { nom: "Inconnu", prenom: "", email: "" };
-  }
-}
-
-// Helper : fetch une company Sellsy par son ID
-async function fetchCompanyName(id: number): Promise<{ nom: string; email: string }> {
-  try {
-    const token = process.env.SELLSY_ACCESS_TOKEN;
-    const res = await fetch(`https://api.sellsy.com/v2/companies/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return { nom: "Inconnu", email: "" };
-    const data = await res.json();
-    return {
-      nom: data.name || "Inconnu",
-      email: data.email || "",
-    };
-  } catch {
-    return { nom: "Inconnu", email: "" };
-  }
-}
 
 /**
  * POST /api/club/sync
@@ -137,14 +105,14 @@ export async function POST() {
           batch.map(async ([id, data]) => {
             const numId = parseInt(id, 10);
             if (data.relatedType === "individual") {
-              const info = await fetchIndividualName(numId);
+              const info = await fetchIndividualDetails(numId);
               if (data.nom === "Inconnu") {
                 data.nom = info.nom;
                 data.prenom = info.prenom;
               }
               if (!data.email) data.email = info.email;
             } else {
-              const info = await fetchCompanyName(numId);
+              const info = await fetchCompanyDetails(numId);
               if (data.nom === "Inconnu") data.nom = info.nom;
               if (!data.email) data.email = info.email;
             }

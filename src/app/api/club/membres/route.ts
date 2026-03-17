@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CLUB_LEVELS } from "@/data/club-grandis";
 
 /**
  * GET /api/club/membres
@@ -109,6 +110,109 @@ export async function DELETE(req: Request) {
     console.error("[Club Membres] Erreur suppression:", error);
     return NextResponse.json(
       { error: error.message || "Erreur lors de la suppression" },
+      { status: 500 }
+    );
+  }
+}
+
+// ===== Helper : générer un code promo unique =====
+function genererCodePromo(niveau: number): string {
+  const lvl = CLUB_LEVELS.find((l) => l.niveau === niveau);
+  const chiffre = lvl?.chiffre || String(niveau);
+  // 4 caractères alphanumériques aléatoires (majuscules + chiffres)
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans I/O/0/1 pour éviter confusion
+  let code = "";
+  for (let i = 0; i < 4; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `CLUB-${chiffre}-${code}`;
+}
+
+/**
+ * PATCH /api/club/membres
+ *
+ * Actions sur un membre :
+ * - { id, action: "toggle-bon" }       → bascule bonUtilise true/false
+ * - { id, action: "generer-code" }     → génère un code promo unique
+ * - { id, action: "set-bon", value }   → force bonUtilise à la valeur donnée
+ */
+export async function PATCH(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const { id, action, value } = body;
+
+    if (!id || !action) {
+      return NextResponse.json({ error: "id et action requis" }, { status: 400 });
+    }
+
+    const membre = await prisma.clubMembre.findUnique({ where: { id } });
+    if (!membre) {
+      return NextResponse.json({ error: "Membre introuvable" }, { status: 404 });
+    }
+
+    switch (action) {
+      case "toggle-bon": {
+        const newVal = !membre.bonUtilise;
+        const updated = await prisma.clubMembre.update({
+          where: { id },
+          data: {
+            bonUtilise: newVal,
+            dateBonUtilise: newVal ? new Date() : null,
+          },
+        });
+        console.log(
+          `[Club] Bon ${newVal ? "utilisé" : "réinitialisé"} : ${membre.prenom} ${membre.nom}`
+        );
+        return NextResponse.json({ success: true, membre: updated });
+      }
+
+      case "generer-code": {
+        // Générer un code unique (vérifier qu'il n'existe pas déjà)
+        let code: string;
+        let attempts = 0;
+        do {
+          code = genererCodePromo(membre.niveau);
+          const existing = await prisma.clubMembre.findFirst({
+            where: { codePromo: code },
+          });
+          if (!existing) break;
+          attempts++;
+        } while (attempts < 10);
+
+        const updated = await prisma.clubMembre.update({
+          where: { id },
+          data: { codePromo: code, bonUtilise: false, dateBonUtilise: null },
+        });
+        console.log(
+          `[Club] Code promo généré : ${code} pour ${membre.prenom} ${membre.nom} (niv ${membre.niveau})`
+        );
+        return NextResponse.json({ success: true, membre: updated });
+      }
+
+      case "set-bon": {
+        const bonVal = Boolean(value);
+        const updated = await prisma.clubMembre.update({
+          where: { id },
+          data: {
+            bonUtilise: bonVal,
+            dateBonUtilise: bonVal ? new Date() : null,
+          },
+        });
+        return NextResponse.json({ success: true, membre: updated });
+      }
+
+      default:
+        return NextResponse.json({ error: `Action inconnue : ${action}` }, { status: 400 });
+    }
+  } catch (error: any) {
+    console.error("[Club Membres] Erreur PATCH:", error);
+    return NextResponse.json(
+      { error: error.message || "Erreur lors de la mise à jour" },
       { status: 500 }
     );
   }

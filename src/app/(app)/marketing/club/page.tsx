@@ -16,6 +16,9 @@ import {
   Trash2,
   X,
   AlertTriangle,
+  Check,
+  Copy,
+  Ticket,
 } from "lucide-react";
 import { CLUB_LEVELS, CLUB_DA, type ClubLevel } from "@/data/club-grandis";
 
@@ -48,6 +51,9 @@ interface ClubMembre {
   dernierSync: string | null;
   brevoSynced: boolean;
   sellsySynced: boolean;
+  codePromo: string | null;
+  bonUtilise: boolean;
+  dateBonUtilise: string | null;
 }
 
 interface StatsData {
@@ -224,6 +230,53 @@ export default function ClubGrandisPage() {
       showToast("Erreur de connexion");
     }
     setDeleting(false);
+  };
+
+  const handleToggleBon = async (membre: ClubMembre) => {
+    try {
+      const res = await fetch("/api/club/membres", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: membre.id, action: "toggle-bon" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(
+          data.membre.bonUtilise
+            ? `Bon marqué utilisé — ${membre.prenom} ${membre.nom}`
+            : `Bon réinitialisé — ${membre.prenom} ${membre.nom}`
+        );
+        await loadMembres();
+      } else {
+        showToast(`Erreur : ${data.error}`);
+      }
+    } catch {
+      showToast("Erreur de connexion");
+    }
+  };
+
+  const handleGenererCode = async (membre: ClubMembre) => {
+    try {
+      const res = await fetch("/api/club/membres", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: membre.id, action: "generer-code" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Code généré : ${data.membre.codePromo}`);
+        await loadMembres();
+      } else {
+        showToast(`Erreur : ${data.error}`);
+      }
+    } catch {
+      showToast("Erreur de connexion");
+    }
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    showToast(`Code copié : ${code}`);
   };
 
   // @font-face pour les polices commerciales
@@ -480,8 +533,8 @@ export default function ClubGrandisPage() {
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white">NIVEAU</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden sm:table-cell">CMD</th>
                 <th className="text-right px-4 lg:px-6 py-3 text-xs font-semibold text-white">CA</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden lg:table-cell">SELLSY</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden lg:table-cell">BREVO</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden lg:table-cell">CODE PROMO</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden sm:table-cell">BON</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white w-10"></th>
               </tr>
             </thead>
@@ -535,16 +588,46 @@ export default function ClubGrandisPage() {
                         {formatMontant(m.totalMontant)}
                       </td>
                       <td className="px-3 py-3 text-center hidden lg:table-cell">
-                        <span
-                          className={`inline-block w-2.5 h-2.5 rounded-full ${m.sellsySynced ? "bg-cockpit-success" : "bg-cockpit-warning"}`}
-                          title={m.sellsySynced ? "Synchronisé" : "En attente"}
-                        />
+                        {m.codePromo ? (
+                          <div className="inline-flex items-center gap-1">
+                            <code
+                              className="text-[11px] font-mono px-2 py-0.5 rounded-md border"
+                              style={{ borderColor: da.border, color: da.primary, backgroundColor: "rgba(81,87,18,0.06)" }}
+                            >
+                              {m.codePromo}
+                            </code>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleCopyCode(m.codePromo!); }}
+                              className="p-1 rounded hover:bg-cockpit-dark transition-colors text-cockpit-secondary"
+                              title="Copier le code"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleGenererCode(m); }}
+                            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-dashed transition-all hover:border-solid"
+                            style={{ borderColor: da.textMuted, color: da.textMuted }}
+                            title="Générer un code promo"
+                          >
+                            <Ticket className="w-3 h-3" />
+                            Générer
+                          </button>
+                        )}
                       </td>
-                      <td className="px-3 py-3 text-center hidden lg:table-cell">
-                        <span
-                          className={`inline-block w-2.5 h-2.5 rounded-full ${m.brevoSynced ? "bg-cockpit-success" : "bg-cockpit-warning"}`}
-                          title={m.brevoSynced ? "Synchronisé" : "En attente"}
-                        />
+                      <td className="px-3 py-3 text-center hidden sm:table-cell">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleToggleBon(m); }}
+                          className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border-2 transition-all ${
+                            m.bonUtilise
+                              ? "border-green-500 bg-green-500 text-white"
+                              : "border-cockpit-input bg-cockpit-input text-transparent hover:border-green-300"
+                          }`}
+                          title={m.bonUtilise ? `Utilisé le ${formatDate(m.dateBonUtilise)}` : "Marquer comme utilisé"}
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
                       </td>
                       <td className="px-2 py-3 text-center">
                         <button
