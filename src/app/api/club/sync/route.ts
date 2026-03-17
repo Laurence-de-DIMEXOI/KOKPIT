@@ -48,8 +48,8 @@ export async function POST() {
       const contactId = String(related.id);
       const existing = contactMap.get(contactId);
 
-      // Montant HT de la commande
-      const montant = order.amounts?.total_excl_tax || 0;
+      // Montant HT de la commande (Sellsy retourne des strings)
+      const montant = Number(order.amounts?.total_excl_tax) || 0;
 
       // Infos contact depuis l'embed
       const contactEmbed = order._embed?.contact;
@@ -105,7 +105,7 @@ export async function POST() {
           data: {
             niveau: niveauFinal,
             totalCommandes: data.nbCommandes,
-            totalMontant: data.totalMontant,
+            totalMontant: Number(data.totalMontant) || 0,
             dernierSync: new Date(),
             // Reset sync flags si le niveau a changé
             ...(wasUpgraded
@@ -124,7 +124,7 @@ export async function POST() {
             prenom: data.prenom,
             niveau: niveauFinal,
             totalCommandes: data.nbCommandes,
-            totalMontant: data.totalMontant,
+            totalMontant: Number(data.totalMontant) || 0,
             dernierSync: new Date(),
             brevoSynced: false,
             sellsySynced: false,

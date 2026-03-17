@@ -3,7 +3,7 @@
  *
  * 5 niveaux basés sur l'historique de commandes Sellsy (fenêtre glissante 36 mois).
  * Règle absolue : un client ne descend jamais de niveau.
- * Niv v (Le Tectona) = permanent + sur invitation uniquement.
+ * Niv V (Le Tectona) = permanent + sur invitation uniquement.
  */
 
 // ============================================================================
@@ -14,17 +14,17 @@ export interface ClubLevel {
   niveau: number; // 1–5
   slug: "ecorce" | "aubier" | "coeur" | "grain" | "tectona";
   nom: string; // "L'Écorce", etc.
-  chiffre: string; // "i" | "ii" | "iii" | "iv" | "v"
+  chiffre: string; // "I" | "II" | "III" | "IV" | "V"
   condition: string; // texte lisible
   remise: number; // 5, 10, 15, 20, 25
   minCommandes: number | null; // 1, 2, 3, null, null
   minMontant: number; // 500, 2000, 5000, 10000, 20000
-  permanent: boolean; // false sauf niv v
-  invitation: boolean; // true seulement niv v
+  permanent: boolean; // false sauf niv V
+  invitation: boolean; // true seulement niv V
   sellsyTag: string; // "CLUB - Niv 1" … "CLUB - Niv 5"
-  brevoSegment: string; // "Club Grandis · i" … "Club Grandis · v"
+  brevoSegment: string; // "Club Grandis · I" … "Club Grandis · V"
   brevoListEnvKey: string; // "BREVO_CLUB_LIST_ID_1" … "_5"
-  couleur: string; // couleur accent du niveau
+  couleur: string; // couleur accent du niveau (nuances de #515712)
 }
 
 // ============================================================================
@@ -36,7 +36,7 @@ export const CLUB_LEVELS: ClubLevel[] = [
     niveau: 1,
     slug: "ecorce",
     nom: "L'Écorce",
-    chiffre: "i",
+    chiffre: "I",
     condition: "1 commande ≥ 500 €",
     remise: 5,
     minCommandes: 1,
@@ -44,15 +44,15 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: false,
     invitation: false,
     sellsyTag: "CLUB - Niv 1",
-    brevoSegment: "Club Grandis · i",
+    brevoSegment: "Club Grandis · I",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_1",
-    couleur: "#8B9A2B",
+    couleur: "#7a801e",
   },
   {
     niveau: 2,
     slug: "aubier",
     nom: "L'Aubier",
-    chiffre: "ii",
+    chiffre: "II",
     condition: "2 commandes ou ≥ 2 000 €",
     remise: 10,
     minCommandes: 2,
@@ -60,15 +60,15 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: false,
     invitation: false,
     sellsyTag: "CLUB - Niv 2",
-    brevoSegment: "Club Grandis · ii",
+    brevoSegment: "Club Grandis · II",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_2",
-    couleur: "#6B7A1A",
+    couleur: "#6b7318",
   },
   {
     niveau: 3,
     slug: "coeur",
     nom: "Le Cœur",
-    chiffre: "iii",
+    chiffre: "III",
     condition: "3 commandes ou ≥ 5 000 €",
     remise: 15,
     minCommandes: 3,
@@ -76,7 +76,7 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: false,
     invitation: false,
     sellsyTag: "CLUB - Niv 3",
-    brevoSegment: "Club Grandis · iii",
+    brevoSegment: "Club Grandis · III",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_3",
     couleur: "#515712",
   },
@@ -84,7 +84,7 @@ export const CLUB_LEVELS: ClubLevel[] = [
     niveau: 4,
     slug: "grain",
     nom: "Le Grain",
-    chiffre: "iv",
+    chiffre: "IV",
     condition: "≥ 10 000 €",
     remise: 20,
     minCommandes: null,
@@ -92,15 +92,15 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: false,
     invitation: false,
     sellsyTag: "CLUB - Niv 4",
-    brevoSegment: "Club Grandis · iv",
+    brevoSegment: "Club Grandis · IV",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_4",
-    couleur: "#3A3D0E",
+    couleur: "#3a3d0d",
   },
   {
     niveau: 5,
     slug: "tectona",
     nom: "Le Tectona",
-    chiffre: "v",
+    chiffre: "V",
     condition: "≥ 20 000 € + invitation",
     remise: 25,
     minCommandes: null,
@@ -108,27 +108,31 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: true,
     invitation: true,
     sellsyTag: "CLUB - Niv 5",
-    brevoSegment: "Club Grandis · v",
+    brevoSegment: "Club Grandis · V",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_5",
-    couleur: "#1E2008",
+    couleur: "#515712",
   },
 ];
 
 // ============================================================================
-// DA CUSTOM (hors tokens KÒKPIT)
+// DA CUSTOM — Monochrome blanc + mousse #515712
 // ============================================================================
 
 export const CLUB_DA = {
-  primary: "#515712", // mousse
-  primaryLight: "#7a8018",
-  bg: "#fafbf2", // ivoire chaud
-  bgCard: "#f5f6ec",
-  text: "#3a3d0e", // mousse foncé
-  textMuted: "#6b7040",
-  border: "#d4d9a8",
-  accent: "#7a8018",
-  fontDisplay: "'Cormorant Garamond', serif",
-  fontBody: "'Cormorant Garamond', serif",
+  primary: "#515712", // mousse principale
+  primaryHover: "#6b7318", // hover
+  primaryDark: "#3a3d0d", // CTA hover foncé
+  bg: "#ffffff", // fond page : blanc pur
+  bgCard: "#ffffff", // fond cards : blanc pur
+  text: "#515712", // texte : mousse
+  textMuted: "rgba(81,87,18,0.50)", // texte discret
+  border: "rgba(81,87,18,0.12)", // bordures subtiles
+  accent: "#7a801e", // dots, accents légers
+  // Titres : Perandory → Cormorant Garamond (fallback Google)
+  fontDisplay: "'Perandory', 'Cormorant Garamond', serif",
+  // Sous-titres / accents italiques : Burgues Script → Cormorant Garamond italic
+  fontAccent: "'Burgues Script', 'Cormorant Garamond', serif",
+  // Corps de texte : hérite de la police KOKPIT par défaut (Plus Jakarta Sans)
 } as const;
 
 // ============================================================================

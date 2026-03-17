@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Cormorant_Garamond } from "next/font/google";
 import {
   RefreshCw,
   Search,
@@ -14,6 +15,18 @@ import {
   Loader2,
 } from "lucide-react";
 import { CLUB_LEVELS, CLUB_DA, type ClubLevel } from "@/data/club-grandis";
+
+// ============================================================================
+// FONTS — Cormorant Garamond (fallback pour Perandory/Burgues Script)
+// ============================================================================
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-cormorant",
+});
 
 // ============================================================================
 // TYPES
@@ -79,11 +92,10 @@ function getLevelConfig(niveau: number): ClubLevel {
 }
 
 // ============================================================================
-// PAGE
+// PAGE — Monochrome blanc + mousse #515712
 // ============================================================================
 
 export default function ClubGrandisPage() {
-  // State
   const [stats, setStats] = useState<StatsData | null>(null);
   const [membresData, setMembresData] = useState<MembresData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +107,6 @@ export default function ClubGrandisPage() {
   const [filterNiveau, setFilterNiveau] = useState<number | null>(null);
   const [page, setPage] = useState(1);
 
-  // Fetch stats
   const loadStats = useCallback(async () => {
     try {
       const res = await fetch("/api/club/stats");
@@ -105,7 +116,6 @@ export default function ClubGrandisPage() {
     }
   }, []);
 
-  // Fetch membres
   const loadMembres = useCallback(async () => {
     try {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
@@ -118,7 +128,6 @@ export default function ClubGrandisPage() {
     }
   }, [page, filterNiveau, search]);
 
-  // Initial load
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -128,22 +137,18 @@ export default function ClubGrandisPage() {
     init();
   }, [loadStats, loadMembres]);
 
-  // Show toast
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Sync principal
   const handleSync = async () => {
     setSyncing(true);
     try {
       const res = await fetch("/api/club/sync", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        showToast(
-          `Synchronisation terminée : ${data.synced} membres, ${data.nouveaux} nouveaux, ${data.upgraded} promus`
-        );
+        showToast(`${data.synced} membres synchronisés, ${data.nouveaux} nouveaux, ${data.upgraded} promus`);
         await Promise.all([loadStats(), loadMembres()]);
       } else {
         showToast(`Erreur : ${data.error}`);
@@ -154,7 +159,6 @@ export default function ClubGrandisPage() {
     setSyncing(false);
   };
 
-  // Sync tags Sellsy
   const handleSyncTags = async () => {
     setSyncingTags(true);
     try {
@@ -172,7 +176,6 @@ export default function ClubGrandisPage() {
     setSyncingTags(false);
   };
 
-  // Sync Brevo
   const handleSyncBrevo = async () => {
     setSyncingBrevo(true);
     try {
@@ -190,19 +193,45 @@ export default function ClubGrandisPage() {
     setSyncingBrevo(false);
   };
 
-  // DA styles
   const da = CLUB_DA;
 
+  // @font-face pour les polices commerciales (dès qu'elles sont dans public/fonts/)
+  const fontFaceCSS = `
+    @font-face {
+      font-family: 'Perandory';
+      src: url('/fonts/Perandory-Regular.woff2') format('woff2'),
+           url('/fonts/Perandory-Regular.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Perandory';
+      src: url('/fonts/Perandory-Bold.woff2') format('woff2'),
+           url('/fonts/Perandory-Bold.otf') format('opentype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Burgues Script';
+      src: url('/fonts/BurguesScript.woff2') format('woff2'),
+           url('/fonts/BurguesScript.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+  `;
+
   return (
-    <div
-      className="min-h-screen"
-      style={{ backgroundColor: da.bg, color: da.text, fontFamily: da.fontBody }}
-    >
+    <div className={`min-h-screen bg-white ${cormorant.variable}`}>
+      <style dangerouslySetInnerHTML={{ __html: fontFaceCSS }} />
+
       {/* Toast */}
       {toast && (
         <div
-          className="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm max-w-md animate-in slide-in-from-right"
-          style={{ backgroundColor: da.primary, color: "#fff" }}
+          className="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm max-w-md text-white"
+          style={{ backgroundColor: da.primary }}
         >
           {toast}
         </div>
@@ -212,109 +241,92 @@ export default function ClubGrandisPage() {
         {/* ================================================================ */}
         {/* HEADER */}
         {/* ================================================================ */}
-        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-10">
-          <div className="flex items-center gap-4">
-            {/* Logo */}
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-12">
+          <div className="flex items-center gap-5">
             <img
               src="/images/club-grandis-logo.svg"
               alt="Club Grandis"
-              className="h-16 w-auto"
+              className="h-28 w-auto"
             />
             <div>
               <h1
-                className="text-3xl font-bold tracking-tight"
+                className="text-4xl font-bold tracking-tight"
                 style={{ fontFamily: da.fontDisplay, color: da.primary }}
               >
                 Club Grandis
               </h1>
               <p
-                className="text-sm italic mt-0.5"
-                style={{ color: da.textMuted, fontFamily: da.fontDisplay }}
+                className="text-lg mt-1"
+                style={{ color: da.primary, fontFamily: da.fontAccent, fontStyle: "italic" }}
               >
-                Programme de fidélité · Croître ensemble
+                Croître ensemble
               </p>
             </div>
           </div>
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: da.primary, color: "#fff" }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: da.primary }}
           >
-            {syncing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
-            )}
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             {syncing ? "Synchronisation…" : "Synchroniser Sellsy"}
           </button>
         </header>
 
         {/* ================================================================ */}
-        {/* STATS CARDS */}
+        {/* STATS CARDS — monochrome */}
         {/* ================================================================ */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                className="h-28 rounded-xl animate-pulse"
-                style={{ backgroundColor: da.bgCard }}
-              />
+              <div key={i} className="h-28 rounded-xl border animate-pulse" style={{ borderColor: da.border }} />
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             {CLUB_LEVELS.map((level) => {
-              const count =
-                stats?.parNiveau.find((p) => p.niveau === level.niveau)
-                  ?.count || 0;
+              const count = stats?.parNiveau.find((p) => p.niveau === level.niveau)?.count || 0;
+              const isActive = filterNiveau === level.niveau;
               return (
                 <button
                   key={level.niveau}
-                  onClick={() =>
-                    setFilterNiveau(
-                      filterNiveau === level.niveau ? null : level.niveau
-                    )
-                  }
-                  className={`rounded-xl p-4 text-left transition-all hover:shadow-md ${
-                    filterNiveau === level.niveau
-                      ? "ring-2 shadow-md"
-                      : "hover:ring-1"
-                  }`}
+                  onClick={() => setFilterNiveau(isActive ? null : level.niveau)}
+                  className="rounded-xl p-4 text-left transition-all border"
                   style={{
-                    backgroundColor: da.bgCard,
-                    borderColor: level.couleur,
-                    boxShadow: filterNiveau === level.niveau
-                      ? `0 0 0 2px ${level.couleur}`
-                      : undefined,
+                    backgroundColor: isActive ? da.primary : "#fff",
+                    borderColor: isActive ? da.primary : da.border,
+                    boxShadow: isActive ? `0 4px 12px rgba(81,87,18,0.25)` : undefined,
                   }}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <span
-                      className="text-xs font-bold px-2 py-0.5 rounded-full"
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full"
                       style={{
-                        backgroundColor: level.couleur,
-                        color: "#fff",
+                        backgroundColor: isActive ? "#fff" : da.primary,
+                        color: isActive ? da.primary : "#fff",
                       }}
                     >
                       {level.chiffre}
                     </span>
                     <span
                       className="text-xs font-medium truncate"
-                      style={{ color: da.textMuted }}
+                      style={{ color: isActive ? "rgba(255,255,255,0.7)" : da.textMuted }}
                     >
                       {level.nom}
                     </span>
                   </div>
                   <p
-                    className="text-2xl font-bold"
-                    style={{ color: level.couleur, fontFamily: da.fontDisplay }}
+                    className="text-3xl font-bold"
+                    style={{ color: isActive ? "#fff" : da.primary, fontFamily: da.fontDisplay }}
                   >
                     {count}
                   </p>
-                  <p className="text-[11px] mt-1" style={{ color: da.textMuted }}>
-                    {level.remise}% de remise
+                  <p
+                    className="text-[11px] mt-1"
+                    style={{ color: isActive ? "rgba(255,255,255,0.6)" : da.textMuted }}
+                  >
+                    -{level.remise}%
                   </p>
                 </button>
               );
@@ -325,18 +337,18 @@ export default function ClubGrandisPage() {
         {/* Summary row */}
         {stats && (
           <div
-            className="flex flex-wrap gap-6 mb-8 px-4 py-3 rounded-lg"
-            style={{ backgroundColor: da.bgCard }}
+            className="flex flex-wrap gap-6 mb-8 px-4 py-3 rounded-lg border"
+            style={{ borderColor: da.border }}
           >
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4" style={{ color: da.primary }} />
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium" style={{ color: da.primary }}>
                 {stats.totalMembres} membres
               </span>
             </div>
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" style={{ color: da.primary }} />
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium" style={{ color: da.primary }}>
                 CA total : {formatMontant(stats.totalCA)}
               </span>
             </div>
@@ -351,40 +363,21 @@ export default function ClubGrandisPage() {
         {/* ================================================================ */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-              style={{ color: da.textMuted }}
-            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: da.textMuted }} />
             <input
               type="text"
               placeholder="Rechercher un membre…"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="w-full pl-10 pr-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-all"
-              style={{
-                borderColor: da.border,
-                backgroundColor: "#fff",
-                fontFamily: da.fontBody,
-                color: da.text,
-              }}
+              style={{ borderColor: da.border, color: da.primary }}
             />
           </div>
           <select
             value={filterNiveau || ""}
-            onChange={(e) => {
-              setFilterNiveau(e.target.value ? parseInt(e.target.value) : null);
-              setPage(1);
-            }}
+            onChange={(e) => { setFilterNiveau(e.target.value ? parseInt(e.target.value) : null); setPage(1); }}
             className="px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-all"
-            style={{
-              borderColor: da.border,
-              backgroundColor: "#fff",
-              fontFamily: da.fontBody,
-              color: da.text,
-            }}
+            style={{ borderColor: da.border, color: da.primary }}
           >
             <option value="">Tous les niveaux</option>
             {CLUB_LEVELS.map((l) => (
@@ -398,56 +391,18 @@ export default function ClubGrandisPage() {
         {/* ================================================================ */}
         {/* TABLE */}
         {/* ================================================================ */}
-        <div
-          className="rounded-xl border overflow-hidden"
-          style={{ borderColor: da.border, backgroundColor: "#fff" }}
-        >
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: da.border }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: da.bgCard }}>
-                  <th
-                    className="text-left px-4 py-3 font-semibold"
-                    style={{ color: da.textMuted }}
-                  >
-                    Membre
-                  </th>
-                  <th
-                    className="text-left px-4 py-3 font-semibold hidden md:table-cell"
-                    style={{ color: da.textMuted }}
-                  >
-                    Email
-                  </th>
-                  <th
-                    className="text-center px-4 py-3 font-semibold"
-                    style={{ color: da.textMuted }}
-                  >
-                    Niveau
-                  </th>
-                  <th
-                    className="text-center px-4 py-3 font-semibold hidden sm:table-cell"
-                    style={{ color: da.textMuted }}
-                  >
-                    Commandes
-                  </th>
-                  <th
-                    className="text-right px-4 py-3 font-semibold"
-                    style={{ color: da.textMuted }}
-                  >
-                    CA
-                  </th>
-                  <th
-                    className="text-center px-4 py-3 font-semibold hidden lg:table-cell"
-                    style={{ color: da.textMuted }}
-                  >
-                    Sellsy
-                  </th>
-                  <th
-                    className="text-center px-4 py-3 font-semibold hidden lg:table-cell"
-                    style={{ color: da.textMuted }}
-                  >
-                    Brevo
-                  </th>
+                <tr style={{ backgroundColor: da.primary }}>
+                  <th className="text-left px-4 py-3 font-semibold text-white">Membre</th>
+                  <th className="text-left px-4 py-3 font-semibold text-white hidden md:table-cell">Email</th>
+                  <th className="text-center px-4 py-3 font-semibold text-white">Niveau</th>
+                  <th className="text-center px-4 py-3 font-semibold text-white hidden sm:table-cell">Cmd</th>
+                  <th className="text-right px-4 py-3 font-semibold text-white">CA</th>
+                  <th className="text-center px-4 py-3 font-semibold text-white hidden lg:table-cell">Sellsy</th>
+                  <th className="text-center px-4 py-3 font-semibold text-white hidden lg:table-cell">Brevo</th>
                 </tr>
               </thead>
               <tbody>
@@ -455,24 +410,14 @@ export default function ClubGrandisPage() {
                   [...Array(5)].map((_, i) => (
                     <tr key={i}>
                       <td colSpan={7} className="px-4 py-4">
-                        <div
-                          className="h-4 rounded animate-pulse"
-                          style={{ backgroundColor: da.bgCard }}
-                        />
+                        <div className="h-4 rounded animate-pulse bg-gray-100" />
                       </td>
                     </tr>
                   ))
                 ) : membresData?.membres.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-12 text-center"
-                      style={{ color: da.textMuted }}
-                    >
-                      <Crown
-                        className="w-8 h-8 mx-auto mb-2"
-                        style={{ color: da.border }}
-                      />
+                    <td colSpan={7} className="px-4 py-12 text-center" style={{ color: da.textMuted }}>
+                      <Crown className="w-8 h-8 mx-auto mb-2" style={{ color: da.border }} />
                       <p>Aucun membre trouvé</p>
                       <p className="text-xs mt-1">
                         Lancez une synchronisation Sellsy pour peupler le Club
@@ -480,66 +425,46 @@ export default function ClubGrandisPage() {
                     </td>
                   </tr>
                 ) : (
-                  membresData?.membres.map((m) => {
+                  membresData?.membres.map((m, idx) => {
                     const level = getLevelConfig(m.niveau);
                     return (
                       <tr
                         key={m.id}
-                        className="border-t hover:bg-opacity-50 transition-colors"
+                        className="border-t transition-colors hover:bg-gray-50"
                         style={{ borderColor: da.border }}
                       >
                         <td className="px-4 py-3">
-                          <p className="font-medium" style={{ color: da.text }}>
+                          <p className="font-medium" style={{ color: da.primary }}>
                             {m.prenom} {m.nom}
                           </p>
                         </td>
-                        <td
-                          className="px-4 py-3 hidden md:table-cell"
-                          style={{ color: da.textMuted }}
-                        >
+                        <td className="px-4 py-3 hidden md:table-cell" style={{ color: da.textMuted }}>
                           {m.email || "—"}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span
-                            className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
-                            style={{
-                              backgroundColor: level.couleur,
-                              color: "#fff",
-                            }}
+                            className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full text-white"
+                            style={{ backgroundColor: da.primary }}
                           >
-                            {level.chiffre} {level.nom}
+                            {level.chiffre}
                           </span>
                         </td>
-                        <td
-                          className="px-4 py-3 text-center hidden sm:table-cell font-medium"
-                          style={{ color: da.text }}
-                        >
+                        <td className="px-4 py-3 text-center hidden sm:table-cell font-medium" style={{ color: da.primary }}>
                           {m.totalCommandes}
                         </td>
-                        <td
-                          className="px-4 py-3 text-right font-semibold"
-                          style={{ color: da.primary }}
-                        >
+                        <td className="px-4 py-3 text-right font-semibold" style={{ color: da.primary }}>
                           {formatMontant(m.totalMontant)}
                         </td>
                         <td className="px-4 py-3 text-center hidden lg:table-cell">
                           <span
-                            className={`inline-block w-2.5 h-2.5 rounded-full ${
-                              m.sellsySynced ? "bg-green-500" : "bg-orange-400"
-                            }`}
-                            title={
-                              m.sellsySynced ? "Synchronisé" : "En attente"
-                            }
+                            className={`inline-block w-2.5 h-2.5 rounded-full ${m.sellsySynced ? "bg-green-500" : "bg-orange-400"}`}
+                            title={m.sellsySynced ? "Synchronisé" : "En attente"}
                           />
                         </td>
                         <td className="px-4 py-3 text-center hidden lg:table-cell">
                           <span
-                            className={`inline-block w-2.5 h-2.5 rounded-full ${
-                              m.brevoSynced ? "bg-green-500" : "bg-orange-400"
-                            }`}
-                            title={
-                              m.brevoSynced ? "Synchronisé" : "En attente"
-                            }
+                            className={`inline-block w-2.5 h-2.5 rounded-full ${m.brevoSynced ? "bg-green-500" : "bg-orange-400"}`}
+                            title={m.brevoSynced ? "Synchronisé" : "En attente"}
                           />
                         </td>
                       </tr>
@@ -554,28 +479,25 @@ export default function ClubGrandisPage() {
           {membresData && membresData.pagination.totalPages > 1 && (
             <div
               className="flex items-center justify-between px-4 py-3 border-t"
-              style={{ borderColor: da.border, backgroundColor: da.bgCard }}
+              style={{ borderColor: da.border }}
             >
               <p className="text-xs" style={{ color: da.textMuted }}>
-                {membresData.pagination.total} membres · Page {page}/
-                {membresData.pagination.totalPages}
+                {membresData.pagination.total} membres · Page {page}/{membresData.pagination.totalPages}
               </p>
               <div className="flex gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="p-1.5 rounded-md hover:bg-white/50 disabled:opacity-30 transition-colors"
+                  className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                  style={{ color: da.primary }}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() =>
-                    setPage((p) =>
-                      Math.min(membresData.pagination.totalPages, p + 1)
-                    )
-                  }
+                  onClick={() => setPage((p) => Math.min(membresData.pagination.totalPages, p + 1))}
                   disabled={page >= membresData.pagination.totalPages}
-                  className="p-1.5 rounded-md hover:bg-white/50 disabled:opacity-30 transition-colors"
+                  className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                  style={{ color: da.primary }}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -587,10 +509,7 @@ export default function ClubGrandisPage() {
         {/* ================================================================ */}
         {/* SYNC ACTIONS */}
         {/* ================================================================ */}
-        <div
-          className="mt-8 rounded-xl p-6"
-          style={{ backgroundColor: da.bgCard, border: `1px solid ${da.border}` }}
-        >
+        <div className="mt-8 rounded-xl p-6 border" style={{ borderColor: da.border }}>
           <h3
             className="text-lg font-bold mb-4"
             style={{ fontFamily: da.fontDisplay, color: da.primary }}
@@ -602,51 +521,32 @@ export default function ClubGrandisPage() {
               onClick={handleSyncTags}
               disabled={syncingTags}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:shadow-sm disabled:opacity-50"
-              style={{
-                borderColor: da.primary,
-                color: da.primary,
-                backgroundColor: "transparent",
-              }}
+              style={{ borderColor: da.primary, color: da.primary }}
             >
-              {syncingTags ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Tag className="w-4 h-4" />
-              )}
+              {syncingTags ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
               {syncingTags ? "Synchronisation…" : "Sync tags Sellsy"}
             </button>
             <button
               onClick={handleSyncBrevo}
               disabled={syncingBrevo}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:shadow-sm disabled:opacity-50"
-              style={{
-                borderColor: da.primary,
-                color: da.primary,
-                backgroundColor: "transparent",
-              }}
+              style={{ borderColor: da.primary, color: da.primary }}
             >
-              {syncingBrevo ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Mail className="w-4 h-4" />
-              )}
+              {syncingBrevo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
               {syncingBrevo ? "Synchronisation…" : "Sync segments Brevo"}
             </button>
           </div>
           <p className="text-xs mt-3" style={{ color: da.textMuted }}>
-            Les tags Sellsy ("CLUB - Niv 1" à "CLUB - Niv 5") et les segments Brevo
-            ("Club Grandis · i" à "Club Grandis · v") sont mis à jour pour les membres
+            Les tags Sellsy (&quot;CLUB - Niv 1&quot; à &quot;CLUB - Niv 5&quot;) et les segments Brevo
+            (&quot;Club Grandis · I&quot; à &quot;Club Grandis · V&quot;) sont mis à jour pour les membres
             non encore synchronisés.
           </p>
         </div>
 
         {/* ================================================================ */}
-        {/* FOOTER — LÉGENDE NIVEAUX */}
+        {/* LÉGENDE NIVEAUX */}
         {/* ================================================================ */}
-        <div
-          className="mt-8 rounded-xl p-6"
-          style={{ backgroundColor: da.bgCard, border: `1px solid ${da.border}` }}
-        >
+        <div className="mt-8 rounded-xl p-6 border" style={{ borderColor: da.border }}>
           <h3
             className="text-lg font-bold mb-4"
             style={{ fontFamily: da.fontDisplay, color: da.primary }}
@@ -657,25 +557,19 @@ export default function ClubGrandisPage() {
             {CLUB_LEVELS.map((level) => (
               <div
                 key={level.niveau}
-                className="rounded-lg p-4"
-                style={{
-                  borderLeft: `4px solid ${level.couleur}`,
-                  backgroundColor: "#fff",
-                }}
+                className="rounded-lg p-4 border"
+                style={{ borderColor: da.border }}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span
-                    className="text-xs font-bold px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: level.couleur, color: "#fff" }}
+                    className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white"
+                    style={{ backgroundColor: da.primary }}
                   >
                     {level.chiffre}
                   </span>
                   <span
                     className="font-semibold text-sm"
-                    style={{
-                      color: level.couleur,
-                      fontFamily: da.fontDisplay,
-                    }}
+                    style={{ color: da.primary, fontFamily: da.fontDisplay }}
                   >
                     {level.nom}
                   </span>
@@ -683,14 +577,14 @@ export default function ClubGrandisPage() {
                 <p className="text-xs mt-1" style={{ color: da.textMuted }}>
                   {level.condition}
                 </p>
-                <p
-                  className="text-sm font-bold mt-1"
-                  style={{ color: level.couleur }}
-                >
+                <p className="text-sm font-bold mt-1" style={{ color: da.primary }}>
                   -{level.remise}%
                 </p>
                 {level.permanent && (
-                  <p className="text-[10px] mt-1 italic" style={{ color: da.accent }}>
+                  <p
+                    className="text-[10px] mt-1"
+                    style={{ color: da.textMuted, fontFamily: da.fontAccent, fontStyle: "italic" }}
+                  >
                     Permanent · Sur invitation
                   </p>
                 )}
