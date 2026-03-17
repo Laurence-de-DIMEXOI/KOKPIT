@@ -164,25 +164,25 @@ export default function PostModal({
             </label>
 
             {coverImage ? (
-              /* Preview de l'image */
-              <div className="relative group rounded-lg overflow-hidden border border-gray-200">
+              /* Preview de l'image — affichage complet sans recadrage */
+              <div className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
                 <img
                   src={coverImage}
                   alt="Couverture"
-                  className="w-full h-32 sm:h-44 object-cover"
+                  className="w-full max-h-[50vh] object-contain"
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-3">
+                <div className="absolute bottom-0 inset-x-0 p-2 flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/50 to-transparent">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-white text-gray-700 text-xs font-medium rounded-lg shadow transition-opacity"
+                    className="px-3 py-1.5 bg-white text-gray-700 text-xs font-medium rounded-lg shadow"
                   >
                     Changer
                   </button>
                   <button
                     type="button"
                     onClick={handleRemoveImage}
-                    className="opacity-0 group-hover:opacity-100 px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg shadow transition-opacity"
+                    className="px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg shadow"
                   >
                     Supprimer
                   </button>

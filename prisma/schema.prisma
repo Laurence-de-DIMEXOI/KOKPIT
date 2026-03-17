@@ -19,6 +19,7 @@ enum Role {
   COMMERCIAL
   DIRECTION
   ADMIN
+  ACHAT
 }
 
 enum LeadStatut {
@@ -140,6 +141,8 @@ model User {
   passwordHash    String
   totpSecret      String?
   role            Role
+  titre           String?
+  telephone       String?
   showroomId      String?
   actif           Boolean   @default(true)
   createdAt       DateTime  @default(now())

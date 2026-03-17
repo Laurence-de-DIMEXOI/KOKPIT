@@ -41,6 +41,7 @@ export default function LoginPage() {
             DIRECTION: "/commercial",
             COMMERCIAL: "/commercial",
             MARKETING: "/dashboard",
+            ACHAT: "/commercial",
           };
           router.push(redirectMap[role] || "/commercial");
         } catch {
