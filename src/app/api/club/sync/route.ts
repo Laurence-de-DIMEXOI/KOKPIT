@@ -158,12 +158,24 @@ export async function POST() {
     let upgraded = 0;
     let nouveaux = 0;
 
-    // Noms internes à exclure (commandes internes)
-    const EXCLUDED_NAMES = ["DIMEXOI", "ORDER DIMEXOI"];
+    // Contacts internes à exclure (équipe Dimexoi)
+    const EXCLUDED_COMPANIES = ["DIMEXOI"];
+    const EXCLUDED_TEAM: { nom: string; prenom: string }[] = [
+      { nom: "BATISSE", prenom: "LAURENT" },
+      { nom: "LEGROS", prenom: "MICHELLE" },
+      { nom: "PERROT", prenom: "MICHELLE" },
+      { nom: "PAYET", prenom: "LAURENCE" },
+      { nom: "DAMMBRILLE", prenom: "ALAIN" },
+      { nom: "DECAUNES", prenom: "ELAURY" },
+    ];
 
     for (const [contactId, data] of contactMap) {
-      // Exclure les contacts internes (commandes Dimexoi à Dimexoi)
-      if (EXCLUDED_NAMES.some((n) => data.nom.toUpperCase().includes(n))) continue;
+      // Exclure les commandes internes Dimexoi
+      if (EXCLUDED_COMPANIES.some((n) => data.nom.toUpperCase().includes(n))) continue;
+      // Exclure les membres de l'équipe par nom + prénom exact
+      const nomUp = data.nom.toUpperCase();
+      const prenomUp = data.prenom.toUpperCase();
+      if (EXCLUDED_TEAM.some((t) => nomUp === t.nom && prenomUp === t.prenom)) continue;
 
       // Vérifier si le contact atteint au moins le niv 1 (1 cmd ≥ 500€)
       const niveauCalcule = calculerNiveau(data.nbCommandes, data.totalMontant, 0);
