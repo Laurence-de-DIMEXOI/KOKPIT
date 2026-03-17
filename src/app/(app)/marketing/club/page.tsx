@@ -242,31 +242,17 @@ export default function ClubGrandisPage() {
       )}
 
       {/* ================================================================ */}
-      {/* LOGO centré + grand */}
+      {/* HEADER — Logo centré + bouton sync */}
       {/* ================================================================ */}
-      <div className="flex justify-center pt-2 pb-2">
+      <div className="flex flex-col items-center gap-3">
         <img
-          src="/images/club-grandis-logo.svg"
+          src="/images/club-grandis-logo.png"
           alt="Club Grandis"
-          className="h-40 sm:h-48 w-auto"
+          className="w-72 sm:w-96 h-auto"
         />
-      </div>
-
-      {/* ================================================================ */}
-      {/* HEADER — style KOKPIT */}
-      {/* ================================================================ */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1
-            className="text-2xl sm:text-3xl font-bold mb-1"
-            style={{ fontFamily: da.fontDisplay, color: da.primary }}
-          >
-            Club Grandis
-          </h1>
-          <p className="text-cockpit-secondary text-sm">
-            Programme de fidélité · {stats?.totalMembres || 0} membres
-          </p>
-        </div>
+        <p className="text-cockpit-secondary text-sm">
+          Programme de fidélité · {stats?.totalMembres || 0} membres
+        </p>
         <button
           onClick={handleSync}
           disabled={syncing}
