@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 14 mars 2026 (v10 — bilan audit complet + micro-refresh fix + sprint 14 mars)
-**Mis à jour par** : Session Claude Code (Sprint 14 mars)
+**Dernière mise à jour** : 17 mars 2026 (v11 — Club Grandis complet + sprint 17 mars)
+**Mis à jour par** : Session Claude Code (Sprint 17 mars)
 
 ---
 
@@ -200,7 +200,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - `emailing/page.tsx` + `listes/page.tsx` — Campagnes Brevo + listes de diffusion
 - `campagnes/page.tsx` — Campagnes Meta Ads
 
-**Autres** : `/planning` · `/marketing/liens-utiles` · `/marketing/nos-reseaux` · `/docs` · `/parametres` · `/login`
+**Autres** : `/planning` · `/marketing/club` (Club Grandis) · `/marketing/liens-utiles` · `/marketing/nos-reseaux` · `/docs` · `/parametres` · `/login`
 
 ---
 
@@ -258,7 +258,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | C-STAFF | Nom commercial sur devis/commandes dashboard | API /api/sellsy/staffs |
 | M6 | Formulaire enrichi Anti-IA | FormatSignatureSelector dans PostModal — formats VIDEO_REEL + STORY, script lecture seule, pré-remplissage titre/description |
 | USERS | Gestion utilisateurs enrichie | Ajout champs titre/telephone, rôle ACHAT, 4 nouveaux utilisateurs |
-| CLUB | Club Grandis — Programme de fidélité | 5 niveaux (L'Écorce → Le Tectona), sync manuelle Sellsy tags + Brevo segments, DA custom mousse #515712, page /marketing/club |
+| CLUB | Club Grandis — Programme de fidélité | Voir section 18 — 5 niveaux, sync Sellsy + Brevo, DA mousse #515712, polices Perandory/Burgues Script, page /marketing/club |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée
@@ -289,7 +289,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 |-------|----------|--------|
 | Éditeur email | ❌ Pas dans KOKPIT | Brevo fait ça |
 | Sync contacts | ✅ KOKPIT pont Sellsy→Brevo via API | Pas de CSV, pas de Zapier |
-| Segments Brevo | 4 fixes + listes dynamiques (X5) | Voir section 14 |
+| Segments Brevo | 4 fixes Sellsy→Brevo + 5 listes Club Grandis + listes dynamiques (X5) | Voir sections 14 et 18 |
 | Lien devis→commande | Croisement via contact_id | API V2 sans lien direct |
 | Chaîne documentaire | V1 via Bearer V2 — stockage BDD définitif | Chaîne immuable, V1 lente |
 | Sellsy V1 auth | Bearer token V2 suffit — pas d'OAuth1 séparé | Confirmé en dev |
@@ -313,6 +313,10 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Sync statuts leads | Pré-lier + micro-refresh 14j (2-5 appels API) + check Prisma | 3min → ~3s — 5d0727e |
 | Relance commercial | Email Brevo transactional (fallback Resend) + log Evenement RELANCE | f5911fc |
 | SLA leads | Masqué si statut DEVIS ou VENTE — la demande est traitée | 2dc583d |
+| Club Grandis — Design | DA séparée de KOKPIT : monochrome blanc + `#515712`, polices Perandory/Burgues Script + fallback Cormorant Garamond | Pas de `var(--color-active)` |
+| Club Grandis — Sync | Manuelle uniquement (bouton), embed contact+company, fallback fetch /individuals/ /companies/, batch 10 | Pas de cron, pas d'auto-sync |
+| Club Grandis — Niveaux | Client ne descend jamais de niveau. Niveau V (Le Tectona) : invitation + ≥20k€, permanent, jamais auto-assigné | Règle métier immuable |
+| Club Grandis — Exclusions | Équipe interne exclue par nom+prénom exact (pas par nom seul → homonymes clients protégés) | DIMEXOI, Batisse, Legros/Perrot, Payet, Dammbrille, Decaunes |
 
 ---
 
@@ -331,8 +335,9 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **Evenement** — log d'événements par contact/lead (types : CREATION_LEAD, EMAIL_ENVOYE, APPEL, NOTE, **RELANCE**, DEVIS_ENVOYE…) ✅
 - **BrevoSyncLog** — historique sync Sellsy→Brevo ✅
 - **DocArticle** — articles documentation ✅
+- **ClubMembre** — membres Club Grandis (sync Sellsy) — sellsyContactId unique, niveau 1-5, totalCommandes, totalMontant (Float), brevoSynced/sellsySynced flags ✅
 
-**Données en base au 14 mars 2026** : 1 243 contacts · 1 377 devis · 139 BDC · 156 991€ CA · 85 contacts auto-upgradés PROSPECT→CLIENT
+**Données en base au 17 mars 2026** : 1 243 contacts · 1 377 devis · 139 BDC · 156 991€ CA · 85 contacts auto-upgradés PROSPECT→CLIENT · Club Grandis membres synchronisés
 
 **À créer (prochains sprints) :**
 - `ActivityLog` — log d'activité contacts (X1)
@@ -358,7 +363,13 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | `BREVO_API_KEY` | ✅ Vercel | Stats email + sync + webhooks + relance commercial |
 | `BREVO_SENDER_EMAIL` | ✅ .env.local | Expéditeur emails transactionnels (`laurence.payet@dimexoi.fr`) |
 | `RESEND_API_KEY` | ⚠️ Optionnel | Fallback envoi email si Brevo indispo |
+| `SELLSY_ACCESS_TOKEN` | ✅ Vercel | Token Sellsy V2 (utilisé par Club Sync pour fetch individuals/companies) |
 | `BREVO_WEBHOOK_SECRET` | ⚠️ À créer | Authentification webhooks Brevo (X5) |
+| `BREVO_CLUB_LIST_ID_1` | ⚠️ À configurer | ID liste Brevo "Club Grandis · I" (L'Écorce) |
+| `BREVO_CLUB_LIST_ID_2` | ⚠️ À configurer | ID liste Brevo "Club Grandis · II" (L'Aubier) |
+| `BREVO_CLUB_LIST_ID_3` | ⚠️ À configurer | ID liste Brevo "Club Grandis · III" (Le Cœur) |
+| `BREVO_CLUB_LIST_ID_4` | ⚠️ À configurer | ID liste Brevo "Club Grandis · IV" (Le Grain) |
+| `BREVO_CLUB_LIST_ID_5` | ⚠️ À configurer | ID liste Brevo "Club Grandis · V" (Le Tectona) |
 | `ANTHROPIC_API_KEY` | ✅ Vercel | Chatbot M4C |
 | `NEXTAUTH_SECRET` | ✅ Vercel | Auth |
 | `NEXTAUTH_URL` | ✅ Vercel | Auth |
@@ -602,4 +613,146 @@ model ConfigABC {
 
 ---
 
-*KOKPIT.md — feuille de route DIMEXOI — v10 — 14 mars 2026*
+## 18. CLUB GRANDIS — PROGRAMME DE FIDÉLITÉ ✅ DÉPLOYÉ
+
+### Concept
+
+Programme de fidélité B2B/B2C à 5 niveaux basé sur le CA HT (commandes Sellsy), avec synchronisation manuelle vers Sellsy (tags) et Brevo (listes/segments). Fenêtre glissante 36 mois sauf niveau V (permanent).
+
+### Niveaux
+
+| Niveau | Chiffre | Nom | Condition | Remise | Brevo Segment |
+|--------|---------|-----|-----------|--------|---------------|
+| 1 | I | L'Écorce | 1 commande ≥ 500€ | -5% | Club Grandis · I |
+| 2 | II | L'Aubier | 2 commandes ou ≥ 2 000€ | -10% | Club Grandis · II |
+| 3 | III | Le Cœur | 3 commandes ou ≥ 5 000€ | -15% | Club Grandis · III |
+| 4 | IV | Le Grain | ≥ 10 000€ | -20% | Club Grandis · IV |
+| 5 | V | Le Tectona | ≥ 20 000€ + invitation | -25% | Club Grandis · V |
+
+**Règles métier :**
+- Un client ne descend **jamais** de niveau
+- Le niveau V est **permanent** et **jamais auto-assigné** (invitation requise)
+- Fenêtre glissante : 36 mois (sauf V = permanent)
+- Chiffres romains toujours en **MAJUSCULES** (I, II, III, IV, V)
+- Montant Sellsy = `total_excl_tax` (HT), toujours wrappé avec `Number()` (string→Float)
+
+### Architecture fichiers
+
+| Fichier | Rôle |
+|---------|------|
+| `src/data/club-grandis.ts` | Constantes niveaux, DA couleurs/polices, fonctions `calculerNiveau()`, `getDebutFenetre()`, `getNiveauConfig()` |
+| `src/app/(app)/marketing/club/page.tsx` | Page UI complète — logo PNG centré, KPIs gradient, table membres, actions sync, légende niveaux |
+| `src/app/api/club/sync/route.ts` | POST — Sync Sellsy : orders → groupage par tiers → calcul niveau → upsert ClubMembre |
+| `src/app/api/club/sync-tags/route.ts` | POST — Push tags Sellsy (CLUB - Niv 1 à 5) sur chaque membre |
+| `src/app/api/club/sync-brevo/route.ts` | POST — Push contacts vers listes Brevo par niveau |
+| `src/app/api/club/membres/route.ts` | GET — Liste paginée avec recherche et filtre par niveau |
+| `src/app/api/club/stats/route.ts` | GET — Stats dashboard (totalMembres, parNiveau, totalCA, dernierSync) |
+
+### Design & Identité visuelle
+
+**DA séparée de KOKPIT** — ne pas utiliser `var(--color-active)` :
+
+```typescript
+CLUB_DA = {
+  primary: "#515712",        // Vert mousse — couleur unique
+  primaryHover: "#6b7318",
+  primaryDark: "#3a3d0d",
+  bg: "#ffffff",             // Fond = KOKPIT par défaut (pas de fond custom)
+  text: "#515712",
+  fontDisplay: "'Perandory', 'Cormorant Garamond', serif",   // Titres
+  fontAccent: "'Burgues Script', 'Cormorant Garamond', serif", // Accents italiques
+}
+```
+
+**Polices :**
+- **Perandory** (titres) → `public/fonts/Perandory/Perandory-Regular.otf` ✅
+- **Burgues Script** (accents) → `public/fonts/Burgues Script Regular/Burgues Script Regular.otf` ✅
+- **Cormorant Garamond** (fallback) → Google Fonts via `next/font/google` ✅
+- **Corps de texte** → Plus Jakarta Sans (police KOKPIT par défaut, hérité)
+
+**Logo :** `public/images/club-grandis-logo.png` — PNG croppé fond transparent, centré en haut de page (`w-72 sm:w-96`)
+
+**Palette monochrome :** blanc pur + `#515712` uniquement. Pas de beige, pas de nuances.
+
+**Page UI** : design KOKPIT standard (tokens `cockpit-*`, cards avec `shadow-cockpit-lg`, `border-cockpit`, `bg-cockpit-dark` pour hover, inputs `border-cockpit-input`) + couleurs/polices Club.
+
+### Sync Sellsy — Détails techniques
+
+1. `listAllOrders(sinceISO)` avec `embed: ["contact", "company"]` pour récupérer les noms
+2. Groupage par `related[0].id` (tiers = individual ou company)
+3. Extraction noms : `_embed.contact` → `_embed.company` → `order.company_name` → fallback API
+4. **Fallback API** : pour contacts sans nom ou sans email → fetch `/individuals/{id}` ou `/companies/{id}` (batch de 10)
+5. **Exclusions internes** :
+   - Companies contenant "DIMEXOI" → skip
+   - Équipe par nom+prénom exact : Batisse Laurent, Legros/Perrot Michelle, Payet Laurence, Dammbrille Alain, Decaunes Elaury
+6. Calcul niveau via `calculerNiveau(nbCommandes, totalMontant, niveauActuel)` — ne descend jamais
+7. Upsert ClubMembre : mise à jour noms "Inconnu", emails vides, reset flags sync si upgrade
+
+### Fonctions Sellsy ajoutées (`src/lib/sellsy.ts`)
+
+- `listTags()` — lister tous les tags
+- `createTag(name)` — créer un tag
+- `getContactTags(contactId)` — tags d'un contact
+- `assignTagToIndividual/Company(contactId, tagId)` — assigner un tag
+- `removeTagFromIndividual/Company(contactId, tagId)` — retirer un tag
+- `ensureTagsExist(tagNames)` — créer les tags manquants, retourner tous les IDs
+
+### Fonctions Brevo ajoutées (`src/lib/brevo.ts`)
+
+- `upsertBrevoContact(email, attributes)` — créer/mettre à jour un contact
+- `addContactsToList(listId, emails)` — ajouter des contacts à une liste
+- `removeContactsFromList(listId, emails)` — retirer des contacts d'une liste
+- `getListContacts(listId)` — récupérer les contacts d'une liste
+
+### Prisma — ClubMembre
+
+```prisma
+model ClubMembre {
+  id              String   @id @default(cuid())
+  sellsyContactId String   @unique
+  email           String
+  nom             String
+  prenom          String
+  niveau          Int      @default(1)
+  totalCommandes  Int      @default(0)
+  totalMontant    Float    @default(0)
+  dateEntree      DateTime @default(now())
+  dernierSync     DateTime?
+  brevoSynced     Boolean  @default(false)
+  sellsySynced    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([niveau])
+  @@index([email])
+}
+```
+
+### Navigation & Auth
+
+- Menu : Crown icon → "Club Grandis" dans l'espace Marketing (`nav-config.ts`)
+- Module `"club-grandis"` dans `auth-utils.ts` — accessible par ADMIN et MARKETING
+- Path `/marketing` détecté par `detectSpaceFromPath()` → espace Marketing
+
+### Variables d'environnement requises
+
+| Variable | Usage |
+|----------|-------|
+| `SELLSY_ACCESS_TOKEN` | Fetch noms contacts (fallback API) |
+| `BREVO_CLUB_LIST_ID_1` à `_5` | IDs listes Brevo par niveau (à créer dans Brevo puis configurer dans Vercel) |
+
+### Commits
+
+| Commit | Description |
+|--------|-------------|
+| `9bf297b` | feat: Club Grandis — programme complet (9 phases) |
+| `7f92fb6` | fix: palette monochrome, chiffres romains majuscules, fix Prisma Float |
+| `3d0a4f6` | fix: design KOKPIT, logo centré, polices Perandory/Burgues Script |
+| `1bc1b4e` | fix: logo PNG croppé + centré, suppression titre redondant |
+| `5de2af2` | fix: récupération noms contacts via embed + fallback API |
+| `3cb06fb` | fix: récupération emails depuis Sellsy API |
+| `1abe986` | fix: exclure commandes internes DIMEXOI |
+| `6ccc336` | fix: exclure équipe Dimexoi par nom+prénom exact |
+
+---
+
+*KOKPIT.md — feuille de route DIMEXOI — v11 — 17 mars 2026*
