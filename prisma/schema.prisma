@@ -785,3 +785,27 @@ model Task {
   @@index([echeance])
   @@index([statut])
 }
+
+// ============================================================================
+// CLUB GRANDIS — Programme de fidélité
+// ============================================================================
+
+model ClubMembre {
+  id              String   @id @default(cuid())
+  sellsyContactId String   @unique
+  email           String
+  nom             String
+  prenom          String
+  niveau          Int      @default(1)   // 1-5
+  totalCommandes  Int      @default(0)
+  totalMontant    Float    @default(0)
+  dateEntree      DateTime @default(now())
+  dernierSync     DateTime?
+  brevoSynced     Boolean  @default(false)
+  sellsySynced    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([niveau])
+  @@index([email])
+}

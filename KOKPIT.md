@@ -155,6 +155,7 @@ Règle topbar : si un utilisateur n'a accès qu'à un seul espace, les onglets e
 | Meta Ads | Campagnes publicité (sync) | `META_ACCESS_TOKEN` + `META_ACCESS_TOKEN_EXPIRES_AT` | `/api/meta/` |
 | Supabase | Storage Upload images couverture Planning | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | — |
 | Anthropic | Chatbot KOKPIT (Haiku) | `ANTHROPIC_API_KEY` | — |
+| Brevo Club Grandis | 5 listes pour segments fidélité | `BREVO_CLUB_LIST_ID_1` à `_5` | `/api/club/` |
 
 **Règle cache parentid** : appeler V1 une seule fois par document → stocker en LiaisonDocumentaire → ne plus jamais rappeler V1 pour ce document. Cache API route 30 min.
 
@@ -257,6 +258,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | C-STAFF | Nom commercial sur devis/commandes dashboard | API /api/sellsy/staffs |
 | M6 | Formulaire enrichi Anti-IA | FormatSignatureSelector dans PostModal — formats VIDEO_REEL + STORY, script lecture seule, pré-remplissage titre/description |
 | USERS | Gestion utilisateurs enrichie | Ajout champs titre/telephone, rôle ACHAT, 4 nouveaux utilisateurs |
+| CLUB | Club Grandis — Programme de fidélité | 5 niveaux (L'Écorce → Le Tectona), sync manuelle Sellsy tags + Brevo segments, DA custom mousse #515712, page /marketing/club |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée

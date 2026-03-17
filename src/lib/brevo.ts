@@ -174,3 +174,115 @@ export async function getAccount(): Promise<{
 export function getBrevoEditorUrl(templateId: number): string {
   return `https://app.brevo.com/camp/template/${templateId}/design`;
 }
+
+// ============================================================================
+// CONTACTS & LISTES (Club Grandis)
+// ============================================================================
+
+/**
+ * Crée ou met à jour un contact Brevo.
+ * Si le contact existe (par email), il est mis à jour.
+ * Gère les attributions/retraits de listes.
+ */
+export async function upsertBrevoContact(params: {
+  email: string;
+  attributes?: Record<string, string | number>;
+  listIds?: number[];
+  unlinkListIds?: number[];
+}): Promise<void> {
+  const body: Record<string, unknown> = {
+    email: params.email,
+    updateEnabled: true,
+  };
+  if (params.attributes) body.attributes = params.attributes;
+  if (params.listIds?.length) body.listIds = params.listIds;
+  if (params.unlinkListIds?.length) body.unlinkListIds = params.unlinkListIds;
+
+  const res = await fetch(`${BREVO_API_URL}/contacts`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(body),
+  });
+
+  // 201 = créé, 204 = mis à jour — les deux sont OK
+  if (!res.ok && res.status !== 204) {
+    const err = await res.text();
+    throw new Error(`Brevo upsertContact: ${res.status} ${err}`);
+  }
+}
+
+/**
+ * Ajoute des contacts à une liste Brevo par emails.
+ * Max 150 emails par appel.
+ */
+export async function addContactsToList(listId: number, emails: string[]): Promise<void> {
+  if (!emails.length) return;
+
+  // Brevo limite à 150 emails par appel
+  const batchSize = 150;
+  for (let i = 0; i < emails.length; i += batchSize) {
+    const batch = emails.slice(i, i + batchSize);
+    const res = await fetch(`${BREVO_API_URL}/contacts/lists/${listId}/contacts/add`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ emails: batch }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Brevo addContactsToList(${listId}): ${res.status} ${err}`);
+    }
+  }
+}
+
+/**
+ * Retire des contacts d'une liste Brevo par emails.
+ * Max 150 emails par appel.
+ */
+export async function removeContactsFromList(listId: number, emails: string[]): Promise<void> {
+  if (!emails.length) return;
+
+  const batchSize = 150;
+  for (let i = 0; i < emails.length; i += batchSize) {
+    const batch = emails.slice(i, i + batchSize);
+    const res = await fetch(`${BREVO_API_URL}/contacts/lists/${listId}/contacts/remove`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ emails: batch }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      // Ignorer 404 (contact pas dans la liste)
+      if (res.status !== 404) {
+        throw new Error(`Brevo removeContactsFromList(${listId}): ${res.status} ${err}`);
+      }
+    }
+  }
+}
+
+/**
+ * Récupère les contacts d'une liste Brevo.
+ */
+export async function getListContacts(listId: number): Promise<{ email: string }[]> {
+  const contacts: { email: string }[] = [];
+  let offset = 0;
+  const limit = 500;
+  let hasMore = true;
+
+  while (hasMore) {
+    const res = await fetch(
+      `${BREVO_API_URL}/contacts/lists/${listId}/contacts?limit=${limit}&offset=${offset}`,
+      { headers: getHeaders() }
+    );
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Brevo getListContacts(${listId}): ${res.status} ${err}`);
+    }
+    const data = await res.json();
+    const batch = data.contacts || [];
+    contacts.push(...batch.map((c: any) => ({ email: c.email })));
+    hasMore = batch.length === limit;
+    offset += limit;
+  }
+
+  return contacts;
+}

@@ -17,6 +17,7 @@ import {
   Share2,
   BookOpen,
   ClipboardList,
+  Crown,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -73,6 +74,7 @@ export const ESPACES: Espace[] = [
       { label: "Nos Réseaux", href: "/nos-reseaux", icon: Share2, module: "nos-reseaux" },
       { label: "Liens utiles", href: "/liens-utiles", icon: Link2, module: "liens-utiles" },
       { label: "Automatisations", href: "/automatisations", icon: Zap, module: "automatisations" },
+      { label: "Club Grandis", href: "/marketing/club", icon: Crown, module: "club-grandis" },
     ],
   },
   {
@@ -112,7 +114,7 @@ export const STORAGE_KEY = "kokpit_espace_actif";
 export function detectSpaceFromPath(pathname: string): string | null {
   if (pathname.startsWith("/commercial")) return "commercial";
   if (pathname.startsWith("/administration")) return "administration";
-  // Marketing pages (routes legacy sans préfixe /marketing)
+  // Marketing pages (routes legacy sans préfixe /marketing + nouvelles routes /marketing/*)
   if (
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/campagnes") ||
@@ -121,7 +123,8 @@ export function detectSpaceFromPath(pathname: string): string | null {
     pathname.startsWith("/planning") ||
     pathname.startsWith("/liens-utiles") ||
     pathname.startsWith("/nos-reseaux") ||
-    pathname.startsWith("/parametres")
+    pathname.startsWith("/parametres") ||
+    pathname.startsWith("/marketing")
   ) {
     return "marketing";
   }
