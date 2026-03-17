@@ -124,25 +124,29 @@ export async function POST() {
 
     console.log(`[Club Sync] ${contactMap.size} contacts identifiés`);
 
-    // 3. Pour les contacts encore "Inconnu", fetch les noms depuis Sellsy
-    const unknowns = [...contactMap.entries()].filter(([, d]) => d.nom === "Inconnu");
-    if (unknowns.length > 0) {
-      console.log(`[Club Sync] Récupération noms pour ${unknowns.length} contacts inconnus…`);
+    // 3. Pour les contacts sans nom ou sans email, fetch les détails depuis Sellsy
+    const needsFetch = [...contactMap.entries()].filter(
+      ([, d]) => d.nom === "Inconnu" || !d.email
+    );
+    if (needsFetch.length > 0) {
+      console.log(`[Club Sync] Récupération détails pour ${needsFetch.length} contacts…`);
       // Batch de 10 requêtes en parallèle
-      for (let i = 0; i < unknowns.length; i += 10) {
-        const batch = unknowns.slice(i, i + 10);
+      for (let i = 0; i < needsFetch.length; i += 10) {
+        const batch = needsFetch.slice(i, i + 10);
         await Promise.all(
           batch.map(async ([id, data]) => {
             const numId = parseInt(id, 10);
             if (data.relatedType === "individual") {
               const info = await fetchIndividualName(numId);
-              data.nom = info.nom;
-              data.prenom = info.prenom;
-              data.email = info.email;
+              if (data.nom === "Inconnu") {
+                data.nom = info.nom;
+                data.prenom = info.prenom;
+              }
+              if (!data.email) data.email = info.email;
             } else {
               const info = await fetchCompanyName(numId);
-              data.nom = info.nom;
-              data.email = info.email;
+              if (data.nom === "Inconnu") data.nom = info.nom;
+              if (!data.email) data.email = info.email;
             }
           })
         );
