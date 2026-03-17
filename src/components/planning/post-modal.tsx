@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Post, PostStatut, PostLabel, COLUMNS } from "./types";
 import LabelPicker from "./label-picker";
 import PostChecklist from "./post-checklist";
+import FormatSignatureSelector from "./FormatSignatureSelector";
 import { X, Trash2, CalendarDays, Upload, ImageIcon, Loader2 } from "lucide-react";
 
 interface PostModalProps {
@@ -38,7 +39,30 @@ export default function PostModal({
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [formatToast, setFormatToast] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Déterminer si un label Anti-IA est actif
+  const activeAntiIALabel = labels.includes("VIDEO_REEL" as any)
+    ? ("VIDEO_REEL" as const)
+    : labels.includes("STORY" as any)
+      ? ("STORY" as const)
+      : null;
+
+  const handleFormatApply = (titreSuggere: string, descriptionSuggeree: string) => {
+    const hasContent = title.trim() || description.trim();
+    if (hasContent) {
+      const ok = confirm("Écraser le titre et la description existants ?");
+      if (!ok) return;
+    }
+    setTitle(titreSuggere);
+    setDescription(descriptionSuggeree);
+    setFormatToast("Format appliqué — tu peux modifier le titre");
+    setTimeout(() => setFormatToast(""), 3000);
+    // Focus sur le titre pour édition immédiate
+    setTimeout(() => titleInputRef.current?.focus(), 100);
+  };
 
   // Close on Escape
   useEffect(() => {
@@ -222,6 +246,7 @@ export default function PostModal({
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Titre</label>
                 <input
+                  ref={titleInputRef}
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -277,6 +302,21 @@ export default function PostModal({
                 <label className="block text-sm font-medium text-gray-600 mb-2">Labels</label>
                 <LabelPicker selected={labels} onChange={setLabels} />
               </div>
+
+              {/* Format signature Anti-IA — conditionnel */}
+              {activeAntiIALabel && (
+                <FormatSignatureSelector
+                  labelActif={activeAntiIALabel}
+                  onApply={handleFormatApply}
+                />
+              )}
+
+              {/* Toast format appliqué */}
+              {formatToast && (
+                <div className="text-xs text-[#7758A3] bg-[#F9F7FF] border border-[#7758A3]/20 rounded-lg px-3 py-2 transition-all duration-200">
+                  {formatToast}
+                </div>
+              )}
 
               {/* Description */}
               <div>

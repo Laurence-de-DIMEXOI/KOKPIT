@@ -255,6 +255,8 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | M5-seed | Seed cartes Marketing Mars 2026 | 13 cartes injectées via script |
 | PROFIL | Mon Profil — formulaire éditable + session refresh JWT | `e9bc82f` |
 | C-STAFF | Nom commercial sur devis/commandes dashboard | API /api/sellsy/staffs |
+| M6 | Formulaire enrichi Anti-IA | FormatSignatureSelector dans PostModal — formats VIDEO_REEL + STORY, script lecture seule, pré-remplissage titre/description |
+| USERS | Gestion utilisateurs enrichie | Ajout champs titre/telephone, rôle ACHAT, 4 nouveaux utilisateurs |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée
@@ -300,6 +302,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Chatbot | claude-haiku-4-5-20251001 | Coût réduit |
 | Cache Sellsy | 3 min (revalidate: 180) | Équilibre fraîcheur/perf |
 | Skeleton loading | Obligatoire sur toutes les pages API | UX non bloquante |
+| Formats Anti-IA | Données statiques dans src/data/formats-anti-ia.ts | Pas de table Prisma — données stables, non multi-utilisateur |
 | Performance frontend | useMemo sur listes longues, lazy load chatbot, polling 60s | Confirmé P0bis |
 | KPIs contacts | 100% Prisma — plus de filtres Sellsy V2 cassés | Fiable et rapide |
 | Sync contacts auto | Cache localStorage 1x/heure max | Évite sync 6min à chaque visite |
