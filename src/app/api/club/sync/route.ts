@@ -186,6 +186,9 @@ export async function POST() {
         where: { sellsyContactId: contactId },
       });
 
+      // Si le membre a été exclu manuellement, ne pas le recréer
+      if (existant?.exclu) continue;
+
       const niveauFinal = calculerNiveau(
         data.nbCommandes,
         data.totalMontant,

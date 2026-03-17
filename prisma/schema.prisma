@@ -803,6 +803,7 @@ model ClubMembre {
   dernierSync     DateTime?
   brevoSynced     Boolean  @default(false)
   sellsySynced    Boolean  @default(false)
+  exclu           Boolean  @default(false) // soft-delete : retiré du programme
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

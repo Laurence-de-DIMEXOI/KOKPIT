@@ -1,7 +1,7 @@
 /**
  * Club Grandis — Programme de fidélité Dimexoi
  *
- * 5 niveaux basés sur l'historique de commandes Sellsy (fenêtre glissante 36 mois).
+ * 5 niveaux basés sur le CA HT des commandes Sellsy (depuis mi-2019).
  * Règle absolue : un client ne descend jamais de niveau.
  * Niv V (Le Tectona) = permanent + sur invitation uniquement.
  */
@@ -53,9 +53,9 @@ export const CLUB_LEVELS: ClubLevel[] = [
     slug: "aubier",
     nom: "L'Aubier",
     chiffre: "II",
-    condition: "2 commandes ou ≥ 2 000 €",
+    condition: "≥ 2 000 €",
     remise: 10,
-    minCommandes: 2,
+    minCommandes: null,
     minMontant: 2000,
     permanent: false,
     invitation: false,
@@ -69,9 +69,9 @@ export const CLUB_LEVELS: ClubLevel[] = [
     slug: "coeur",
     nom: "Le Cœur",
     chiffre: "III",
-    condition: "3 commandes ou ≥ 5 000 €",
+    condition: "≥ 5 000 €",
     remise: 15,
-    minCommandes: 3,
+    minCommandes: null,
     minMontant: 5000,
     permanent: false,
     invitation: false,
@@ -139,14 +139,14 @@ export const CLUB_DA = {
 // RÈGLES MÉTIER
 // ============================================================================
 
-/** Fenêtre glissante en mois pour le calcul du niveau */
-export const FENETRE_GLISSANTE_MOIS = 36;
+/** Date de début fixe : mi-2019 (1er juillet 2019) */
+export const DATE_DEBUT_CLUB = "2019-07-01";
 
 /**
  * Calcule le niveau Club Grandis d'un client.
  *
- * @param nbCommandes - Nombre de commandes dans la fenêtre 36 mois
- * @param totalMontant - Montant total HT des commandes dans la fenêtre
+ * @param nbCommandes - Nombre de commandes depuis mi-2019
+ * @param totalMontant - Montant total HT des commandes depuis mi-2019
  * @param niveauActuel - Niveau actuel en base (pour ne jamais descendre)
  * @returns Le niveau calculé (1–5), jamais inférieur à niveauActuel
  */
@@ -160,18 +160,16 @@ export function calculerNiveau(
   // Niv 1 : 1 commande ≥ 500 €
   if (nbCommandes >= 1 && totalMontant >= 500) niveau = 1;
 
-  // Niv 2 : 2 commandes OU ≥ 2 000 €
-  if (nbCommandes >= 2 || totalMontant >= 2000) niveau = Math.max(niveau, 2);
+  // Niv 2 : ≥ 2 000 € (montant seul)
+  if (totalMontant >= 2000) niveau = Math.max(niveau, 2);
 
-  // Niv 3 : 3 commandes OU ≥ 5 000 €
-  if (nbCommandes >= 3 || totalMontant >= 5000) niveau = Math.max(niveau, 3);
+  // Niv 3 : ≥ 5 000 € (montant seul)
+  if (totalMontant >= 5000) niveau = Math.max(niveau, 3);
 
   // Niv 4 : ≥ 10 000 €
   if (totalMontant >= 10000) niveau = Math.max(niveau, 4);
 
   // Niv 5 : ≥ 20 000 € (+ invitation manuelle — vérifiée côté UI)
-  // Note : le passage au niv 5 nécessite aussi une invitation,
-  // donc on ne passe PAS automatiquement au niv 5 ici.
   // Le niv 5 n'est attribué que manuellement via l'admin.
 
   // Règle absolue : ne jamais descendre
@@ -186,10 +184,9 @@ export function getNiveauConfig(niveau: number): ClubLevel | undefined {
 }
 
 /**
- * Retourne la date de début de la fenêtre glissante (36 mois avant aujourd'hui).
+ * Retourne la date de début pour la récupération des commandes.
+ * Fixe : 1er juillet 2019.
  */
 export function getDebutFenetre(): Date {
-  const d = new Date();
-  d.setMonth(d.getMonth() - FENETRE_GLISSANTE_MOIS);
-  return d;
+  return new Date(DATE_DEBUT_CLUB);
 }

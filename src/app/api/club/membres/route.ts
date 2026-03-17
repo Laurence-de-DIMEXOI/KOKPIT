@@ -22,8 +22,8 @@ export async function GET(req: Request) {
   const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100);
   const skip = (page - 1) * limit;
 
-  // Construction du filtre
-  const where: Record<string, unknown> = {};
+  // Construction du filtre — exclure les membres retirés
+  const where: Record<string, unknown> = { exclu: false };
 
   if (niveau) {
     const niv = parseInt(niveau, 10);
@@ -64,6 +64,51 @@ export async function GET(req: Request) {
     console.error("[Club Membres] Erreur:", error);
     return NextResponse.json(
       { error: error.message || "Erreur lors du chargement" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/club/membres?id=xxx
+ *
+ * Retire un membre du Club Grandis (soft-delete : exclu=true).
+ * Le membre ne sera pas recréé lors du prochain sync.
+ */
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json({ error: "ID manquant" }, { status: 400 });
+  }
+
+  try {
+    const membre = await prisma.clubMembre.findUnique({ where: { id } });
+    if (!membre) {
+      return NextResponse.json({ error: "Membre introuvable" }, { status: 404 });
+    }
+
+    await prisma.clubMembre.update({
+      where: { id },
+      data: { exclu: true },
+    });
+
+    console.log(`[Club] Membre exclu : ${membre.prenom} ${membre.nom} (niv ${membre.niveau})`);
+
+    return NextResponse.json({
+      success: true,
+      deleted: { id: membre.id, nom: membre.nom, prenom: membre.prenom },
+    });
+  } catch (error: any) {
+    console.error("[Club Membres] Erreur suppression:", error);
+    return NextResponse.json(
+      { error: error.message || "Erreur lors de la suppression" },
       { status: 500 }
     );
   }

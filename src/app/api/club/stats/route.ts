@@ -19,19 +19,24 @@ export async function GET() {
   }
 
   try {
+    const activeFilter = { exclu: false };
+
     const [totalMembres, parNiveau, dernierSyncResult, totalCA] =
       await Promise.all([
-        prisma.clubMembre.count(),
+        prisma.clubMembre.count({ where: activeFilter }),
         prisma.clubMembre.groupBy({
           by: ["niveau"],
+          where: activeFilter,
           _count: { id: true },
           orderBy: { niveau: "asc" },
         }),
         prisma.clubMembre.findFirst({
+          where: activeFilter,
           orderBy: { dernierSync: "desc" },
           select: { dernierSync: true },
         }),
         prisma.clubMembre.aggregate({
+          where: activeFilter,
           _sum: { totalMontant: true },
         }),
       ]);

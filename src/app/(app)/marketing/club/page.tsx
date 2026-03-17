@@ -13,6 +13,9 @@ import {
   Users,
   TrendingUp,
   Loader2,
+  Trash2,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import { CLUB_LEVELS, CLUB_DA, type ClubLevel } from "@/data/club-grandis";
 
@@ -113,6 +116,8 @@ export default function ClubGrandisPage() {
   const [search, setSearch] = useState("");
   const [filterNiveau, setFilterNiveau] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<ClubMembre | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const da = CLUB_DA;
 
@@ -200,6 +205,25 @@ export default function ClubGrandisPage() {
       showToast("Erreur de connexion");
     }
     setSyncingBrevo(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/club/membres?id=${deleteTarget.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`${deleteTarget.prenom} ${deleteTarget.nom} retiré du programme`);
+        setDeleteTarget(null);
+        await Promise.all([loadStats(), loadMembres()]);
+      } else {
+        showToast(`Erreur : ${data.error}`);
+      }
+    } catch {
+      showToast("Erreur de connexion");
+    }
+    setDeleting(false);
   };
 
   // @font-face pour les polices commerciales
@@ -458,20 +482,21 @@ export default function ClubGrandisPage() {
                 <th className="text-right px-4 lg:px-6 py-3 text-xs font-semibold text-white">CA</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden lg:table-cell">SELLSY</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden lg:table-cell">BREVO</th>
+                <th className="text-center px-3 py-3 text-xs font-semibold text-white w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cockpit">
               {loading ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={7} className="px-4 py-4">
+                    <td colSpan={8} className="px-4 py-4">
                       <div className="h-4 rounded animate-pulse bg-cockpit-dark" />
                     </td>
                   </tr>
                 ))
               ) : membresData?.membres.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     <Crown className="w-8 h-8 mx-auto mb-2 text-cockpit-secondary opacity-40" />
                     <p className="text-cockpit-primary font-medium">Aucun membre trouvé</p>
                     <p className="text-cockpit-secondary text-xs mt-1">
@@ -520,6 +545,15 @@ export default function ClubGrandisPage() {
                           className={`inline-block w-2.5 h-2.5 rounded-full ${m.brevoSynced ? "bg-cockpit-success" : "bg-cockpit-warning"}`}
                           title={m.brevoSynced ? "Synchronisé" : "En attente"}
                         />
+                      </td>
+                      <td className="px-2 py-3 text-center">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(m); }}
+                          className="p-1.5 rounded-md hover:bg-red-50 text-cockpit-secondary hover:text-red-500 transition-colors"
+                          title="Retirer du programme"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -642,6 +676,53 @@ export default function ClubGrandisPage() {
           ))}
         </div>
       </div>
+
+      {/* ================================================================ */}
+      {/* MODALE CONFIRMATION SUPPRESSION */}
+      {/* ================================================================ */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-cockpit-card border border-cockpit rounded-2xl shadow-cockpit-lg w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-cockpit">
+              <div className="flex items-center gap-2 text-red-500">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="font-semibold text-cockpit-heading">Retirer du programme</h3>
+              </div>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="p-1.5 rounded-md hover:bg-cockpit-dark transition-colors text-cockpit-secondary"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-cockpit-primary text-sm">
+                Retirer <strong>{deleteTarget.prenom} {deleteTarget.nom}</strong> du Club Grandis ?
+              </p>
+              <p className="text-cockpit-secondary text-xs mt-2">
+                Ce membre (niveau {getLevelConfig(deleteTarget.niveau).chiffre} — {formatMontant(deleteTarget.totalMontant)} de CA) sera supprimé définitivement.
+                Il ne sera pas recréé lors de la prochaine synchronisation, sauf si vous le souhaitez.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-cockpit">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {deleting ? "Suppression…" : "Retirer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
