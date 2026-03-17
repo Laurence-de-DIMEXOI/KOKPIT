@@ -751,8 +751,8 @@ export default function ClubGrandisPage() {
                 -{level.remise}%
               </p>
               {level.permanent && (
-                <p className="text-[10px] text-cockpit-secondary mt-1" style={{ fontFamily: da.fontAccent, fontStyle: "italic" }}>
-                  Permanent · Sur invitation
+                <p className="text-[10px] text-cockpit-secondary mt-1 italic">
+                  Permanent · À vie
                 </p>
               )}
             </div>

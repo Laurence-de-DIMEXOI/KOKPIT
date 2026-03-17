@@ -1,9 +1,9 @@
 /**
  * Club Grandis — Programme de fidélité Dimexoi
  *
- * 5 niveaux basés sur le CA HT des commandes Sellsy (depuis mi-2019).
+ * 5 niveaux basés sur le CA TTC des commandes Sellsy (depuis début 2020).
  * Règle absolue : un client ne descend jamais de niveau.
- * Niv V (Le Tectona) = permanent + sur invitation uniquement.
+ * Niv V (Le Tectona) = permanent, automatique à ≥ 20 000 € TTC.
  */
 
 // ============================================================================
@@ -139,14 +139,14 @@ export const CLUB_DA = {
 // RÈGLES MÉTIER
 // ============================================================================
 
-/** Date de début fixe : mi-2019 (1er juillet 2019) */
-export const DATE_DEBUT_CLUB = "2019-07-01";
+/** Date de début fixe : 1er janvier 2020 */
+export const DATE_DEBUT_CLUB = "2020-01-01";
 
 /**
  * Calcule le niveau Club Grandis d'un client.
  *
- * @param nbCommandes - Nombre de commandes depuis mi-2019
- * @param totalMontant - Montant total TTC des commandes depuis mi-2019
+ * @param nbCommandes - Nombre de commandes depuis début 2020
+ * @param totalMontant - Montant total TTC des commandes depuis début 2020
  * @param niveauActuel - Niveau actuel en base (pour ne jamais descendre)
  * @returns Le niveau calculé (1–5), jamais inférieur à niveauActuel
  */
@@ -185,7 +185,7 @@ export function getNiveauConfig(niveau: number): ClubLevel | undefined {
 
 /**
  * Retourne la date de début pour la récupération des commandes.
- * Fixe : 1er juillet 2019.
+ * Fixe : 1er janvier 2020.
  */
 export function getDebutFenetre(): Date {
   return new Date(DATE_DEBUT_CLUB);

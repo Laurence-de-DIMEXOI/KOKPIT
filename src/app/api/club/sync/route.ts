@@ -7,13 +7,17 @@ import {
   type SellsyOrder,
   fetchIndividualDetails,
   fetchCompanyDetails,
+  invalidateSellsyCache,
 } from "@/lib/sellsy";
 import { calculerNiveau, getDebutFenetre, CLUB_LEVELS } from "@/data/club-grandis";
+
+// Autoriser un timeout long (Vercel Pro : jusqu'à 300s)
+export const maxDuration = 300;
 
 /**
  * POST /api/club/sync
  *
- * Synchronisation manuelle : récupère toutes les commandes Sellsy des 36 derniers mois,
+ * Synchronisation manuelle : récupère toutes les commandes Sellsy depuis début 2020,
  * calcule le niveau de chaque client, et upsert dans ClubMembre.
  * Règle : ne jamais descendre de niveau.
  */
@@ -24,7 +28,10 @@ export async function POST() {
   }
 
   try {
-    // 1. Récupérer toutes les commandes depuis la fenêtre glissante 36 mois
+    // 0. Vider le cache Sellsy pour avoir des données fraîches
+    invalidateSellsyCache();
+
+    // 1. Récupérer toutes les commandes depuis début 2020
     const debutFenetre = getDebutFenetre();
     const sinceISO = debutFenetre.toISOString().split("T")[0]; // "YYYY-MM-DD"
 
