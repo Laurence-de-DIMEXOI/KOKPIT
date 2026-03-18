@@ -7,15 +7,14 @@ import {
   fetchCompanyDetails,
 } from "@/lib/sellsy";
 
-// Vercel Hobby = max 60s
 export const maxDuration = 60;
 
 /**
  * POST /api/club/sync-emails
  *
- * Récupère les emails manquants depuis Sellsy pour les membres du Club.
- * Traite 200 membres par appel (batches de 10 en parallèle).
- * Appeler plusieurs fois jusqu'à ce que `remaining === 0`.
+ * Récupère les emails manquants depuis Sellsy via l'ID Sellsy déjà en base.
+ * Traite 50 membres par appel (batches de 5 en parallèle pour éviter le rate limit).
+ * Le frontend boucle automatiquement jusqu'à remaining === 0.
  */
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -24,18 +23,11 @@ export async function POST() {
   }
 
   try {
-    // Récupérer les membres sans email
-    const membresWithoutEmail = await prisma.clubMembre.findMany({
-      where: { email: "", exclu: false },
-      select: { sellsyContactId: true, id: true },
-      take: 200,
-    });
-
     const total = await prisma.clubMembre.count({
       where: { email: "", exclu: false },
     });
 
-    if (membresWithoutEmail.length === 0) {
+    if (total === 0) {
       return NextResponse.json({
         success: true,
         fetched: 0,
@@ -44,56 +36,59 @@ export async function POST() {
       });
     }
 
-    console.log(`[Club Emails] Fetch emails pour ${membresWithoutEmail.length}/${total} membres…`);
+    // 50 par appel max pour rester sous 60s
+    const membres = await prisma.clubMembre.findMany({
+      where: { email: "", exclu: false },
+      select: { sellsyContactId: true, id: true },
+      take: 50,
+    });
+
+    console.log(`[Club Emails] Fetch emails pour ${membres.length}/${total} membres…`);
 
     let fetched = 0;
     let errors = 0;
 
-    // Batches de 10 en parallèle
-    for (let i = 0; i < membresWithoutEmail.length; i += 10) {
-      const batch = membresWithoutEmail.slice(i, i + 10);
+    // Batches de 5 en parallèle (moins agressif sur le rate limit Sellsy)
+    for (let i = 0; i < membres.length; i += 5) {
+      const batch = membres.slice(i, i + 5);
       await Promise.all(
         batch.map(async (membre) => {
           const numId = parseInt(membre.sellsyContactId, 10);
+          if (isNaN(numId)) { errors++; return; }
 
           let email = "";
-          let nom = "";
-          let prenom = "";
           try {
-            // Essayer d'abord comme individual, puis comme company
+            // Essayer individual d'abord, puis company
             try {
               const info = await fetchIndividualDetails(numId);
               email = info.email;
-              nom = info.nom;
-              prenom = info.prenom;
             } catch {
               const info = await fetchCompanyDetails(numId);
               email = info.email;
-              nom = info.nom;
             }
           } catch {
             errors++;
+            return;
           }
 
-          if (email) {
-            await prisma.clubMembre.update({
-              where: { id: membre.id },
-              data: { email },
-            });
-            fetched++;
-          }
+          // Mettre à jour même si pas d'email (marquer comme "no-email" pour ne pas reboucler)
+          await prisma.clubMembre.update({
+            where: { id: membre.id },
+            data: { email: email || "—" },
+          });
+          if (email) fetched++;
         })
       );
     }
 
-    const remaining = total - fetched;
-    console.log(`[Club Emails] Terminé — ${fetched} emails récupérés, ${errors} erreurs, ${remaining} restants`);
+    const remaining = total - membres.length;
+    console.log(`[Club Emails] ${fetched} emails récupérés, ${errors} erreurs, ${remaining} restants`);
 
     return NextResponse.json({
       success: true,
       fetched,
       errors,
-      remaining,
+      remaining: Math.max(0, remaining),
     });
   } catch (error: any) {
     console.error("[Club Emails] Erreur:", error);
