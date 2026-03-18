@@ -176,27 +176,25 @@ export async function syncClubCommandes() {
     }
   }
 
-  // 5. Calculer niveaux et upsert
+  // 5. Calculer niveaux et batch upsert (1 transaction au lieu de 1191 requetes)
   let synced = 0;
   let upgraded = 0;
   let nouveaux = 0;
+  const now = new Date();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ops: any[] = [];
 
   for (const [contactId, data] of contactMap) {
-    // Exclure Dimexoi
     if (EXCLUDED_COMPANIES.some((n) => data.nom.toUpperCase().includes(n))) continue;
-    // Exclure l'equipe
     const nomUp = data.nom.toUpperCase();
     const prenomUp = data.prenom.toUpperCase();
     if (EXCLUDED_TEAM.some((t) => nomUp === t.nom && prenomUp === t.prenom)) continue;
 
-    // Verifier qualification niv 1 minimum
     const niveauCalcule = calculerNiveau(data.nbCommandes, data.totalMontant, 0);
     if (niveauCalcule < 1) continue;
 
-    // Utiliser les donnees pre-chargees au lieu de findUnique
     const existant = existingMap.get(contactId);
-
-    // Si exclu manuellement, ne pas recreer
     if (existant?.exclu) continue;
 
     const niveauFinal = calculerNiveau(
@@ -207,43 +205,56 @@ export async function syncClubCommandes() {
 
     if (existant) {
       const wasUpgraded = niveauFinal > existant.niveau;
-      await prisma.clubMembre.update({
-        where: { sellsyContactId: contactId },
-        data: {
-          niveau: niveauFinal,
-          totalCommandes: data.nbCommandes,
-          totalMontant: Number(data.totalMontant) || 0,
-          dernierSync: new Date(),
-          ...(existant.nom === "Inconnu" && data.nom !== "Inconnu"
-            ? { nom: data.nom, prenom: data.prenom }
-            : {}),
-          ...(existant.email === "" && data.email
-            ? { email: data.email }
-            : {}),
-          ...(wasUpgraded
-            ? { brevoSynced: false, sellsySynced: false }
-            : {}),
-        },
-      });
+      ops.push(
+        prisma.clubMembre.update({
+          where: { sellsyContactId: contactId },
+          data: {
+            niveau: niveauFinal,
+            totalCommandes: data.nbCommandes,
+            totalMontant: Number(data.totalMontant) || 0,
+            dernierSync: now,
+            ...(existant.nom === "Inconnu" && data.nom !== "Inconnu"
+              ? { nom: data.nom, prenom: data.prenom }
+              : {}),
+            ...(existant.email === "" && data.email
+              ? { email: data.email }
+              : {}),
+            ...(wasUpgraded
+              ? { brevoSynced: false, sellsySynced: false }
+              : {}),
+          },
+        })
+      );
       if (wasUpgraded) upgraded++;
     } else {
-      await prisma.clubMembre.create({
-        data: {
-          sellsyContactId: contactId,
-          email: data.email || "",
-          nom: data.nom,
-          prenom: data.prenom,
-          niveau: niveauFinal,
-          totalCommandes: data.nbCommandes,
-          totalMontant: Number(data.totalMontant) || 0,
-          dernierSync: new Date(),
-          brevoSynced: false,
-          sellsySynced: false,
-        },
-      });
+      ops.push(
+        prisma.clubMembre.create({
+          data: {
+            sellsyContactId: contactId,
+            email: data.email || "",
+            nom: data.nom,
+            prenom: data.prenom,
+            niveau: niveauFinal,
+            totalCommandes: data.nbCommandes,
+            totalMontant: Number(data.totalMontant) || 0,
+            dernierSync: now,
+            brevoSynced: false,
+            sellsySynced: false,
+          },
+        })
+      );
       nouveaux++;
     }
     synced++;
+  }
+
+  // Executer tous les upserts en 1 transaction (beaucoup plus rapide que 1 par 1)
+  if (ops.length > 0) {
+    console.log(`[Club Sync] Batch de ${ops.length} operations…`);
+    // Prisma $transaction accepte max ~32000 ops, on batch par 500
+    for (let i = 0; i < ops.length; i += 500) {
+      await prisma.$transaction(ops.slice(i, i + 500));
+    }
   }
 
   console.log(
