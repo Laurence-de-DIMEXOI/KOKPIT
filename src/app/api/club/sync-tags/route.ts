@@ -52,12 +52,7 @@ export async function POST() {
       if (!level) { errors++; continue; }
 
       try {
-        // Essayer d'abord comme company, puis comme people (individual)
-        try {
-          await assignSmartTag(contactId, level.sellsyTag, "company");
-        } catch {
-          await assignSmartTag(contactId, level.sellsyTag, "people");
-        }
+        await assignSmartTag(contactId, level.sellsyTag);
         synced++;
       } catch (err: any) {
         console.warn(`[Club Tags] Erreur ${contactId} (${membre.nom}):`, err.message);

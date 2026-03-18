@@ -1177,15 +1177,15 @@ export interface SellsySmartTag {
  *
  * @param contactId - L'ID Sellsy du contact (individual ou company)
  * @param tagValue - La valeur du tag (ex: "CLUB - Niv 1")
- * @param linkedType - "company" ou "people" (individual)
+ * @param linkedType - "third" (tiers = company ou individual en V1)
  */
 export async function assignSmartTag(
   contactId: number,
   tagValue: string,
-  linkedType: "company" | "people" = "company"
 ): Promise<void> {
+  // En Sellsy V1, les tiers (companies et individuals) sont de type "third"
   await sellsyV1Call("SmartTags.assign", {
-    linkedtype: linkedType,
+    linkedtype: "third",
     linkedid: String(contactId),
     tags: tagValue,
   });
