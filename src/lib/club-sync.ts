@@ -176,14 +176,24 @@ export async function syncClubCommandes() {
     }
   }
 
-  // 5. Calculer niveaux et batch upsert (1 transaction au lieu de 1191 requetes)
+  // 5. Calculer niveaux et préparer les données pour bulk upsert SQL
   let synced = 0;
   let upgraded = 0;
   let nouveaux = 0;
   const now = new Date();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ops: any[] = [];
+  // Collecter les données pour un INSERT...ON CONFLICT unique
+  const upsertRows: {
+    sellsyContactId: string;
+    email: string;
+    nom: string;
+    prenom: string;
+    niveau: number;
+    totalCommandes: number;
+    totalMontant: number;
+    isNew: boolean;
+    wasUpgraded: boolean;
+  }[] = [];
 
   for (const [contactId, data] of contactMap) {
     if (EXCLUDED_COMPANIES.some((n) => data.nom.toUpperCase().includes(n))) continue;
@@ -203,57 +213,68 @@ export async function syncClubCommandes() {
       existant?.niveau || 0
     );
 
+    const isNew = !existant;
+    const wasUpgraded = existant ? niveauFinal > existant.niveau : false;
+
+    // Déterminer nom/email à utiliser
+    let finalNom = data.nom;
+    let finalPrenom = data.prenom;
+    let finalEmail = data.email || "";
     if (existant) {
-      const wasUpgraded = niveauFinal > existant.niveau;
-      ops.push(
-        prisma.clubMembre.update({
-          where: { sellsyContactId: contactId },
-          data: {
-            niveau: niveauFinal,
-            totalCommandes: data.nbCommandes,
-            totalMontant: Number(data.totalMontant) || 0,
-            dernierSync: now,
-            ...(existant.nom === "Inconnu" && data.nom !== "Inconnu"
-              ? { nom: data.nom, prenom: data.prenom }
-              : {}),
-            ...(existant.email === "" && data.email
-              ? { email: data.email }
-              : {}),
-            ...(wasUpgraded
-              ? { brevoSynced: false, sellsySynced: false }
-              : {}),
-          },
-        })
-      );
-      if (wasUpgraded) upgraded++;
-    } else {
-      ops.push(
-        prisma.clubMembre.create({
-          data: {
-            sellsyContactId: contactId,
-            email: data.email || "",
-            nom: data.nom,
-            prenom: data.prenom,
-            niveau: niveauFinal,
-            totalCommandes: data.nbCommandes,
-            totalMontant: Number(data.totalMontant) || 0,
-            dernierSync: now,
-            brevoSynced: false,
-            sellsySynced: false,
-          },
-        })
-      );
-      nouveaux++;
+      if (!(existant.nom === "Inconnu" && data.nom !== "Inconnu")) {
+        finalNom = existant.nom;
+        finalPrenom = existant.prenom;
+      }
+      if (!(existant.email === "" && data.email)) {
+        finalEmail = existant.email;
+      }
     }
+
+    upsertRows.push({
+      sellsyContactId: contactId,
+      email: finalEmail,
+      nom: finalNom,
+      prenom: finalPrenom,
+      niveau: niveauFinal,
+      totalCommandes: data.nbCommandes,
+      totalMontant: Number(data.totalMontant) || 0,
+      isNew,
+      wasUpgraded,
+    });
+
     synced++;
+    if (isNew) nouveaux++;
+    if (wasUpgraded) upgraded++;
   }
 
-  // Executer tous les upserts en 1 transaction (beaucoup plus rapide que 1 par 1)
-  if (ops.length > 0) {
-    console.log(`[Club Sync] Batch de ${ops.length} operations…`);
-    // Prisma $transaction accepte max ~32000 ops, on batch par 500
-    for (let i = 0; i < ops.length; i += 500) {
-      await prisma.$transaction(ops.slice(i, i + 500));
+  // Bulk upsert via raw SQL — 1 seule requête pour tout
+  if (upsertRows.length > 0) {
+    console.log(`[Club Sync] Bulk upsert de ${upsertRows.length} membres…`);
+
+    // Construire les VALUES pour INSERT...ON CONFLICT
+    const values = upsertRows.map((r) => {
+      const esc = (s: string) => s.replace(/'/g, "''");
+      return `(gen_random_uuid(), '${esc(r.sellsyContactId)}', '${esc(r.email)}', '${esc(r.nom)}', '${esc(r.prenom)}', ${r.niveau}, ${r.totalCommandes}, ${r.totalMontant}, '${now.toISOString()}'::timestamp, false, false, NOW(), NOW())`;
+    });
+
+    // Batch par 200 pour éviter les requêtes trop longues
+    for (let i = 0; i < values.length; i += 200) {
+      const batch = values.slice(i, i + 200);
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "ClubMembre" (id, "sellsyContactId", email, nom, prenom, niveau, "totalCommandes", "totalMontant", "dernierSync", "sellsySynced", "brevoSynced", "createdAt", "updatedAt")
+        VALUES ${batch.join(",\n")}
+        ON CONFLICT ("sellsyContactId") DO UPDATE SET
+          niveau = EXCLUDED.niveau,
+          "totalCommandes" = EXCLUDED."totalCommandes",
+          "totalMontant" = EXCLUDED."totalMontant",
+          "dernierSync" = EXCLUDED."dernierSync",
+          nom = CASE WHEN "ClubMembre".nom = 'Inconnu' AND EXCLUDED.nom != 'Inconnu' THEN EXCLUDED.nom ELSE "ClubMembre".nom END,
+          prenom = CASE WHEN "ClubMembre".nom = 'Inconnu' AND EXCLUDED.nom != 'Inconnu' THEN EXCLUDED.prenom ELSE "ClubMembre".prenom END,
+          email = CASE WHEN "ClubMembre".email = '' AND EXCLUDED.email != '' THEN EXCLUDED.email ELSE "ClubMembre".email END,
+          "sellsySynced" = CASE WHEN EXCLUDED.niveau > "ClubMembre".niveau THEN false ELSE "ClubMembre"."sellsySynced" END,
+          "brevoSynced" = CASE WHEN EXCLUDED.niveau > "ClubMembre".niveau THEN false ELSE "ClubMembre"."brevoSynced" END,
+          "updatedAt" = NOW()
+      `);
     }
   }
 
