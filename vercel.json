@@ -5,6 +5,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron?job=sync-club",
+      "schedule": "5 6 * * *"
+    },
+    {
       "path": "/api/cron?job=sla-check",
       "schedule": "0 7 * * *"
     }

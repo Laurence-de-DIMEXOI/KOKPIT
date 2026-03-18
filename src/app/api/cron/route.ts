@@ -6,9 +6,15 @@ import {
   listOrders,
   searchIndividuals,
 } from "@/lib/sellsy";
+import {
+  syncClubCommandes,
+  syncClubTags,
+  syncClubEmails,
+  syncClubBrevo,
+} from "@/lib/club-sync";
 
 const cronSchema = z.object({
-  job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy"]),
+  job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club"]),
 });
 
 // POST - Execute scheduled jobs
@@ -63,6 +69,8 @@ export async function POST(request: NextRequest) {
         return await crossSellJob();
       case "sync-sellsy":
         return await syncSellsyJob();
+      case "sync-club":
+        return await syncClubJob();
       default:
         return NextResponse.json(
           { error: "Job invalide" },
@@ -465,6 +473,67 @@ function mapEstimateStatus(
   return statusMap[status?.toLowerCase()] || "EN_ATTENTE";
 }
 
+// Sync Club Grandis: commandes → tags → emails → Brevo
+async function syncClubJob() {
+  try {
+    console.log("[Cron sync-club] Debut sync Club Grandis…");
+
+    // Etape 1 : Commandes
+    const commandes = await syncClubCommandes();
+    console.log(`[Cron sync-club] Commandes: ${commandes.synced} sync, ${commandes.nouveaux} nouveaux, ${commandes.upgraded} upgrades`);
+
+    // Etape 2 : Tags Sellsy — boucle jusqu'a remaining=0
+    let totalTagsSynced = 0;
+    let totalTagsErrors = 0;
+    let tagsResult = await syncClubTags();
+    totalTagsSynced += tagsResult.synced;
+    totalTagsErrors += tagsResult.errors;
+    while (tagsResult.remaining > 0) {
+      tagsResult = await syncClubTags();
+      totalTagsSynced += tagsResult.synced;
+      totalTagsErrors += tagsResult.errors;
+    }
+    console.log(`[Cron sync-club] Tags: ${totalTagsSynced} sync, ${totalTagsErrors} erreurs`);
+
+    // Etape 3 : Emails — boucle jusqu'a remaining=0
+    let totalEmailsFetched = 0;
+    let totalEmailsErrors = 0;
+    let emailsResult = await syncClubEmails();
+    totalEmailsFetched += emailsResult.fetched;
+    totalEmailsErrors += (emailsResult.errors ?? 0);
+    while (emailsResult.remaining > 0) {
+      emailsResult = await syncClubEmails();
+      totalEmailsFetched += emailsResult.fetched;
+      totalEmailsErrors += (emailsResult.errors ?? 0);
+    }
+    console.log(`[Cron sync-club] Emails: ${totalEmailsFetched} recuperes, ${totalEmailsErrors} erreurs`);
+
+    // Etape 4 : Brevo
+    const brevo = await syncClubBrevo();
+    console.log(`[Cron sync-club] Brevo: ${brevo.synced} sync, ${brevo.errors} erreurs`);
+
+    console.log("[Cron sync-club] Sync Club Grandis terminee");
+
+    return NextResponse.json({
+      job: "sync-club",
+      status: "completed",
+      message: `Club sync terminee: ${commandes.synced} membres, ${totalTagsSynced} tags, ${totalEmailsFetched} emails, ${brevo.synced} Brevo`,
+      details: {
+        commandes,
+        tags: { synced: totalTagsSynced, errors: totalTagsErrors },
+        emails: { fetched: totalEmailsFetched, errors: totalEmailsErrors },
+        brevo,
+      },
+    });
+  } catch (error) {
+    console.error("Cron sync-club error:", error);
+    return NextResponse.json(
+      { error: "Erreur lors du sync-club" },
+      { status: 500 }
+    );
+  }
+}
+
 // GET - Vercel Cron handler (Vercel appelle en GET) + health check
 export async function GET(request: NextRequest) {
   const jobParam = request.nextUrl.searchParams.get("job");
@@ -473,7 +542,7 @@ export async function GET(request: NextRequest) {
   if (!jobParam) {
     return NextResponse.json({
       status: "ok",
-      availableJobs: ["sla-check", "relance", "cross-sell", "sync-sellsy"],
+      availableJobs: ["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club"],
       message: "Cron endpoint is ready. Use GET/POST with job parameter.",
     });
   }
@@ -494,6 +563,7 @@ export async function GET(request: NextRequest) {
       case "relance": return await relanceJob();
       case "cross-sell": return await crossSellJob();
       case "sync-sellsy": return await syncSellsyJob();
+      case "sync-club": return await syncClubJob();
       default: return NextResponse.json({ error: "Job invalide" }, { status: 400 });
     }
   } catch (error) {
