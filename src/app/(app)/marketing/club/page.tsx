@@ -61,6 +61,7 @@ interface StatsData {
   parNiveau: { niveau: number; count: number }[];
   dernierSync: string | null;
   totalCA: number;
+  sansEmail: number;
 }
 
 interface MembresData {
@@ -734,7 +735,7 @@ export default function ClubGrandisPage() {
             style={{ borderColor: da.primary, color: da.primary }}
           >
             {syncingEmails ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-            {syncingEmails ? "Récupération…" : "Récupérer emails"}
+            {syncingEmails ? "Récupération…" : `Récupérer emails${stats?.sansEmail ? ` (${stats.sansEmail} manquants)` : ""}`}
           </button>
         </div>
         <p className="text-xs text-cockpit-secondary mt-3">

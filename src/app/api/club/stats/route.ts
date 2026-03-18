@@ -21,7 +21,7 @@ export async function GET() {
   try {
     const activeFilter = { exclu: false };
 
-    const [totalMembres, parNiveau, dernierSyncResult, totalCA] =
+    const [totalMembres, parNiveau, dernierSyncResult, totalCA, sansEmail] =
       await Promise.all([
         prisma.clubMembre.count({ where: activeFilter }),
         prisma.clubMembre.groupBy({
@@ -39,6 +39,9 @@ export async function GET() {
           where: activeFilter,
           _sum: { totalMontant: true },
         }),
+        prisma.clubMembre.count({
+          where: { ...activeFilter, email: "" },
+        }),
       ]);
 
     const niveauxStats = [1, 2, 3, 4, 5].map((niv) => {
@@ -51,6 +54,7 @@ export async function GET() {
       parNiveau: niveauxStats,
       dernierSync: dernierSyncResult?.dernierSync || null,
       totalCA: totalCA._sum.totalMontant || 0,
+      sansEmail,
     });
   } catch (error: any) {
     console.error("[Club Stats] Erreur:", error);
