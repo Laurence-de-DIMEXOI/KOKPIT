@@ -22,6 +22,7 @@ import {
   upsertBrevoContact,
   removeContactsFromList,
 } from "@/lib/brevo";
+import { envoyerEmailNiveau } from "@/lib/club-email";
 
 // ============================================================================
 // CONSTANTES
@@ -282,7 +283,40 @@ export async function syncClubCommandes() {
     `[Club Sync] Upserts termines — ${synced} synchronises, ${nouveaux} nouveaux, ${upgraded} upgrades`
   );
 
-  return { synced, nouveaux, upgraded, totalOrders: orders.length, totalContacts: contactMap.size };
+  // 6. Envoyer les emails de bienvenue pour les montées de niveau
+  let emailsSent = 0;
+  const membresANotifier = upsertRows.filter(
+    (r) => r.isNew || r.wasUpgraded
+  );
+
+  if (membresANotifier.length > 0) {
+    console.log(`[Club Sync] ${membresANotifier.length} membres à notifier par email…`);
+
+    for (const row of membresANotifier) {
+      // Vérifier anti-doublon : niveauEmailEnvoye != niveau actuel
+      const membre = await prisma.clubMembre.findUnique({
+        where: { sellsyContactId: row.sellsyContactId },
+        select: { id: true, email: true, prenom: true, niveauEmailEnvoye: true },
+      });
+
+      if (!membre) continue;
+      if (membre.niveauEmailEnvoye === row.niveau) continue; // déjà envoyé
+      if (!membre.email || membre.email === "—" || !membre.email.includes("@")) continue;
+
+      const ok = await envoyerEmailNiveau(membre.email, membre.prenom || row.nom, row.niveau);
+      if (ok) {
+        await prisma.clubMembre.update({
+          where: { id: membre.id },
+          data: { niveauEmailEnvoye: row.niveau, dernierEmailDate: new Date() },
+        });
+        emailsSent++;
+      }
+    }
+
+    console.log(`[Club Sync] ${emailsSent} emails de bienvenue envoyés`);
+  }
+
+  return { synced, nouveaux, upgraded, emailsSent, totalOrders: orders.length, totalContacts: contactMap.size };
 }
 
 // ============================================================================

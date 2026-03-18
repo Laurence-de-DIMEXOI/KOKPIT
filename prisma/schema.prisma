@@ -807,6 +807,8 @@ model ClubMembre {
   codePromo       String?                  // code promo unique (ex: CLUB-III-A7K9)
   bonUtilise      Boolean  @default(false) // le client a utilisé son bon de remise
   dateBonUtilise  DateTime?                // date d'utilisation du bon
+  niveauEmailEnvoye Int?                   // dernier niveau pour lequel un email a été envoyé
+  dernierEmailDate  DateTime?              // date du dernier email envoyé
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
