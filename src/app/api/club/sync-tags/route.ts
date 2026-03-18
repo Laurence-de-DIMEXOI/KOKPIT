@@ -52,8 +52,12 @@ export async function POST() {
       if (!level) { errors++; continue; }
 
       try {
-        // Assigne le smart tag via l'API Sellsy V2 /smart-tags
-        await assignSmartTag(contactId, level.sellsyTag);
+        // Essayer d'abord comme company, puis comme people (individual)
+        try {
+          await assignSmartTag(contactId, level.sellsyTag, "company");
+        } catch {
+          await assignSmartTag(contactId, level.sellsyTag, "people");
+        }
         synced++;
       } catch (err: any) {
         console.warn(`[Club Tags] Erreur ${contactId} (${membre.nom}):`, err.message);

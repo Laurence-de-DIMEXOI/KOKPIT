@@ -1171,38 +1171,23 @@ export interface SellsySmartTag {
 }
 
 /**
- * Assigne un smart tag à un contact Sellsy (individual ou company).
+ * Assigne un smart tag à un contact Sellsy via l'API V1 (SmartTags.assign).
+ * L'API V1 est fiable et bien documentée pour les smart tags.
  * Le smart tag est créé automatiquement par Sellsy s'il n'existe pas.
- * Essaie individual d'abord, puis company en fallback.
+ *
+ * @param contactId - L'ID Sellsy du contact (individual ou company)
+ * @param tagValue - La valeur du tag (ex: "CLUB - Niv 1")
+ * @param linkedType - "company" ou "people" (individual)
  */
-export async function assignSmartTag(contactId: number, tagValue: string): Promise<void> {
-  const body = JSON.stringify([tagValue]);
-
-  // Essayer individual d'abord
-  try {
-    await sellsyFetch<unknown>(`/individuals/${contactId}/smart-tags`, {
-      method: "POST",
-      body,
-    });
-    return;
-  } catch {
-    // Fallback : essayer company
-  }
-
-  // Essayer company
-  try {
-    await sellsyFetch<unknown>(`/companies/${contactId}/smart-tags`, {
-      method: "POST",
-      body,
-    });
-    return;
-  } catch {
-    // Dernier fallback : essayer contacts
-  }
-
-  await sellsyFetch<unknown>(`/contacts/${contactId}/smart-tags`, {
-    method: "POST",
-    body,
+export async function assignSmartTag(
+  contactId: number,
+  tagValue: string,
+  linkedType: "company" | "people" = "company"
+): Promise<void> {
+  await sellsyV1Call("SmartTags.assign", {
+    linkedtype: linkedType,
+    linkedid: String(contactId),
+    tags: tagValue,
   });
 }
 
