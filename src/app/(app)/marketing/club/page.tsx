@@ -7,8 +7,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Tag,
-  Mail,
   Crown,
   Users,
   TrendingUp,
@@ -117,9 +115,7 @@ export default function ClubGrandisPage() {
   const [membresData, setMembresData] = useState<MembresData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [syncingTags, setSyncingTags] = useState(false);
-  const [syncingBrevo, setSyncingBrevo] = useState(false);
-  const [syncingEmails, setSyncingEmails] = useState(false);
+  const [syncStep, setSyncStep] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterNiveau, setFilterNiveau] = useState<number | null>(null);
@@ -167,77 +163,44 @@ export default function ClubGrandisPage() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/club/sync", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(`${data.synced} synchronisés, ${data.nouveaux} nouveaux, ${data.upgraded} promus${data.emailsFetched ? `, ${data.emailsFetched} emails récupérés` : ""}`);
-        await Promise.all([loadStats(), loadMembres()]);
-      } else {
-        showToast(`Erreur : ${data.error}`);
-      }
-    } catch {
-      showToast("Erreur de connexion");
-    }
-    setSyncing(false);
-  };
+      // Étape 1 : Sync commandes Sellsy
+      setSyncStep("Commandes Sellsy…");
+      const syncRes = await fetch("/api/club/sync", { method: "POST" });
+      const syncData = await syncRes.json();
+      if (!syncRes.ok) { showToast(`Erreur sync : ${syncData.error}`); setSyncing(false); return; }
+      showToast(`${syncData.synced} membres synchronisés`);
+      await Promise.all([loadStats(), loadMembres()]);
 
-  const handleSyncTags = async () => {
-    setSyncingTags(true);
-    try {
-      const res = await fetch("/api/club/sync-tags", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(`Tags Sellsy : ${data.synced} synchronisés, ${data.errors} erreurs`);
-        await loadMembres();
-      } else {
-        showToast(`Erreur : ${data.error}`);
+      // Étape 2 : Tags Sellsy (boucle auto)
+      setSyncStep("Tags Sellsy…");
+      let tagsRemaining = 1;
+      while (tagsRemaining > 0) {
+        const res = await fetch("/api/club/sync-tags", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) break;
+        tagsRemaining = data.remaining;
+        if (data.synced === 0 && data.errors === 0) break;
       }
-    } catch {
-      showToast("Erreur de connexion");
-    }
-    setSyncingTags(false);
-  };
 
-  const handleSyncBrevo = async () => {
-    setSyncingBrevo(true);
-    try {
-      const res = await fetch("/api/club/sync-brevo", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(`Brevo : ${data.synced} synchronisés, ${data.errors} erreurs`);
-        await loadMembres();
-      } else {
-        showToast(`Erreur : ${data.error}`);
-      }
-    } catch {
-      showToast("Erreur de connexion");
-    }
-    setSyncingBrevo(false);
-  };
-
-  const handleSyncEmails = async () => {
-    setSyncingEmails(true);
-    let totalFetched = 0;
-    let remaining = 1; // dummy pour lancer la boucle
-    try {
-      while (remaining > 0) {
+      // Étape 3 : Emails (boucle auto)
+      setSyncStep("Emails…");
+      let emailsRemaining = 1;
+      while (emailsRemaining > 0) {
         const res = await fetch("/api/club/sync-emails", { method: "POST" });
         const data = await res.json();
-        if (!res.ok) {
-          showToast(`Erreur : ${data.error}`);
-          break;
-        }
-        totalFetched += data.fetched;
-        remaining = data.remaining;
-        if (data.fetched === 0) break; // plus rien à récupérer
-        showToast(`${totalFetched} emails récupérés — ${remaining} restants…`);
+        if (!res.ok) break;
+        emailsRemaining = data.remaining;
+        if (data.fetched === 0) break;
       }
-      showToast(`Terminé : ${totalFetched} emails récupérés`);
+
+      // Rafraîchir les données
       await Promise.all([loadStats(), loadMembres()]);
+      showToast("Synchronisation complète terminée !");
     } catch {
       showToast("Erreur de connexion");
     }
-    setSyncingEmails(false);
+    setSyncStep("");
+    setSyncing(false);
   };
 
   const handleDelete = async () => {
@@ -364,7 +327,7 @@ export default function ClubGrandisPage() {
           style={{ backgroundColor: da.primary }}
         >
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {syncing ? "Synchronisation…" : "Synchroniser Sellsy"}
+          {syncing ? syncStep || "Synchronisation…" : "Synchroniser Sellsy"}
         </button>
       </div>
 
@@ -696,57 +659,6 @@ export default function ClubGrandisPage() {
               </button>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* ================================================================ */}
-      {/* SYNC ACTIONS — style KOKPIT */}
-      {/* ================================================================ */}
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
-        <h3
-          className="text-lg font-bold text-cockpit-heading mb-4"
-          style={{ fontFamily: da.fontDisplay, color: da.primary }}
-        >
-          Actions de synchronisation
-        </h3>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={handleSyncTags}
-            disabled={syncingTags}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:opacity-90 disabled:opacity-50 text-white"
-            style={{ backgroundColor: da.primary, borderColor: da.primary }}
-          >
-            {syncingTags ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
-            {syncingTags ? "Synchronisation…" : "Sync tags Sellsy"}
-          </button>
-          <button
-            onClick={handleSyncBrevo}
-            disabled={syncingBrevo}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ borderColor: da.primary, color: da.primary }}
-          >
-            {syncingBrevo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-            {syncingBrevo ? "Synchronisation…" : "Sync segments Brevo"}
-          </button>
-          <button
-            onClick={handleSyncEmails}
-            disabled={syncingEmails}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ borderColor: da.primary, color: da.primary }}
-          >
-            {syncingEmails ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-            {syncingEmails ? "Récupération…" : `Récupérer emails${stats?.sansEmail ? ` (${stats.sansEmail} manquants)` : ""}`}
-          </button>
-        </div>
-        <p className="text-xs text-cockpit-secondary mt-3">
-          Les tags Sellsy (&quot;CLUB - Niv 1&quot; à &quot;CLUB - Niv 5&quot;) et les segments Brevo
-          (&quot;Club Grandis · I&quot; à &quot;Club Grandis · V&quot;) sont mis à jour pour les membres
-          non encore synchronisés.
-        </p>
-        {stats?.dernierSync && (
-          <p className="text-xs text-cockpit-secondary mt-2">
-            Dernier sync : {formatDate(stats.dernierSync)}
-          </p>
         )}
       </div>
 

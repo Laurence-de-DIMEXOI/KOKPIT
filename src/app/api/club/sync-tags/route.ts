@@ -4,11 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   ensureTagsExist,
-  getContactTags,
   assignTagToIndividual,
-  removeTagFromIndividual,
   assignTagToCompany,
-  removeTagFromCompany,
 } from "@/lib/sellsy";
 import { CLUB_LEVELS } from "@/data/club-grandis";
 
@@ -17,8 +14,9 @@ export const maxDuration = 60;
 /**
  * POST /api/club/sync-tags
  *
- * Push les tags "CLUB - Niv X" sur les contacts Sellsy.
- * Gère les individuals ET les companies (fallback automatique).
+ * Push les tags "CLUB - Niv X" sur les contacts Sellsy via leur ID.
+ * Traite 30 contacts par appel. Le frontend boucle automatiquement.
+ * Pas besoin d'email — on utilise le sellsyContactId directement.
  */
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -31,12 +29,26 @@ export async function POST() {
     const tagNames = CLUB_LEVELS.map((l) => l.sellsyTag);
     const tagMap = await ensureTagsExist(tagNames);
 
-    // 2. Récupérer les membres non synchronisés
-    const membres = await prisma.clubMembre.findMany({
+    // 2. Compter le total puis prendre un batch de 30
+    const total = await prisma.clubMembre.count({
       where: { sellsySynced: false, exclu: false },
     });
 
-    console.log(`[Club Tags] ${membres.length} membres à synchroniser`);
+    if (total === 0) {
+      return NextResponse.json({
+        success: true,
+        synced: 0,
+        errors: 0,
+        remaining: 0,
+      });
+    }
+
+    const membres = await prisma.clubMembre.findMany({
+      where: { sellsySynced: false, exclu: false },
+      take: 30,
+    });
+
+    console.log(`[Club Tags] Batch de ${membres.length}/${total} membres…`);
 
     let synced = 0;
     let errors = 0;
@@ -44,69 +56,50 @@ export async function POST() {
     for (const membre of membres) {
       try {
         const contactId = parseInt(membre.sellsyContactId, 10);
-        if (isNaN(contactId)) {
-          errors++;
-          continue;
-        }
+        if (isNaN(contactId)) { errors++; continue; }
 
-        // Récupérer les tags actuels (essaie individual puis company)
-        const currentTags = await getContactTags(contactId);
-
-        // Retirer tous les tags CLUB existants
-        for (const tag of currentTags) {
-          if (tag.name.startsWith("CLUB - Niv")) {
-            // Essayer individual d'abord, puis company
-            try {
-              await removeTagFromIndividual(contactId, tag.id);
-            } catch {
-              try {
-                await removeTagFromCompany(contactId, tag.id);
-              } catch {
-                // Ignorer
-              }
-            }
-          }
-        }
-
-        // Assigner le nouveau tag
         const level = CLUB_LEVELS.find((l) => l.niveau === membre.niveau);
-        if (level) {
-          const tagId = tagMap.get(level.sellsyTag);
-          if (tagId) {
-            // Essayer individual d'abord, puis company
-            try {
-              await assignTagToIndividual(contactId, tagId);
-            } catch {
-              await assignTagToCompany(contactId, tagId);
-            }
+        if (!level) { errors++; continue; }
+
+        const tagId = tagMap.get(level.sellsyTag);
+        if (!tagId) { errors++; continue; }
+
+        // Assigner le tag : essayer individual d'abord, puis company
+        try {
+          await assignTagToIndividual(contactId, tagId);
+        } catch {
+          try {
+            await assignTagToCompany(contactId, tagId);
+          } catch {
+            errors++;
+            // Marquer quand même pour ne pas reboucler
+            await prisma.clubMembre.update({
+              where: { id: membre.id },
+              data: { sellsySynced: true },
+            });
+            continue;
           }
         }
 
-        // Marquer comme synchronisé
         await prisma.clubMembre.update({
           where: { id: membre.id },
           data: { sellsySynced: true },
         });
-
         synced++;
       } catch (err: any) {
-        console.warn(
-          `[Club Tags] Erreur pour ${membre.sellsyContactId}:`,
-          err.message
-        );
+        console.warn(`[Club Tags] Erreur ${membre.sellsyContactId}:`, err.message);
         errors++;
       }
     }
 
-    console.log(
-      `[Club Tags] Terminé — ${synced} synchronisés, ${errors} erreurs`
-    );
+    const remaining = total - membres.length;
+    console.log(`[Club Tags] ${synced} OK, ${errors} erreurs, ${remaining} restants`);
 
     return NextResponse.json({
       success: true,
       synced,
       errors,
-      total: membres.length,
+      remaining: Math.max(0, remaining),
     });
   } catch (error: any) {
     console.error("[Club Tags] Erreur:", error);
