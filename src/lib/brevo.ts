@@ -286,3 +286,54 @@ export async function getListContacts(listId: number): Promise<{ email: string }
 
   return contacts;
 }
+
+/**
+ * Liste toutes les listes/dossiers Brevo.
+ */
+export async function getLists(): Promise<{ id: number; name: string; totalSubscribers: number }[]> {
+  const res = await fetch(`${BREVO_API_URL}/contacts/lists?limit=50&offset=0`, {
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Brevo getLists: ${res.status} ${err}`);
+  }
+  const data = await res.json();
+  return (data.lists || []).map((l: any) => ({
+    id: l.id,
+    name: l.name,
+    totalSubscribers: l.totalSubscribers || 0,
+  }));
+}
+
+/**
+ * Crée une liste Brevo. Retourne l'ID de la liste créée.
+ */
+export async function createList(name: string, folderId: number): Promise<number> {
+  const res = await fetch(`${BREVO_API_URL}/contacts/lists`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ name, folderId }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Brevo createList: ${res.status} ${err}`);
+  }
+  const data = await res.json();
+  return data.id;
+}
+
+/**
+ * Liste les dossiers Brevo.
+ */
+export async function getFolders(): Promise<{ id: number; name: string }[]> {
+  const res = await fetch(`${BREVO_API_URL}/contacts/folders?limit=50&offset=0`, {
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Brevo getFolders: ${res.status} ${err}`);
+  }
+  const data = await res.json();
+  return (data.folders || []).map((f: any) => ({ id: f.id, name: f.name }));
+}

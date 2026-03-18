@@ -5,17 +5,23 @@ import { prisma } from "@/lib/prisma";
 import {
   upsertBrevoContact,
   addContactsToList,
-  removeContactsFromList,
+  getLists,
+  createList,
+  getFolders,
 } from "@/lib/brevo";
 import { CLUB_LEVELS } from "@/data/club-grandis";
+
+export const maxDuration = 60;
+
+const CLUB_LIST_NAME = "Club Grandis";
 
 /**
  * POST /api/club/sync-brevo
  *
- * Push les membres Club Grandis vers Brevo :
- * - Upsert contact avec attributs CLUB_NIVEAU, CLUB_REMISE
- * - Ajoute à la bonne liste Brevo (via env vars BREVO_CLUB_LIST_ID_X)
- * - Retire des anciennes listes
+ * Synchronise TOUS les membres Club Grandis vers Brevo :
+ * - Crée la liste "Club Grandis" si elle n'existe pas
+ * - Upsert chaque contact avec attributs CLUB_NIVEAU, CLUB_REMISE, etc.
+ * - Ajoute tous les contacts à la liste unique "Club Grandis"
  */
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -24,42 +30,47 @@ export async function POST() {
   }
 
   try {
-    // Charger les IDs de listes Brevo depuis les env vars
-    const listIds: Record<number, number | null> = {};
-    for (const level of CLUB_LEVELS) {
-      const envVal = process.env[level.brevoListEnvKey];
-      listIds[level.niveau] = envVal ? parseInt(envVal, 10) : null;
+    // 1. Trouver ou créer la liste "Club Grandis"
+    const lists = await getLists();
+    let clubList = lists.find((l) => l.name === CLUB_LIST_NAME);
+
+    if (!clubList) {
+      console.log(`[Club Brevo] Création de la liste "${CLUB_LIST_NAME}"…`);
+      // Récupérer le premier dossier disponible
+      const folders = await getFolders();
+      const folderId = folders[0]?.id || 1;
+      const listId = await createList(CLUB_LIST_NAME, folderId);
+      clubList = { id: listId, name: CLUB_LIST_NAME, totalSubscribers: 0 };
+      console.log(`[Club Brevo] Liste créée (id: ${listId})`);
     }
 
-    // Vérifier qu'au moins une liste est configurée
-    const configuredLists = Object.values(listIds).filter((v) => v !== null);
-    if (configuredLists.length === 0) {
-      return NextResponse.json(
-        {
-          error:
-            "Aucune liste Brevo configurée. Ajouter BREVO_CLUB_LIST_ID_1 à _5 dans les variables d'environnement.",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Récupérer les membres non synchronisés avec un email valide
+    // 2. Récupérer TOUS les membres avec un email valide
     const membres = await prisma.clubMembre.findMany({
       where: {
-        brevoSynced: false,
+        exclu: false,
         email: { not: "" },
       },
     });
 
-    console.log(`[Club Brevo] ${membres.length} membres à synchroniser`);
+    console.log(`[Club Brevo] ${membres.length} membres avec email à synchroniser`);
+
+    if (membres.length === 0) {
+      return NextResponse.json({
+        success: true,
+        synced: 0,
+        errors: 0,
+        total: 0,
+        message: "Aucun membre avec email. Lancez 'Récupérer emails' d'abord.",
+      });
+    }
 
     let synced = 0;
     let errors = 0;
 
+    // 3. Upsert chaque contact avec ses attributs Club
     for (const membre of membres) {
       try {
-        if (!membre.email || !membre.email.includes("@")) {
-          console.warn(`[Club Brevo] Email invalide pour ${membre.nom}: "${membre.email}"`);
+        if (!membre.email.includes("@")) {
           errors++;
           continue;
         }
@@ -67,26 +78,17 @@ export async function POST() {
         const level = CLUB_LEVELS.find((l) => l.niveau === membre.niveau);
         if (!level) continue;
 
-        const targetListId = listIds[membre.niveau];
-
-        // Listes à retirer (toutes les autres listes club)
-        const unlinkListIds = CLUB_LEVELS
-          .filter((l) => l.niveau !== membre.niveau)
-          .map((l) => listIds[l.niveau])
-          .filter((id): id is number => id !== null);
-
-        // Upsert contact Brevo avec attributs
         await upsertBrevoContact({
           email: membre.email,
           attributes: {
             CLUB_NIVEAU: membre.niveau,
             CLUB_NOM_NIVEAU: level.nom,
+            CLUB_CHIFFRE: level.chiffre,
             CLUB_REMISE: level.remise,
             PRENOM: membre.prenom,
             NOM: membre.nom,
           },
-          listIds: targetListId ? [targetListId] : undefined,
-          unlinkListIds: unlinkListIds.length > 0 ? unlinkListIds : undefined,
+          listIds: [clubList.id],
         });
 
         // Marquer comme synchronisé
@@ -97,16 +99,13 @@ export async function POST() {
 
         synced++;
       } catch (err: any) {
-        console.warn(
-          `[Club Brevo] Erreur pour ${membre.email}:`,
-          err.message
-        );
+        console.warn(`[Club Brevo] Erreur pour ${membre.email}:`, err.message);
         errors++;
       }
     }
 
     console.log(
-      `[Club Brevo] Terminé — ${synced} synchronisés, ${errors} erreurs`
+      `[Club Brevo] Terminé — ${synced} synchronisés, ${errors} erreurs (liste: ${clubList.id})`
     );
 
     return NextResponse.json({
@@ -114,6 +113,8 @@ export async function POST() {
       synced,
       errors,
       total: membres.length,
+      listId: clubList.id,
+      listName: CLUB_LIST_NAME,
     });
   } catch (error: any) {
     console.error("[Club Brevo] Erreur:", error);
