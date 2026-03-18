@@ -240,7 +240,55 @@ export async function POST() {
     }
 
     console.log(
-      `[Club Sync] Terminé — ${synced} synchronisés, ${nouveaux} nouveaux, ${upgraded} upgradés`
+      `[Club Sync] Upserts terminés — ${synced} synchronisés, ${nouveaux} nouveaux, ${upgraded} upgradés`
+    );
+
+    // 6. Récupérer les emails manquants (max 50 par sync pour rester sous 60s)
+    const membresWithoutEmail = await prisma.clubMembre.findMany({
+      where: { email: "", exclu: false },
+      select: { sellsyContactId: true, id: true },
+      take: 50,
+    });
+
+    let emailsFetched = 0;
+    if (membresWithoutEmail.length > 0) {
+      console.log(`[Club Sync] Fetch emails pour ${membresWithoutEmail.length} membres…`);
+      for (let i = 0; i < membresWithoutEmail.length; i += 10) {
+        const batch = membresWithoutEmail.slice(i, i + 10);
+        await Promise.all(
+          batch.map(async (membre) => {
+            const numId = parseInt(membre.sellsyContactId, 10);
+            const contactData = contactMap.get(membre.sellsyContactId);
+            const relType = contactData?.relatedType || "company";
+
+            let email = "";
+            try {
+              if (relType === "individual") {
+                const info = await fetchIndividualDetails(numId);
+                email = info.email;
+              } else {
+                const info = await fetchCompanyDetails(numId);
+                email = info.email;
+              }
+            } catch {
+              // Ignorer les erreurs de fetch
+            }
+
+            if (email) {
+              await prisma.clubMembre.update({
+                where: { id: membre.id },
+                data: { email },
+              });
+              emailsFetched++;
+            }
+          })
+        );
+      }
+      console.log(`[Club Sync] ${emailsFetched} emails récupérés`);
+    }
+
+    console.log(
+      `[Club Sync] Terminé — ${synced} sync, ${nouveaux} nouveaux, ${upgraded} upgradés, ${emailsFetched} emails`
     );
 
     return NextResponse.json({
@@ -248,6 +296,7 @@ export async function POST() {
       synced,
       nouveaux,
       upgraded,
+      emailsFetched,
       totalOrders: orders.length,
       totalContacts: contactMap.size,
     });

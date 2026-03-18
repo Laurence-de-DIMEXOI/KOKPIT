@@ -168,7 +168,7 @@ export default function ClubGrandisPage() {
       const res = await fetch("/api/club/sync", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        showToast(`${data.synced} membres synchronisés, ${data.nouveaux} nouveaux, ${data.upgraded} promus`);
+        showToast(`${data.synced} synchronisés, ${data.nouveaux} nouveaux, ${data.upgraded} promus${data.emailsFetched ? `, ${data.emailsFetched} emails récupérés` : ""}`);
         await Promise.all([loadStats(), loadMembres()]);
       } else {
         showToast(`Erreur : ${data.error}`);
