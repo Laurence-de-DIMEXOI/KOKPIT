@@ -171,7 +171,18 @@ export default function ClubGrandisPage() {
       showToast(`${syncData.synced} membres synchronisés`);
       await Promise.all([loadStats(), loadMembres()]);
 
-      // Étape 2 : Tags Sellsy (boucle auto)
+      // Étape 2 : Emails (boucle auto — avant tags/brevo car ils en ont besoin)
+      setSyncStep("Emails…");
+      let emailsRemaining = 1;
+      while (emailsRemaining > 0) {
+        const res = await fetch("/api/club/sync-emails", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) break;
+        emailsRemaining = data.remaining;
+        if (data.fetched === 0) break;
+      }
+
+      // Étape 3 : Tags Sellsy (boucle auto)
       setSyncStep("Tags Sellsy…");
       let tagsRemaining = 1;
       while (tagsRemaining > 0) {
@@ -182,15 +193,12 @@ export default function ClubGrandisPage() {
         if (data.synced === 0 && data.errors === 0) break;
       }
 
-      // Étape 3 : Emails (boucle auto)
-      setSyncStep("Emails…");
-      let emailsRemaining = 1;
-      while (emailsRemaining > 0) {
-        const res = await fetch("/api/club/sync-emails", { method: "POST" });
-        const data = await res.json();
-        if (!res.ok) break;
-        emailsRemaining = data.remaining;
-        if (data.fetched === 0) break;
+      // Étape 4 : Brevo (liste "Club Grandis" + attributs)
+      setSyncStep("Liste Brevo…");
+      try {
+        await fetch("/api/club/sync-brevo", { method: "POST" });
+      } catch {
+        // Brevo optionnel — ne pas bloquer la sync
       }
 
       // Rafraîchir les données
@@ -327,7 +335,7 @@ export default function ClubGrandisPage() {
           style={{ backgroundColor: da.primary }}
         >
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {syncing ? syncStep || "Synchronisation…" : "Synchroniser Sellsy"}
+          {syncing ? syncStep || "Mise à jour…" : "Mettre à jour le club"}
         </button>
       </div>
 
