@@ -409,7 +409,8 @@ export default function ClubGrandisPage() {
               <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">Dernier sync</p>
               <p className="text-sm sm:text-base font-bold text-white truncate">
                 {stats?.dernierSync
-                  ? new Date(stats.dernierSync).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
+                  ? new Date(stats.dernierSync).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) +
+                    " " + new Date(stats.dernierSync).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
                   : "—"}
               </p>
             </div>
