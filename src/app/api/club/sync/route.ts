@@ -4,15 +4,14 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   listAllOrders,
-  type SellsyOrder,
   fetchIndividualDetails,
   fetchCompanyDetails,
   invalidateSellsyCache,
 } from "@/lib/sellsy";
-import { calculerNiveau, getDebutFenetre, CLUB_LEVELS } from "@/data/club-grandis";
+import { calculerNiveau, getDebutFenetre } from "@/data/club-grandis";
 
-// Autoriser un timeout long (Vercel Pro : jusqu'à 300s)
-export const maxDuration = 300;
+// Vercel Hobby = max 60s, Pro = max 300s
+export const maxDuration = 60;
 
 /**
  * POST /api/club/sync
@@ -20,6 +19,11 @@ export const maxDuration = 300;
  * Synchronisation manuelle : récupère toutes les commandes Sellsy depuis début 2020,
  * calcule le niveau de chaque client, et upsert dans ClubMembre.
  * Règle : ne jamais descendre de niveau.
+ *
+ * Optimisé pour tenir dans les 60s (Vercel Hobby) :
+ *  - Pré-chargement de tous les membres existants en 1 requête
+ *  - Réutilisation des noms/emails déjà en base
+ *  - Fetch API Sellsy uniquement pour les NOUVEAUX contacts sans nom
  */
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -33,7 +37,7 @@ export async function POST() {
 
     // 1. Récupérer toutes les commandes depuis début 2020
     const debutFenetre = getDebutFenetre();
-    const sinceISO = debutFenetre.toISOString().split("T")[0]; // "YYYY-MM-DD"
+    const sinceISO = debutFenetre.toISOString().split("T")[0];
 
     console.log(`[Club Sync] Début sync — fenêtre depuis ${sinceISO}`);
     const orders = await listAllOrders(sinceISO);
@@ -44,7 +48,7 @@ export async function POST() {
       string,
       {
         contactId: string;
-        relatedType: string; // "individual" | "company"
+        relatedType: string;
         email: string;
         nom: string;
         prenom: string;
@@ -54,21 +58,19 @@ export async function POST() {
     >();
 
     for (const order of orders) {
-      // Identifier le tiers (contact Sellsy)
       const related = order.related?.[0];
       if (!related) continue;
 
       const contactId = String(related.id);
       const existing = contactMap.get(contactId);
 
-      // Montant TTC de la commande (Sellsy retourne des strings)
+      // Montant TTC (Sellsy retourne des strings)
       const montant = Number(order.amounts?.total_incl_tax) || 0;
 
       if (existing) {
         existing.nbCommandes += 1;
         existing.totalMontant += montant;
       } else {
-        // Extraire le nom depuis les embeds ou les champs directs
         const contactEmbed = order._embed?.contact;
         const companyEmbed = order._embed?.company;
 
@@ -99,13 +101,43 @@ export async function POST() {
 
     console.log(`[Club Sync] ${contactMap.size} contacts identifiés`);
 
-    // 3. Pour les contacts sans nom ou sans email, fetch les détails depuis Sellsy
+    // 3. Pré-charger TOUS les membres existants en 1 seule requête
+    const existingMembers = await prisma.clubMembre.findMany({
+      select: {
+        sellsyContactId: true,
+        nom: true,
+        prenom: true,
+        email: true,
+        niveau: true,
+        exclu: true,
+      },
+    });
+    const existingMap = new Map(
+      existingMembers.map((m) => [m.sellsyContactId, m])
+    );
+    console.log(`[Club Sync] ${existingMap.size} membres existants en base`);
+
+    // 4. Compléter noms/emails : réutiliser la base + fetch Sellsy uniquement pour les nouveaux "Inconnu"
+    for (const [id, data] of contactMap) {
+      const dbMember = existingMap.get(id);
+      if (dbMember) {
+        // Réutiliser les données déjà en base (pas d'appel API)
+        if (data.nom === "Inconnu" && dbMember.nom !== "Inconnu") {
+          data.nom = dbMember.nom;
+          data.prenom = dbMember.prenom;
+        }
+        if (!data.email && dbMember.email) {
+          data.email = dbMember.email;
+        }
+      }
+    }
+
+    // Fetch API Sellsy uniquement pour les NOUVEAUX contacts sans nom (pas en base)
     const needsFetch = [...contactMap.entries()].filter(
-      ([, d]) => d.nom === "Inconnu" || !d.email
+      ([id, d]) => d.nom === "Inconnu" && !existingMap.has(id)
     );
     if (needsFetch.length > 0) {
-      console.log(`[Club Sync] Récupération détails pour ${needsFetch.length} contacts…`);
-      // Batch de 10 requêtes en parallèle
+      console.log(`[Club Sync] Fetch détails pour ${needsFetch.length} nouveaux contacts…`);
       for (let i = 0; i < needsFetch.length; i += 10) {
         const batch = needsFetch.slice(i, i + 10);
         await Promise.all(
@@ -113,14 +145,12 @@ export async function POST() {
             const numId = parseInt(id, 10);
             if (data.relatedType === "individual") {
               const info = await fetchIndividualDetails(numId);
-              if (data.nom === "Inconnu") {
-                data.nom = info.nom;
-                data.prenom = info.prenom;
-              }
+              data.nom = info.nom;
+              data.prenom = info.prenom;
               if (!data.email) data.email = info.email;
             } else {
               const info = await fetchCompanyDetails(numId);
-              if (data.nom === "Inconnu") data.nom = info.nom;
+              data.nom = info.nom;
               if (!data.email) data.email = info.email;
             }
           })
@@ -128,14 +158,14 @@ export async function POST() {
       }
     }
 
-    // 4. Pour chaque contact qualifié, calculer le niveau et upsert
+    // 5. Calculer niveaux et upsert
     let synced = 0;
     let upgraded = 0;
     let nouveaux = 0;
 
-    // Contacts internes à exclure (équipe Dimexoi)
+    // Contacts internes à exclure
     const EXCLUDED_COMPANIES = ["DIMEXOI"];
-    const EXCLUDED_TEAM: { nom: string; prenom: string }[] = [
+    const EXCLUDED_TEAM = [
       { nom: "BATISSE", prenom: "LAURENT" },
       { nom: "LEGROS", prenom: "MICHELLE" },
       { nom: "PERROT", prenom: "MICHELLE" },
@@ -145,23 +175,21 @@ export async function POST() {
     ];
 
     for (const [contactId, data] of contactMap) {
-      // Exclure les commandes internes Dimexoi
+      // Exclure Dimexoi
       if (EXCLUDED_COMPANIES.some((n) => data.nom.toUpperCase().includes(n))) continue;
-      // Exclure les membres de l'équipe par nom + prénom exact
+      // Exclure l'équipe
       const nomUp = data.nom.toUpperCase();
       const prenomUp = data.prenom.toUpperCase();
       if (EXCLUDED_TEAM.some((t) => nomUp === t.nom && prenomUp === t.prenom)) continue;
 
-      // Vérifier si le contact atteint au moins le niv 1 (1 cmd ≥ 500€)
+      // Vérifier qualification niv 1 minimum
       const niveauCalcule = calculerNiveau(data.nbCommandes, data.totalMontant, 0);
-      if (niveauCalcule < 1) continue; // Pas qualifié
+      if (niveauCalcule < 1) continue;
 
-      // Vérifier le niveau actuel en base (ne jamais descendre)
-      const existant = await prisma.clubMembre.findUnique({
-        where: { sellsyContactId: contactId },
-      });
+      // Utiliser les données pré-chargées au lieu de findUnique
+      const existant = existingMap.get(contactId);
 
-      // Si le membre a été exclu manuellement, ne pas le recréer
+      // Si exclu manuellement, ne pas recréer
       if (existant?.exclu) continue;
 
       const niveauFinal = calculerNiveau(
@@ -171,7 +199,6 @@ export async function POST() {
       );
 
       if (existant) {
-        // Mise à jour
         const wasUpgraded = niveauFinal > existant.niveau;
         await prisma.clubMembre.update({
           where: { sellsyContactId: contactId },
@@ -180,15 +207,12 @@ export async function POST() {
             totalCommandes: data.nbCommandes,
             totalMontant: Number(data.totalMontant) || 0,
             dernierSync: new Date(),
-            // Mettre à jour le nom si on avait "Inconnu" avant
             ...(existant.nom === "Inconnu" && data.nom !== "Inconnu"
               ? { nom: data.nom, prenom: data.prenom }
               : {}),
-            // Mettre à jour l'email si on en a un maintenant
             ...(existant.email === "" && data.email
               ? { email: data.email }
               : {}),
-            // Reset sync flags si le niveau a changé
             ...(wasUpgraded
               ? { brevoSynced: false, sellsySynced: false }
               : {}),
@@ -196,7 +220,6 @@ export async function POST() {
         });
         if (wasUpgraded) upgraded++;
       } else {
-        // Nouveau membre
         await prisma.clubMembre.create({
           data: {
             sellsyContactId: contactId,
