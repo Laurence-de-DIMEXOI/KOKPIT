@@ -118,6 +118,7 @@ export default function ClubGrandisPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncingTags, setSyncingTags] = useState(false);
   const [syncingBrevo, setSyncingBrevo] = useState(false);
+  const [syncingEmails, setSyncingEmails] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterNiveau, setFilterNiveau] = useState<number | null>(null);
@@ -211,6 +212,23 @@ export default function ClubGrandisPage() {
       showToast("Erreur de connexion");
     }
     setSyncingBrevo(false);
+  };
+
+  const handleSyncEmails = async () => {
+    setSyncingEmails(true);
+    try {
+      const res = await fetch("/api/club/sync-emails", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`${data.fetched} emails récupérés — ${data.remaining} restants`);
+        await loadMembres();
+      } else {
+        showToast(`Erreur : ${data.error}`);
+      }
+    } catch {
+      showToast("Erreur de connexion");
+    }
+    setSyncingEmails(false);
   };
 
   const handleDelete = async () => {
@@ -700,6 +718,15 @@ export default function ClubGrandisPage() {
           >
             {syncingBrevo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
             {syncingBrevo ? "Synchronisation…" : "Sync segments Brevo"}
+          </button>
+          <button
+            onClick={handleSyncEmails}
+            disabled={syncingEmails}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ borderColor: da.primary, color: da.primary }}
+          >
+            {syncingEmails ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+            {syncingEmails ? "Récupération…" : "Récupérer emails"}
           </button>
         </div>
         <p className="text-xs text-cockpit-secondary mt-3">
