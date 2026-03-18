@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  ensureTagsExist,
-  assignTagToIndividual,
-  assignTagToCompany,
-} from "@/lib/sellsy";
+import { assignSmartTag } from "@/lib/sellsy";
 import { CLUB_LEVELS } from "@/data/club-grandis";
 
 export const maxDuration = 60;
@@ -14,9 +10,9 @@ export const maxDuration = 60;
 /**
  * POST /api/club/sync-tags
  *
- * Push les tags "CLUB - Niv X" sur les contacts Sellsy via leur ID.
+ * Assigne les smart tags "CLUB - Niv X" sur les contacts Sellsy.
+ * Utilise l'endpoint /smart-tags de Sellsy V2.
  * Traite 30 contacts par appel. Le frontend boucle automatiquement.
- * Pas besoin d'email — on utilise le sellsyContactId directement.
  */
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -25,11 +21,6 @@ export async function POST() {
   }
 
   try {
-    // 1. S'assurer que les 5 tags existent
-    const tagNames = CLUB_LEVELS.map((l) => l.sellsyTag);
-    const tagMap = await ensureTagsExist(tagNames);
-
-    // 2. Compter le total puis prendre un batch de 30
     const total = await prisma.clubMembre.count({
       where: { sellsySynced: false, exclu: false },
     });
@@ -54,42 +45,26 @@ export async function POST() {
     let errors = 0;
 
     for (const membre of membres) {
+      const contactId = parseInt(membre.sellsyContactId, 10);
+      if (isNaN(contactId)) { errors++; continue; }
+
+      const level = CLUB_LEVELS.find((l) => l.niveau === membre.niveau);
+      if (!level) { errors++; continue; }
+
       try {
-        const contactId = parseInt(membre.sellsyContactId, 10);
-        if (isNaN(contactId)) { errors++; continue; }
-
-        const level = CLUB_LEVELS.find((l) => l.niveau === membre.niveau);
-        if (!level) { errors++; continue; }
-
-        const tagId = tagMap.get(level.sellsyTag);
-        if (!tagId) { errors++; continue; }
-
-        // Assigner le tag : essayer individual d'abord, puis company
-        try {
-          await assignTagToIndividual(contactId, tagId);
-        } catch {
-          try {
-            await assignTagToCompany(contactId, tagId);
-          } catch {
-            errors++;
-            // Marquer quand même pour ne pas reboucler
-            await prisma.clubMembre.update({
-              where: { id: membre.id },
-              data: { sellsySynced: true },
-            });
-            continue;
-          }
-        }
-
-        await prisma.clubMembre.update({
-          where: { id: membre.id },
-          data: { sellsySynced: true },
-        });
+        // Assigne le smart tag via l'API Sellsy V2 /smart-tags
+        await assignSmartTag(contactId, level.sellsyTag);
         synced++;
       } catch (err: any) {
-        console.warn(`[Club Tags] Erreur ${membre.sellsyContactId}:`, err.message);
+        console.warn(`[Club Tags] Erreur ${contactId} (${membre.nom}):`, err.message);
         errors++;
       }
+
+      // Marquer comme traité (même en erreur, pour ne pas reboucler indéfiniment)
+      await prisma.clubMembre.update({
+        where: { id: membre.id },
+        data: { sellsySynced: true },
+      });
     }
 
     const remaining = total - membres.length;

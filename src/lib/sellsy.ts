@@ -1163,107 +1163,47 @@ export async function listStaffs(): Promise<SellsyStaff[]> {
   }
 }
 
-// ===== TAGS (Club Grandis) =====
+// ===== SMART TAGS (Club Grandis) =====
 
-export interface SellsyTag {
+export interface SellsySmartTag {
   id: number;
-  name: string;
-}
-
-/** Liste tous les tags Sellsy */
-export async function listTags(): Promise<SellsyTag[]> {
-  try {
-    const res = await sellsyFetch<SellsyListResponse<SellsyTag>>("/tags?limit=100");
-    return res.data || [];
-  } catch (err) {
-    console.warn("listTags failed:", err);
-    return [];
-  }
-}
-
-/** Crée un tag Sellsy */
-export async function createTag(name: string): Promise<SellsyTag> {
-  return sellsyFetch<SellsyTag>("/tags", {
-    method: "POST",
-    body: JSON.stringify({ name }),
-  });
-}
-
-/** Récupère les tags associés à un contact (individual) */
-export async function getContactTags(contactId: number): Promise<SellsyTag[]> {
-  try {
-    const res = await sellsyFetch<SellsyListResponse<SellsyTag>>(
-      `/individuals/${contactId}/tags?limit=50`
-    );
-    return res.data || [];
-  } catch {
-    // Fallback: essayer via companies
-    try {
-      const res = await sellsyFetch<SellsyListResponse<SellsyTag>>(
-        `/companies/${contactId}/tags?limit=50`
-      );
-      return res.data || [];
-    } catch {
-      return [];
-    }
-  }
-}
-
-/** Assigne un tag à un individual Sellsy */
-export async function assignTagToIndividual(individualId: number, tagId: number): Promise<void> {
-  await sellsyFetch<unknown>(`/individuals/${individualId}/tags`, {
-    method: "POST",
-    body: JSON.stringify({ tag_id: tagId }),
-  });
-}
-
-/** Retire un tag d'un individual Sellsy */
-export async function removeTagFromIndividual(individualId: number, tagId: number): Promise<void> {
-  await sellsyFetch<unknown>(`/individuals/${individualId}/tags/${tagId}`, {
-    method: "DELETE",
-  });
-}
-
-/** Assigne un tag à une company Sellsy */
-export async function assignTagToCompany(companyId: number, tagId: number): Promise<void> {
-  await sellsyFetch<unknown>(`/companies/${companyId}/tags`, {
-    method: "POST",
-    body: JSON.stringify({ tag_id: tagId }),
-  });
-}
-
-/** Retire un tag d'une company Sellsy */
-export async function removeTagFromCompany(companyId: number, tagId: number): Promise<void> {
-  await sellsyFetch<unknown>(`/companies/${companyId}/tags/${tagId}`, {
-    method: "DELETE",
-  });
+  value: string;
 }
 
 /**
- * S'assure qu'un ensemble de tags existe dans Sellsy.
- * Crée ceux qui manquent. Retourne un map nom → id.
+ * Assigne un smart tag à un contact Sellsy (individual ou company).
+ * Le smart tag est créé automatiquement par Sellsy s'il n'existe pas.
+ * Essaie individual d'abord, puis company en fallback.
  */
-export async function ensureTagsExist(tagNames: string[]): Promise<Map<string, number>> {
-  const existing = await listTags();
-  const map = new Map<string, number>();
+export async function assignSmartTag(contactId: number, tagValue: string): Promise<void> {
+  const body = JSON.stringify([tagValue]);
 
-  for (const tag of existing) {
-    map.set(tag.name, tag.id);
+  // Essayer individual d'abord
+  try {
+    await sellsyFetch<unknown>(`/individuals/${contactId}/smart-tags`, {
+      method: "POST",
+      body,
+    });
+    return;
+  } catch {
+    // Fallback : essayer company
   }
 
-  for (const name of tagNames) {
-    if (!map.has(name)) {
-      try {
-        const created = await createTag(name);
-        map.set(name, created.id);
-        console.log(`Tag créé : "${name}" (id: ${created.id})`);
-      } catch (err) {
-        console.error(`Impossible de créer le tag "${name}":`, err);
-      }
-    }
+  // Essayer company
+  try {
+    await sellsyFetch<unknown>(`/companies/${contactId}/smart-tags`, {
+      method: "POST",
+      body,
+    });
+    return;
+  } catch {
+    // Dernier fallback : essayer contacts
   }
 
-  return map;
+  await sellsyFetch<unknown>(`/contacts/${contactId}/smart-tags`, {
+    method: "POST",
+    body,
+  });
 }
 
 // ===== FETCH INDIVIDUAL / COMPANY DETAILS =====
