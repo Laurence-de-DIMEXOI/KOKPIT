@@ -216,15 +216,23 @@ export default function ClubGrandisPage() {
 
   const handleSyncEmails = async () => {
     setSyncingEmails(true);
+    let totalFetched = 0;
+    let remaining = 1; // dummy pour lancer la boucle
     try {
-      const res = await fetch("/api/club/sync-emails", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(`${data.fetched} emails récupérés — ${data.remaining} restants`);
-        await loadMembres();
-      } else {
-        showToast(`Erreur : ${data.error}`);
+      while (remaining > 0) {
+        const res = await fetch("/api/club/sync-emails", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(`Erreur : ${data.error}`);
+          break;
+        }
+        totalFetched += data.fetched;
+        remaining = data.remaining;
+        if (data.fetched === 0) break; // plus rien à récupérer
+        showToast(`${totalFetched} emails récupérés — ${remaining} restants…`);
       }
+      showToast(`Terminé : ${totalFetched} emails récupérés`);
+      await Promise.all([loadStats(), loadMembres()]);
     } catch {
       showToast("Erreur de connexion");
     }
