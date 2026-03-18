@@ -7,16 +7,18 @@ import {
   getContactTags,
   assignTagToIndividual,
   removeTagFromIndividual,
+  assignTagToCompany,
+  removeTagFromCompany,
 } from "@/lib/sellsy";
 import { CLUB_LEVELS } from "@/data/club-grandis";
+
+export const maxDuration = 60;
 
 /**
  * POST /api/club/sync-tags
  *
  * Push les tags "CLUB - Niv X" sur les contacts Sellsy.
- * - Crée les tags s'ils n'existent pas
- * - Assigne le bon tag au contact
- * - Retire les anciens tags CLUB
+ * Gère les individuals ET les companies (fallback automatique).
  */
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -31,7 +33,7 @@ export async function POST() {
 
     // 2. Récupérer les membres non synchronisés
     const membres = await prisma.clubMembre.findMany({
-      where: { sellsySynced: false },
+      where: { sellsySynced: false, exclu: false },
     });
 
     console.log(`[Club Tags] ${membres.length} membres à synchroniser`);
@@ -43,21 +45,25 @@ export async function POST() {
       try {
         const contactId = parseInt(membre.sellsyContactId, 10);
         if (isNaN(contactId)) {
-          console.warn(`[Club Tags] ID invalide: ${membre.sellsyContactId}`);
           errors++;
           continue;
         }
 
-        // Récupérer les tags actuels du contact
+        // Récupérer les tags actuels (essaie individual puis company)
         const currentTags = await getContactTags(contactId);
 
         // Retirer tous les tags CLUB existants
         for (const tag of currentTags) {
           if (tag.name.startsWith("CLUB - Niv")) {
+            // Essayer individual d'abord, puis company
             try {
               await removeTagFromIndividual(contactId, tag.id);
             } catch {
-              // Ignorer les erreurs de retrait
+              try {
+                await removeTagFromCompany(contactId, tag.id);
+              } catch {
+                // Ignorer
+              }
             }
           }
         }
@@ -67,7 +73,12 @@ export async function POST() {
         if (level) {
           const tagId = tagMap.get(level.sellsyTag);
           if (tagId) {
-            await assignTagToIndividual(contactId, tagId);
+            // Essayer individual d'abord, puis company
+            try {
+              await assignTagToIndividual(contactId, tagId);
+            } catch {
+              await assignTagToCompany(contactId, tagId);
+            }
           }
         }
 
