@@ -70,12 +70,17 @@ function buildHeader(topLine: string, badge: string): string {
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding-top:8px;padding-bottom:4px;">
+              <td align="center" style="padding-top:8px;padding-bottom:2px;">
                 <img src="https://kokpit-kappa.vercel.app/images/club-grandis-logo-blanc.png" alt="Club Grandis" width="220" class="logo-img" style="display:block;margin:0 auto;max-width:220px;height:auto;" />
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding:10px 0;">
+              <td align="center" style="font-family:${FONT.body};font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:1px;padding-bottom:6px;">
+                Par Dimexoi et Bois d&rsquo;Orient
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:8px 0;">
                 <table cellpadding="0" cellspacing="0" border="0" width="40">
                   <tr>
                     <td style="border-top:1px solid rgba(255,255,255,0.4);font-size:0;line-height:0;" height="1">&nbsp;</td>
