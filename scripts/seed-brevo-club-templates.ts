@@ -62,7 +62,7 @@ function buildHeader(topLine: string, badge: string): string {
     <!-- HEADER -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLORS.green};">
       <tr>
-        <td align="center" style="padding:40px 20px 10px 20px;">
+        <td align="center" class="header-padding" style="padding:40px 20px 10px 20px;">
           <table width="600" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td align="center" style="font-family:${FONT.body};font-size:12px;letter-spacing:4px;color:${COLORS.white};text-transform:uppercase;">
@@ -70,13 +70,8 @@ function buildHeader(topLine: string, badge: string): string {
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding-top:8px;font-family:${FONT.body};font-size:36px;font-weight:700;color:${COLORS.white};line-height:1.1;">
-                CLUB
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="font-family:${FONT.heading};font-size:48px;font-style:italic;color:${COLORS.white};line-height:1.1;">
-                Grandis
+              <td align="center" style="padding-top:16px;padding-bottom:8px;">
+                <img src="https://kokpit-kappa.vercel.app/images/club-grandis-logo-blanc.png" alt="Club Grandis" width="250" class="logo-img" style="display:block;margin:0 auto;max-width:250px;height:auto;" />
               </td>
             </tr>
             <tr>
@@ -116,7 +111,7 @@ function buildRemiseBlock(remise: string, description: string): string {
             <td align="center" style="padding:24px 20px;">
               <table cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td align="center" style="font-family:${FONT.heading};font-size:36px;color:${COLORS.green};font-weight:700;line-height:1.2;">
+                  <td align="center" class="remise-text" style="font-family:${FONT.heading};font-size:36px;color:${COLORS.green};font-weight:700;line-height:1.2;">
                     ${remise}
                   </td>
                 </tr>
@@ -247,7 +242,7 @@ function buildFooter(): string {
     <!-- FOOTER -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLORS.green};">
       <tr>
-        <td align="center" style="padding:20px;">
+        <td align="center" class="footer-padding" style="padding:20px;">
           <table width="600" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td align="center" style="font-family:${FONT.body};font-size:12px;color:${COLORS.white};line-height:1.5;">
@@ -278,6 +273,14 @@ function wrapTemplate(header: string, bodyRows: string, footer: string): string 
     table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
     img { -ms-interpolation-mode:bicubic; }
     body { margin:0; padding:0; width:100%!important; }
+    @media only screen and (max-width: 620px) {
+      .email-container { width: 100% !important; }
+      .email-padding { padding: 24px 20px !important; }
+      .header-padding { padding: 32px 20px 24px !important; }
+      .footer-padding { padding: 16px 20px !important; }
+      .remise-text { font-size: 36px !important; }
+      .logo-img { width: 200px !important; }
+    }
   </style>
   <!--[if mso]>
   <style type="text/css">
@@ -290,10 +293,10 @@ function wrapTemplate(header: string, bodyRows: string, footer: string): string 
     <tr>
       <td align="center">
         <!-- CONTAINER -->
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;margin:0 auto;">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px;margin:0 auto;">
           <tr><td>${header}</td></tr>
           <tr>
-            <td style="background-color:${COLORS.white};padding:32px 40px;">
+            <td class="email-padding" style="background-color:${COLORS.white};padding:32px 40px;">
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 ${bodyRows}
               </table>
@@ -639,6 +642,24 @@ async function createTemplate(def: TemplateDefinition): Promise<number> {
   return data.id;
 }
 
+/**
+ * Updates an existing Brevo SMTP template (htmlContent + subject only).
+ */
+async function updateTemplate(id: number, htmlContent: string, subject: string): Promise<void> {
+  const res = await fetch(`${BREVO_API_URL}/smtp/templates/${id}`, {
+    method: 'PUT',
+    headers: {
+      'api-key': BREVO_API_KEY!,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ htmlContent, subject }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to update template ${id} (HTTP ${res.status}): ${err}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -665,8 +686,10 @@ async function main(): Promise<void> {
 
     const existing = existingByName.get(def.name);
     if (existing) {
-      console.log(`[Niveau ${level}] "${def.name}" already exists (ID: ${existing.id}) - skipping.`);
-      results.push({ level, name: def.name, id: existing.id, action: 'SKIPPED' });
+      console.log(`[Niveau ${level}] "${def.name}" already exists (ID: ${existing.id}) - updating...`);
+      await updateTemplate(existing.id, def.htmlContent, def.subject);
+      console.log(`[Niveau ${level}] Updated (ID: ${existing.id})`);
+      results.push({ level, name: def.name, id: existing.id, action: 'UPDATED' });
     } else {
       console.log(`[Niveau ${level}] Creating "${def.name}"...`);
       const id = await createTemplate(def);
@@ -680,7 +703,7 @@ async function main(): Promise<void> {
   console.log('Add these template IDs to your environment variables:\n');
 
   for (const r of results) {
-    const tag = r.action === 'CREATED' ? '(new)' : '(existing)';
+    const tag = r.action === 'CREATED' ? '(new)' : '(updated)';
     console.log(`  BREVO_CLUB_TEMPLATE_NIVEAU_${r.level}=${r.id}  ${tag}`);
   }
 
