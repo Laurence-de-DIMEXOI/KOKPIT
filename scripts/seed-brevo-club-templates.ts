@@ -62,29 +62,29 @@ function buildHeader(topLine: string, badge: string): string {
     <!-- HEADER -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLORS.green};">
       <tr>
-        <td align="center" class="header-padding" style="padding:40px 20px 10px 20px;">
+        <td align="center" class="header-padding" style="padding:16px 20px 8px 20px;">
           <table width="600" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td align="center" style="font-family:${FONT.body};font-size:12px;letter-spacing:4px;color:${COLORS.white};text-transform:uppercase;">
+              <td align="center" style="font-family:${FONT.body};font-size:11px;letter-spacing:4px;color:rgba(255,255,255,0.6);text-transform:uppercase;">
                 ${topLine}
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding-top:16px;padding-bottom:8px;">
-                <img src="https://kokpit-kappa.vercel.app/images/club-grandis-logo-blanc.png" alt="Club Grandis" width="250" class="logo-img" style="display:block;margin:0 auto;max-width:250px;height:auto;" />
+              <td align="center" style="padding-top:8px;padding-bottom:4px;">
+                <img src="https://kokpit-kappa.vercel.app/images/club-grandis-logo-blanc.png" alt="Club Grandis" width="220" class="logo-img" style="display:block;margin:0 auto;max-width:220px;height:auto;" />
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding:16px 0;">
-                <table cellpadding="0" cellspacing="0" border="0" width="60">
+              <td align="center" style="padding:10px 0;">
+                <table cellpadding="0" cellspacing="0" border="0" width="40">
                   <tr>
-                    <td style="border-top:1px solid ${COLORS.white};font-size:0;line-height:0;" height="1">&nbsp;</td>
+                    <td style="border-top:1px solid rgba(255,255,255,0.4);font-size:0;line-height:0;" height="1">&nbsp;</td>
                   </tr>
                 </table>
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding-bottom:36px;">
+              <td align="center" style="padding-bottom:16px;">
                 <table cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${COLORS.white};border-radius:4px;">
                   <tr>
                     <td style="padding:8px 24px;font-family:${FONT.body};font-size:14px;letter-spacing:2px;color:${COLORS.white};text-transform:uppercase;">
@@ -276,10 +276,10 @@ function wrapTemplate(header: string, bodyRows: string, footer: string): string 
     @media only screen and (max-width: 620px) {
       .email-container { width: 100% !important; }
       .email-padding { padding: 24px 20px !important; }
-      .header-padding { padding: 32px 20px 24px !important; }
+      .header-padding { padding: 12px 16px 6px !important; }
       .footer-padding { padding: 16px 20px !important; }
       .remise-text { font-size: 36px !important; }
-      .logo-img { width: 200px !important; }
+      .logo-img { width: 180px !important; }
     }
   </style>
   <!--[if mso]>
