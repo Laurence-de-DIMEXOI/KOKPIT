@@ -17,6 +17,7 @@ import {
   Check,
   Copy,
   Ticket,
+  Info,
 } from "lucide-react";
 import { CLUB_LEVELS, CLUB_DA, type ClubLevel } from "@/data/club-grandis";
 
@@ -122,6 +123,7 @@ export default function ClubGrandisPage() {
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<ClubMembre | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showMemo, setShowMemo] = useState(false);
 
   const da = CLUB_DA;
 
@@ -328,15 +330,26 @@ export default function ClubGrandisPage() {
         <p className="text-cockpit-secondary text-sm">
           Programme de fidélité · {stats?.totalMembres || 0} membres
         </p>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: da.primary }}
-        >
-          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {syncing ? syncStep || "Mise à jour…" : "Mettre à jour le club"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: da.primary }}
+          >
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {syncing ? syncStep || "Mise à jour…" : "Mettre à jour le club"}
+          </button>
+          <button
+            onClick={() => setShowMemo(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition-all hover:opacity-90"
+            style={{ borderColor: da.primary, color: da.primary }}
+            title="Mémo du programme"
+          >
+            <Info className="w-4 h-4" />
+            Mémo
+          </button>
+        </div>
       </div>
 
       {/* ================================================================ */}
@@ -720,6 +733,149 @@ export default function ClubGrandisPage() {
       {/* ================================================================ */}
       {/* MODALE CONFIRMATION SUPPRESSION */}
       {/* ================================================================ */}
+      {/* ================================================================ */}
+      {/* MODALE MÉMO PROGRAMME */}
+      {/* ================================================================ */}
+      {showMemo && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-sm overflow-y-auto py-8">
+          <div className="bg-cockpit-card border border-cockpit rounded-2xl shadow-cockpit-lg w-full max-w-2xl mx-4 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-cockpit" style={{ backgroundColor: da.primary }}>
+              <h3 className="font-bold text-white text-lg" style={{ fontFamily: da.fontDisplay }}>
+                Club Grandis — Mémo programme
+              </h3>
+              <button
+                onClick={() => setShowMemo(false)}
+                className="p-1.5 rounded-md hover:bg-white/20 transition-colors text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-6 max-h-[75vh] overflow-y-auto text-sm text-cockpit-primary">
+              {/* Concept */}
+              <div>
+                <p className="text-cockpit-secondary italic">
+                  Programme de fidélité nommé d&apos;après le <strong>Tectona Grandis</strong>, nom scientifique du teck.
+                  Chaque palier porte le nom d&apos;une partie de l&apos;arbre.
+                </p>
+              </div>
+
+              {/* Tableau niveaux */}
+              <div>
+                <h4 className="font-bold mb-2" style={{ color: da.primary, fontFamily: da.fontDisplay }}>Les 5 niveaux</h4>
+                <table className="w-full text-xs border border-cockpit rounded-lg overflow-hidden">
+                  <thead>
+                    <tr style={{ backgroundColor: da.primary }}>
+                      <th className="text-left px-3 py-2 text-white font-semibold">Niveau</th>
+                      <th className="text-left px-3 py-2 text-white font-semibold">Nom</th>
+                      <th className="text-right px-3 py-2 text-white font-semibold">Seuil</th>
+                      <th className="text-right px-3 py-2 text-white font-semibold">Remise</th>
+                      <th className="text-right px-3 py-2 text-white font-semibold">Validité</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-cockpit">
+                    <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>I</td><td className="px-3 py-2">L&apos;Écorce</td><td className="px-3 py-2 text-right">1 cmd ≥ 500 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-5%</td><td className="px-3 py-2 text-right">3 mois</td></tr>
+                    <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>II</td><td className="px-3 py-2">L&apos;Aubier</td><td className="px-3 py-2 text-right">Cumul ≥ 2 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-10%</td><td className="px-3 py-2 text-right">6 mois</td></tr>
+                    <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>III</td><td className="px-3 py-2">Le Cœur</td><td className="px-3 py-2 text-right">Cumul ≥ 5 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-15%</td><td className="px-3 py-2 text-right">9 mois</td></tr>
+                    <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>IV</td><td className="px-3 py-2">Le Grain</td><td className="px-3 py-2 text-right">Cumul ≥ 10 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-20%</td><td className="px-3 py-2 text-right">12 mois</td></tr>
+                    <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>V</td><td className="px-3 py-2">Le Tectona</td><td className="px-3 py-2 text-right">Cumul ≥ 20 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-25%</td><td className="px-3 py-2 text-right font-bold">À vie</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Avantages */}
+              <div>
+                <h4 className="font-bold mb-2" style={{ color: da.primary, fontFamily: da.fontDisplay }}>Avantages par niveau</h4>
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-cockpit-dark">
+                    <p className="font-bold text-xs mb-1" style={{ color: da.primary }}>I — L&apos;Écorce</p>
+                    <ul className="text-xs text-cockpit-secondary space-y-0.5 list-disc list-inside">
+                      <li>Bon de remise nominatif et personnel</li>
+                      <li>Espace personnel : suivi de commande et historique des bons</li>
+                      <li>Newsletter exclusive Club Grandis</li>
+                    </ul>
+                  </div>
+                  <div className="p-3 rounded-lg bg-cockpit-dark">
+                    <p className="font-bold text-xs mb-1" style={{ color: da.primary }}>II — L&apos;Aubier <span className="font-normal text-cockpit-secondary">(+ avantages du I)</span></p>
+                    <ul className="text-xs text-cockpit-secondary space-y-0.5 list-disc list-inside">
+                      <li>Accès aux ventes privées</li>
+                      <li>Livraison offerte dès 1 500 € d&apos;achat</li>
+                    </ul>
+                  </div>
+                  <div className="p-3 rounded-lg bg-cockpit-dark">
+                    <p className="font-bold text-xs mb-1" style={{ color: da.primary }}>III — Le Cœur <span className="font-normal text-cockpit-secondary">(+ avantages du II)</span></p>
+                    <ul className="text-xs text-cockpit-secondary space-y-0.5 list-disc list-inside">
+                      <li>Accès aux avant-premières des nouvelles collections</li>
+                    </ul>
+                  </div>
+                  <div className="p-3 rounded-lg bg-cockpit-dark">
+                    <p className="font-bold text-xs mb-1" style={{ color: da.primary }}>IV — Le Grain <span className="font-normal text-cockpit-secondary">(+ avantages du III)</span></p>
+                    <ul className="text-xs text-cockpit-secondary space-y-0.5 list-disc list-inside">
+                      <li>Remise chez l&apos;un de nos partenaires hôteliers*</li>
+                    </ul>
+                    <p className="text-[10px] text-cockpit-secondary mt-1 italic">*voir conditions en showroom</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-cockpit-dark">
+                    <p className="font-bold text-xs mb-1" style={{ color: da.primary }}>V — Le Tectona</p>
+                    <ul className="text-xs text-cockpit-secondary space-y-0.5 list-disc list-inside">
+                      <li>Cadeau pour avoir atteint le palier</li>
+                      <li>Carte membre personnalisée à votre nom</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conditions */}
+              <div>
+                <h4 className="font-bold mb-2" style={{ color: da.primary, fontFamily: da.fontDisplay }}>Conditions clés</h4>
+                <ul className="text-xs text-cockpit-secondary space-y-1.5">
+                  <li><strong className="text-cockpit-primary">Périmètre :</strong> meubles en teck massif uniquement (catalogue + sur-mesure). Exclut livraison, montage, accessoires, autres matières</li>
+                  <li><strong className="text-cockpit-primary">Nominatif :</strong> chaque bon est personnel et incessible</li>
+                  <li><strong className="text-cockpit-primary">Usage unique :</strong> utilisable 1 fois dans le délai de validité (sauf niv. V = à vie)</li>
+                  <li><strong className="text-cockpit-primary">Non cumulable :</strong> pas cumulable avec promos, soldes, offres spéciales. Le montant le plus avantageux est retenu</li>
+                  <li><strong className="text-cockpit-primary">Non régressif :</strong> un niveau atteint est acquis, mais le bon peut expirer</li>
+                  <li><strong className="text-cockpit-primary">Historique :</strong> commandes confirmées et réglées depuis 2020 prises en compte</li>
+                  <li><strong className="text-cockpit-primary">Public :</strong> particuliers résidant à La Réunion</li>
+                  <li><strong className="text-cockpit-primary">Exclusions du cumul :</strong> commandes annulées, remboursées ou impayées</li>
+                </ul>
+              </div>
+
+              {/* Signification */}
+              <div className="pb-2">
+                <h4 className="font-bold mb-2" style={{ color: da.primary, fontFamily: da.fontDisplay }}>Signification des paliers</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    { chiffre: "I", nom: "L'Écorce", desc: "Première couche protectrice" },
+                    { chiffre: "II", nom: "L'Aubier", desc: "Bois vivant sous l'écorce" },
+                    { chiffre: "III", nom: "Le Cœur", desc: "Le duramen, partie la plus précieuse" },
+                    { chiffre: "IV", nom: "Le Grain", desc: "Texture signature de chaque pièce" },
+                    { chiffre: "V", nom: "Le Tectona", desc: "L'arbre entier" },
+                  ].map((p) => (
+                    <div key={p.chiffre} className="text-center p-2 rounded-lg bg-cockpit-dark">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: da.primary }}>{p.chiffre}</span>
+                      <p className="text-xs font-semibold mt-1" style={{ color: da.primary }}>{p.nom}</p>
+                      <p className="text-[10px] text-cockpit-secondary mt-0.5">{p.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-cockpit flex justify-end">
+              <button
+                onClick={() => setShowMemo(false)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
+                style={{ backgroundColor: da.primary }}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-cockpit-card border border-cockpit rounded-2xl shadow-cockpit-lg w-full max-w-md mx-4 overflow-hidden">
