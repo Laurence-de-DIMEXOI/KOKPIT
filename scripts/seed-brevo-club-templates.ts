@@ -613,7 +613,7 @@ async function listAllTemplates(): Promise<BrevoTemplate[]> {
  */
 async function createTemplate(def: TemplateDefinition): Promise<number> {
   const payload = {
-    sender: { name: 'Dimexoi', email: 'contact@dimexoi.fr' },
+    sender: { name: 'DIMEXOI', email: 'laurence.payet@dimexoi.fr' },
     templateName: def.name,
     subject: def.subject,
     htmlContent: def.htmlContent,
