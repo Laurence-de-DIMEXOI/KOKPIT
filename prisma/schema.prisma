@@ -145,6 +145,7 @@ model User {
   telephone       String?
   showroomId      String?
   actif           Boolean   @default(true)
+  couleur         String?   // couleur hex pour calendrier congés (#FF6B6B)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -159,6 +160,8 @@ model User {
   tasksAssignees  Task[]         @relation("TaskAssignee")
   tasksCreees     Task[]         @relation("TaskCreator")
   clientsBdoVerifies ClientBoisDOrient[] @relation("ClientBdoVerifie")
+  conges          Conge[]        @relation("CongeUser")
+  congesApprouves Conge[]        @relation("CongeApprobateur")
 
   @@index([showroomId])
 }
@@ -884,4 +887,31 @@ model ImportBoisDOrient {
   nbDocuments     Int      @default(0)
   statut          String   @default("EN_COURS") // EN_COURS | TERMINE | ERREUR
   notes           String?
+}
+
+// ============================================================================
+// CONGÉS & ABSENCES
+// ============================================================================
+
+model Conge {
+  id            String    @id @default(cuid())
+  userId        String
+  type          String    @default("conge_paye") // conge_paye | rtt | sans_solde | maladie
+  dateDebut     DateTime
+  dateFin       DateTime
+  nbJours       Float     @default(1)
+  statut        String    @default("en_attente") // en_attente | approuve | modifie | refuse
+  notes         String?
+  commentaire   String?   // commentaire du responsable
+  approuveParId String?
+  approuveLe    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation("CongeUser", fields: [userId], references: [id], onDelete: Cascade)
+  approuvePar   User?     @relation("CongeApprobateur", fields: [approuveParId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([dateDebut])
+  @@index([statut])
 }

@@ -260,7 +260,8 @@ export async function POST() {
         const montantTTC = Number(d.doc.amounts?.total_incl_tax) || 0;
         const montantHT = Number(d.doc.amounts?.total_excl_tax) || 0;
         const date = d.doc.created ? `'${new Date(d.doc.created).toISOString()}'::timestamp` : "NOW()";
-        const ref = d.doc.number || d.doc.reference ? `'${esc(d.doc.number || d.doc.reference)}'` : "NULL";
+        const refValue = d.doc.number || d.doc.reference || null;
+        const ref = refValue ? `'${esc(refValue)}'` : "NULL";
         const statut = d.doc.status ? `'${esc(d.doc.status)}'` : "NULL";
         return `(gen_random_uuid(), '${esc(sellsyDocId)}', '${esc(clientBdoId)}', '${esc(d.type)}', ${ref}, ${date}, ${montantTTC}, ${montantHT}, ${statut}, NOW())`;
       });
