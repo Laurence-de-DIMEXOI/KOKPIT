@@ -63,15 +63,14 @@ export async function GET() {
       0
     );
 
-    // 4. Per-user solde for each active user
-    const activeUsers = await prisma.user.findMany({
-      where: { actif: true },
+    // 4. Per-user solde — tous les collaborateurs (même inactifs KOKPIT comme Georget)
+    const allUsersForSoldes = await prisma.user.findMany({
       select: { id: true, nom: true, prenom: true, couleur: true },
       orderBy: { nom: "asc" },
     });
 
     const soldes = await Promise.all(
-      activeUsers.map(async (user) => {
+      allUsersForSoldes.map(async (user) => {
         const congesApprouves = await prisma.conge.findMany({
           where: {
             userId: user.id,

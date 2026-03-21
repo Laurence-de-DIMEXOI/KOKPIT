@@ -83,8 +83,8 @@ const ADMIN_GRADIENT = {
 const CURRENT_YEAR = 2026;
 
 const MONTH_NAMES = [
-  "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
 const DAY_HEADERS = ["L", "M", "M", "J", "V", "S", "D"];
@@ -92,16 +92,16 @@ const DAY_HEADERS = ["L", "M", "M", "J", "V", "S", "D"];
 const TABS = [
   { id: "tous", label: "Tous" },
   { id: "en_attente", label: "En attente" },
-  { id: "approuve", label: "Approuves" },
-  { id: "refuse", label: "Refuses" },
+  { id: "approuve", label: "Approuvés" },
+  { id: "refuse", label: "Refusés" },
 ] as const;
 
 const CONSTRAINT_LABELS = [
-  "Aucune demande pendant les periodes non recommandees",
-  "Jamais deux commerciaux en conges simultanement",
-  "Roulement annuel pour la periode des fetes",
-  "Duree maximale : 3 semaines consecutives",
-  "Une semaine non planifiee conservee",
+  "Aucune demande pendant les périodes non recommandées",
+  "Jamais deux commerciaux en congés simultanément",
+  "Roulement annuel pour la période des fêtes",
+  "Durée maximale : 3 semaines consécutives",
+  "Une semaine non planifiée conservée",
 ];
 
 // ============================================================================
@@ -119,9 +119,9 @@ function formatDateFR(d: string): string {
 function getStatutConfig(statut: string) {
   const map: Record<string, { label: string; classes: string }> = {
     en_attente: { label: "En attente", classes: "bg-amber-500/15 text-amber-400" },
-    approuve: { label: "Approuve", classes: "bg-green-500/15 text-green-400" },
-    modifie: { label: "Modifie", classes: "bg-blue-500/15 text-blue-400" },
-    refuse: { label: "Refuse", classes: "bg-red-500/15 text-red-400" },
+    approuve: { label: "Approuvé", classes: "bg-green-500/15 text-green-400" },
+    modifie: { label: "Modifié", classes: "bg-blue-500/15 text-blue-400" },
+    refuse: { label: "Refusé", classes: "bg-red-500/15 text-red-400" },
   };
   return map[statut] || { label: statut, classes: "bg-gray-500/15 text-gray-400" };
 }
@@ -142,7 +142,8 @@ function getFirstDayOfWeek(year: number, month: number): number {
 
 function isWeekend(year: number, month: number, day: number): boolean {
   const d = new Date(year, month, day).getDay();
-  return d === 0 || d === 6;
+  // DIMEXOI : repos dimanche (0) + lundi (1)
+  return d === 0 || d === 1;
 }
 
 function isJourFerie(year: number, month: number, day: number): boolean {
@@ -237,71 +238,63 @@ function MiniCalendar({
     cells.push(...Array(7 - remainder).fill(null));
   }
 
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
   return (
-    <div className="bg-cockpit-dark border border-cockpit rounded-lg p-2">
-      <p className="text-xs font-semibold text-cockpit-heading text-center mb-1.5">
+    <div className="bg-white rounded-xl p-4 border border-cockpit/50">
+      <p className="text-sm font-semibold text-cockpit-heading mb-2">
         {MONTH_NAMES[month]}
       </p>
       <div className="grid grid-cols-7 gap-px">
         {DAY_HEADERS.map((d, i) => (
           <div
             key={i}
-            className="text-[9px] text-cockpit-secondary text-center font-medium"
+            className="text-[10px] font-medium text-cockpit-secondary uppercase text-center mb-1"
           >
             {d}
           </div>
         ))}
         {cells.map((day, idx) => {
           if (day === null) {
-            return <div key={idx} className="h-5" />;
+            return <div key={idx} className="w-7 h-7" />;
           }
 
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const weekend = isWeekend(year, month, day);
           const ferie = isJourFerie(year, month, day);
           const periodeRouge = isInPeriodeNonRecommandee(year, month, day);
           const userColors = dayUserColors[day] || [];
-
-          let bgColor = "transparent";
-          let borderColor = "transparent";
-
-          if (weekend || ferie) {
-            bgColor = "rgba(100,100,100,0.15)";
-          } else if (userColors.length === 1) {
-            bgColor = userColors[0] + "50"; // with alpha
-            borderColor = userColors[0];
-          } else if (userColors.length > 1) {
-            // Multiple users: use first user's color as bg, add a split indicator
-            bgColor = userColors[0] + "40";
-            borderColor = userColors[0];
-          }
+          const isToday = dateStr === todayStr;
 
           return (
             <div
               key={idx}
-              className="h-5 flex items-center justify-center relative rounded-sm"
-              style={{
-                backgroundColor: bgColor,
-                borderWidth: userColors.length > 0 && !weekend && !ferie ? "1px" : "0",
-                borderColor: borderColor,
-              }}
-            >
-              {periodeRouge && !weekend && !ferie && userColors.length === 0 && (
-                <div className="absolute inset-0 bg-red-500/10 rounded-sm" />
+              className={clsx(
+                "w-7 h-7 flex items-center justify-center text-xs rounded-md relative",
+                isToday && "ring-2 ring-orange-400 font-bold",
+                periodeRouge && !weekend && !ferie && userColors.length === 0 && "bg-red-50 text-red-400",
+                (weekend || ferie) && userColors.length === 0 && !periodeRouge && "text-cockpit-secondary/30",
+                !weekend && !ferie && !periodeRouge && userColors.length === 0 && "text-cockpit-primary"
               )}
-              <span
-                className={clsx(
-                  "text-[9px] leading-none relative z-10",
-                  weekend || ferie
-                    ? "text-cockpit-secondary/50"
-                    : userColors.length > 0
-                      ? "text-white font-semibold"
-                      : "text-cockpit-secondary"
-                )}
-              >
+              style={
+                userColors.length > 0 && !weekend && !ferie
+                  ? { backgroundColor: userColors[0] + "40" }
+                  : undefined
+              }
+            >
+              <span className={clsx(ferie && "line-through")}>
                 {day}
               </span>
-              {userColors.length > 1 && (
-                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-cockpit-dark"
+              {userColors.length > 0 && !weekend && !ferie && (
+                <div
+                  className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                  style={{ backgroundColor: userColors[0] }}
+                />
+              )}
+              {userColors.length > 1 && !weekend && !ferie && (
+                <div
+                  className="absolute bottom-0.5 left-1/2 translate-x-0.5 w-1 h-1 rounded-full"
                   style={{ backgroundColor: userColors[1] }}
                 />
               )}
@@ -339,6 +332,7 @@ function ModalNouvelleDemande({
     { dateDebut: "", dateFin: "" },
   ]);
   const [notes, setNotes] = useState("");
+  const [maladieFile, setMaladieFile] = useState<File | null>(null);
   const [checks, setChecks] = useState<boolean[]>([false, false, false, false, false]);
 
   // Find selected user's titre
@@ -378,6 +372,7 @@ function ModalNouvelleDemande({
       { dateDebut: "", dateFin: "" },
     ]);
     setNotes("");
+    setMaladieFile(null);
     setChecks([false, false, false, false, false]);
   };
 
@@ -388,10 +383,10 @@ function ModalNouvelleDemande({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-cockpit-dark border border-cockpit rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-cockpit-dark border-t border-cockpit rounded-t-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
         <div className="flex items-center justify-between p-6 border-b border-cockpit">
-          <h2 className="text-xl font-bold text-cockpit-heading">Nouvelle demande de conge</h2>
+          <h2 className="text-xl font-bold text-cockpit-heading">Nouvelle demande de congé</h2>
           <button onClick={onClose} className="p-2 hover:bg-cockpit rounded-lg transition">
             <X size={20} className="text-cockpit-secondary" />
           </button>
@@ -409,7 +404,7 @@ function ModalNouvelleDemande({
               className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary focus:border-[#D15F12] focus:outline-none focus:ring-1 focus:ring-[#D15F12]/30"
               required
             >
-              <option value="">Selectionner...</option>
+              <option value="">Sélectionner...</option>
               {users.map((u) => (
                 <option key={u.userId} value={u.userId}>
                   {u.prenom} {u.nom}
@@ -433,10 +428,10 @@ function ModalNouvelleDemande({
             </div>
           )}
 
-          {/* Type de conge */}
+          {/* Type de congé */}
           <div>
             <label className="block text-sm font-medium text-cockpit-secondary mb-1.5">
-              Type de conge
+              Type de congé
             </label>
             <select
               value={typeConge}
@@ -451,10 +446,25 @@ function ModalNouvelleDemande({
             </select>
           </div>
 
-          {/* Periodes (up to 4) */}
+          {typeConge === "maladie" && (
+            <div>
+              <label className="text-sm font-medium text-cockpit-primary mb-1 block">
+                Arrêt maladie (justificatif)
+              </label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => setMaladieFile(e.target.files?.[0] || null)}
+                className="w-full text-sm text-cockpit-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cockpit-dark file:text-cockpit-primary hover:file:bg-cockpit-input"
+              />
+              <p className="text-[11px] text-cockpit-secondary mt-1">PDF, JPG ou PNG acceptés</p>
+            </div>
+          )}
+
+          {/* Périodes (up to 4) */}
           <div>
             <label className="block text-sm font-medium text-cockpit-secondary mb-2">
-              Periodes (jusqu&apos;a 4)
+              Périodes (jusqu&apos;à 4)
             </label>
             <div className="space-y-3">
               {periodes.map((p, i) => (
@@ -481,7 +491,7 @@ function ModalNouvelleDemande({
             </div>
             {totalJours > 0 && (
               <p className="text-sm font-medium mt-2" style={{ color: ADMIN_GRADIENT.from }}>
-                Total : {totalJours} jour{totalJours > 1 ? "s" : ""} ouvre{totalJours > 1 ? "s" : ""}
+                Total : {totalJours} jour{totalJours > 1 ? "s" : ""} ouvré{totalJours > 1 ? "s" : ""}
               </p>
             )}
           </div>
@@ -496,14 +506,14 @@ function ModalNouvelleDemande({
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary placeholder-cockpit-secondary focus:border-[#D15F12] focus:outline-none focus:ring-1 focus:ring-[#D15F12]/30 resize-none"
-              placeholder="Notes complementaires..."
+              placeholder="Notes complémentaires..."
             />
           </div>
 
           {/* Constraint checkboxes (display only) */}
           <div className="bg-cockpit rounded-lg p-4 space-y-2.5">
             <p className="text-xs font-semibold text-cockpit-heading mb-2">
-              Regles de gestion (pour info)
+              Règles de gestion (pour info)
             </p>
             {CONSTRAINT_LABELS.map((label, i) => (
               <label key={i} className="flex items-start gap-2 cursor-pointer">
@@ -584,8 +594,8 @@ function ModalValidation({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-cockpit-dark border border-cockpit rounded-2xl w-full max-w-lg shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-cockpit-dark border-t border-cockpit rounded-t-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
         <div className="flex items-center justify-between p-6 border-b border-cockpit">
           <h2 className="text-xl font-bold text-cockpit-heading">Validation de la demande</h2>
           <button onClick={onClose} className="p-2 hover:bg-cockpit rounded-lg transition">
@@ -621,12 +631,12 @@ function ModalValidation({
           {/* Decision radio */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-cockpit-secondary mb-2">
-              Decision
+              Décision
             </label>
             {[
-              { value: "approuve", label: "Accepte", color: "text-green-400" },
-              { value: "modifie", label: "Modifie", color: "text-blue-400" },
-              { value: "refuse", label: "Refuse", color: "text-red-400" },
+              { value: "approuve", label: "Accepté", color: "text-green-400" },
+              { value: "modifie", label: "Modifié", color: "text-blue-400" },
+              { value: "refuse", label: "Refusé", color: "text-red-400" },
             ].map((opt) => (
               <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -716,7 +726,7 @@ export default function CongesPage() {
         setStats(data);
       }
     } catch (err) {
-      console.error("Erreur chargement stats conges:", err);
+      console.error("Erreur chargement stats congés:", err);
     }
   }, []);
 
@@ -732,7 +742,7 @@ export default function CongesPage() {
         setConges(data.conges || []);
       }
     } catch (err) {
-      console.error("Erreur chargement conges:", err);
+      console.error("Erreur chargement congés:", err);
     }
   }, [activeTab]);
 
@@ -768,7 +778,7 @@ export default function CongesPage() {
           setAllConges(data.conges || []);
         }
       } catch (err) {
-        console.error("Erreur chargement all conges:", err);
+        console.error("Erreur chargement all congés:", err);
       }
     })();
   }, []);
@@ -812,15 +822,15 @@ export default function CongesPage() {
         body: JSON.stringify(data),
       });
       if (res.ok) {
-        addToast("Demande de conge creee avec succes", "success");
+        addToast("Demande de congé créée avec succès", "success");
         setShowNewModal(false);
         await Promise.all([loadStats(), loadConges()]);
       } else {
         const err = await res.json();
-        addToast(err.error || "Erreur lors de la creation", "error");
+        addToast(err.error || "Erreur lors de la création", "error");
       }
     } catch {
-      addToast("Erreur reseau", "error");
+      addToast("Erreur réseau", "error");
     } finally {
       setSubmitting(false);
     }
@@ -836,7 +846,7 @@ export default function CongesPage() {
       });
       if (res.ok) {
         const statutLabel = STATUTS_CONGE.find((s) => s.value === statut)?.label || statut;
-        addToast(`Demande ${statutLabel.toLowerCase()}e`, "success");
+        addToast(`Demande ${statutLabel.toLowerCase()}`, "success");
         setShowValidationModal(false);
         setValidationTarget(null);
         await Promise.all([loadStats(), loadConges()]);
@@ -845,7 +855,7 @@ export default function CongesPage() {
         addToast(err.error || "Erreur lors de la validation", "error");
       }
     } catch {
-      addToast("Erreur reseau", "error");
+      addToast("Erreur réseau", "error");
     } finally {
       setSubmitting(false);
     }
@@ -866,10 +876,10 @@ export default function CongesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-cockpit-heading">
-              Conges & Absences
+              Congés & Absences
             </h1>
             <p className="text-cockpit-secondary mt-1">
-              Annee {CURRENT_YEAR}
+              Année {CURRENT_YEAR}
             </p>
           </div>
           <button
@@ -965,12 +975,58 @@ export default function CongesPage() {
                   <Users size={20} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white/75 text-xs font-medium">En conge aujourd&apos;hui</p>
+                  <p className="text-white/75 text-xs font-medium">En congé aujourd&apos;hui</p>
                   <p className="text-xl font-bold text-white">{effectifEnCongeAujourdhui}</p>
                 </div>
               </div>
             </>
           )}
+        </div>
+
+        {/* ================================================================
+            ANNUAL CALENDAR (12 months, 4 cols x 3 rows)
+            ================================================================ */}
+        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-6">
+          <h2 className="text-lg font-bold text-cockpit-heading mb-4 flex items-center gap-2">
+            <CalendarDays size={20} style={{ color: ADMIN_GRADIENT.from }} />
+            Calendrier {CURRENT_YEAR}
+          </h2>
+
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 12 }, (_, month) => (
+              <MiniCalendar
+                key={month}
+                year={CURRENT_YEAR}
+                month={month}
+                conges={allConges}
+              />
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div className="mt-4 pt-4 border-t border-cockpit">
+            <div className="flex flex-wrap items-center gap-4">
+              {calendarLegend.map((u, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: u.couleur }}
+                  />
+                  <span className="text-xs text-cockpit-secondary">
+                    {u.prenom} {u.nom}
+                  </span>
+                </div>
+              ))}
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                <span className="text-xs text-cockpit-secondary">Période non recommandée</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+                <span className="text-xs text-cockpit-secondary">Weekend / Férié</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ================================================================
@@ -1009,7 +1065,7 @@ export default function CongesPage() {
           ) : conges.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-cockpit-secondary">
               <CalendarDays size={48} className="mb-4 opacity-30" />
-              <p>Aucune demande trouvee</p>
+              <p>Aucune demande trouvée</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -1116,52 +1172,6 @@ export default function CongesPage() {
               </table>
             </div>
           )}
-        </div>
-
-        {/* ================================================================
-            ANNUAL CALENDAR (12 months, 4 cols x 3 rows)
-            ================================================================ */}
-        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-4 sm:p-6">
-          <h2 className="text-lg font-bold text-cockpit-heading mb-4 flex items-center gap-2">
-            <CalendarDays size={20} style={{ color: ADMIN_GRADIENT.from }} />
-            Calendrier {CURRENT_YEAR}
-          </h2>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {Array.from({ length: 12 }, (_, month) => (
-              <MiniCalendar
-                key={month}
-                year={CURRENT_YEAR}
-                month={month}
-                conges={allConges}
-              />
-            ))}
-          </div>
-
-          {/* Legend */}
-          <div className="mt-4 pt-4 border-t border-cockpit">
-            <div className="flex flex-wrap items-center gap-4">
-              {calendarLegend.map((u, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: u.couleur }}
-                  />
-                  <span className="text-xs text-cockpit-secondary">
-                    {u.prenom} {u.nom}
-                  </span>
-                </div>
-              ))}
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm bg-red-500/15 border border-red-500/30" />
-                <span className="text-xs text-cockpit-secondary">Periode non recommandee</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: "rgba(100,100,100,0.15)" }} />
-                <span className="text-xs text-cockpit-secondary">Weekend / Ferie</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* ================================================================

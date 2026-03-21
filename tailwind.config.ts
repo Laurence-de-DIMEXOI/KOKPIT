@@ -62,6 +62,15 @@ const config: Config = {
         'cockpit-md': '0 6px 20px rgba(50, 71, 92, 0.14)',
         'cockpit-lg': '0 12px 32px rgba(50, 71, 92, 0.18)',
       },
+      keyframes: {
+        'slide-up': {
+          '0%': { transform: 'translateY(100%)' },
+          '100%': { transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'slide-up': 'slide-up 0.3s ease-out',
+      },
       spacing: {
         'gap': '2rem',
         '8xl': '60rem',
