@@ -19,7 +19,7 @@ import {
   Ticket,
   Info,
 } from "lucide-react";
-import { CLUB_LEVELS, CLUB_DA, type ClubLevel } from "@/data/club-grandis";
+import { CLUB_LEVELS, CLUB_DA, type ClubLevel } from "@/data/club-tectona";
 
 // ============================================================================
 // FONTS — Cormorant Garamond (fallback pour Perandory/Burgues Script)
@@ -53,6 +53,7 @@ interface ClubMembre {
   codePromo: string | null;
   bonUtilise: boolean;
   dateBonUtilise: string | null;
+  origine: string;
 }
 
 interface StatsData {
@@ -111,7 +112,7 @@ const CLUB_GRADIENT = {
 // PAGE
 // ============================================================================
 
-export default function ClubGrandisPage() {
+export default function ClubTectonaPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [membresData, setMembresData] = useState<MembresData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -195,7 +196,7 @@ export default function ClubGrandisPage() {
         if (data.synced === 0 && data.errors === 0) break;
       }
 
-      // Étape 4 : Brevo (liste "Club Grandis" + attributs)
+      // Étape 4 : Brevo (liste "Club Tectona" + attributs)
       setSyncStep("Liste Brevo…");
       try {
         await fetch("/api/club/sync-brevo", { method: "POST" });
@@ -323,8 +324,8 @@ export default function ClubGrandisPage() {
       {/* ================================================================ */}
       <div className="flex flex-col items-center gap-3">
         <img
-          src="/images/club-grandis-logo.png"
-          alt="Club Grandis"
+          src="/images/club-tectona-logo.png"
+          alt="Club Tectona"
           className="w-72 sm:w-96 h-auto"
         />
         <p className="text-cockpit-secondary text-sm">
@@ -580,6 +581,12 @@ export default function ClubGrandisPage() {
                       <td className="px-4 lg:px-6 py-3">
                         <span className="font-medium text-sm" style={{ color: da.primary }}>
                           {m.prenom} {m.nom}
+                          {m.origine === "BDO" && (
+                            <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">BO</span>
+                          )}
+                          {m.origine === "LES_DEUX" && (
+                            <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">BO+DX</span>
+                          )}
                         </span>
                       </td>
                       <td className="px-4 lg:px-6 py-3 text-cockpit-secondary text-xs truncate max-w-[200px] hidden md:table-cell">
@@ -742,7 +749,7 @@ export default function ClubGrandisPage() {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-cockpit" style={{ backgroundColor: da.primary }}>
               <h3 className="font-bold text-white text-lg" style={{ fontFamily: da.fontDisplay }}>
-                Club Grandis — Mémo programme
+                Club Tectona — Mémo programme
               </h3>
               <button
                 onClick={() => setShowMemo(false)}
@@ -756,7 +763,7 @@ export default function ClubGrandisPage() {
               {/* Concept */}
               <div>
                 <p className="text-cockpit-secondary italic">
-                  Programme de fidélité nommé d&apos;après le <strong>Tectona Grandis</strong>, nom scientifique du teck.
+                  Programme de fidélité nommé d&apos;après le <strong>Tectona</strong>, nom du genre du teck (Tectona Grandis).
                   Chaque palier porte le nom d&apos;une partie de l&apos;arbre.
                 </p>
               </div>
@@ -779,7 +786,7 @@ export default function ClubGrandisPage() {
                     <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>II</td><td className="px-3 py-2">L&apos;Aubier</td><td className="px-3 py-2 text-right">Cumul ≥ 2 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-10%</td><td className="px-3 py-2 text-right">6 mois</td></tr>
                     <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>III</td><td className="px-3 py-2">Le Cœur</td><td className="px-3 py-2 text-right">Cumul ≥ 5 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-15%</td><td className="px-3 py-2 text-right">9 mois</td></tr>
                     <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>IV</td><td className="px-3 py-2">Le Grain</td><td className="px-3 py-2 text-right">Cumul ≥ 10 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-20%</td><td className="px-3 py-2 text-right">12 mois</td></tr>
-                    <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>V</td><td className="px-3 py-2">Le Tectona</td><td className="px-3 py-2 text-right">Cumul ≥ 20 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-25%</td><td className="px-3 py-2 text-right font-bold">À vie</td></tr>
+                    <tr><td className="px-3 py-2 font-bold" style={{ color: da.primary }}>V</td><td className="px-3 py-2">Le Tectona Grandis</td><td className="px-3 py-2 text-right">Cumul ≥ 20 000 €</td><td className="px-3 py-2 text-right font-bold" style={{ color: da.primary }}>-25%</td><td className="px-3 py-2 text-right font-bold">À vie</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -793,7 +800,7 @@ export default function ClubGrandisPage() {
                     <ul className="text-xs text-cockpit-secondary space-y-0.5 list-disc list-inside">
                       <li>Bon de remise nominatif et personnel</li>
                       <li>Espace personnel : suivi de commande et historique des bons</li>
-                      <li>Newsletter exclusive Club Grandis</li>
+                      <li>Newsletter exclusive Club Tectona</li>
                     </ul>
                   </div>
                   <div className="p-3 rounded-lg bg-cockpit-dark">
@@ -817,7 +824,7 @@ export default function ClubGrandisPage() {
                     <p className="text-[10px] text-cockpit-secondary mt-1 italic">*voir conditions en showroom</p>
                   </div>
                   <div className="p-3 rounded-lg bg-cockpit-dark">
-                    <p className="font-bold text-xs mb-1" style={{ color: da.primary }}>V — Le Tectona</p>
+                    <p className="font-bold text-xs mb-1" style={{ color: da.primary }}>V — Le Tectona Grandis</p>
                     <ul className="text-xs text-cockpit-secondary space-y-0.5 list-disc list-inside">
                       <li>Cadeau pour avoir atteint le palier</li>
                       <li>Carte membre personnalisée à votre nom</li>
@@ -850,7 +857,7 @@ export default function ClubGrandisPage() {
                     { chiffre: "II", nom: "L'Aubier", desc: "Bois vivant sous l'écorce" },
                     { chiffre: "III", nom: "Le Cœur", desc: "Le duramen, partie la plus précieuse" },
                     { chiffre: "IV", nom: "Le Grain", desc: "Texture signature de chaque pièce" },
-                    { chiffre: "V", nom: "Le Tectona", desc: "L'arbre entier" },
+                    { chiffre: "V", nom: "Le Tectona Grandis", desc: "L'arbre entier" },
                   ].map((p) => (
                     <div key={p.chiffre} className="text-center p-2 rounded-lg bg-cockpit-dark">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: da.primary }}>{p.chiffre}</span>
@@ -893,7 +900,7 @@ export default function ClubGrandisPage() {
             </div>
             <div className="px-5 py-5">
               <p className="text-cockpit-primary text-sm">
-                Retirer <strong>{deleteTarget.prenom} {deleteTarget.nom}</strong> du Club Grandis ?
+                Retirer <strong>{deleteTarget.prenom} {deleteTarget.nom}</strong> du Club Tectona ?
               </p>
               <p className="text-cockpit-secondary text-xs mt-2">
                 Ce membre (niveau {getLevelConfig(deleteTarget.niveau).chiffre} — {formatMontant(deleteTarget.totalMontant)} de CA) sera supprimé définitivement.

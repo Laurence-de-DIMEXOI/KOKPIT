@@ -1,5 +1,5 @@
 /**
- * Club Grandis — Envoi d'emails de bienvenue par niveau
+ * Club Tectona — Envoi d'emails de bienvenue par niveau
  *
  * Utilise l'API Brevo transactionnelle pour envoyer un email
  * quand un membre monte de niveau. Anti-doublon via niveauEmailEnvoye.
@@ -23,7 +23,7 @@ const NOM_NIVEAUX: Record<number, string> = {
   2: "L'Aubier",
   3: "Le Cœur",
   4: "Le Grain",
-  5: "Le Tectona",
+  5: "Le Tectona Grandis",
 };
 
 const REMISES: Record<number, string> = {
@@ -38,7 +38,7 @@ const PROCHAINE_ETAPE: Record<number, string> = {
   1: "Atteignez 2 000 € de cumul pour rejoindre le cercle II - L'Aubier",
   2: "Atteignez 5 000 € de cumul pour rejoindre le cercle III - Le Cœur",
   3: "Atteignez 10 000 € de cumul pour rejoindre le cercle IV - Le Grain",
-  4: "À partir de 20 000 € de cumul, vous atteindrez le cercle V - Le Tectona",
+  4: "À partir de 20 000 € de cumul, vous atteindrez le cercle V - Le Tectona Grandis",
   5: "",
 };
 

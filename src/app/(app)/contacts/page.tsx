@@ -338,6 +338,7 @@ export default function ContactsPage() {
                       <td className="px-4 lg:px-6 py-3">
                         <span className="text-cockpit-yellow font-medium hover:underline text-sm">
                           {c.prenom} {c.nom}
+                          {/* TODO: Add BO badge when contacts API includes BDO link info */}
                         </span>
                         {lastDate && (
                           <p className="text-[10px] text-cockpit-secondary mt-0.5">{lastDate}</p>
@@ -412,7 +413,10 @@ export default function ContactsPage() {
                   onClick={() => setSelectedContact(c)}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-cockpit-yellow font-medium text-sm truncate">{c.prenom} {c.nom}</p>
+                      <p className="text-cockpit-yellow font-medium text-sm truncate">
+                        {c.prenom} {c.nom}
+                        {/* TODO: Add BO badge when contacts API includes BDO link info */}
+                      </p>
                       <p className="text-cockpit-secondary text-xs truncate mt-0.5">{c.email}</p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <SourceBadge source={c.sourcePremiere} />

@@ -25,7 +25,8 @@ export type Module =
   | "nos-reseaux"
   | "taches"
   | "docs"
-  | "club-grandis";
+  | "club-tectona"
+  | "bois-dorient";
 
 const roleModuleAccess: Record<Role, Module[]> = {
   ADMIN: [
@@ -51,7 +52,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "liens-utiles",
     "nos-reseaux",
     "docs",
-    "club-grandis",
+    "club-tectona",
+    "bois-dorient",
   ],
   MARKETING: [
     "dashboard",
@@ -64,7 +66,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "liens-utiles",
     "nos-reseaux",
     "docs",
-    "club-grandis",
+    "club-tectona",
   ],
   COMMERCIAL: [
     "dashboard-commercial",
@@ -75,6 +77,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "leads",
     "contacts",
     "docs",
+    "bois-dorient",
+    "club-tectona",
   ],
   DIRECTION: [
     "dashboard",
@@ -90,6 +94,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "liens-utiles",
     "nos-reseaux",
     "docs",
+    "bois-dorient",
   ],
 };
 

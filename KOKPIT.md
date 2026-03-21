@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 17 mars 2026 (v11 — Club Grandis complet + sprint 17 mars)
-**Mis à jour par** : Session Claude Code (Sprint 17 mars)
+**Dernière mise à jour** : 21 mars 2026 (v12 — Club Tectona renommé + Migration Bois d'Orient)
+**Mis à jour par** : Session Claude Code (Sprint 21 mars)
 
 ---
 
@@ -155,7 +155,9 @@ Règle topbar : si un utilisateur n'a accès qu'à un seul espace, les onglets e
 | Meta Ads | Campagnes publicité (sync) | `META_ACCESS_TOKEN` + `META_ACCESS_TOKEN_EXPIRES_AT` | `/api/meta/` |
 | Supabase | Storage Upload images couverture Planning | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | — |
 | Anthropic | Chatbot KOKPIT (Haiku) | `ANTHROPIC_API_KEY` | — |
-| Brevo Club Grandis | 5 listes pour segments fidélité | `BREVO_CLUB_LIST_ID_1` à `_5` | `/api/club/` |
+| Brevo Club Tectona | 5 listes pour segments fidélité | `BREVO_CLUB_LIST_ID_1` à `_5` | `/api/club/` |
+| Sellsy Bois d'Orient | Extraction données enseigne fermée (contacts + factures + commandes + devis + PDFs) | `SELLSY_BDO_CLIENT_ID` / `SELLSY_BDO_CLIENT_SECRET` | `/api/admin/bois-dorient/` |
+| Supabase Storage BDO | PDFs documents Bois d'Orient | Bucket `bois-dorient-docs` | — |
 
 **Règle cache parentid** : appeler V1 une seule fois par document → stocker en LiaisonDocumentaire → ne plus jamais rappeler V1 pour ce document. Cache API route 30 min.
 
@@ -200,7 +202,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - `emailing/page.tsx` + `listes/page.tsx` — Campagnes Brevo + listes de diffusion
 - `campagnes/page.tsx` — Campagnes Meta Ads
 
-**Autres** : `/planning` · `/marketing/club` (Club Grandis) · `/marketing/liens-utiles` · `/marketing/nos-reseaux` · `/docs` · `/parametres` · `/login`
+**Autres** : `/planning` · `/marketing/club` (Club Tectona) · `/marketing/liens-utiles` · `/marketing/nos-reseaux` · `/administration/bois-dorient` (Migration BDO) · `/docs` · `/parametres` · `/login`
 
 ---
 
@@ -258,7 +260,8 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | C-STAFF | Nom commercial sur devis/commandes dashboard | API /api/sellsy/staffs |
 | M6 | Formulaire enrichi Anti-IA | FormatSignatureSelector dans PostModal — formats VIDEO_REEL + STORY, script lecture seule, pré-remplissage titre/description |
 | USERS | Gestion utilisateurs enrichie | Ajout champs titre/telephone, rôle ACHAT, 4 nouveaux utilisateurs |
-| CLUB | Club Grandis — Programme de fidélité | Voir section 18 — 5 niveaux, sync Sellsy + Brevo, DA mousse #515712, polices Perandory/Burgues Script, page /marketing/club |
+| CLUB | Club Tectona — Programme de fidélité | Voir section 18 — 5 niveaux, sync Sellsy + Brevo, DA mousse #515712, polices Perandory/Burgues Script, page /marketing/club |
+| BDO | Migration Bois d'Orient | Extraction Sellsy BDO + matching contacts + intégration Club Tectona + PDFs Supabase + tag BO + segment Brevo — page /administration/bois-dorient |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée
@@ -289,7 +292,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 |-------|----------|--------|
 | Éditeur email | ❌ Pas dans KOKPIT | Brevo fait ça |
 | Sync contacts | ✅ KOKPIT pont Sellsy→Brevo via API | Pas de CSV, pas de Zapier |
-| Segments Brevo | 4 fixes Sellsy→Brevo + 5 listes Club Grandis + listes dynamiques (X5) | Voir sections 14 et 18 |
+| Segments Brevo | 4 fixes Sellsy→Brevo + 5 listes Club Tectona + listes dynamiques (X5) | Voir sections 14 et 18 |
 | Lien devis→commande | Croisement via contact_id | API V2 sans lien direct |
 | Chaîne documentaire | V1 via Bearer V2 — stockage BDD définitif | Chaîne immuable, V1 lente |
 | Sellsy V1 auth | Bearer token V2 suffit — pas d'OAuth1 séparé | Confirmé en dev |
@@ -313,10 +316,14 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Sync statuts leads | Pré-lier + micro-refresh 14j (2-5 appels API) + check Prisma | 3min → ~3s — 5d0727e |
 | Relance commercial | Email Brevo transactional (fallback Resend) + log Evenement RELANCE | f5911fc |
 | SLA leads | Masqué si statut DEVIS ou VENTE — la demande est traitée | 2dc583d |
-| Club Grandis — Design | DA séparée de KOKPIT : monochrome blanc + `#515712`, polices Perandory/Burgues Script + fallback Cormorant Garamond | Pas de `var(--color-active)` |
-| Club Grandis — Sync | Manuelle uniquement (bouton), embed contact+company, fallback fetch /individuals/ /companies/, batch 10 | Pas de cron, pas d'auto-sync |
-| Club Grandis — Niveaux | Client ne descend jamais de niveau. Niveau V (Le Tectona) : invitation + ≥20k€, permanent, jamais auto-assigné | Règle métier immuable |
-| Club Grandis — Exclusions | Équipe interne exclue par nom+prénom exact (pas par nom seul → homonymes clients protégés) | DIMEXOI, Batisse, Legros/Perrot, Payet, Dammbrille, Decaunes |
+| Club Tectona — Design | DA séparée de KOKPIT : monochrome blanc + `#515712`, polices Perandory/Burgues Script + fallback Cormorant Garamond | Pas de `var(--color-active)` |
+| Club Tectona — Sync | Manuelle uniquement (bouton), embed contact+company, fallback fetch /individuals/ /companies/, batch 10 | Pas de cron, pas d'auto-sync |
+| Club Tectona — Niveaux | Client ne descend jamais de niveau. Niveau V (Le Tectona Grandis) : ≥20k€, permanent, automatique | Règle métier immuable |
+| Club Tectona — Exclusions | Équipe interne exclue par nom+prénom exact (pas par nom seul → homonymes clients protégés) | DIMEXOI, Batisse, Legros/Perrot, Payet, Dammbrille, Decaunes |
+| Bois d'Orient — Matching | Email exact uniquement (lowercase + trim). Jamais de matching sur nom seul | Évite les faux positifs |
+| Bois d'Orient — CA fidélité | CA basé sur les **factures** BDO (pas commandes). Combiné avec CA DIMEXOI pour le Club Tectona | Cohérence avec le calcul Club |
+| Bois d'Orient — PDFs | Stockés dans Supabase Storage bucket `bois-dorient-docs`, path `{clientBdoId}/{type}-{reference}.pdf` | Pérenne même après fermeture Sellsy BDO |
+| Bois d'Orient — Sellsy | Client séparé `sellsy-bdo.ts` avec ses propres credentials et cache. Fichier temporaire, supprimable après migration | Pas de pollution du client DIMEXOI |
 
 ---
 
@@ -335,9 +342,12 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **Evenement** — log d'événements par contact/lead (types : CREATION_LEAD, EMAIL_ENVOYE, APPEL, NOTE, **RELANCE**, DEVIS_ENVOYE…) ✅
 - **BrevoSyncLog** — historique sync Sellsy→Brevo ✅
 - **DocArticle** — articles documentation ✅
-- **ClubMembre** — membres Club Grandis (sync Sellsy) — sellsyContactId unique, niveau 1-5, totalCommandes, totalMontant (Float), brevoSynced/sellsySynced flags ✅
+- **ClubMembre** — membres Club Tectona (sync Sellsy) — sellsyContactId unique, niveau 1-5, totalCommandes, totalMontant (Float), brevoSynced/sellsySynced flags, **origine** (DIMEXOI/BDO/LES_DEUX) ✅
+- **ClientBoisDOrient** — contacts extraits de Sellsy Bois d'Orient — sellsyIdBdo unique, totalCA (factures TTC), statut matching (NOUVEAU/MATCH_EMAIL/MATCH_MANUEL/A_VERIFIER) ✅
+- **DocumentBoisDOrient** — documents BDO (factures, commandes, devis) — sellsyDocId unique, pdfUrl/pdfPath Supabase Storage ✅
+- **ImportBoisDOrient** — log d'import BDO pour traçabilité ✅
 
-**Données en base au 17 mars 2026** : 1 243 contacts · 1 377 devis · 139 BDC · 156 991€ CA · 85 contacts auto-upgradés PROSPECT→CLIENT · Club Grandis membres synchronisés
+**Données en base au 17 mars 2026** : 1 243 contacts · 1 377 devis · 139 BDC · 156 991€ CA · 85 contacts auto-upgradés PROSPECT→CLIENT · Club Tectona membres synchronisés
 
 **À créer (prochains sprints) :**
 - `ActivityLog` — log d'activité contacts (X1)
@@ -365,11 +375,13 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | `RESEND_API_KEY` | ⚠️ Optionnel | Fallback envoi email si Brevo indispo |
 | `SELLSY_ACCESS_TOKEN` | ✅ Vercel | Token Sellsy V2 (utilisé par Club Sync pour fetch individuals/companies) |
 | `BREVO_WEBHOOK_SECRET` | ⚠️ À créer | Authentification webhooks Brevo (X5) |
-| `BREVO_CLUB_LIST_ID_1` | ⚠️ À configurer | ID liste Brevo "Club Grandis · I" (L'Écorce) |
-| `BREVO_CLUB_LIST_ID_2` | ⚠️ À configurer | ID liste Brevo "Club Grandis · II" (L'Aubier) |
-| `BREVO_CLUB_LIST_ID_3` | ⚠️ À configurer | ID liste Brevo "Club Grandis · III" (Le Cœur) |
-| `BREVO_CLUB_LIST_ID_4` | ⚠️ À configurer | ID liste Brevo "Club Grandis · IV" (Le Grain) |
-| `BREVO_CLUB_LIST_ID_5` | ⚠️ À configurer | ID liste Brevo "Club Grandis · V" (Le Tectona) |
+| `BREVO_CLUB_LIST_ID_1` | ⚠️ À configurer | ID liste Brevo "Club Tectona · I" (L'Écorce) |
+| `BREVO_CLUB_LIST_ID_2` | ⚠️ À configurer | ID liste Brevo "Club Tectona · II" (L'Aubier) |
+| `BREVO_CLUB_LIST_ID_3` | ⚠️ À configurer | ID liste Brevo "Club Tectona · III" (Le Cœur) |
+| `BREVO_CLUB_LIST_ID_4` | ⚠️ À configurer | ID liste Brevo "Club Tectona · IV" (Le Grain) |
+| `BREVO_CLUB_LIST_ID_5` | ⚠️ À configurer | ID liste Brevo "Club Tectona · V" (Le Tectona Grandis) |
+| `SELLSY_BDO_CLIENT_ID` | ✅ .env.local | Client ID Sellsy Bois d'Orient (migration) |
+| `SELLSY_BDO_CLIENT_SECRET` | ✅ .env.local | Client Secret Sellsy Bois d'Orient (migration) |
 | `ANTHROPIC_API_KEY` | ✅ Vercel | Chatbot M4C |
 | `NEXTAUTH_SECRET` | ✅ Vercel | Auth |
 | `NEXTAUTH_URL` | ✅ Vercel | Auth |
@@ -623,15 +635,15 @@ Programme de fidélité B2B/B2C à 5 niveaux basé sur le CA HT (commandes Sells
 
 | Niveau | Chiffre | Nom | Condition | Remise | Brevo Segment |
 |--------|---------|-----|-----------|--------|---------------|
-| 1 | I | L'Écorce | 1 commande ≥ 500€ | -5% | Club Grandis · I |
-| 2 | II | L'Aubier | 2 commandes ou ≥ 2 000€ | -10% | Club Grandis · II |
-| 3 | III | Le Cœur | 3 commandes ou ≥ 5 000€ | -15% | Club Grandis · III |
-| 4 | IV | Le Grain | ≥ 10 000€ | -20% | Club Grandis · IV |
-| 5 | V | Le Tectona | ≥ 20 000€ + invitation | -25% | Club Grandis · V |
+| 1 | I | L'Écorce | 1 commande ≥ 500€ | -5% | Club Tectona · I |
+| 2 | II | L'Aubier | 2 commandes ou ≥ 2 000€ | -10% | Club Tectona · II |
+| 3 | III | Le Cœur | 3 commandes ou ≥ 5 000€ | -15% | Club Tectona · III |
+| 4 | IV | Le Grain | ≥ 10 000€ | -20% | Club Tectona · IV |
+| 5 | V | Le Tectona Grandis | ≥ 20 000€ | -25% | Club Tectona · V |
 
 **Règles métier :**
 - Un client ne descend **jamais** de niveau
-- Le niveau V est **permanent** et **jamais auto-assigné** (invitation requise)
+- Le niveau V est **permanent** et **automatique** à ≥ 20 000 € TTC
 - Fenêtre glissante : 36 mois (sauf V = permanent)
 - Chiffres romains toujours en **MAJUSCULES** (I, II, III, IV, V)
 - Montant Sellsy = `total_excl_tax` (HT), toujours wrappé avec `Number()` (string→Float)
@@ -640,7 +652,7 @@ Programme de fidélité B2B/B2C à 5 niveaux basé sur le CA HT (commandes Sells
 
 | Fichier | Rôle |
 |---------|------|
-| `src/data/club-grandis.ts` | Constantes niveaux, DA couleurs/polices, fonctions `calculerNiveau()`, `getDebutFenetre()`, `getNiveauConfig()` |
+| `src/data/club-tectona.ts` | Constantes niveaux, DA couleurs/polices, fonctions `calculerNiveau()`, `getDebutFenetre()`, `getNiveauConfig()` |
 | `src/app/(app)/marketing/club/page.tsx` | Page UI complète — logo PNG centré, KPIs gradient, table membres, actions sync, légende niveaux |
 | `src/app/api/club/sync/route.ts` | POST — Sync Sellsy : orders → groupage par tiers → calcul niveau → upsert ClubMembre |
 | `src/app/api/club/sync-tags/route.ts` | POST — Push tags Sellsy (CLUB - Niv 1 à 5) sur chaque membre |
@@ -670,7 +682,7 @@ CLUB_DA = {
 - **Cormorant Garamond** (fallback) → Google Fonts via `next/font/google` ✅
 - **Corps de texte** → Plus Jakarta Sans (police KOKPIT par défaut, hérité)
 
-**Logo :** `public/images/club-grandis-logo.png` — PNG croppé fond transparent, centré en haut de page (`w-72 sm:w-96`)
+**Logo :** `public/images/club-tectona-logo.png` — PNG croppé, centré en haut de page (`w-72 sm:w-96`)
 
 **Palette monochrome :** blanc pur + `#515712` uniquement. Pas de beige, pas de nuances.
 
@@ -729,8 +741,8 @@ model ClubMembre {
 
 ### Navigation & Auth
 
-- Menu : Crown icon → "Club Grandis" dans l'espace Marketing (`nav-config.ts`)
-- Module `"club-grandis"` dans `auth-utils.ts` — accessible par ADMIN et MARKETING
+- Menu : Crown icon → "Club Tectona" dans l'espace Marketing (`nav-config.ts`)
+- Module `"club-tectona"` dans `auth-utils.ts` — accessible par ADMIN et MARKETING
 - Path `/marketing` détecté par `detectSpaceFromPath()` → espace Marketing
 
 ### Variables d'environnement requises
@@ -744,7 +756,7 @@ model ClubMembre {
 
 | Commit | Description |
 |--------|-------------|
-| `9bf297b` | feat: Club Grandis — programme complet (9 phases) |
+| `9bf297b` | feat: Club Tectona — programme complet (9 phases) |
 | `7f92fb6` | fix: palette monochrome, chiffres romains majuscules, fix Prisma Float |
 | `3d0a4f6` | fix: design KOKPIT, logo centré, polices Perandory/Burgues Script |
 | `1bc1b4e` | fix: logo PNG croppé + centré, suppression titre redondant |
@@ -755,4 +767,4 @@ model ClubMembre {
 
 ---
 
-*KOKPIT.md — feuille de route DIMEXOI — v11 — 17 mars 2026*
+*KOKPIT.md — feuille de route DIMEXOI — v12 — 21 mars 2026*

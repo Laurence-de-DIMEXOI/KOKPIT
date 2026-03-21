@@ -1,5 +1,5 @@
 /**
- * Club Grandis — Fonctions de synchronisation
+ * Club Tectona — Fonctions de synchronisation
  *
  * Logique extraite des routes API pour pouvoir etre appelee
  * depuis le cron automatique (sans session utilisateur) ET
@@ -14,7 +14,7 @@ import {
   fetchCompanyDetails,
   invalidateSellsyCache,
 } from "@/lib/sellsy";
-import { calculerNiveau, getDebutFenetre, CLUB_LEVELS } from "@/data/club-grandis";
+import { calculerNiveau, getDebutFenetre, CLUB_LEVELS } from "@/data/club-tectona";
 import {
   getLists,
   createList,
@@ -39,12 +39,12 @@ const EXCLUDED_TEAM = [
 ];
 
 const BREVO_LISTS = [
-  { name: "Club Grandis", forAll: true },
-  { name: "Club Grandis \u00b7 I", niveau: 1 },
-  { name: "Club Grandis \u00b7 II", niveau: 2 },
-  { name: "Club Grandis \u00b7 III", niveau: 3 },
-  { name: "Club Grandis \u00b7 IV", niveau: 4 },
-  { name: "Club Grandis \u00b7 V", niveau: 5 },
+  { name: "Club Tectona", forAll: true },
+  { name: "Club Tectona · I", niveau: 1 },
+  { name: "Club Tectona · II", niveau: 2 },
+  { name: "Club Tectona · III", niveau: 3 },
+  { name: "Club Tectona · IV", niveau: 4 },
+  { name: "Club Tectona · V", niveau: 5 },
 ] as const;
 
 // ============================================================================
@@ -469,7 +469,7 @@ export async function syncClubBrevo() {
     listIds[listDef.name] = await findOrCreateList(listDef.name, existingLists, folderId);
   }
 
-  const masterListId = listIds["Club Grandis"];
+  const masterListId = listIds["Club Tectona"];
   const levelListIds: Record<number, number> = {};
   for (const listDef of BREVO_LISTS) {
     if ("niveau" in listDef && listDef.niveau) {

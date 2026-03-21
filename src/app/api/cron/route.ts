@@ -473,10 +473,10 @@ function mapEstimateStatus(
   return statusMap[status?.toLowerCase()] || "EN_ATTENTE";
 }
 
-// Sync Club Grandis: commandes → tags → emails → Brevo
+// Sync Club Tectona: commandes → tags → emails → Brevo
 async function syncClubJob() {
   try {
-    console.log("[Cron sync-club] Debut sync Club Grandis…");
+    console.log("[Cron sync-club] Debut sync Club Tectona…");
 
     // Etape 1 : Commandes
     const commandes = await syncClubCommandes();
@@ -512,7 +512,7 @@ async function syncClubJob() {
     const brevo = await syncClubBrevo();
     console.log(`[Cron sync-club] Brevo: ${brevo.synced} sync, ${brevo.errors} erreurs`);
 
-    console.log("[Cron sync-club] Sync Club Grandis terminee");
+    console.log("[Cron sync-club] Sync Club Tectona terminee");
 
     return NextResponse.json({
       job: "sync-club",

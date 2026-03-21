@@ -1,7 +1,7 @@
 /**
  * seed-brevo-club-templates.ts
  *
- * Creates 5 Brevo email templates for Club Grandis (Niveaux I-V).
+ * Creates 5 Brevo email templates for Club Tectona (Niveaux I-V).
  * Idempotent: checks by name before creating. Templates are created INACTIVE.
  *
  * Usage:
@@ -71,7 +71,7 @@ function buildHeader(topLine: string, badge: string): string {
             </tr>
             <tr>
               <td align="center" style="padding-top:8px;padding-bottom:2px;">
-                <img src="https://kokpit-kappa.vercel.app/images/club-grandis-logo-blanc.png" alt="Club Grandis" width="220" class="logo-img" style="display:block;margin:0 auto;max-width:220px;height:auto;" />
+                <img src="https://kokpit-kappa.vercel.app/images/club-tectona-logo-blanc.png" alt="Club Tectona" width="220" class="logo-img" style="display:block;margin:0 auto;max-width:220px;height:auto;" />
               </td>
             </tr>
             <tr>
@@ -236,7 +236,7 @@ function buildMentionClub(): string {
   return `
     <tr>
       <td style="padding:12px 0;font-family:${FONT.body};font-size:13px;color:#555555;line-height:1.6;font-style:italic;">
-        Il vous suffit de mentionner votre statut Club Grandis lors de votre visite en showroom ou pour tout devis en ligne.
+        Il vous suffit de mentionner votre statut Club Tectona lors de votre visite en showroom ou pour tout devis en ligne.
       </td>
     </tr>
   `;
@@ -271,7 +271,7 @@ function wrapTemplate(header: string, bodyRows: string, footer: string): string 
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>Club Grandis</title>
+  <title>Club Tectona</title>
   <style type="text/css">
     ${fontFaceBlock}
     body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
@@ -338,7 +338,7 @@ function buildTemplateLevel1(): TemplateDefinition {
     </tr>
     <tr>
       <td style="font-family:${FONT.body};font-size:14px;color:#333333;line-height:1.7;padding-bottom:8px;">
-        Votre premi&egrave;re commande vient d&rsquo;ouvrir les portes du <strong>Club Grandis</strong>. Vous int&eacute;grez le cercle I &ndash; <em>L&rsquo;&Eacute;corce</em>, la premi&egrave;re couche protectrice de l&rsquo;arbre, celle qui enveloppe et pr&eacute;serve.
+        Votre premi&egrave;re commande vient d&rsquo;ouvrir les portes du <strong>Club Tectona</strong>. Vous int&eacute;grez le cercle I &ndash; <em>L&rsquo;&Eacute;corce</em>, la premi&egrave;re couche protectrice de l&rsquo;arbre, celle qui enveloppe et pr&eacute;serve.
       </td>
     </tr>
 
@@ -347,7 +347,7 @@ function buildTemplateLevel1(): TemplateDefinition {
     ${buildAdvantagesList([
       "5&thinsp;% de remise sur votre prochaine commande",
       "Espace Club personnel",
-      "Newsletter exclusive Club Grandis",
+      "Newsletter exclusive Club Tectona",
     ])}
 
     ${buildNextCircle("2&thinsp;000&thinsp;&euro; de cumul d&rsquo;achats &rarr; cercle II <em>L&rsquo;Aubier</em> (&ndash;10&thinsp;% + ventes priv&eacute;es)")}
@@ -360,8 +360,8 @@ function buildTemplateLevel1(): TemplateDefinition {
   `;
 
   return {
-    name: 'Club Grandis - Niveau I - L\'Ecorce',
-    subject: "Bienvenue au Club Grandis - Votre cercle I vient de s'ouvrir",
+    name: 'Club Tectona - Niveau I - L\'Ecorce',
+    subject: "Bienvenue au Club Tectona - Votre cercle I vient de s'ouvrir",
     htmlContent: wrapTemplate(header, bodyRows, buildFooter()),
   };
 }
@@ -400,8 +400,8 @@ function buildTemplateLevel2(): TemplateDefinition {
   `;
 
   return {
-    name: 'Club Grandis - Niveau II - L\'Aubier',
-    subject: "Club Grandis - Vous progressez au cercle II, L'Aubier",
+    name: 'Club Tectona - Niveau II - L\'Aubier',
+    subject: "Club Tectona - Vous progressez au cercle II, L'Aubier",
     htmlContent: wrapTemplate(header, bodyRows, buildFooter()),
   };
 }
@@ -439,8 +439,8 @@ function buildTemplateLevel3(): TemplateDefinition {
   `;
 
   return {
-    name: 'Club Grandis - Niveau III - Le Coeur',
-    subject: "Club Grandis - Vous \u00eates au c\u0153ur, cercle III",
+    name: 'Club Tectona - Niveau III - Le Coeur',
+    subject: "Club Tectona - Vous \u00eates au c\u0153ur, cercle III",
     htmlContent: wrapTemplate(header, bodyRows, buildFooter()),
   };
 }
@@ -468,7 +468,7 @@ function buildTemplateLevel4(): TemplateDefinition {
       "Acc&egrave;s anticip&eacute; aux nouvelles collections",
     ])}
 
-    ${buildNextCircle("20&thinsp;000&thinsp;&euro; de cumul &rarr; cercle V <em>Le Tectona</em> (&ndash;25&thinsp;% &agrave; vie sur l&rsquo;ensemble du catalogue)")}
+    ${buildNextCircle("20&thinsp;000&thinsp;&euro; de cumul &rarr; cercle V <em>Le Tectona Grandis</em> (&ndash;25&thinsp;% &agrave; vie sur l&rsquo;ensemble du catalogue)")}
 
     ${buildMentionClub()}
 
@@ -478,14 +478,14 @@ function buildTemplateLevel4(): TemplateDefinition {
   `;
 
   return {
-    name: 'Club Grandis - Niveau IV - Le Grain',
-    subject: "Club Grandis - Bienvenue au cercle IV, Le Grain",
+    name: 'Club Tectona - Niveau IV - Le Grain',
+    subject: "Club Tectona - Bienvenue au cercle IV, Le Grain",
     htmlContent: wrapTemplate(header, bodyRows, buildFooter()),
   };
 }
 
 function buildTemplateLevel5(): TemplateDefinition {
-  const header = buildHeader('VOUS REJOIGNEZ LE CERCLE', 'V &middot; Le Tectona');
+  const header = buildHeader('VOUS REJOIGNEZ LE CERCLE', 'V &middot; Le Tectona Grandis');
 
   const bodyRows = `
     <tr>
@@ -495,7 +495,7 @@ function buildTemplateLevel5(): TemplateDefinition {
     </tr>
     <tr>
       <td style="font-family:${FONT.body};font-size:14px;color:#333333;line-height:1.7;padding-bottom:8px;">
-        Vous acc&eacute;dez au cercle le plus &eacute;lev&eacute; du Club Grandis &ndash; <em>Le Tectona</em>. Le nom m&ecirc;me de l&rsquo;arbre. Il n&rsquo;y a pas de cercle au-del&agrave;&thinsp;; vous &ecirc;tes l&rsquo;arbre tout entier.
+        Vous acc&eacute;dez au cercle le plus &eacute;lev&eacute; du Club Tectona &ndash; <em>Le Tectona Grandis</em>. Le nom m&ecirc;me de l&rsquo;arbre. Il n&rsquo;y a pas de cercle au-del&agrave;&thinsp;; vous &ecirc;tes l&rsquo;arbre tout entier.
       </td>
     </tr>
     <tr>
@@ -546,8 +546,8 @@ function buildTemplateLevel5(): TemplateDefinition {
   `;
 
   return {
-    name: 'Club Grandis - Niveau V - Le Tectona',
-    subject: "Club Grandis - Vous rejoignez le cercle V, Le Tectona",
+    name: 'Club Tectona - Niveau V - Le Tectona Grandis',
+    subject: "Club Tectona - Vous rejoignez le cercle V, Le Tectona Grandis",
     htmlContent: wrapTemplate(header, bodyRows, buildFooter()),
   };
 }
@@ -670,7 +670,7 @@ async function updateTemplate(id: number, htmlContent: string, subject: string):
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  console.log('=== Club Grandis - Brevo Template Seeder ===\n');
+  console.log('=== Club Tectona - Brevo Template Seeder ===\n');
 
   // 1. Fetch existing templates to check for duplicates
   console.log('Fetching existing Brevo templates...');

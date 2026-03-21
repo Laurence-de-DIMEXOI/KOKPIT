@@ -1163,7 +1163,7 @@ export async function listStaffs(): Promise<SellsyStaff[]> {
   }
 }
 
-// ===== SMART TAGS (Club Grandis) =====
+// ===== SMART TAGS (Club Tectona) =====
 
 export interface SellsySmartTag {
   id: number;

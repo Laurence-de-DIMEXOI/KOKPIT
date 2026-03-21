@@ -18,6 +18,7 @@ import {
   BookOpen,
   ClipboardList,
   Crown,
+  TreePine,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -52,11 +53,13 @@ export const ESPACES: Espace[] = [
       { label: "Tableau de bord", href: "/commercial", icon: TrendingUp, module: "dashboard-commercial" },
       { label: "Demandes", href: "/leads", icon: Inbox, module: "leads" },
       { label: "Contacts", href: "/contacts", icon: Users, module: "contacts" },
+      { label: "Bois d'Orient", href: "/commercial/bois-dorient", icon: TreePine, module: "bois-dorient" },
       { label: "Pipeline Devis", href: "/commercial/pipeline", icon: FileText, module: "pipeline" },
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
       { label: "Mes Tâches", href: "/commercial/taches", icon: ClipboardList, module: "taches" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
+      { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
     ],
   },
   {
@@ -74,7 +77,7 @@ export const ESPACES: Espace[] = [
       { label: "Nos Réseaux", href: "/nos-reseaux", icon: Share2, module: "nos-reseaux" },
       { label: "Liens utiles", href: "/liens-utiles", icon: Link2, module: "liens-utiles" },
       { label: "Automatisations", href: "/automatisations", icon: Zap, module: "automatisations" },
-      { label: "Club Grandis", href: "/marketing/club", icon: Crown, module: "club-grandis" },
+      { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
     ],
   },
   {
@@ -102,6 +105,8 @@ export const ESPACES: Espace[] = [
 // ===== MENU GÉNÉRAL (toujours visible) =====
 
 export const MENU_GENERAL: NavItem[] = [
+  { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
+  { label: "Liens utiles", href: "/liens-utiles", icon: Link2, module: "liens-utiles" },
   { label: "Docs & Aide", href: "/docs", icon: BookOpen, module: "docs" },
 ];
 

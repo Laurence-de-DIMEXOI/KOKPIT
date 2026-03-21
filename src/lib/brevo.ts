@@ -176,7 +176,7 @@ export function getBrevoEditorUrl(templateId: number): string {
 }
 
 // ============================================================================
-// CONTACTS & LISTES (Club Grandis)
+// CONTACTS & LISTES (Club Tectona)
 // ============================================================================
 
 /**

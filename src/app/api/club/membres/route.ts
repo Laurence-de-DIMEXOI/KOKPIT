@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CLUB_LEVELS } from "@/data/club-grandis";
+import { CLUB_LEVELS } from "@/data/club-tectona";
 
 /**
  * GET /api/club/membres
  *
- * Liste paginée des membres Club Grandis.
+ * Liste paginée des membres Club Tectona.
  * Query params : ?niveau=1&search=nom&page=1&limit=20
  */
 export async function GET(req: Request) {
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
 /**
  * DELETE /api/club/membres?id=xxx
  *
- * Retire un membre du Club Grandis (soft-delete : exclu=true).
+ * Retire un membre du Club Tectona (soft-delete : exclu=true).
  * Le membre ne sera pas recréé lors du prochain sync.
  */
 export async function DELETE(req: Request) {

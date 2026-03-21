@@ -158,6 +158,7 @@ model User {
   brevoSyncLogs   BrevoSyncLog[]
   tasksAssignees  Task[]         @relation("TaskAssignee")
   tasksCreees     Task[]         @relation("TaskCreator")
+  clientsBdoVerifies ClientBoisDOrient[] @relation("ClientBdoVerifie")
 
   @@index([showroomId])
 }
@@ -787,7 +788,7 @@ model Task {
 }
 
 // ============================================================================
-// CLUB GRANDIS — Programme de fidélité
+// CLUB TECTONA — Programme de fidélité
 // ============================================================================
 
 model ClubMembre {
@@ -799,6 +800,7 @@ model ClubMembre {
   niveau          Int      @default(1)   // 1-5
   totalCommandes  Int      @default(0)
   totalMontant    Float    @default(0)
+  origine         String   @default("DIMEXOI") // "DIMEXOI" | "BDO" | "LES_DEUX"
   dateEntree      DateTime @default(now())
   dernierSync     DateTime?
   brevoSynced     Boolean  @default(false)
@@ -814,4 +816,72 @@ model ClubMembre {
 
   @@index([niveau])
   @@index([email])
+}
+
+// ============================================================================
+// BOIS D'ORIENT — Migration données enseigne fermée
+// ============================================================================
+
+model ClientBoisDOrient {
+  id                String    @id @default(cuid())
+  sellsyIdBdo       String?   @unique  // ID dans Sellsy Bois d'Orient
+  nom               String
+  prenom            String?
+  email             String?
+  telephone         String?
+  adresse           String?
+  ville             String?
+  nbCommandes       Int       @default(0)
+  nbFactures        Int       @default(0)
+  nbDevis           Int       @default(0)
+  totalCA           Float     @default(0)  // CA TTC total des FACTURES (pour fidélité)
+  premiereFacture   DateTime?
+  derniereFacture   DateTime?
+  commandesDetail   Json?     // [{date, montant, ref, type}]
+  statut            String    @default("NOUVEAU") // NOUVEAU | MATCH_EMAIL | MATCH_MANUEL | A_VERIFIER
+  contactDimexoiId  String?   // sellsyContactId DIMEXOI si matché
+  verifieLeAt       DateTime?
+  verifieParId      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  verifiePar        User?     @relation("ClientBdoVerifie", fields: [verifieParId], references: [id], onDelete: SetNull)
+  documents         DocumentBoisDOrient[]
+
+  @@index([email])
+  @@index([statut])
+}
+
+model DocumentBoisDOrient {
+  id              String   @id @default(cuid())
+  sellsyDocId     String   @unique  // ID document Sellsy BDO
+  clientBdoId     String
+  type            String   // "FACTURE" | "COMMANDE" | "DEVIS"
+  reference       String?  // numéro du document
+  date            DateTime
+  montantTTC      Float    @default(0)
+  montantHT       Float    @default(0)
+  statut          String?  // statut Sellsy (payée, envoyée, etc.)
+  pdfUrl          String?  // URL publique Supabase Storage
+  pdfPath         String?  // path dans le bucket Supabase
+  createdAt       DateTime @default(now())
+
+  // Relations
+  clientBdo       ClientBoisDOrient @relation(fields: [clientBdoId], references: [id], onDelete: Cascade)
+
+  @@index([clientBdoId])
+  @@index([type])
+}
+
+model ImportBoisDOrient {
+  id              String   @id @default(cuid())
+  dateImport      DateTime @default(now())
+  nbContactsTotal Int      @default(0)
+  nbMatchEmail    Int      @default(0)
+  nbAVerifier     Int      @default(0)
+  nbNouveaux      Int      @default(0)
+  nbDocuments     Int      @default(0)
+  statut          String   @default("EN_COURS") // EN_COURS | TERMINE | ERREUR
+  notes           String?
 }

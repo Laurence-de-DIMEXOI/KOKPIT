@@ -1,9 +1,9 @@
 /**
- * Club Grandis — Programme de fidélité Dimexoi
+ * Club Tectona — Programme de fidélité Dimexoi
  *
  * 5 niveaux basés sur le CA TTC des commandes Sellsy (depuis début 2020).
  * Règle absolue : un client ne descend jamais de niveau.
- * Niv V (Le Tectona) = permanent, automatique à ≥ 20 000 € TTC.
+ * Niv V (Le Tectona Grandis) = permanent, automatique à ≥ 20 000 € TTC.
  */
 
 // ============================================================================
@@ -22,7 +22,7 @@ export interface ClubLevel {
   permanent: boolean; // false sauf niv V
   invitation: boolean; // true seulement niv V
   sellsyTag: string; // "CLUB - Niv 1" … "CLUB - Niv 5"
-  brevoSegment: string; // "Club Grandis · I" … "Club Grandis · V"
+  brevoSegment: string; // "Club Tectona · I" … "Club Tectona · V"
   brevoListEnvKey: string; // "BREVO_CLUB_LIST_ID_1" … "_5"
   couleur: string; // couleur accent du niveau (nuances de #515712)
 }
@@ -44,7 +44,7 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: false,
     invitation: false,
     sellsyTag: "CLUB - Niv 1",
-    brevoSegment: "Club Grandis · I",
+    brevoSegment: "Club Tectona · I",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_1",
     couleur: "#7a801e",
   },
@@ -60,7 +60,7 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: false,
     invitation: false,
     sellsyTag: "CLUB - Niv 2",
-    brevoSegment: "Club Grandis · II",
+    brevoSegment: "Club Tectona · II",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_2",
     couleur: "#6b7318",
   },
@@ -76,7 +76,7 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: false,
     invitation: false,
     sellsyTag: "CLUB - Niv 3",
-    brevoSegment: "Club Grandis · III",
+    brevoSegment: "Club Tectona · III",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_3",
     couleur: "#515712",
   },
@@ -92,14 +92,14 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: false,
     invitation: false,
     sellsyTag: "CLUB - Niv 4",
-    brevoSegment: "Club Grandis · IV",
+    brevoSegment: "Club Tectona · IV",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_4",
     couleur: "#3a3d0d",
   },
   {
     niveau: 5,
     slug: "tectona",
-    nom: "Le Tectona",
+    nom: "Le Tectona Grandis",
     chiffre: "V",
     condition: "Dès 20 000 € d'achats TTC",
     remise: 25,
@@ -108,7 +108,7 @@ export const CLUB_LEVELS: ClubLevel[] = [
     permanent: true,
     invitation: false,
     sellsyTag: "CLUB - Niv 5",
-    brevoSegment: "Club Grandis · V",
+    brevoSegment: "Club Tectona · V",
     brevoListEnvKey: "BREVO_CLUB_LIST_ID_5",
     couleur: "#515712",
   },
@@ -143,7 +143,7 @@ export const CLUB_DA = {
 export const DATE_DEBUT_CLUB = "2020-01-01";
 
 /**
- * Calcule le niveau Club Grandis d'un client.
+ * Calcule le niveau Club Tectona d'un client.
  *
  * @param nbCommandes - Nombre de commandes depuis début 2020
  * @param totalMontant - Montant total TTC des commandes depuis début 2020

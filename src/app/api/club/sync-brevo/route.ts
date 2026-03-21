@@ -8,8 +8,8 @@ export const maxDuration = 60;
 /**
  * POST /api/club/sync-brevo
  *
- * Synchronise TOUS les membres Club Grandis vers Brevo :
- * - 6 listes : "Club Grandis" (master) + 1 par niveau (I a V)
+ * Synchronise TOUS les membres Club Tectona vers Brevo :
+ * - 6 listes : "Club Tectona" (master) + 1 par niveau (I a V)
  * - Upsert chaque contact avec attributs CLUB_NIVEAU, CLUB_REMISE, etc.
  * - Ajoute au master + liste du niveau, retire des autres listes de niveau
  */

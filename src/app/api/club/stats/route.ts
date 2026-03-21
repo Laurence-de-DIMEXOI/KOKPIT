@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 /**
  * GET /api/club/stats
  *
- * Retourne les statistiques du Club Grandis :
+ * Retourne les statistiques du Club Tectona :
  * - Total membres
  * - Répartition par niveau
  * - Dernier sync
