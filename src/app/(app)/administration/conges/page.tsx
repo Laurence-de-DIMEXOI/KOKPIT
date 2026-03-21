@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -382,9 +383,9 @@ function ModalNouvelleDemande({
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-cockpit-dark border-t border-cockpit rounded-t-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white border border-cockpit rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-cockpit">
           <h2 className="text-xl font-bold text-cockpit-heading">Nouvelle demande de congé</h2>
           <button onClick={onClose} className="p-2 hover:bg-cockpit rounded-lg transition">
@@ -555,7 +556,8 @@ function ModalNouvelleDemande({
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -593,9 +595,9 @@ function ModalValidation({
     onSubmit(conge.id, statut, commentaire);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-cockpit-dark border-t border-cockpit rounded-t-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white border border-cockpit rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-cockpit">
           <h2 className="text-xl font-bold text-cockpit-heading">Validation de la demande</h2>
           <button onClick={onClose} className="p-2 hover:bg-cockpit rounded-lg transition">
@@ -690,7 +692,8 @@ function ModalValidation({
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
