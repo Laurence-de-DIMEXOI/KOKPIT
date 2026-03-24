@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
   const dateParam = req.nextUrl.searchParams.get("date");
   const moisParam = req.nextUrl.searchParams.get("mois");
 
-  // Récupérer tous les utilisateurs actifs
+  // Récupérer les utilisateurs avec pointage actif uniquement
   const users = await prisma.user.findMany({
-    where: { actif: true },
+    where: { actif: true, pointageActif: true },
     select: { id: true, nom: true, prenom: true, couleur: true, role: true },
     orderBy: { nom: "asc" },
   });

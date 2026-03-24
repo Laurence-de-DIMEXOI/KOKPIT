@@ -146,6 +146,8 @@ model User {
   showroomId      String?
   actif           Boolean   @default(true)
   couleur         String?   // couleur hex pour calendrier congés (#FF6B6B)
+  pointageActif   Boolean   @default(true) // false = pas de pointage (Liliane, Alain)
+  pointageDelegueId String? // userId de la personne qui peut pointer pour ce user
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

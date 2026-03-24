@@ -11,10 +11,23 @@ export async function POST(req: Request) {
   }
 
   // SÉCURITÉ : userId TOUJOURS depuis la session, jamais depuis le body
-  const userId = (session.user as any).id;
+  const sessionUserId = (session.user as any).id;
 
   const body = await req.json();
-  const { action } = body;
+  const { action, pourUserId } = body;
+
+  // Délégation : si pourUserId est fourni, vérifier que la session user est bien le délégué
+  let userId = sessionUserId;
+  if (pourUserId && pourUserId !== sessionUserId) {
+    const targetUser = await prisma.user.findUnique({
+      where: { id: pourUserId },
+      select: { pointageDelegueId: true, pointageActif: true },
+    });
+    if (!targetUser || targetUser.pointageDelegueId !== sessionUserId) {
+      return NextResponse.json({ error: "Vous n'êtes pas autorisé à pointer pour cette personne" }, { status: 403 });
+    }
+    userId = pourUserId;
+  }
 
   const validActions = ["arrivee", "debutPause", "finPause", "depart"];
   if (!validActions.includes(action)) {

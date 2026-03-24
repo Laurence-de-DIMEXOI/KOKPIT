@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Pencil,
   History,
+  Users,
 } from "lucide-react";
 import clsx from "clsx";
 import {
@@ -49,6 +50,13 @@ interface PointageHistorique {
   heuresTravaillees: number | null;
   heuresSupp: number | null;
   correction: boolean;
+}
+
+interface DelegueInfo {
+  id: string;
+  nom: string;
+  prenom: string;
+  pointage: PointageAujourdhui | null;
 }
 
 interface HistoriqueResponse {
@@ -204,6 +212,7 @@ export default function PointagePage() {
     heuresSupp: number;
   } | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [delegues, setDelegues] = useState<DelegueInfo[]>([]);
 
   // ----------------------------------
   // Real-time clock
@@ -222,8 +231,9 @@ export default function PointagePage() {
       const res = await fetch("/api/pointage/aujourd-hui");
       if (!res.ok) throw new Error("Erreur chargement");
       const data = await res.json();
-      setPointage(data);
-      setEtat(getPointageEtat(data));
+      setPointage(data.pointage || data);
+      setEtat(getPointageEtat(data.pointage || data));
+      setDelegues(data.delegues || []);
     } catch {
       addToast("Impossible de charger le pointage", "error");
     } finally {
@@ -257,6 +267,33 @@ export default function PointagePage() {
   // ----------------------------------
   // Action handler
   // ----------------------------------
+  // Action pour un délégué (ex: Michelle pointe pour Georget)
+  const handleDelegueAction = async (delegueId: string, deleguePointage: PointageAujourdhui | null) => {
+    const delegueEtat = getPointageEtat(deleguePointage);
+    const config = POINTAGE_ETATS[delegueEtat];
+    if (config.disabled || !config.action) return;
+
+    try {
+      setActionLoading(true);
+      const res = await fetch("/api/pointage/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: config.action, pourUserId: delegueId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || "Erreur");
+      }
+      addToast("Pointage délégué enregistré", "success");
+      fetchAujourdhui();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erreur";
+      addToast(message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleAction = async () => {
     const config = POINTAGE_ETATS[etat];
     if (config.disabled || !config.action) return;
@@ -430,6 +467,51 @@ export default function PointagePage() {
               )}
           </div>
         )
+      )}
+
+      {/* ================================================================ */}
+      {/* DELEGUES — Pointer pour quelqu'un d'autre */}
+      {/* ================================================================ */}
+      {delegues.length > 0 && (
+        <div className="bg-cockpit-card border border-cockpit rounded-card p-5 shadow-cockpit-lg">
+          <h2 className="text-sm font-semibold text-cockpit-heading mb-4 flex items-center gap-2">
+            <Users className="w-4 h-4 text-[#D15F12]" />
+            Pointer pour un collaborateur
+          </h2>
+          <div className="space-y-3">
+            {delegues.map((d) => {
+              const dEtat = getPointageEtat(d.pointage);
+              const dConfig = POINTAGE_ETATS[dEtat];
+              return (
+                <div key={d.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-cockpit-dark rounded-xl border border-cockpit/50">
+                  <div className="flex-1">
+                    <p className="text-cockpit-heading font-medium text-sm">{d.prenom} {d.nom}</p>
+                    <p className="text-cockpit-secondary text-xs">
+                      {d.pointage?.arrivee ? `Arrivée ${formatHeure(d.pointage.arrivee)}` : "Pas encore arrivé"}
+                      {d.pointage?.depart && ` · Départ ${formatHeure(d.pointage.depart)}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDelegueAction(d.id, d.pointage)}
+                    disabled={dConfig.disabled || actionLoading}
+                    className={clsx(
+                      "px-4 py-2.5 rounded-lg text-sm font-semibold transition-all min-h-[44px]",
+                      dConfig.disabled
+                        ? "bg-green-500/20 text-green-600 cursor-default"
+                        : dEtat === "NON_ARRIVE"
+                          ? "bg-amber-500 text-white hover:bg-amber-600"
+                          : dEtat === "EN_PAUSE"
+                            ? "bg-[#D15F12] text-white hover:bg-[#A04A0E]"
+                            : "border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                    )}
+                  >
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : dConfig.label}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* ================================================================ */}
