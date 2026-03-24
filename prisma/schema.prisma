@@ -170,6 +170,7 @@ model User {
   savCrees             DossierSAV[]   @relation("SAVCreateur")
   documentsSav         DocumentSAV[]
   commentairesSav      CommentaireSAV[]
+  coutsMarketing       CoutMarketing[]
 
   @@index([showroomId])
 }
@@ -1025,4 +1026,22 @@ model CommentaireSAV {
 
   dossier   DossierSAV @relation(fields: [dossierId], references: [id], onDelete: Cascade)
   auteur    User       @relation(fields: [auteurId], references: [id])
+}
+
+// ============================================================================
+// ROI MARKETING
+// ============================================================================
+
+model CoutMarketing {
+  id          String   @id @default(cuid())
+  periode     String   // "2026-03"
+  type        String   // "meta_ads" | "google_ads" | "salon" | "agence" | "print" | "autre"
+  libelle     String
+  montant     Float
+  createdAt   DateTime @default(now())
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
+  @@index([periode])
+  @@index([type])
 }
