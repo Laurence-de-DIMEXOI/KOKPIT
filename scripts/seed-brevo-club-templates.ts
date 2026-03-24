@@ -236,7 +236,7 @@ function buildMentionClub(): string {
   return `
     <tr>
       <td style="padding:12px 0;font-family:${FONT.body};font-size:13px;color:#555555;line-height:1.6;font-style:italic;">
-        Il vous suffit de mentionner votre statut Club Tectona lors de votre visite en showroom ou pour tout devis en ligne.
+        Il vous suffit de mentionner votre statut Club Tectona lors de votre visite en showroom ou pour tout devis en ligne. Remise applicable sur le mobilier en teck massif (catalogue + sur-mesure). Bon nominatif, usage unique, non cumulable avec les promotions en cours.
       </td>
     </tr>
   `;
@@ -342,15 +342,16 @@ function buildTemplateLevel1(): TemplateDefinition {
       </td>
     </tr>
 
-    ${buildRemiseBlock('-5&thinsp;%', "sur votre prochaine commande (usage unique)")}
+    ${buildRemiseBlock('-5&thinsp;%', "sur le mobilier en teck massif &middot; valable 3 mois &agrave; compter de la r&eacute;ception de ce mail")}
 
     ${buildAdvantagesList([
-      "5&thinsp;% de remise sur votre prochaine commande",
-      "Espace Club personnel",
+      "5&thinsp;% de remise sur votre prochaine commande de mobilier teck",
+      "Bon de remise nominatif et personnel",
+      "Espace Club personnel avec suivi de commandes",
       "Newsletter exclusive Club Tectona",
     ])}
 
-    ${buildNextCircle("2&thinsp;000&thinsp;&euro; de cumul d&rsquo;achats &rarr; cercle II <em>L&rsquo;Aubier</em> (&ndash;10&thinsp;% + ventes priv&eacute;es)")}
+    ${buildNextCircle("2&thinsp;000&thinsp;&euro; de cumul d&rsquo;achats &rarr; cercle II <em>L&rsquo;Aubier</em> (&ndash;10&thinsp;% + ventes priv&eacute;es + livraison offerte)")}
 
     ${buildMentionClub()}
 
@@ -381,16 +382,16 @@ function buildTemplateLevel2(): TemplateDefinition {
       </td>
     </tr>
 
-    ${buildRemiseBlock('-10&thinsp;%', "sur votre prochaine commande (usage unique)")}
+    ${buildRemiseBlock('-10&thinsp;%', "sur le mobilier en teck massif &middot; valable 6 mois &agrave; compter de la r&eacute;ception de ce mail")}
 
     ${buildAdvantagesList([
-      "10&thinsp;% de remise sur votre prochaine commande",
+      "10&thinsp;% de remise sur votre prochaine commande de mobilier teck",
       "Tous les avantages du cercle I",
       "Acc&egrave;s aux ventes priv&eacute;es",
-      "Livraison offerte d&egrave;s 1&thinsp;500&thinsp;&euro;",
+      "Livraison offerte d&egrave;s 1&thinsp;500&thinsp;&euro; d&rsquo;achat",
     ])}
 
-    ${buildNextCircle("5&thinsp;000&thinsp;&euro; de cumul &rarr; cercle III <em>Le C&oelig;ur</em> (&ndash;15&thinsp;% + conseils d&eacute;co personnalis&eacute;s)")}
+    ${buildNextCircle("5&thinsp;000&thinsp;&euro; de cumul &rarr; cercle III <em>Le C&oelig;ur</em> (&ndash;15&thinsp;% + avant-premi&egrave;res nouvelles collections)")}
 
     ${buildMentionClub()}
 
@@ -421,15 +422,15 @@ function buildTemplateLevel3(): TemplateDefinition {
       </td>
     </tr>
 
-    ${buildRemiseBlock('-15&thinsp;%', "sur votre prochaine commande (usage unique)")}
+    ${buildRemiseBlock('-15&thinsp;%', "sur le mobilier en teck massif &middot; valable 9 mois &agrave; compter de la r&eacute;ception de ce mail")}
 
     ${buildAdvantagesList([
-      "15&thinsp;% de remise sur votre prochaine commande",
+      "15&thinsp;% de remise sur votre prochaine commande de mobilier teck",
       "Tous les avantages des cercles pr&eacute;c&eacute;dents",
-      "Conseils d&eacute;co personnalis&eacute;s sur rendez-vous",
+      "Acc&egrave;s aux avant-premi&egrave;res des nouvelles collections",
     ])}
 
-    ${buildNextCircle("10&thinsp;000&thinsp;&euro; de cumul &rarr; cercle IV <em>Le Grain</em> (&ndash;20&thinsp;% + acc&egrave;s anticip&eacute; nouvelles collections)")}
+    ${buildNextCircle("10&thinsp;000&thinsp;&euro; de cumul &rarr; cercle IV <em>Le Grain</em> (&ndash;20&thinsp;% + remise partenaire h&ocirc;telier)")}
 
     ${buildMentionClub()}
 
@@ -460,12 +461,12 @@ function buildTemplateLevel4(): TemplateDefinition {
       </td>
     </tr>
 
-    ${buildRemiseBlock('-20&thinsp;%', "sur votre prochaine commande (usage unique)")}
+    ${buildRemiseBlock('-20&thinsp;%', "sur le mobilier en teck massif &middot; valable 12 mois &agrave; compter de la r&eacute;ception de ce mail")}
 
     ${buildAdvantagesList([
-      "20&thinsp;% de remise sur votre prochaine commande",
+      "20&thinsp;% de remise sur votre prochaine commande de mobilier teck",
       "Tous les avantages des cercles pr&eacute;c&eacute;dents",
-      "Acc&egrave;s anticip&eacute; aux nouvelles collections",
+      "Remise chez l&rsquo;un de nos partenaires h&ocirc;teliers*",
     ])}
 
     ${buildNextCircle("20&thinsp;000&thinsp;&euro; de cumul &rarr; cercle V <em>Le Tectona Grandis</em> (&ndash;25&thinsp;% &agrave; vie sur l&rsquo;ensemble du catalogue)")}
@@ -504,13 +505,13 @@ function buildTemplateLevel5(): TemplateDefinition {
       </td>
     </tr>
 
-    ${buildRemiseBlock('-25&thinsp;%', "&agrave; vie sur l&rsquo;ensemble du catalogue")}
+    ${buildRemiseBlock('-25&thinsp;%', "&agrave; vie sur le mobilier en teck massif")}
 
     ${buildAdvantagesList([
-      "25&thinsp;% de remise &agrave; vie sur l&rsquo;ensemble du catalogue",
+      "25&thinsp;% de remise &agrave; vie sur le mobilier en teck massif",
       "Tous les avantages des cercles pr&eacute;c&eacute;dents",
-      "Cadeau de bienvenue",
-      "Carte membre personnalis&eacute;e",
+      "Cadeau de bienvenue pour avoir atteint ce palier",
+      "Carte membre personnalis&eacute;e &agrave; votre nom",
     ])}
 
     <tr>
