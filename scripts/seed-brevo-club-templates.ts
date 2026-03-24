@@ -355,7 +355,7 @@ function buildTemplateLevel1(): TemplateDefinition {
 
     ${buildMentionClub()}
 
-    ${buildCTA("D&eacute;couvrir le catalogue &rarr;", "https://dimexoi.fr/catalogue")}
+    ${buildCTA("D&eacute;couvrir le programme Club Tectona &rarr;", "https://www.dimexoi.fr/club-grandis")}
 
     ${buildSignOff("L&rsquo;&eacute;quipe Dimexoi")}
   `;
@@ -386,16 +386,18 @@ function buildTemplateLevel2(): TemplateDefinition {
 
     ${buildAdvantagesList([
       "10&thinsp;% de remise sur votre prochaine commande de mobilier teck",
-      "Tous les avantages du cercle I",
       "Acc&egrave;s aux ventes priv&eacute;es",
       "Livraison offerte d&egrave;s 1&thinsp;500&thinsp;&euro; d&rsquo;achat",
+      "Bon de remise nominatif et personnel",
+      "Espace Club personnel avec suivi de commandes",
+      "Newsletter exclusive Club Tectona",
     ])}
 
     ${buildNextCircle("5&thinsp;000&thinsp;&euro; de cumul &rarr; cercle III <em>Le C&oelig;ur</em> (&ndash;15&thinsp;% + avant-premi&egrave;res nouvelles collections)")}
 
     ${buildMentionClub()}
 
-    ${buildCTA("D&eacute;couvrir le catalogue &rarr;", "https://dimexoi.fr/catalogue")}
+    ${buildCTA("D&eacute;couvrir le programme Club Tectona &rarr;", "https://www.dimexoi.fr/club-grandis")}
 
     ${buildSignOff("L&rsquo;&eacute;quipe Dimexoi")}
   `;
@@ -426,15 +428,19 @@ function buildTemplateLevel3(): TemplateDefinition {
 
     ${buildAdvantagesList([
       "15&thinsp;% de remise sur votre prochaine commande de mobilier teck",
-      "Tous les avantages des cercles pr&eacute;c&eacute;dents",
       "Acc&egrave;s aux avant-premi&egrave;res des nouvelles collections",
+      "Acc&egrave;s aux ventes priv&eacute;es",
+      "Livraison offerte d&egrave;s 1&thinsp;500&thinsp;&euro; d&rsquo;achat",
+      "Bon de remise nominatif et personnel",
+      "Espace Club personnel avec suivi de commandes",
+      "Newsletter exclusive Club Tectona",
     ])}
 
     ${buildNextCircle("10&thinsp;000&thinsp;&euro; de cumul &rarr; cercle IV <em>Le Grain</em> (&ndash;20&thinsp;% + remise partenaire h&ocirc;telier)")}
 
     ${buildMentionClub()}
 
-    ${buildCTA("Prendre rendez-vous &rarr;", "https://dimexoi.fr/contact")}
+    ${buildCTA("D&eacute;couvrir le programme Club Tectona &rarr;", "https://www.dimexoi.fr/club-grandis")}
 
     ${buildSignOff("L&rsquo;&eacute;quipe Dimexoi")}
   `;
@@ -465,15 +471,20 @@ function buildTemplateLevel4(): TemplateDefinition {
 
     ${buildAdvantagesList([
       "20&thinsp;% de remise sur votre prochaine commande de mobilier teck",
-      "Tous les avantages des cercles pr&eacute;c&eacute;dents",
       "Remise chez l&rsquo;un de nos partenaires h&ocirc;teliers*",
+      "Acc&egrave;s aux avant-premi&egrave;res des nouvelles collections",
+      "Acc&egrave;s aux ventes priv&eacute;es",
+      "Livraison offerte d&egrave;s 1&thinsp;500&thinsp;&euro; d&rsquo;achat",
+      "Bon de remise nominatif et personnel",
+      "Espace Club personnel avec suivi de commandes",
+      "Newsletter exclusive Club Tectona",
     ])}
 
-    ${buildNextCircle("20&thinsp;000&thinsp;&euro; de cumul &rarr; cercle V <em>Le Tectona Grandis</em> (&ndash;25&thinsp;% &agrave; vie sur l&rsquo;ensemble du catalogue)")}
+    ${buildNextCircle("20&thinsp;000&thinsp;&euro; de cumul &rarr; cercle V <em>Le Tectona Grandis</em> (&ndash;25&thinsp;% &agrave; vie)")}
 
     ${buildMentionClub()}
 
-    ${buildCTA("D&eacute;couvrir les nouveaut&eacute;s &rarr;", "https://dimexoi.fr/catalogue")}
+    ${buildCTA("D&eacute;couvrir le programme Club Tectona &rarr;", "https://www.dimexoi.fr/club-grandis")}
 
     ${buildSignOff("L&rsquo;&eacute;quipe Dimexoi")}
   `;
@@ -509,9 +520,14 @@ function buildTemplateLevel5(): TemplateDefinition {
 
     ${buildAdvantagesList([
       "25&thinsp;% de remise &agrave; vie sur le mobilier en teck massif",
-      "Tous les avantages des cercles pr&eacute;c&eacute;dents",
       "Cadeau de bienvenue pour avoir atteint ce palier",
       "Carte membre personnalis&eacute;e &agrave; votre nom",
+      "Remise chez l&rsquo;un de nos partenaires h&ocirc;teliers*",
+      "Acc&egrave;s aux avant-premi&egrave;res des nouvelles collections",
+      "Acc&egrave;s aux ventes priv&eacute;es",
+      "Livraison offerte d&egrave;s 1&thinsp;500&thinsp;&euro; d&rsquo;achat",
+      "Espace Club personnel avec suivi de commandes",
+      "Newsletter exclusive Club Tectona",
     ])}
 
     <tr>
@@ -520,7 +536,7 @@ function buildTemplateLevel5(): TemplateDefinition {
       </td>
     </tr>
 
-    ${buildCTA("Prendre rendez-vous &rarr;", "https://dimexoi.fr/contact")}
+    ${buildCTA("D&eacute;couvrir le programme Club Tectona &rarr;", "https://www.dimexoi.fr/club-grandis")}
 
     <!-- SIGN-OFF (more personal tone) -->
     <tr>
