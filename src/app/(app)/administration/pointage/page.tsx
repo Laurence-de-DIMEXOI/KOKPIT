@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useToast } from "@/components/ui/toast";
 import {
   Clock,
@@ -206,6 +207,7 @@ export default function PointagePage() {
   const [etat, setEtat] = useState<PointageEtat>("NON_ARRIVE");
   const [loadingToday, setLoadingToday] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [cafeMessage, setCafeMessage] = useState<string | null>(null);
   const [historique, setHistorique] = useState<PointageHistorique[]>([]);
   const [totalMois, setTotalMois] = useState<{
     heuresTravaillees: number;
@@ -315,6 +317,11 @@ export default function PointagePage() {
       setPointage(updated);
       setEtat(getPointageEtat(updated));
       addToast("Pointage enregistré", "success");
+
+      // Popup café si c'est la semaine de l'utilisateur
+      if (updated.cafe?.message) {
+        setCafeMessage(updated.cafe.message);
+      }
 
       // Refresh history if day is complete
       if (getPointageEtat(updated) === "JOURNEE_FINIE") {
@@ -650,6 +657,36 @@ export default function PointagePage() {
           </>
         )}
       </div>
+
+      {/* ================================================================ */}
+      {/* POPUP CAFÉ */}
+      {/* ================================================================ */}
+      {cafeMessage && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => setCafeMessage(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-amber-600 to-amber-800 p-6 text-center">
+              <span className="text-5xl block mb-2">☕</span>
+              <h3 className="text-white text-xl font-bold">Semaine Café !</h3>
+            </div>
+            <div className="p-6 text-center">
+              <p className="text-gray-700 text-sm leading-relaxed">{cafeMessage}</p>
+              <button
+                onClick={() => setCafeMessage(null)}
+                className="mt-5 px-6 py-2.5 bg-amber-600 text-white rounded-lg font-semibold text-sm hover:bg-amber-700 transition min-h-[44px]"
+              >
+                Compris, chef ! ☕
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

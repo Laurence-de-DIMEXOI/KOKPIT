@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculerHeuresTravaillees } from "@/data/pointage-config";
+import { estSemaineCafe, getMessageCafe } from "@/data/cafe-planning";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -98,5 +99,17 @@ export async function POST(req: Request) {
     update: updateData,
   });
 
-  return NextResponse.json(result);
+  // Si c'est l'arrivée, vérifier si c'est la semaine café de l'utilisateur
+  let cafe: { message: string } | null = null;
+  if (action === "arrivee") {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { prenom: true },
+    });
+    if (user && estSemaineCafe(user.prenom)) {
+      cafe = { message: getMessageCafe() };
+    }
+  }
+
+  return NextResponse.json({ ...result, cafe });
 }
