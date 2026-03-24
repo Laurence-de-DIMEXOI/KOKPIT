@@ -21,6 +21,7 @@ import {
   TreePine,
   Clock,
   AlertTriangle,
+  Settings,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -94,6 +95,7 @@ export const ESPACES: Espace[] = [
       { label: "Congés & Absences", href: "/administration/conges", icon: CalendarDays, module: "conges" },
       { label: "Pointage", href: "/administration/pointage", icon: Clock, module: "pointage" },
       { label: "Pointage Équipe", href: "/administration/pointage/equipe", icon: Users, module: "pointage-equipe" },
+      { label: "Paramètres", href: "/administration/parametres", icon: Settings, module: "dashboard-admin" },
     ],
   },
   {

@@ -960,6 +960,14 @@ model ConfigPointage {
   updatedAt             DateTime @updatedAt
 }
 
+model ConfigApp {
+  id                    String   @id @default("default")
+  slaHeures             Int      @default(72)
+  pointageHeuresJour    Float    @default(7)
+  pointagePauseDefaut   Float    @default(1)
+  updatedAt             DateTime @updatedAt
+}
+
 // ============================================================================
 // SAV / LITIGES
 // ============================================================================
