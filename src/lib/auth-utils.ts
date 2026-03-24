@@ -71,7 +71,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "sav",
   ],
   MARKETING: [
-    // Tout Marketing + Commercial en lecture + Général
+    // Tout sauf pointage-equipe et options Michelle
     "dashboard",
     "leads",
     "contacts",
@@ -88,7 +88,14 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "pointage",
     "sav",
     "conges",
-    // Pas : pointage-equipe, collaborateurs, parametres
+    // Commercial
+    "dashboard-commercial",
+    "pipeline",
+    "catalogue",
+    "commandes",
+    "bois-dorient",
+    // Administration (sans pointage-equipe, collaborateurs, parametres)
+    "dashboard-admin",
   ],
   COMMERCIAL: [
     // Section commerciale + Général + Admin light (congés/pointage)
