@@ -346,7 +346,7 @@ export async function syncClubTags(limit?: number) {
   });
 
   if (total === 0) {
-    return { synced: 0, errors: 0, remaining: 0 };
+    return { synced: 0, errors: 0, remaining: 0, skipped: 0 };
   }
 
   const membres = await prisma.clubMembre.findMany({
@@ -354,31 +354,54 @@ export async function syncClubTags(limit?: number) {
     ...(limit ? { take: limit } : {}),
   });
 
-  console.log(`[Club Tags] Batch de ${membres.length}/${total} membres…`);
+  console.log(`[Club Tags] Batch de ${membres.length}/${total} à tagger (${total} total en attente)`);
 
   let synced = 0;
   let errors = 0;
 
-  for (const membre of membres) {
-    const contactId = parseInt(membre.sellsyContactId, 10);
-    if (isNaN(contactId)) { errors++; continue; }
+  // Batch parallèle de 5 avec pause entre chaque batch
+  const BATCH_SIZE = 5;
+  const PAUSE_MS = 400;
 
-    const level = CLUB_LEVELS.find((l) => l.niveau === membre.niveau);
-    if (!level) { errors++; continue; }
+  for (let i = 0; i < membres.length; i += BATCH_SIZE) {
+    const batch = membres.slice(i, i + BATCH_SIZE);
 
-    try {
-      await assignSmartTag(contactId, level.sellsyTag);
-      synced++;
-    } catch (err: any) {
-      console.warn(`[Club Tags] Erreur ${contactId} (${membre.nom}):`, err.message);
-      errors++;
+    const results = await Promise.allSettled(
+      batch.map(async (membre) => {
+        const contactId = parseInt(membre.sellsyContactId, 10);
+        if (isNaN(contactId)) throw new Error("Invalid contactId");
+
+        const level = CLUB_LEVELS.find((l) => l.niveau === membre.niveau);
+        if (!level) throw new Error("Invalid level");
+
+        await assignSmartTag(contactId, level.sellsyTag);
+
+        await prisma.clubMembre.update({
+          where: { id: membre.id },
+          data: { sellsySynced: true },
+        });
+      })
+    );
+
+    for (const r of results) {
+      if (r.status === "fulfilled") synced++;
+      else {
+        errors++;
+        // Marquer quand même pour ne pas reboucler
+        const idx = results.indexOf(r);
+        if (batch[idx]) {
+          await prisma.clubMembre.update({
+            where: { id: batch[idx].id },
+            data: { sellsySynced: true },
+          }).catch(() => {});
+        }
+      }
     }
 
-    // Marquer comme traite (meme en erreur, pour ne pas reboucler indefiniment)
-    await prisma.clubMembre.update({
-      where: { id: membre.id },
-      data: { sellsySynced: true },
-    });
+    // Pause entre les batches (pas entre chaque membre)
+    if (i + BATCH_SIZE < membres.length) {
+      await new Promise((r) => setTimeout(r, PAUSE_MS));
+    }
   }
 
   const remaining = total - membres.length;

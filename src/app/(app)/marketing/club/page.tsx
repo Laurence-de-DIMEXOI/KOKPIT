@@ -18,6 +18,7 @@ import {
   Copy,
   Ticket,
   Info,
+  Tag,
 } from "lucide-react";
 import { CLUB_LEVELS, CLUB_DA, type ClubLevel } from "@/data/club-tectona";
 
@@ -185,18 +186,7 @@ export default function ClubTectonaPage() {
         if (data.fetched === 0) break;
       }
 
-      // Étape 3 : Tags Sellsy (boucle auto)
-      setSyncStep("Tags Sellsy…");
-      let tagsRemaining = 1;
-      while (tagsRemaining > 0) {
-        const res = await fetch("/api/club/sync-tags", { method: "POST" });
-        const data = await res.json();
-        if (!res.ok) break;
-        tagsRemaining = data.remaining;
-        if (data.synced === 0 && data.errors === 0) break;
-      }
-
-      // Étape 4 : Brevo (liste "Club Tectona" + attributs) — par batch avec progression
+      // Étape 3 : Brevo (liste "Club Tectona" + attributs) — par batch avec progression
       setSyncStep("Brevo 0%…");
       try {
         let brevoRemaining = 1;
@@ -225,6 +215,33 @@ export default function ClubTectonaPage() {
     }
     setSyncStep("");
     setSyncing(false);
+  };
+
+  const [pushingTags, setPushingTags] = useState(false);
+  const [tagsStep, setTagsStep] = useState("");
+
+  const handlePushTags = async () => {
+    setPushingTags(true);
+    try {
+      let remaining = 1;
+      let totalSynced = 0;
+      let totalToSync = 0;
+      while (remaining > 0) {
+        setTagsStep(totalToSync > 0 ? `${totalSynced}/${totalToSync}` : "Chargement…");
+        const res = await fetch("/api/club/sync-tags", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) break;
+        totalSynced += data.synced || 0;
+        if (!totalToSync) totalToSync = totalSynced + (data.remaining || 0);
+        remaining = data.remaining || 0;
+        if (data.synced === 0 && data.errors === 0) break;
+      }
+      showToast(`Tags Sellsy : ${totalSynced} mis à jour`);
+    } catch {
+      showToast("Erreur tags Sellsy");
+    }
+    setTagsStep("");
+    setPushingTags(false);
   };
 
   const handleDelete = async () => {
@@ -344,15 +361,24 @@ export default function ClubTectonaPage() {
         <p className="text-cockpit-secondary text-sm">
           Programme de fidélité · {stats?.totalMembres || 0} membres
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleSync}
-            disabled={syncing}
+            disabled={syncing || pushingTags}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: da.primary }}
           >
             {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {syncing ? syncStep || "Mise à jour…" : "Mettre à jour le club"}
+            {syncing ? syncStep || "Mise à jour…" : "Sync données + Brevo"}
+          </button>
+          <button
+            onClick={handlePushTags}
+            disabled={syncing || pushingTags}
+            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium border transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ borderColor: da.primary, color: da.primary }}
+          >
+            {pushingTags ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
+            {pushingTags ? `Tags ${tagsStep}` : "Push tags Sellsy"}
           </button>
           <button
             onClick={() => setShowMemo(true)}
