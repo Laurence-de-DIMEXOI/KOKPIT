@@ -11,6 +11,8 @@ const updateSchema = z.object({
   statut: z.enum(["A_FAIRE", "EN_COURS", "TERMINEE"]).optional(),
   contactId: z.string().optional().nullable(),
   assigneAId: z.string().optional(),
+  collaborateurId: z.string().optional().nullable(),
+  collaborationStatut: z.enum(["INVITE", "ACCEPTE", "REFUSE"]).optional(),
 });
 
 // PUT /api/tasks/[id] — Mettre à jour une tâche
@@ -38,6 +40,8 @@ export async function PUT(
     if (data.echeance !== undefined) {
       updateData.echeance = data.echeance ? new Date(data.echeance) : null;
     }
+    if (data.collaborateurId !== undefined) updateData.collaborateurId = data.collaborateurId;
+    if (data.collaborationStatut !== undefined) updateData.collaborationStatut = data.collaborationStatut;
 
     const task = await prisma.task.update({
       where: { id },
@@ -46,6 +50,7 @@ export async function PUT(
         contact: { select: { id: true, nom: true, prenom: true, email: true } },
         assigneA: { select: { id: true, nom: true, prenom: true } },
         createdBy: { select: { id: true, nom: true, prenom: true } },
+        collaborateur: { select: { id: true, nom: true, prenom: true } },
       },
     });
 

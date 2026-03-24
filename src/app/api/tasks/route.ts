@@ -10,6 +10,7 @@ const createSchema = z.object({
   echeance: z.string().datetime().optional().nullable(),
   contactId: z.string().optional().nullable(),
   assigneAId: z.string().optional(),
+  collaborateurId: z.string().optional().nullable(),
 });
 
 // GET /api/tasks — Liste des tâches (mes tâches par défaut)
@@ -26,7 +27,11 @@ export async function GET(request: NextRequest) {
   const where: Record<string, unknown> = {};
 
   if (!all) {
-    where.assigneAId = session.user.id;
+    // Mes tâches + tâches où je suis collaborateur (accepté ou invité)
+    where.OR = [
+      { assigneAId: session.user.id },
+      { collaborateurId: session.user.id, collaborationStatut: { not: "REFUSE" } },
+    ];
   }
 
   if (statut && ["A_FAIRE", "EN_COURS", "TERMINEE"].includes(statut)) {
@@ -44,6 +49,7 @@ export async function GET(request: NextRequest) {
         contact: { select: { id: true, nom: true, prenom: true, email: true } },
         assigneA: { select: { id: true, nom: true, prenom: true } },
         createdBy: { select: { id: true, nom: true, prenom: true } },
+        collaborateur: { select: { id: true, nom: true, prenom: true } },
       },
     });
 
@@ -74,11 +80,14 @@ export async function POST(request: NextRequest) {
         contactId: data.contactId || null,
         assigneAId: data.assigneAId || session.user.id,
         createdById: session.user.id,
+        collaborateurId: data.collaborateurId || null,
+        collaborationStatut: data.collaborateurId ? "INVITE" : null,
       },
       include: {
         contact: { select: { id: true, nom: true, prenom: true, email: true } },
         assigneA: { select: { id: true, nom: true, prenom: true } },
         createdBy: { select: { id: true, nom: true, prenom: true } },
+        collaborateur: { select: { id: true, nom: true, prenom: true } },
       },
     });
 

@@ -163,6 +163,7 @@ model User {
   brevoSyncLogs   BrevoSyncLog[]
   tasksAssignees  Task[]         @relation("TaskAssignee")
   tasksCreees     Task[]         @relation("TaskCreator")
+  tasksCollab     Task[]         @relation("TaskCollaborateur")
   clientsBdoVerifies ClientBoisDOrient[] @relation("ClientBdoVerifie")
   conges               Conge[]        @relation("CongeUser")
   congesApprouves      Conge[]        @relation("CongeApprobateur")
@@ -781,23 +782,27 @@ model DocArticle {
 // ============================================================================
 
 model Task {
-  id          String     @id @default(cuid())
-  titre       String
-  description String?
-  echeance    DateTime?
-  statut      TaskStatut @default(A_FAIRE)
-  contactId   String?
-  assigneAId  String
-  createdById String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id                    String     @id @default(cuid())
+  titre                 String
+  description           String?
+  echeance              DateTime?
+  statut                TaskStatut @default(A_FAIRE)
+  contactId             String?
+  assigneAId            String
+  createdById           String
+  collaborateurId       String?
+  collaborationStatut   String?    // INVITE | ACCEPTE | REFUSE
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
 
   // Relations
-  contact     Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  assigneA    User       @relation("TaskAssignee", fields: [assigneAId], references: [id])
-  createdBy   User       @relation("TaskCreator", fields: [createdById], references: [id])
+  contact       Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assigneA      User       @relation("TaskAssignee", fields: [assigneAId], references: [id])
+  createdBy     User       @relation("TaskCreator", fields: [createdById], references: [id])
+  collaborateur User?      @relation("TaskCollaborateur", fields: [collaborateurId], references: [id])
 
   @@index([assigneAId])
+  @@index([collaborateurId])
   @@index([echeance])
   @@index([statut])
 }
