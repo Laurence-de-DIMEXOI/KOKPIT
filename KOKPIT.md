@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 24 mars 2026 (v13 — Pointage + SAV/Litiges + Congés responsive + Popup café)
-**Mis à jour par** : Session Claude Code (Sprint 24 mars)
+**Dernière mise à jour** : 24 mars 2026 (v14 — Sprint complet : Pointage, SAV, Club Tectona, X1-X9, ROI, Paramètres, Docs)
+**Mis à jour par** : Session Claude Code (Sprint 24 mars — session marathon)
 
 ---
 
@@ -636,16 +636,14 @@ model ConfigABC {
 | A1 | Espace Achat — Classification ABC | Rôle ACHAT + catalogue ABC + alertes stock | 2j |
 | ~~X6~~ | ~~Notifications internes~~ | ✅ | Bell topbar + API 5 types (token Meta, devis expirant, Brevo sync, tâches retard, SLA 72h) — déjà implémenté |
 | ~~X7~~ | ~~Dashboards avec courbes~~ | ✅ | Recharts LineChart + ComposedChart + BarChart — évolution devis/commandes, leads par source — déjà implémenté |
-| X8 | ROI Marketing réel | ⚠️ Partiel | ROAS Meta + tableau mensuel + CoutOffline existent. Manque : modèle CoutMarketing multi-canal, Google Ads, page ROI séparée |
-| X9 | Segmentation RFM | ⚠️ Partiel | Calcul RFM + scores en base + badge contact existent. Manque : export segments vers listes Brevo |
-| ~~X11~~ | ~~Responsive mobile~~ | ✅ | Toutes les pages principales ont des classes responsive Tailwind (grid-cols, sm:, md:, lg:) |
-| ~~BDO~~ | ~~Migration Bois d'Orient~~ | ✅ | Page + 7 routes API + extraction + matching + documents — déjà implémenté |
-| X9 | Segmentation RFM | Récence/Fréquence/Montant → segments Brevo | 2j |
-| ~~X10~~ | ~~SLA 72h leads + relance commercial~~ | ✅ Déployé `f5911fc`+`2dc583d` — SLA + bouton relance email | — |
-| X11 | Responsive mobile | Pages clés sur téléphone | 1j |
+| ~~X8~~ | ~~ROI Marketing réel~~ | ✅ | Modèle CoutMarketing + page /marketing/roi (KPIs, tableau mensuel, répartition par canal, ajout dépenses) — `563889b` |
+| ~~X9~~ | ~~Segmentation RFM~~ | ✅ | 5 segments (Champions, Loyaux, Nouveaux, À risque, Perdus) + export listes Brevo — `c969e95` |
+| ~~X11~~ | ~~Responsive mobile~~ | ✅ | Toutes les pages principales ont des classes responsive Tailwind |
+| ~~BDO~~ | ~~Migration Bois d'Orient~~ | ✅ | Page + 7 routes API + extraction + matching + documents |
+| ~~X10~~ | ~~SLA 72h leads + relance commercial~~ | ✅ | SLA + bouton relance email + tâche auto commercial |
+| ~~ADM1~~ | ~~Espace Administration~~ | ✅ | Paramètres (SLA, pointage, rôles) + Pointage + Congés + Collaborateurs — `484e24d` |
 | F1 | Création devis KOKPIT → Sellsy | KOKPIT écrit dans Sellsy via API | ? |
 | E1 | Espace client externe | Site séparé connecté à KOKPIT — suivi de commande | ? |
-| **ADM1** | **Espace Administration** | Collaborateurs, congés, paramètres — à spécifier avec l'équipe | ? |
 | **ACH1** | **Espace Achat complet** | Classification ABC (specs section 17) + commandes fournisseurs + réassort | 2j+ |
 
 ---
@@ -792,4 +790,4 @@ model ClubMembre {
 
 ---
 
-*KOKPIT.md — feuille de route DIMEXOI — v13 — 24 mars 2026*
+*KOKPIT.md — feuille de route DIMEXOI — v14 — 24 mars 2026*
