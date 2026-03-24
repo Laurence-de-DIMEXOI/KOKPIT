@@ -151,7 +151,7 @@ Règle topbar : si un utilisateur n'a accès qu'à un seul espace, les onglets e
 |---------|-------|-----------|-----------|
 | Sellsy V2 | Contacts, devis, commandes, catalogue, funnel, tâches | `SELLSY_CLIENT_ID` / `SELLSY_CLIENT_SECRET` | `/api/sellsy/` |
 | Sellsy V1 | parentid chaîne documentaire (Bearer V2, scope "API V1" à activer dans Sellsy) | Mêmes credentials | `sellsyV1Call()` |
-| Brevo | Stats email + sync listes + webhooks signaux engagement | `BREVO_API_KEY` | `/api/brevo/` |
+| Brevo | Stats email + sync listes + webhooks signaux engagement (plan **Starter** — pas d'export webhook) | `BREVO_API_KEY` | `/api/brevo/` |
 | Meta Ads | Campagnes publicité (sync) | `META_ACCESS_TOKEN` + `META_ACCESS_TOKEN_EXPIRES_AT` | `/api/meta/` |
 | Supabase | Storage Upload images couverture Planning | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | — |
 | Anthropic | Chatbot KOKPIT (Haiku) | `ANTHROPIC_API_KEY` | — |
@@ -290,7 +290,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | ~~AUD12~~ | ~~SLA intelligent (masqué si traité)~~ | ✅ | 2dc583d |
 | AUD10-CB | Code-barres + impression étiquettes catalogue | 🟡 | Modèle ProduitBarcode, JsBarcode, CSS print — pas encore fait |
 | ~~AUD-META~~ | ~~Debug Meta Ads~~ | ✅ | Token ok — ajouter filtre "mois en cours" par défaut |
-| AUD-BREVO | Debug campagne Brevo "Semaines Privilege" à zéro | 🟡 | À régler prochainement |
+| ~~AUD-BREVO~~ | ~~Debug campagne Brevo "Semaines Privilege" à zéro~~ | ⚠️ | Limitation plan Brevo Starter — l'API REST v3 ne retourne pas les stats pour certaines campagnes (dashboard Brevo les affiche). Fallback appel individuel ajouté (`c1688e9`). Export webhook dispo uniquement sur plan Professional+. Pas de fix possible côté KOKPIT |
 
 ---
 
