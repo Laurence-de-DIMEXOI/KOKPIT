@@ -215,6 +215,50 @@ export async function POST() {
       `Matching: ${result.linkedByEmail} by email, ${result.alreadyLinked} already linked, ${result.suggestions.length} suggestions`
     );
 
+    // 5b. Créer les contacts Sellsy qui n'existent PAS dans KOKPIT
+    //     (import tous les contacts Sellsy avec email)
+    const existingEmails = new Set(
+      kokpitContacts.map((c) => (c.email || "").toLowerCase().trim()).filter(Boolean)
+    );
+    const existingSellsyIds = new Set(
+      kokpitContacts.map((c) => c.sellsyContactId).filter(Boolean)
+    );
+
+    let newContactsCreated = 0;
+    const batchCreate: any[] = [];
+
+    for (const se of sellsyEntities) {
+      // Skip si déjà en base (par email ou sellsyId)
+      if (se.email && existingEmails.has(se.email)) continue;
+      if (existingSellsyIds.has(String(se.id))) continue;
+      if (!se.nom && !se.prenom) continue; // pas de nom = skip
+
+      batchCreate.push({
+        email: se.email || "",
+        nom: se.nom || "",
+        prenom: se.prenom || "",
+        sellsyContactId: String(se.id),
+        lifecycleStage: "PROSPECT" as const,
+      });
+
+      // Éviter les doublons email dans le batch
+      if (se.email) existingEmails.add(se.email);
+      existingSellsyIds.add(String(se.id));
+    }
+
+    // Batch insert par 200
+    for (let i = 0; i < batchCreate.length; i += 200) {
+      const batch = batchCreate.slice(i, i + 200);
+      await prisma.contact.createMany({
+        data: batch,
+        skipDuplicates: true,
+      });
+      newContactsCreated += batch.length;
+    }
+
+    console.log(`[Sync] ${newContactsCreated} nouveaux contacts créés depuis Sellsy`);
+    (result as any).newContactsCreated = newContactsCreated;
+
     // 6. Build reverse map: sellsyEntityId → kokpitContactId (for document import)
     //    Un même client peut avoir un ID company ET un ID individual dans Sellsy.
     //    On mappe TOUS les IDs qui partagent le même email vers le même contact KOKPIT.
