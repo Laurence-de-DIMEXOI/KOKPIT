@@ -5,8 +5,9 @@ import {
   ArrowLeft, CheckCircle2, Circle, Mail, Phone, MapPin,
   FileText, ShoppingCart, Calendar, ExternalLink, Loader2,
   User, ShoppingBag, MessageSquare, PhoneCall, StickyNote,
-  Send, Plus, Trash2, Clock,
+  Send, Plus, Trash2, Clock, AlertTriangle,
 } from "lucide-react";
+import { getStatutConfig as getSavStatutConfig } from "@/data/sav-config";
 import Link from "next/link";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 
@@ -146,6 +147,8 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
   const [newEventDesc, setNewEventDesc] = useState("");
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
+  // SAV
+  const [savDossiers, setSavDossiers] = useState<any[]>([]);
 
   useEffect(() => {
     params.then(p => setContactId(p.id));
@@ -225,13 +228,25 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
     } catch { /* silencieux */ }
   };
 
+  const fetchSavDossiers = useCallback(async () => {
+    if (!contactId) return;
+    try {
+      const res = await fetch(`/api/sav?search=&contactId=${contactId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSavDossiers(data.dossiers || []);
+      }
+    } catch { /* silent */ }
+  }, [contactId]);
+
   useEffect(() => {
     if (contactId) {
       fetchContact();
       fetchSellsyHistory();
       fetchEvenements(1);
+      fetchSavDossiers();
     }
-  }, [contactId, fetchContact, fetchSellsyHistory, fetchEvenements]);
+  }, [contactId, fetchContact, fetchSellsyHistory, fetchEvenements, fetchSavDossiers]);
 
   if (loading) {
     return (
@@ -534,6 +549,41 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
                 {req.message && <p className="text-xs text-[#8592A3] mt-1 line-clamp-2">{req.message}</p>}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* SAV / Litiges */}
+      {savDossiers.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#E8EAED] shadow-sm p-6">
+          <h2 className="text-sm font-semibold text-[#8592A3] uppercase tracking-wider flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-4 h-4" /> SAV — Litiges
+            <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/10 text-red-500">{savDossiers.length}</span>
+          </h2>
+          <div className="space-y-2">
+            {savDossiers.map((d: any) => {
+              const statutCfg = getSavStatutConfig(d.statut);
+              return (
+                <Link
+                  key={d.id}
+                  href="/commercial/sav"
+                  className="flex items-center justify-between p-3 rounded-lg bg-[#F5F6F7] hover:bg-[#EDEEF0] transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-[#8592A3]">{d.numero}</span>
+                    <span className="text-sm font-medium text-[#32475C]">{d.titre}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statutCfg.couleur}`}>
+                      {statutCfg.label}
+                    </span>
+                    <span className="text-xs text-[#8592A3]">
+                      {new Date(d.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

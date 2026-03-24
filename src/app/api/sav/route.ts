@@ -45,6 +45,11 @@ export async function GET(req: NextRequest) {
       where.assigneId = assigneId;
     }
 
+    const contactIdParam = searchParams.get("contactId") || "";
+    if (contactIdParam) {
+      where.contactId = contactIdParam;
+    }
+
     if (search) {
       where.OR = [
         { numero: { contains: search, mode: "insensitive" } },
