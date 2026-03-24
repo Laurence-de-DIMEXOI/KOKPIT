@@ -4,7 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const BREVO_API_URL = "https://api.brevo.com/v3";
-const DESTINATAIRE = "laurence.payet@dimexoi.fr";
+const DESTINATAIRES = [
+  { email: "laurence.payet@dimexoi.fr", name: "Laurence Payet" },
+  { email: "michelle.perrot@dimexoi.fr", name: "Michelle Perrot" },
+];
 const SENDER = { name: "KOKPIT", email: "laurence.payet@dimexoi.fr" };
 
 // ============================================================================
@@ -270,7 +273,7 @@ async function sendRecapEmail(html: string, dateDebut: Date, dateFin: Date) {
     },
     body: JSON.stringify({
       sender: SENDER,
-      to: [{ email: DESTINATAIRE, name: "Laurence Payet" }],
+      to: DESTINATAIRES,
       subject: `Récap KOKPIT — Semaine du ${formatDate(dateDebut)}`,
       htmlContent: html,
     }),
@@ -343,7 +346,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Récap envoyé à ${DESTINATAIRE}`,
+      message: `Récap envoyé à ${DESTINATAIRES.map(d => d.email).join(", ")}`,
       kpis,
       demandes: demandes.length,
     });
