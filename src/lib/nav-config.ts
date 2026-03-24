@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Crown,
   TreePine,
+  Clock,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -89,6 +90,8 @@ export const ESPACES: Espace[] = [
       { label: "Tableau de bord", href: "/administration", icon: Building2, module: "dashboard-admin" },
       { label: "Collaborateurs", href: "/administration/collaborateurs", icon: UserCircle, module: "collaborateurs" },
       { label: "Congés & Absences", href: "/administration/conges", icon: CalendarDays, module: "conges" },
+      { label: "Pointage", href: "/administration/pointage", icon: Clock, module: "pointage" },
+      { label: "Pointage Équipe", href: "/administration/pointage/equipe", icon: Users, module: "pointage-equipe" },
     ],
   },
   {

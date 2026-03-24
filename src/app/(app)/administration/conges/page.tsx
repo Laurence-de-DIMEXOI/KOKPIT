@@ -469,7 +469,7 @@ function ModalNouvelleDemande({
             </label>
             <div className="space-y-3">
               {periodes.map((p, i) => (
-                <div key={i} className="flex items-center gap-3">
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                   <span className="text-xs text-cockpit-secondary w-4">{i + 1}.</span>
                   <input
                     type="date"
@@ -887,7 +887,7 @@ export default function CongesPage() {
           </div>
           <button
             onClick={() => setShowNewModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-white transition-all hover:-translate-y-0.5"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-semibold text-white transition-all hover:-translate-y-0.5 w-full sm:w-auto min-h-[48px]"
             style={{
               background: `linear-gradient(135deg, ${ADMIN_GRADIENT.from} 0%, ${ADMIN_GRADIENT.to} 100%)`,
               boxShadow: `0 4px 14px ${ADMIN_GRADIENT.shadow}`,
@@ -995,7 +995,7 @@ export default function CongesPage() {
             Calendrier {CURRENT_YEAR}
           </h2>
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {Array.from({ length: 12 }, (_, month) => (
               <MiniCalendar
                 key={month}
@@ -1041,7 +1041,7 @@ export default function CongesPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                "px-4 py-3 font-medium text-sm transition whitespace-nowrap border-b-2",
+                "px-3 sm:px-4 py-3 font-medium text-sm transition whitespace-nowrap border-b-2 min-h-[44px]",
                 activeTab === tab.id
                   ? "border-[#D15F12] text-[#D15F12]"
                   : "text-cockpit-secondary border-transparent hover:text-cockpit-primary"
@@ -1071,97 +1071,78 @@ export default function CongesPage() {
               <p>Aucune demande trouvée</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3 p-3">
+              {conges.map((c) => {
+                const statutCfg = getStatutConfig(c.statut);
+                return (
+                  <div key={c.id} className="bg-cockpit-card rounded-xl p-4 border border-cockpit/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.user.couleur || "#888" }} />
+                        <span className="text-cockpit-heading font-medium text-sm">{c.user.prenom} {c.user.nom}</span>
+                      </div>
+                      <span className={clsx("px-2.5 py-1 rounded-full text-xs font-medium", statutCfg.classes)}>{statutCfg.label}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-cockpit-primary">{getTypeLabel(c.type)}</span>
+                      <span className="text-cockpit-heading font-semibold">{c.nbJours}j</span>
+                    </div>
+                    <p className="text-cockpit-secondary text-xs">{formatDateFR(c.dateDebut)} — {formatDateFR(c.dateFin)}</p>
+                    {isAdmin && c.statut === "en_attente" && (
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => openValidation(c)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-green-500/10 hover:bg-green-500/20 rounded-lg text-green-500 text-xs font-medium transition min-h-[44px]">
+                          <Check size={14} /> Approuver
+                        </button>
+                        <button onClick={() => { setValidationTarget(c); setShowValidationModal(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-500 text-xs font-medium transition min-h-[44px]">
+                          <X size={14} /> Refuser
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-cockpit border-b border-cockpit">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading uppercase tracking-wider">
-                      Collaborateur
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading uppercase tracking-wider">
-                      Dates
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading uppercase tracking-wider">
-                      Jours
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading uppercase tracking-wider">
-                      Statut
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading uppercase tracking-wider">Collaborateur</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading uppercase tracking-wider">Dates</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading uppercase tracking-wider">Jours</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading uppercase tracking-wider">Statut</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cockpit">
                   {conges.map((c) => {
                     const statutCfg = getStatutConfig(c.statut);
                     return (
-                      <tr
-                        key={c.id}
-                        className="hover:bg-cockpit/30 transition"
-                      >
+                      <tr key={c.id} className="hover:bg-cockpit/30 transition">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
-                            <div
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: c.user.couleur || "#888" }}
-                            />
-                            <span className="text-cockpit-heading font-medium text-sm">
-                              {c.user.prenom} {c.user.nom}
-                            </span>
+                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.user.couleur || "#888" }} />
+                            <span className="text-cockpit-heading font-medium text-sm">{c.user.prenom} {c.user.nom}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-cockpit-primary text-sm">
-                            {getTypeLabel(c.type)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-cockpit-primary text-sm">
-                            {formatDateFR(c.dateDebut)} — {formatDateFR(c.dateFin)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="text-cockpit-heading font-semibold text-sm">
-                            {c.nbJours}
-                          </span>
-                        </td>
+                        <td className="px-4 py-3"><span className="text-cockpit-primary text-sm">{getTypeLabel(c.type)}</span></td>
+                        <td className="px-4 py-3"><span className="text-cockpit-primary text-sm">{formatDateFR(c.dateDebut)} — {formatDateFR(c.dateFin)}</span></td>
+                        <td className="px-4 py-3 text-center"><span className="text-cockpit-heading font-semibold text-sm">{c.nbJours}</span></td>
                         <td className="px-4 py-3">
                           <div className="flex justify-center">
-                            <span
-                              className={clsx(
-                                "px-2.5 py-1 rounded-full text-xs font-medium",
-                                statutCfg.classes
-                              )}
-                            >
-                              {statutCfg.label}
-                            </span>
+                            <span className={clsx("px-2.5 py-1 rounded-full text-xs font-medium", statutCfg.classes)}>{statutCfg.label}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-center gap-1.5">
                             {isAdmin && c.statut === "en_attente" ? (
                               <>
-                                <button
-                                  onClick={() => openValidation(c)}
-                                  className="p-1.5 bg-green-500/10 hover:bg-green-500/20 rounded-lg text-green-400 transition"
-                                  title="Approuver"
-                                >
-                                  <Check size={15} />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setValidationTarget(c);
-                                    setShowValidationModal(true);
-                                  }}
-                                  className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 transition"
-                                  title="Refuser"
-                                >
-                                  <X size={15} />
-                                </button>
+                                <button onClick={() => openValidation(c)} className="p-1.5 bg-green-500/10 hover:bg-green-500/20 rounded-lg text-green-400 transition" title="Approuver"><Check size={15} /></button>
+                                <button onClick={() => { setValidationTarget(c); setShowValidationModal(true); }} className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 transition" title="Refuser"><X size={15} /></button>
                               </>
                             ) : (
                               <span className="text-cockpit-secondary text-sm">—</span>
@@ -1174,6 +1155,7 @@ export default function CongesPage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
 

@@ -160,8 +160,10 @@ model User {
   tasksAssignees  Task[]         @relation("TaskAssignee")
   tasksCreees     Task[]         @relation("TaskCreator")
   clientsBdoVerifies ClientBoisDOrient[] @relation("ClientBdoVerifie")
-  conges          Conge[]        @relation("CongeUser")
-  congesApprouves Conge[]        @relation("CongeApprobateur")
+  conges               Conge[]        @relation("CongeUser")
+  congesApprouves      Conge[]        @relation("CongeApprobateur")
+  pointages            Pointage[]     @relation("PointageUser")
+  pointagesCorrections Pointage[]     @relation("PointageCorrecteur")
 
   @@index([showroomId])
 }
@@ -914,4 +916,39 @@ model Conge {
   @@index([userId])
   @@index([dateDebut])
   @@index([statut])
+}
+
+// ============================================================================
+// POINTAGE (Time tracking)
+// ============================================================================
+
+model Pointage {
+  id                String    @id @default(cuid())
+  userId            String
+  date              DateTime  @db.Date
+  arrivee           DateTime?
+  debutPause        DateTime?
+  finPause          DateTime?
+  depart            DateTime?
+  heuresTravaillees Float?
+  heuresSupp        Float?
+  corrigeParId      String?
+  noteCorrection    String?
+  corrigeLe         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              User      @relation("PointageUser", fields: [userId], references: [id], onDelete: Cascade)
+  corrigePar        User?     @relation("PointageCorrecteur", fields: [corrigeParId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model ConfigPointage {
+  id                    String   @id @default(cuid())
+  heuresTheoriquesJour  Float    @default(7)
+  heurePauseDefaut      Float    @default(1)
+  updatedAt             DateTime @updatedAt
 }

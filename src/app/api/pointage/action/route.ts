@@ -1,0 +1,89 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { calculerHeuresTravaillees } from "@/data/pointage-config";
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  // SÉCURITÉ : userId TOUJOURS depuis la session, jamais depuis le body
+  const userId = (session.user as any).id;
+
+  const body = await req.json();
+  const { action } = body;
+
+  const validActions = ["arrivee", "debutPause", "finPause", "depart"];
+  if (!validActions.includes(action)) {
+    return NextResponse.json({ error: "Action invalide" }, { status: 400 });
+  }
+
+  // Date du jour (sans heure) pour le @@unique
+  const now = new Date();
+  const dateJour = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Récupérer ou créer le pointage du jour
+  let pointage = await prisma.pointage.findUnique({
+    where: { userId_date: { userId, date: dateJour } },
+  });
+
+  // Valider les transitions d'état
+  if (action === "arrivee") {
+    if (pointage?.arrivee) {
+      return NextResponse.json({ error: "Arrivée déjà pointée" }, { status: 400 });
+    }
+  } else if (action === "debutPause") {
+    if (!pointage?.arrivee) {
+      return NextResponse.json({ error: "Pointez d'abord votre arrivée" }, { status: 400 });
+    }
+    if (pointage.debutPause) {
+      return NextResponse.json({ error: "Pause déjà commencée" }, { status: 400 });
+    }
+  } else if (action === "finPause") {
+    if (!pointage?.debutPause) {
+      return NextResponse.json({ error: "Vous n'êtes pas en pause" }, { status: 400 });
+    }
+    if (pointage.finPause) {
+      return NextResponse.json({ error: "Pause déjà terminée" }, { status: 400 });
+    }
+  } else if (action === "depart") {
+    if (!pointage?.arrivee) {
+      return NextResponse.json({ error: "Pointez d'abord votre arrivée" }, { status: 400 });
+    }
+    if (pointage.depart) {
+      return NextResponse.json({ error: "Départ déjà pointé" }, { status: 400 });
+    }
+  }
+
+  // Préparer les données de mise à jour
+  const updateData: any = { [action]: now };
+
+  // Si c'est le départ, calculer les heures
+  if (action === "depart") {
+    const arrivee = pointage!.arrivee!;
+    const { heuresTravaillees, heuresSupp } = calculerHeuresTravaillees(
+      arrivee,
+      now,
+      pointage!.debutPause,
+      pointage!.finPause
+    );
+    updateData.heuresTravaillees = heuresTravaillees;
+    updateData.heuresSupp = heuresSupp;
+  }
+
+  // Upsert (create si premier pointage du jour, update sinon)
+  const result = await prisma.pointage.upsert({
+    where: { userId_date: { userId, date: dateJour } },
+    create: {
+      userId,
+      date: dateJour,
+      ...updateData,
+    },
+    update: updateData,
+  });
+
+  return NextResponse.json(result);
+}
