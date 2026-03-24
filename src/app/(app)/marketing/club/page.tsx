@@ -191,16 +191,25 @@ export default function ClubTectonaPage() {
       try {
         let brevoRemaining = 1;
         let brevoSynced = 0;
+        let brevoErrors = 0;
         let brevoTotal = 0;
+        let brevoErrorBatches = 0;
         while (brevoRemaining > 0) {
           const res = await fetch("/api/club/sync-brevo", { method: "POST" });
           const data = await res.json();
           if (!res.ok) break;
           brevoSynced += data.synced || 0;
+          brevoErrors += data.errors || 0;
           brevoTotal = brevoTotal || (brevoSynced + (data.remaining || 0));
           brevoRemaining = data.remaining || 0;
           const pct = brevoTotal > 0 ? Math.round((brevoSynced / brevoTotal) * 100) : 100;
           setSyncStep(`Brevo ${pct}% (${brevoSynced}/${brevoTotal})…`);
+          if (data.synced === 0 && data.errors > 0) {
+            brevoErrorBatches++;
+            if (brevoErrorBatches >= 3) break;
+          } else {
+            brevoErrorBatches = 0;
+          }
           if (data.synced === 0 && data.errors === 0) break;
         }
       } catch {
@@ -225,18 +234,35 @@ export default function ClubTectonaPage() {
     try {
       let remaining = 1;
       let totalSynced = 0;
+      let totalErrors = 0;
       let totalToSync = 0;
+      let consecutiveErrorBatches = 0;
       while (remaining > 0) {
         setTagsStep(totalToSync > 0 ? `${totalSynced}/${totalToSync}` : "Chargement…");
         const res = await fetch("/api/club/sync-tags", { method: "POST" });
         const data = await res.json();
         if (!res.ok) break;
         totalSynced += data.synced || 0;
+        totalErrors += data.errors || 0;
         if (!totalToSync) totalToSync = totalSynced + (data.remaining || 0);
         remaining = data.remaining || 0;
+        // Arrêter si que des erreurs (3 batches consécutifs sans succès)
+        if (data.synced === 0 && data.errors > 0) {
+          consecutiveErrorBatches++;
+          if (consecutiveErrorBatches >= 3) {
+            showToast(`Tags Sellsy stoppé — trop d'erreurs (${totalErrors})`);
+            break;
+          }
+        } else {
+          consecutiveErrorBatches = 0;
+        }
         if (data.synced === 0 && data.errors === 0) break;
       }
-      showToast(`Tags Sellsy : ${totalSynced} mis à jour`);
+      if (totalSynced > 0) {
+        showToast(`Tags Sellsy : ${totalSynced} mis à jour${totalErrors > 0 ? ` (${totalErrors} erreurs)` : ""}`);
+      } else if (totalErrors === 0) {
+        showToast("Tags Sellsy : tout est à jour");
+      }
     } catch {
       showToast("Erreur tags Sellsy");
     }
