@@ -18,7 +18,7 @@ export async function POST() {
   }
 
   try {
-    const result = await syncClubTags(30);
+    const result = await syncClubTags(20);
 
     return NextResponse.json({
       success: true,
