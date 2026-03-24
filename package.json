@@ -29,6 +29,7 @@
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
+    "html5-qrcode": "^2.3.8",
     "ioredis": "^5.3.2",
     "jsbarcode": "^3.12.3",
     "lucide-react": "^0.469.0",

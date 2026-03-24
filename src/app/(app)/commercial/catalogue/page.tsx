@@ -12,7 +12,9 @@ import {
   Tag,
   Filter,
   Printer,
+  ScanBarcode,
 } from "lucide-react";
+import Link from "next/link";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { ProductDrawer } from "@/components/catalogue/product-drawer";
 
@@ -387,6 +389,15 @@ export default function CataloguePage() {
             {filtered.length} produit{filtered.length > 1 ? "s" : ""} affichés sur {items.length}
           </p>
         </div>
+        <div className="flex gap-2">
+        <Link
+          href="/commercial/catalogue/scan"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white text-sm min-h-[44px]"
+          style={{ background: `linear-gradient(135deg, #0E6973, #0A4F57)` }}
+        >
+          <ScanBarcode className="w-4 h-4" />
+          Scanner
+        </Link>
         <button
           onClick={() => fetchItems(true)}
           disabled={refreshing}
@@ -399,6 +410,7 @@ export default function CataloguePage() {
           )}
           Rafraîchir
         </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
