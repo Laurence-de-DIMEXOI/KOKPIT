@@ -129,5 +129,30 @@ export async function POST(req: NextRequest) {
     createdConges.push(conge);
   }
 
+  // Auto-tâche pour Michelle si congé en attente de validation
+  if (statut === "en_attente" && createdConges.length > 0) {
+    const demandeur = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { prenom: true, nom: true },
+    });
+    const nomDemandeur = demandeur ? `${demandeur.prenom} ${demandeur.nom}` : "Un collaborateur";
+    const premierConge = createdConges[0];
+    const dateDebutFR = new Date(premierConge.dateDebut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+
+    // Michelle Perrot — responsable validation congés
+    const MICHELLE_ID = "1825c25e-45ed-49b6-9ce9-9ed62d085ab5";
+    try {
+      await prisma.task.create({
+        data: {
+          titre: `Valider congé — ${nomDemandeur}`,
+          description: `${nomDemandeur} a demandé un congé à partir du ${dateDebutFR} (${createdConges.reduce((s, c) => s + c.nbJours, 0)}j). À valider dans Congés & Absences.`,
+          assigneAId: MICHELLE_ID,
+          createdById: user.id,
+          echeance: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 jours
+        },
+      });
+    } catch { /* silencieux si Michelle n'existe pas */ }
+  }
+
   return NextResponse.json({ conges: createdConges }, { status: 201 });
 }

@@ -135,12 +135,35 @@ async function slaCheck() {
         },
       });
 
-      // Send notification to commercial if assigned
+      // Auto-tâche pour le commercial assigné
       if (lead.commercial?.id) {
-        // In production, send via email/SMS/notification service
-        console.log(
-          `Alerte SLA: Lead ${lead.id} dépassé pour ${lead.commercial.prenom} ${lead.commercial.nom}`
+        const clientNom = lead.contact
+          ? `${lead.contact.prenom || ""} ${lead.contact.nom}`.trim()
+          : "Client inconnu";
+        const heuresRetard = Math.floor(
+          (now.getTime() - lead.slaDeadline.getTime()) / (1000 * 60 * 60)
         );
+
+        // Vérifier qu'une tâche de relance n'existe pas déjà pour ce lead
+        const existingTask = await prisma.task.findFirst({
+          where: {
+            assigneAId: lead.commercial.id,
+            titre: { contains: clientNom },
+            statut: { not: "TERMINEE" },
+          },
+        });
+
+        if (!existingTask) {
+          await prisma.task.create({
+            data: {
+              titre: `Relancer ${clientNom}`,
+              description: `SLA dépassé de ${heuresRetard}h — demande sans réponse. Contacter le client en priorité.`,
+              assigneAId: lead.commercial.id,
+              createdById: lead.commercial.id,
+              echeance: new Date(), // aujourd'hui
+            },
+          });
+        }
       }
     }
 
