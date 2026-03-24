@@ -634,9 +634,9 @@ model ConfigABC {
 | ~~X4~~ | ~~Priorité contact~~ | ✅ Déployé `ddf18ac` — 4 niveaux | — |
 | X5 | Brevo enrichi | Listes dynamiques + webhook Brevo→KOKPIT | 2j |
 | A1 | Espace Achat — Classification ABC | Rôle ACHAT + catalogue ABC + alertes stock | 2j |
-| X6 | Notifications internes | Cloche topbar : token Meta expirant, devis expirant, SLA 72h | 1j |
-| X7 | Dashboards avec courbes | Évolution devis/mois, taux conversion, panier moyen | 2j |
-| X8 | ROI Marketing réel | CoutMarketing + dashboard dépenses vs CA | 1-2j |
+| ~~X6~~ | ~~Notifications internes~~ | ✅ | Bell topbar + API 5 types (token Meta, devis expirant, Brevo sync, tâches retard, SLA 72h) — déjà implémenté |
+| ~~X7~~ | ~~Dashboards avec courbes~~ | ✅ | Recharts LineChart + ComposedChart + BarChart — évolution devis/commandes, leads par source — déjà implémenté |
+| X8 | ROI Marketing réel | ⚠️ Partiel | ROAS Meta + tableau mensuel + CoutOffline existent. Manque : modèle CoutMarketing multi-canal, Google Ads, page ROI séparée |
 | X9 | Segmentation RFM | Récence/Fréquence/Montant → segments Brevo | 2j |
 | ~~X10~~ | ~~SLA 72h leads + relance commercial~~ | ✅ Déployé `f5911fc`+`2dc583d` — SLA + bouton relance email | — |
 | X11 | Responsive mobile | Pages clés sur téléphone | 1j |
