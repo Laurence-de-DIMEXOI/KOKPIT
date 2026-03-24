@@ -28,6 +28,7 @@ import {
   getStatutConfig,
   getDocTypeConfig,
 } from "@/data/sav-config";
+import { getSellsyUrl } from "@/lib/sellsy-urls";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ interface SAVDossierDetail {
   titre: string;
   contactNom: string | null;
   sellsyBdcRef: string | null;
+  sellsyBdcId: string | null;
   type: string;
   statut: string;
   description: string | null;
@@ -327,10 +329,15 @@ export default function SAVDrawer({
             {dossier.sellsyBdcRef && (
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-cockpit-secondary">BDC :</span>
-                <span className="text-xs font-medium text-teal-600">
+                <a
+                  href={dossier.sellsyBdcId ? getSellsyUrl("order", dossier.sellsyBdcId) : "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-teal-600 hover:text-teal-700 hover:underline inline-flex items-center gap-1"
+                >
                   {dossier.sellsyBdcRef}
-                </span>
-                <ExternalLink className="w-3 h-3 text-teal-600" />
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
             )}
           </div>
