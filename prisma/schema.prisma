@@ -166,6 +166,10 @@ model User {
   congesApprouves      Conge[]        @relation("CongeApprobateur")
   pointages            Pointage[]     @relation("PointageUser")
   pointagesCorrections Pointage[]     @relation("PointageCorrecteur")
+  savAssignes          DossierSAV[]   @relation("SAVAssigne")
+  savCrees             DossierSAV[]   @relation("SAVCreateur")
+  documentsSav         DocumentSAV[]
+  commentairesSav      CommentaireSAV[]
 
   @@index([showroomId])
 }
@@ -229,6 +233,7 @@ model Contact {
   // workflowLogs removed — replaced by WorkflowExecution
   demandesPrix        DemandePrix[]
   tasks               Task[]
+  dossiersSav         DossierSAV[]
 
   @@index([telephone])
   @@index([sellsyContactId])
@@ -953,4 +958,63 @@ model ConfigPointage {
   heuresTheoriquesJour  Float    @default(7)
   heurePauseDefaut      Float    @default(1)
   updatedAt             DateTime @updatedAt
+}
+
+// ============================================================================
+// SAV / LITIGES
+// ============================================================================
+
+model DossierSAV {
+  id              String           @id @default(cuid())
+  numero          String           @unique
+  titre           String
+  type            String
+  statut          String           @default("A_TRAITER")
+  sellsyBdcId     String?
+  sellsyBdcRef    String?
+  sellsyContactId String?
+  contactNom      String?
+  contactId       String?
+  assigneId       String?
+  creePar         String
+  description     String?
+  deletedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  contact         Contact?         @relation(fields: [contactId], references: [id])
+  assigne         User?            @relation("SAVAssigne", fields: [assigneId], references: [id])
+  creeParUser     User             @relation("SAVCreateur", fields: [creePar], references: [id])
+  documents       DocumentSAV[]
+  commentaires    CommentaireSAV[]
+
+  @@index([statut])
+  @@index([contactId])
+  @@index([createdAt])
+}
+
+model DocumentSAV {
+  id        String     @id @default(cuid())
+  dossierId String
+  nom       String
+  type      String
+  url       String?
+  contenu   String?
+  taille    Int?
+  ajoutePar String
+  createdAt DateTime   @default(now())
+
+  dossier   DossierSAV @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  ajoute    User       @relation(fields: [ajoutePar], references: [id])
+}
+
+model CommentaireSAV {
+  id        String     @id @default(cuid())
+  dossierId String
+  contenu   String
+  auteurId  String
+  createdAt DateTime   @default(now())
+
+  dossier   DossierSAV @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  auteur    User       @relation(fields: [auteurId], references: [id])
 }

@@ -20,6 +20,7 @@ import {
   Crown,
   TreePine,
   Clock,
+  AlertTriangle,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -58,6 +59,7 @@ export const ESPACES: Espace[] = [
       { label: "Pipeline Devis", href: "/commercial/pipeline", icon: FileText, module: "pipeline" },
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
+      { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
       { label: "Mes Tâches", href: "/commercial/taches", icon: ClipboardList, module: "taches" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
       { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
