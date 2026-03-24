@@ -196,10 +196,23 @@ export default function ClubTectonaPage() {
         if (data.synced === 0 && data.errors === 0) break;
       }
 
-      // Étape 4 : Brevo (liste "Club Tectona" + attributs)
-      setSyncStep("Liste Brevo…");
+      // Étape 4 : Brevo (liste "Club Tectona" + attributs) — par batch avec progression
+      setSyncStep("Brevo 0%…");
       try {
-        await fetch("/api/club/sync-brevo", { method: "POST" });
+        let brevoRemaining = 1;
+        let brevoSynced = 0;
+        let brevoTotal = 0;
+        while (brevoRemaining > 0) {
+          const res = await fetch("/api/club/sync-brevo", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) break;
+          brevoSynced += data.synced || 0;
+          brevoTotal = brevoTotal || (brevoSynced + (data.remaining || 0));
+          brevoRemaining = data.remaining || 0;
+          const pct = brevoTotal > 0 ? Math.round((brevoSynced / brevoTotal) * 100) : 100;
+          setSyncStep(`Brevo ${pct}% (${brevoSynced}/${brevoTotal})…`);
+          if (data.synced === 0 && data.errors === 0) break;
+        }
       } catch {
         // Brevo optionnel — ne pas bloquer la sync
       }

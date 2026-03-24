@@ -472,7 +472,12 @@ async function findOrCreateList(
   return listId;
 }
 
-export async function syncClubBrevo() {
+export async function syncClubBrevo(limit?: number) {
+  // 0. Compter le total à syncher
+  const totalToSync = await prisma.clubMembre.count({
+    where: { exclu: false, brevoSynced: false, email: { not: "" } },
+  });
+
   // 1. Recuperer les listes existantes et le premier dossier
   const [existingLists, folders] = await Promise.all([
     getLists(),
@@ -497,12 +502,14 @@ export async function syncClubBrevo() {
   // Toutes les IDs de listes par niveau pour pouvoir retirer des mauvaises
   const allLevelListIdValues = Object.values(levelListIds);
 
-  // 3. Recuperer TOUS les membres avec un email valide
+  // 3. Recuperer les membres non synchés avec un email valide
   const membres = await prisma.clubMembre.findMany({
     where: {
       exclu: false,
+      brevoSynced: false,
       email: { not: "" },
     },
+    ...(limit ? { take: limit } : {}),
   });
 
   console.log(`[Club Brevo] ${membres.length} membres avec email a synchroniser`);
@@ -562,5 +569,6 @@ export async function syncClubBrevo() {
     `[Club Brevo] Termine — ${synced} synchronises, ${errors} erreurs`
   );
 
-  return { synced, errors, total: membres.length };
+  const remaining = Math.max(0, totalToSync - membres.length);
+  return { synced, errors, total: membres.length, remaining, totalToSync };
 }

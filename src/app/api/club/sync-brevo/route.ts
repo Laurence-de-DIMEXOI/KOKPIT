@@ -20,7 +20,7 @@ export async function POST() {
   }
 
   try {
-    const result = await syncClubBrevo();
+    const result = await syncClubBrevo(50);
 
     return NextResponse.json({
       success: true,
