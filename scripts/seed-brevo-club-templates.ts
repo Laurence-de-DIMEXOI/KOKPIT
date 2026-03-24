@@ -538,7 +538,6 @@ function buildTemplateLevel5(): TemplateDefinition {
     ${buildAdvantagesList([
       "25&thinsp;% de remise &agrave; vie sur le mobilier en teck massif",
       "Cadeau de bienvenue pour avoir atteint ce palier",
-      "Carte membre personnalis&eacute;e &agrave; votre nom",
       "Remise chez l&rsquo;un de nos partenaires h&ocirc;teliers*",
       "Acc&egrave;s aux avant-premi&egrave;res des nouvelles collections",
       "Acc&egrave;s aux ventes priv&eacute;es",
@@ -546,12 +545,6 @@ function buildTemplateLevel5(): TemplateDefinition {
       "Espace Club personnel avec suivi de commandes",
       "Newsletter exclusive Club Tectona",
     ])}
-
-    <tr>
-      <td style="padding:12px 0;font-family:${FONT.body};font-size:13px;color:#555555;line-height:1.6;font-style:italic;">
-        Votre carte membre vous sera remise lors de votre prochaine visite en showroom.
-      </td>
-    </tr>
 
     ${buildCTA("D&eacute;couvrir le programme Club Tectona &rarr;", "https://www.dimexoi.fr/club-grandis")}
 

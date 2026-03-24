@@ -892,7 +892,6 @@ export default function ClubTectonaPage() {
                     <p className="font-bold text-xs mb-1" style={{ color: da.primary }}>V — Le Tectona Grandis</p>
                     <ul className="text-xs text-cockpit-secondary space-y-0.5 list-disc list-inside">
                       <li>Cadeau pour avoir atteint le palier</li>
-                      <li>Carte membre personnalisée à votre nom</li>
                     </ul>
                   </div>
                 </div>
