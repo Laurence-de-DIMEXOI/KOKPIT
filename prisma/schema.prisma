@@ -140,6 +140,8 @@ model User {
   prenom          String
   passwordHash    String
   totpSecret      String?
+  resetToken      String?   @unique
+  resetTokenExpiry DateTime?
   role            Role
   titre           String?
   telephone       String?
