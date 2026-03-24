@@ -6,7 +6,7 @@ import { randomBytes } from "crypto";
 
 const BREVO_API_URL = "https://api.brevo.com/v3";
 const SENDER = { name: "KOKPIT", email: "laurence.payet@dimexoi.fr" };
-const APP_URL = process.env.NEXTAUTH_URL || "https://kokpit-kappa.vercel.app";
+const APP_URL = "https://kokpit-kappa.vercel.app";
 
 /**
  * POST /api/auth/invite
