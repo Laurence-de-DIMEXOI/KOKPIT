@@ -61,9 +61,7 @@ export const ESPACES: Espace[] = [
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
-      { label: "Mes Tâches", href: "/commercial/taches", icon: ClipboardList, module: "taches" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
-      { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
     ],
   },
   {
@@ -79,10 +77,8 @@ export const ESPACES: Espace[] = [
       { label: "Emailing", href: "/emailing", icon: Mail, module: "emailing" },
       { label: "Planning", href: "/planning", icon: CalendarDays, module: "planning" },
       { label: "Nos Réseaux", href: "/nos-reseaux", icon: Share2, module: "nos-reseaux" },
-      { label: "Liens utiles", href: "/liens-utiles", icon: Link2, module: "liens-utiles" },
       { label: "Automatisations", href: "/automatisations", icon: Zap, module: "automatisations" },
       { label: "ROI Marketing", href: "/marketing/roi", icon: TrendingUp, module: "analytique" },
-      { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
     ],
   },
   {
@@ -102,17 +98,20 @@ export const ESPACES: Espace[] = [
   {
     id: "achat",
     label: "Achat",
-    disabled: true,
-    disabledTooltip: "Bientôt disponible",
-    requiredModule: "dashboard",
-    defaultHref: "#",
-    menu: [],
+    requiredModule: "commandes",
+    defaultHref: "/commercial/commandes",
+    menu: [
+      { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
+      { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
+      { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
+    ],
   },
 ];
 
 // ===== MENU GÉNÉRAL (toujours visible) =====
 
 export const MENU_GENERAL: NavItem[] = [
+  { label: "Mes Tâches", href: "/commercial/taches", icon: ClipboardList, module: "taches" },
   { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
   { label: "Liens utiles", href: "/liens-utiles", icon: Link2, module: "liens-utiles" },
   { label: "Docs & Aide", href: "/docs", icon: BookOpen, module: "docs" },

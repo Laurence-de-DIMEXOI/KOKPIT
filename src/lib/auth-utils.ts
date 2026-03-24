@@ -1,6 +1,6 @@
 import type { Session } from "next-auth";
 
-export type Role = "ADMIN" | "MARKETING" | "COMMERCIAL" | "DIRECTION";
+export type Role = "ADMIN" | "MARKETING" | "COMMERCIAL" | "DIRECTION" | "ACHAT";
 
 export type Module =
   | "dashboard"
@@ -31,8 +31,17 @@ export type Module =
   | "pointage-equipe"
   | "sav";
 
+/**
+ * Permissions par rôle — DIMEXOI
+ *
+ * ADMIN (Michelle, Liliane, Alain) : Tout + options spéciales Michelle (pointage Georget, validation congés)
+ * MARKETING (Laurence) : Tout sauf pointage-equipe et options Michelle
+ * COMMERCIAL (Bernard, Daniella, Laurent) : Section commerciale + Général + congés/pointage
+ * ACHAT (Elaury) : Commandes + SAV + Catalogue + Général + congés/pointage
+ */
 const roleModuleAccess: Record<Role, Module[]> = {
   ADMIN: [
+    // Tout accès
     "dashboard",
     "leads",
     "contacts",
@@ -62,21 +71,27 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "sav",
   ],
   MARKETING: [
+    // Tout Marketing + Commercial en lecture + Général
     "dashboard",
     "leads",
     "contacts",
     "campagnes",
     "emailing",
     "automatisations",
+    "analytique",
     "planning",
-    "liens-utiles",
     "nos-reseaux",
     "docs",
     "club-tectona",
+    "taches",
+    "liens-utiles",
     "pointage",
     "sav",
+    "conges",
+    // Pas : pointage-equipe, collaborateurs, parametres
   ],
   COMMERCIAL: [
+    // Section commerciale + Général + Admin light (congés/pointage)
     "dashboard-commercial",
     "pipeline",
     "catalogue",
@@ -84,19 +99,33 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "taches",
     "leads",
     "contacts",
-    "docs",
     "bois-dorient",
-    "club-tectona",
-    "pointage",
     "sav",
+    // Général
+    "docs",
+    "club-tectona",
+    "liens-utiles",
+    // Admin light
+    "conges",
+    "pointage",
   ],
   DIRECTION: [
+    // Tout accès (comme ADMIN)
     "dashboard",
-    "dashboard-commercial",
+    "leads",
+    "contacts",
     "campagnes",
-    "pipeline",
-    "taches",
+    "emailing",
+    "automatisations",
+    "devis",
+    "ventes",
     "analytique",
+    "parametres",
+    "dashboard-commercial",
+    "pipeline",
+    "catalogue",
+    "commandes",
+    "taches",
     "dashboard-admin",
     "conges",
     "collaborateurs",
@@ -104,10 +133,26 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "liens-utiles",
     "nos-reseaux",
     "docs",
+    "club-tectona",
     "bois-dorient",
     "pointage",
     "pointage-equipe",
     "sav",
+  ],
+  ACHAT: [
+    // Commandes + SAV + Catalogue + Général + Admin light
+    "commandes",
+    "sav",
+    "catalogue",
+    "contacts",
+    // Général
+    "docs",
+    "club-tectona",
+    "liens-utiles",
+    "taches",
+    // Admin light
+    "conges",
+    "pointage",
   ],
 };
 
