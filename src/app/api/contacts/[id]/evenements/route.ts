@@ -23,12 +23,18 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit")) || 20));
+  const typeFilter = searchParams.get("type") || "";
   const skip = (page - 1) * limit;
+
+  const where: any = { contactId: id };
+  if (typeFilter) {
+    where.type = typeFilter;
+  }
 
   try {
     const [evenements, total] = await Promise.all([
       prisma.evenement.findMany({
-        where: { contactId: id },
+        where,
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -36,7 +42,7 @@ export async function GET(
           auteur: { select: { id: true, nom: true, prenom: true } },
         },
       }),
-      prisma.evenement.count({ where: { contactId: id } }),
+      prisma.evenement.count({ where }),
     ]);
 
     return NextResponse.json({

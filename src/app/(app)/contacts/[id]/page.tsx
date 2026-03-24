@@ -147,6 +147,7 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
   const [newEventDesc, setNewEventDesc] = useState("");
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
+  const [eventTypeFilter, setEventTypeFilter] = useState("");
   // SAV
   const [savDossiers, setSavDossiers] = useState<any[]>([]);
 
@@ -189,7 +190,8 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
     if (!contactId) return;
     setEventsLoading(true);
     try {
-      const res = await fetch(`/api/contacts/${contactId}/evenements?page=${page}&limit=15`);
+      const typeParam = eventTypeFilter ? `&type=${eventTypeFilter}` : "";
+      const res = await fetch(`/api/contacts/${contactId}/evenements?page=${page}&limit=15${typeParam}`);
       if (res.ok) {
         const data = await res.json();
         setEvenements(prev => append ? [...prev, ...data.evenements] : data.evenements);
@@ -199,7 +201,12 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
       }
     } catch { /* silencieux */ }
     finally { setEventsLoading(false); }
-  }, [contactId]);
+  }, [contactId, eventTypeFilter]);
+
+  // Refetch when filter changes
+  useEffect(() => {
+    if (contactId) fetchEvenements(1);
+  }, [eventTypeFilter, fetchEvenements, contactId]);
 
   const createEvent = async () => {
     if (!contactId || !newEventDesc.trim() || creatingEvent) return;
@@ -604,6 +611,30 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
             <Plus className="w-3.5 h-3.5" />
             Ajouter
           </button>
+        </div>
+
+        {/* Filtre par type */}
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          <button
+            onClick={() => setEventTypeFilter("")}
+            className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+              !eventTypeFilter ? "bg-[#F4B400]/15 text-[#F4B400] ring-1 ring-[#F4B400]/30" : "bg-[#F5F6F7] text-[#8592A3] hover:text-[#32475C]"
+            }`}
+          >
+            Tout
+          </button>
+          {(Object.entries(eventTypeConfig) as [string, any][]).map(([type, cfg]) => (
+            <button
+              key={type}
+              onClick={() => setEventTypeFilter(eventTypeFilter === type ? "" : type)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                eventTypeFilter === type ? `${cfg.bg} ${cfg.color} ring-1 ring-current` : "bg-[#F5F6F7] text-[#8592A3] hover:text-[#32475C]"
+              }`}
+            >
+              <cfg.icon className="w-3 h-3" />
+              {cfg.label}
+            </button>
+          ))}
         </div>
 
         {/* Formulaire d'ajout */}

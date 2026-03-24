@@ -310,6 +310,23 @@ export async function syncClubCommandes() {
           data: { niveauEmailEnvoye: row.niveau, dernierEmailDate: new Date() },
         });
         emailsSent++;
+
+        // Auto-log EMAIL_ENVOYE sur le contact KOKPIT (si trouvé par email)
+        try {
+          const contact = await prisma.contact.findFirst({
+            where: { email: { equals: membre.email, mode: "insensitive" } },
+            select: { id: true },
+          });
+          if (contact) {
+            await prisma.evenement.create({
+              data: {
+                contactId: contact.id,
+                type: "EMAIL_ENVOYE",
+                description: `Email Club Tectona — Niveau ${row.niveau} envoyé`,
+              },
+            });
+          }
+        } catch { /* silencieux — ne pas bloquer le sync */ }
       }
     }
 

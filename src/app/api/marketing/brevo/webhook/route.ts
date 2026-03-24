@@ -22,6 +22,39 @@ export async function POST(request: NextRequest) {
       await prisma.brevoWebhookEvent.createMany({ data: records });
     }
 
+    // Auto-log événements sur les contacts KOKPIT
+    for (const evt of events) {
+      const email = evt.email;
+      if (!email) continue;
+
+      const contact = await prisma.contact.findFirst({
+        where: { email: { equals: email, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (!contact) continue;
+
+      const eventName = evt.event;
+      if (eventName === "click") {
+        await prisma.evenement.create({
+          data: {
+            contactId: contact.id,
+            type: "VISITE_WEB",
+            description: `Clic email : ${evt.subject || "campagne"}${evt.link ? ` → ${evt.link}` : ""}`,
+            metadata: { brevoEvent: eventName, link: evt.link, tag: evt.tag },
+          },
+        });
+      } else if (eventName === "delivered") {
+        await prisma.evenement.create({
+          data: {
+            contactId: contact.id,
+            type: "EMAIL_ENVOYE",
+            description: `Email délivré : ${evt.subject || "campagne Brevo"}`,
+            metadata: { brevoEvent: eventName, messageId: evt["message-id"], tag: evt.tag },
+          },
+        });
+      }
+    }
+
     return NextResponse.json({ received: records.length });
   } catch (error: any) {
     console.error("POST /api/marketing/brevo/webhook error:", error);
