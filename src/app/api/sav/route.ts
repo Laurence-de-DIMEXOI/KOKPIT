@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { genererNumeroDossier } from "@/lib/sav-numero";
+import { sellsyFetch } from "@/lib/sellsy";
 
 /**
  * GET /api/sav
@@ -132,6 +133,20 @@ export async function POST(req: NextRequest) {
 
     const numero = await genererNumeroDossier();
 
+    // Auto-résoudre l'ID Sellsy à partir de la référence BDC
+    let resolvedBdcId = sellsyBdcId || null;
+    if (sellsyBdcRef && !resolvedBdcId) {
+      try {
+        const res = await sellsyFetch<{ data: any[] }>(`/orders?search=${encodeURIComponent(sellsyBdcRef)}&limit=5`);
+        const match = res?.data?.find((o: any) => o.reference === sellsyBdcRef || o.number === sellsyBdcRef);
+        if (match) {
+          resolvedBdcId = String(match.id);
+        }
+      } catch {
+        // Silencieux — on crée le dossier sans l'ID Sellsy
+      }
+    }
+
     const dossier = await prisma.dossierSAV.create({
       data: {
         numero,
@@ -139,7 +154,7 @@ export async function POST(req: NextRequest) {
         type,
         description,
         contactId,
-        sellsyBdcId,
+        sellsyBdcId: resolvedBdcId,
         sellsyBdcRef,
         contactNom,
         assigneId,

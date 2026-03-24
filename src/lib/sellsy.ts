@@ -67,7 +67,7 @@ export function invalidateSellsyCache() {
 
 // ===== HELPER API =====
 
-async function sellsyFetch<T>(
+export async function sellsyFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
