@@ -637,6 +637,9 @@ model ConfigABC {
 | ~~X6~~ | ~~Notifications internes~~ | ✅ | Bell topbar + API 5 types (token Meta, devis expirant, Brevo sync, tâches retard, SLA 72h) — déjà implémenté |
 | ~~X7~~ | ~~Dashboards avec courbes~~ | ✅ | Recharts LineChart + ComposedChart + BarChart — évolution devis/commandes, leads par source — déjà implémenté |
 | X8 | ROI Marketing réel | ⚠️ Partiel | ROAS Meta + tableau mensuel + CoutOffline existent. Manque : modèle CoutMarketing multi-canal, Google Ads, page ROI séparée |
+| X9 | Segmentation RFM | ⚠️ Partiel | Calcul RFM + scores en base + badge contact existent. Manque : export segments vers listes Brevo |
+| ~~X11~~ | ~~Responsive mobile~~ | ✅ | Toutes les pages principales ont des classes responsive Tailwind (grid-cols, sm:, md:, lg:) |
+| ~~BDO~~ | ~~Migration Bois d'Orient~~ | ✅ | Page + 7 routes API + extraction + matching + documents — déjà implémenté |
 | X9 | Segmentation RFM | Récence/Fréquence/Montant → segments Brevo | 2j |
 | ~~X10~~ | ~~SLA 72h leads + relance commercial~~ | ✅ Déployé `f5911fc`+`2dc583d` — SLA + bouton relance email | — |
 | X11 | Responsive mobile | Pages clés sur téléphone | 1j |
