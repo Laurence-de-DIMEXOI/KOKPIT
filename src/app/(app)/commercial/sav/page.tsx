@@ -145,8 +145,13 @@ export default function SAVPage() {
     try {
       const res = await fetch("/api/conges/stats");
       const data = await res.json();
-      if (data.users) setUsers(data.users);
-      else if (data.collaborateurs) setUsers(data.collaborateurs);
+      const SAV_ASSIGNABLES = ["Michelle", "Daniella", "Bernard", "Elaury"];
+      const allUsers = data.soldes || data.users || data.collaborateurs || [];
+      const mapped = allUsers.map((u: any) => ({ id: u.userId || u.id, nom: u.nom, prenom: u.prenom }));
+      const filtered = mapped.filter((u: any) =>
+        SAV_ASSIGNABLES.some((name) => u.prenom?.toLowerCase() === name.toLowerCase())
+      );
+      setUsers(filtered.length > 0 ? filtered : mapped);
     } catch {
       /* silent */
     }
