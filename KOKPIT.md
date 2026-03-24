@@ -288,7 +288,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | ~~AUD12~~ | ~~Sync leads perf — 100% Prisma~~ | ✅ | f5911fc |
 | ~~AUD12~~ | ~~Relance commercial par email~~ | ✅ | f5911fc |
 | ~~AUD12~~ | ~~SLA intelligent (masqué si traité)~~ | ✅ | 2dc583d |
-| AUD10-CB | Code-barres + impression étiquettes catalogue | 🟡 | Modèle ProduitBarcode, JsBarcode, CSS print — pas encore fait |
+| ~~AUD10-CB~~ | ~~Code-barres + impression étiquettes catalogue~~ | ✅ | JsBarcode v3.12.3 installé, CODE128, composant `barcode-label.tsx`, impression individuelle (drawer) + multi-sélection (62mm x 100mm thermique). Pas de modèle ProduitBarcode nécessaire — codes générés à la volée depuis référence Sellsy |
 | ~~AUD-META~~ | ~~Debug Meta Ads~~ | ✅ | Token ok — ajouter filtre "mois en cours" par défaut |
 | ~~AUD-BREVO~~ | ~~Debug campagne Brevo "Semaines Privilege" à zéro~~ | ⚠️ | Limitation plan Brevo Starter — l'API REST v3 ne retourne pas les stats pour certaines campagnes (dashboard Brevo les affiche). Fallback appel individuel ajouté (`c1688e9`). Export webhook dispo uniquement sur plan Professional+. Pas de fix possible côté KOKPIT |
 
@@ -376,7 +376,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - `Task` — tâches avec échéances (X2)
 - `CoutMarketing` — coûts marketing ROI réel (X8)
 - `BrevoWebhookEvent` — signaux Brevo→KOKPIT (X5)
-- `ProduitBarcode` — code-barres unique par référence catalogue (AUD10)
+- ~~`ProduitBarcode`~~ — non nécessaire, codes-barres générés à la volée (AUD10-CB ✅)
 - `SeuilStockAchat` — seuils stock par référence (A1)
 - `ConfigABC` — seuils globaux A/B/C configurables (A1)
 
