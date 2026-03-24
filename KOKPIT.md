@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 21 mars 2026 (v12 — Club Tectona renommé + Migration Bois d'Orient)
-**Mis à jour par** : Session Claude Code (Sprint 21 mars)
+**Dernière mise à jour** : 24 mars 2026 (v13 — Pointage + SAV/Litiges + Congés responsive + Popup café)
+**Mis à jour par** : Session Claude Code (Sprint 24 mars)
 
 ---
 
@@ -202,7 +202,11 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - `emailing/page.tsx` + `listes/page.tsx` — Campagnes Brevo + listes de diffusion
 - `campagnes/page.tsx` — Campagnes Meta Ads
 
-**Autres** : `/planning` · `/marketing/club` (Club Tectona) · `/marketing/liens-utiles` · `/marketing/nos-reseaux` · `/administration/bois-dorient` (Migration BDO) · `/docs` · `/parametres` · `/login`
+**Administration** : `/administration` · `/administration/collaborateurs` · `/administration/conges` · `/administration/pointage` · `/administration/pointage/equipe`
+
+**Commercial supplémentaire** : `/commercial/sav` (SAV/Litiges) · `/commercial/bois-dorient` (Migration BDO)
+
+**Autres** : `/planning` · `/marketing/club` (Club Tectona) · `/marketing/liens-utiles` · `/marketing/nos-reseaux` · `/docs` · `/parametres` · `/login`
 
 ---
 
@@ -262,6 +266,10 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | USERS | Gestion utilisateurs enrichie | Ajout champs titre/telephone, rôle ACHAT, 4 nouveaux utilisateurs |
 | CLUB | Club Tectona — Programme de fidélité | Voir section 18 — 5 niveaux, sync Sellsy + Brevo, DA mousse #515712, polices Perandory/Burgues Script, page /marketing/club |
 | BDO | Migration Bois d'Orient | Extraction Sellsy BDO + matching contacts + intégration Club Tectona + PDFs Supabase + tag BO + segment Brevo — page /administration/bois-dorient |
+| POINTAGE | Module Pointage complet | Page employé (bouton dynamique, horloge, historique) + page manager (vue équipe, récap mensuel, correction, export CSV) + délégation Michelle→Georget + exclusion Liliane/Alain + popup café ☕ |
+| SAV | Module SAV/Litiges | Page /commercial/sav — 4 KPIs, filtres, drawer détail, documents, commentaires, autocomplete contact, numéro auto SAV-2026-XXXX, assigné limité (Michelle/Daniella/Bernard/Elaury), intégré fiche contact |
+| CONGES-RESP | Congés responsive mobile | Table→cards mobile, calendrier 1 col, boutons tap-friendly, modal périodes responsive |
+| MODAL-FIX | Fix modales congés | createPortal pour échapper overflow layout parent |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée
@@ -322,6 +330,14 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Club Tectona — Exclusions | Équipe interne exclue par nom+prénom exact (pas par nom seul → homonymes clients protégés) | DIMEXOI, Batisse, Legros/Perrot, Payet, Dammbrille, Decaunes |
 | Bois d'Orient — Matching | Email exact uniquement (lowercase + trim). Jamais de matching sur nom seul | Évite les faux positifs |
 | Bois d'Orient — CA fidélité | CA basé sur les **factures** BDO (pas commandes). Combiné avec CA DIMEXOI pour le Club Tectona | Cohérence avec le calcul Club |
+| Pointage — Sécurité | userId TOUJOURS depuis `session.user.id`, jamais depuis body/params. Manager = ADMIN+DIRECTION | Règle non négociable |
+| Pointage — Délégation | `User.pointageDelegueId` : Michelle pointe pour Georget. `User.pointageActif` : exclut Liliane/Alain | Cas métier spécifique |
+| Pointage — Horaires | 7h travail effectif/jour, 1h pause par défaut, repos dimanche+lundi | Spécifique La Réunion |
+| Pointage — Café | Popup fun au pointage arrivée si c'est la semaine café (rotation 4 personnes, planning 2026) | Engagement équipe |
+| SAV — Numérotation | SAV-YYYY-NNNN auto-incrémenté, unique | Traçabilité |
+| SAV — Assignation | Limité à Michelle, Daniella, Bernard, Elaury (filtre côté UI) | Décision métier |
+| SAV — Soft delete | Seul ADMIN peut supprimer (soft delete via deletedAt) | Protection données |
+| Congés — Modales | createPortal(document.body) obligatoire pour les modales dans le layout (app) | Layout a overflow qui casse fixed |
 | Bois d'Orient — PDFs | Stockés dans Supabase Storage bucket `bois-dorient-docs`, path `{clientBdoId}/{type}-{reference}.pdf` | Pérenne même après fermeture Sellsy BDO |
 | Bois d'Orient — Sellsy | Client séparé `sellsy-bdo.ts` avec ses propres credentials et cache. Fichier temporaire, supprimable après migration | Pas de pollution du client DIMEXOI |
 
@@ -344,6 +360,12 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **DocArticle** — articles documentation ✅
 - **ClubMembre** — membres Club Tectona (sync Sellsy) — sellsyContactId unique, niveau 1-5, totalCommandes, totalMontant (Float), brevoSynced/sellsySynced flags, **origine** (DIMEXOI/BDO/LES_DEUX) ✅
 - **ClientBoisDOrient** — contacts extraits de Sellsy Bois d'Orient — sellsyIdBdo unique, totalCA (factures TTC), statut matching (NOUVEAU/MATCH_EMAIL/MATCH_MANUEL/A_VERIFIER) ✅
+- **Pointage** — pointage horaire par jour (@@unique userId+date) — arrivée/pause/départ, heuresTravaillées/heuresSupp calculés, correction manager avec note ✅
+- **ConfigPointage** — config globale : 7h théoriques/jour, 1h pause défaut ✅
+- **Conge** — demandes de congés avec approbation (en_attente/approuve/modifie/refuse) ✅
+- **DossierSAV** — dossiers SAV/litiges avec numéro auto SAV-2026-XXXX, 6 types, 5 statuts, lien contact + BDC Sellsy ✅
+- **DocumentSAV** — pièces jointes SAV (PDF, email, appel, courrier, photo) ✅
+- **CommentaireSAV** — commentaires internes sur dossiers SAV ✅
 - **DocumentBoisDOrient** — documents BDO (factures, commandes, devis) — sellsyDocId unique, pdfUrl/pdfPath Supabase Storage ✅
 - **ImportBoisDOrient** — log d'import BDO pour traçabilité ✅
 
@@ -767,4 +789,4 @@ model ClubMembre {
 
 ---
 
-*KOKPIT.md — feuille de route DIMEXOI — v12 — 21 mars 2026*
+*KOKPIT.md — feuille de route DIMEXOI — v13 — 24 mars 2026*
