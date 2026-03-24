@@ -16,15 +16,17 @@ const SEED_ARTICLES = [
 
 - **Gestion commerciale** : suivi des devis, commandes, pipeline de vente, tracabilite
 - **Marketing** : planning reseaux sociaux, campagnes email (Brevo), feed Instagram, liens utiles
-- **Administration** : gestion des collaborateurs, conges et absences
+- **Administration** : gestion des collaborateurs, conges, pointage
+- **SAV / Litiges** : suivi des dossiers clients
 
-## Les 3 espaces
+## Les 4 espaces
 
-KOKPIT est organise en 3 espaces accessibles depuis le bas de la sidebar :
+KOKPIT est organise en 4 espaces accessibles depuis la topbar :
 
-1. **Commercial** (bleu) : tout le flux de vente, du lead a la commande
-2. **Marketing** (jaune) : outils marketing, contenu, reseaux sociaux
-3. **Administration** (vert) : RH, collaborateurs, conges
+1. **Commercial** (teal) : tout le flux de vente, du lead a la commande, SAV
+2. **Marketing** (raspberry) : outils marketing, contenu, reseaux sociaux, ROI
+3. **Administration** (bronze) : RH, collaborateurs, conges, pointage
+4. **Achat** (cerise) : commandes, catalogue, SAV
 
 Chaque espace affiche un menu contextuel adapte a ses fonctionnalites.`,
   },
@@ -60,23 +62,34 @@ Cliquez sur un des boutons d'espace en bas de la sidebar. Le menu se met a jour 
 - **Pipeline Devis** : suivi des devis par statut (Kanban)
 - **Commandes** : liste des commandes Sellsy
 - **Tracabilite** : liaison devis vers commandes
-- **Catalogue** : produits et tarifs Sellsy
+- **SAV — Litiges** : dossiers clients avec documents et commentaires
+- **Catalogue** : produits et tarifs Sellsy avec codes-barres
 
 ## Espace Marketing
 
 - **Tableau de bord** : KPIs marketing globaux
-- **Campagnes** : suivi des campagnes pub (Meta, Google)
+- **Campagnes** : suivi des campagnes pub (Meta)
 - **Emailing** : statistiques Brevo + synchronisation contacts
-- **Planning** : planning editorial reseaux sociaux (Kanban)
+- **Planning** : planning editorial reseaux sociaux (Kanban + Calendrier)
 - **Nos Reseaux** : liens sociaux + feed Instagram
-- **Liens utiles** : bookmarks et outils externes
+- **ROI Marketing** : analyse CA vs depenses, ROAS, CAC
 - **Automatisations** : workflows email automatises
 
 ## Espace Administration
 
 - **Dashboard** : vue d'ensemble RH
 - **Collaborateurs** : fiches employes
-- **Conges & Absences** : demandes et suivi`,
+- **Conges & Absences** : demandes, validation, calendrier annuel
+- **Pointage** : suivi horaires (arrivee, pause, depart)
+- **Pointage Equipe** : vue manager avec corrections et export CSV
+- **Parametres** : config SLA, pointage, roles
+
+## General (toujours visible)
+
+- **Mes Taches** : taches a faire (auto-creees par SLA et conges)
+- **Club Tectona** : programme de fidelite 5 niveaux
+- **Liens utiles** : bookmarks et outils externes
+- **Docs & Aide** : cette documentation + chatbot IA`,
   },
   // ── Commercial ──
   {
@@ -349,67 +362,220 @@ Les administrateurs peuvent :
     position: 0,
     contenu: `## Page Collaborateurs
 
-La page Collaborateurs liste tous les utilisateurs de KOKPIT avec leur role et showroom.
+La page Collaborateurs liste tous les membres de l'equipe DIMEXOI.
 
-## Informations
+## Les 4 roles
 
-Chaque collaborateur affiche :
-- Nom et prenom
-- Email
-- Role (Admin, Marketing, Commercial, Direction)
-- Showroom rattache
-- Statut (actif/inactif)
+- **Admin** (Michelle, Liliane, Alain) : acces complet. Michelle valide les conges et peut pointer pour Georget
+- **Marketing** (Laurence) : tout le marketing, leads, contacts, planning. Pas d'acces au pointage equipe
+- **Commercial** (Bernard, Daniella, Laurent) : pipeline, commandes, SAV, contacts + conges et pointage personnel
+- **Achat** (Elaury) : commandes, SAV, catalogue + conges et pointage personnel
 
-## Roles
+## Modifier un collaborateur
 
-- **Admin** : acces total a toutes les fonctionnalites
-- **Marketing** : acces aux espaces Marketing + leads/contacts
-- **Commercial** : acces a l'espace Commercial + leads/contacts
-- **Direction** : acces en lecture aux dashboards et KPIs de tous les espaces`,
+Cliquez sur un collaborateur pour voir sa fiche. Seul un Admin peut changer le role d'un utilisateur.`,
   },
   {
     titre: "Les conges et absences",
     slug: "conges-absences",
     categorie: "Administration",
     position: 1,
-    contenu: `## Page Conges & Absences
+    contenu: `## Faire une demande de conge
 
-Cette page permet de gerer les demandes de conges et absences des collaborateurs.
+1. Allez dans **Administration > Conges & Absences**
+2. Cliquez sur **Nouvelle demande** (bouton orange en haut a droite)
+3. Selectionnez le collaborateur (un Admin peut demander pour un autre)
+4. Choisissez le type : Conge paye, RTT, Sans solde, ou Maladie
+5. Renseignez jusqu'a 4 periodes (date debut et date fin)
+6. Ajoutez des observations si besoin
+7. Cliquez sur **Soumettre**
 
-## Fonctionnalites
+La demande passe en statut "En attente". Une tache automatique est creee pour Michelle pour la valider.
 
-- Vue calendrier des absences de l'equipe
-- Demandes de conges avec validation
-- Suivi des soldes de conges
-- Historique des absences
+## Valider ou refuser (Admin)
 
-## Types d'absence
+Dans l'onglet "En attente", cliquez sur le bouton vert (approuver) ou rouge (refuser) a cote de chaque demande. Vous pouvez ajouter un commentaire.
 
-- Conges payes
-- RTT
-- Maladie
-- Conge sans solde
-- Formation`,
+## Le calendrier
+
+Le calendrier annuel affiche tous les conges approuves, colores par collaborateur. Les zones rouges sont les periodes non recommandees (forte activite).
+
+## Regles
+
+- Repos : dimanche + lundi. Jours travailles : mardi a samedi
+- Duree max consecutive : 3 semaines (15 jours ouvres)
+- Solde annuel : 25 jours de CP
+- Les jours feries de La Reunion sont exclus du decompte`,
+  },
+  {
+    titre: "Le pointage",
+    slug: "pointage",
+    categorie: "Administration",
+    position: 2,
+    contenu: `## Pointer mon arrivee
+
+1. Allez dans **Administration > Pointage** (ou "Pointage" dans le menu general)
+2. L'horloge en temps reel s'affiche en haut a droite
+3. Cliquez sur le gros bouton **Pointer mon arrivee**
+4. Le bouton change : "Partir en pause" apparait
+
+## Ma journee type
+
+1. **Arrivee** : cliquez "Pointer mon arrivee" (bouton jaune)
+2. **Pause dejeuner** : cliquez "Partir en pause" (le bouton devient gris)
+3. **Retour de pause** : cliquez "Reprendre le travail" (bouton orange)
+4. **Depart** : cliquez "Pointer mon depart" (bouton gris)
+
+Le bouton devient vert "Journee terminee" quand tout est pointe.
+
+## Si j'oublie de pointer la pause
+
+Pas de souci : si la pause n'est pas pointee, 1 heure est deduite automatiquement du temps de travail.
+
+## Mon historique
+
+En bas de la page, les 10 derniers jours sont affiches avec : date, arrivee, depart, heures travaillees, heures supplementaires.
+
+## Pointage pour Georget
+
+Michelle peut pointer pour Georget grace a la section "Pointer pour un collaborateur" qui apparait sur sa page de pointage.
+
+## Le popup cafe
+
+Quand c'est votre semaine de lavage de la machine a cafe, un popup fun apparait a votre arrivee pour vous le rappeler !
+
+## Pointage Equipe (Admin/Direction)
+
+La page **Pointage Equipe** permet de voir tous les pointages du jour avec des badges statut (au travail, en pause, absent, termine). Le recap mensuel montre les totaux par collaborateur avec export CSV.`,
+  },
+  {
+    titre: "Le SAV et les litiges",
+    slug: "sav-litiges",
+    categorie: "Commercial",
+    position: 4,
+    contenu: `## Creer un dossier SAV
+
+1. Allez dans **Commercial > SAV — Litiges**
+2. Cliquez sur **+ Nouveau dossier**
+3. Tapez le nom du client pour le chercher (autocomplete)
+4. Renseignez la reference BDC Sellsy si applicable
+5. Donnez un titre clair au dossier
+6. Choisissez le type : Defaut produit, Livraison, Litige, Retour, Insatisfaction, Autre
+7. Decrivez le probleme
+8. Assignez le dossier a Michelle, Daniella, Bernard ou Elaury
+9. Cliquez sur **Creer le dossier**
+
+Un numero SAV-2026-XXXX est genere automatiquement.
+
+## Suivre un dossier
+
+Cliquez sur un dossier dans la liste pour ouvrir le panneau de detail :
+
+- **Changer le statut** : A traiter, En cours, En attente, Traite, Cloture
+- **Ajouter un document** : photo, email, note d'appel, courrier, PDF
+- **Commenter** : echangez en interne sur le dossier (fil de discussion)
+
+## Les KPIs
+
+4 cartes en haut : Total dossiers, A traiter (urgents), En cours, Traites. Filtrez par statut, type ou assigne.
+
+## SAV dans la fiche contact
+
+Quand un contact a des dossiers SAV, ils apparaissent dans sa fiche contact avec le statut et la date.`,
+  },
+  {
+    titre: "Le Club Tectona",
+    slug: "club-tectona",
+    categorie: "Commercial",
+    position: 5,
+    contenu: `## Le programme de fidelite
+
+Le Club Tectona recompense les clients fideles de DIMEXOI avec des remises sur le mobilier en teck massif.
+
+## Les 5 niveaux
+
+| Niveau | Nom | Seuil | Remise | Validite |
+|--------|-----|-------|--------|----------|
+| I | L'Ecorce | 500 euros | -5% | 3 mois |
+| II | L'Aubier | 2 000 euros | -10% | 6 mois |
+| III | Le Coeur | 5 000 euros | -15% | 9 mois |
+| IV | Le Grain | 10 000 euros | -20% | 12 mois |
+| V | Le Tectona Grandis | 20 000 euros | -25% | A vie |
+
+## Comment ca fonctionne
+
+La synchronisation se fait automatiquement chaque matin a 6h05 :
+1. Les commandes Sellsy depuis 2020 sont recuperees
+2. Le cumul TTC par client est calcule
+3. Le niveau est attribue (un client ne descend jamais)
+4. Un email de bienvenue est envoye si le client monte de niveau
+5. Les contacts sont pousses vers Brevo (6 listes)
+6. Les tags Sellsy sont mis a jour (CLUB - Niv 1 a 5)
+
+## Gerer le Club
+
+Sur la page **Club Tectona** :
+- Cliquez sur **Mettre a jour le club** pour lancer une sync manuelle
+- Generez un **code promo** pour un membre (bouton Ticket)
+- Marquez un **bon comme utilise** (checkbox verte)
+- Consultez le **Memo** pour les regles completes du programme`,
+  },
+  {
+    titre: "Le ROI Marketing",
+    slug: "roi-marketing",
+    categorie: "Marketing",
+    position: 5,
+    contenu: `## Suivre la rentabilite marketing
+
+La page **ROI Marketing** compare le chiffre d'affaires genere aux depenses marketing engagees.
+
+## Ajouter une depense
+
+1. Cliquez sur **+ Ajouter une depense**
+2. Selectionnez la periode (mois)
+3. Choisissez le type : Meta Ads, Google Ads, Salon, Agence, Print, Autre
+4. Donnez un libelle et le montant
+5. Cliquez sur Ajouter
+
+## Lire les KPIs
+
+- **CA total** : chiffre d'affaires de l'annee (depuis les ventes Sellsy)
+- **Depenses totales** : somme de tous les couts marketing enregistres
+- **ROI annuel** : pourcentage de rentabilite ((CA - Depenses) / Depenses x 100)
+- **CAC** : cout d'acquisition client (Depenses / nombre de ventes)
+
+## Tableau mensuel
+
+Chaque mois affiche le CA, les depenses et le ROI. Vert si positif, rouge si negatif.
+
+## Repartition par canal
+
+Les barres horizontales montrent la repartition des depenses par type (Meta, Salon, etc).`,
   },
   {
     titre: "Les parametres",
     slug: "parametres",
     categorie: "Administration",
-    position: 2,
-    contenu: `## Page Parametres
+    position: 3,
+    contenu: `## Page Parametres (Admin uniquement)
 
-La page Parametres permet de configurer KOKPIT selon vos besoins.
+Accessible depuis **Administration > Parametres**.
 
-## Options disponibles
+## SLA — Delai de traitement
 
-- **Profil** : modifier vos informations personnelles
-- **Showrooms** : gestion des showrooms DIMEXOI
-- **Integrations** : connexions API (Sellsy, Brevo, Meta)
-- **Objectifs commerciaux** : definir les objectifs CA mensuels
+Le SLA definit le temps maximum pour traiter une demande client. Par defaut : 72 heures.
+Quand le SLA est depasse, une tache automatique est creee pour le commercial assigne.
 
-## Acces
+Modifiez la valeur et cliquez sur **Enregistrer**.
 
-Seuls les administrateurs ont acces aux parametres avances (integrations, objectifs).`,
+## Pointage — Horaires
+
+- **Heures theoriques/jour** : nombre d'heures de travail attendues (defaut : 7h). Les heures supplementaires sont calculees par rapport a cette valeur.
+- **Pause par defaut** : duree deduite si la pause n'est pas pointee (defaut : 1h).
+
+## Roles et acces
+
+L'apercu des roles montre quels modules sont accessibles par profil. Pour changer le role d'un collaborateur, allez dans **Collaborateurs**.`,
   },
 ];
 
@@ -424,7 +590,7 @@ export async function POST() {
 
   try {
     let created = 0;
-    let skipped = 0;
+    let updated = 0;
 
     for (const article of SEED_ARTICLES) {
       const existing = await prisma.docArticle.findUnique({
@@ -432,20 +598,28 @@ export async function POST() {
       });
 
       if (existing) {
-        skipped++;
-        continue;
+        await prisma.docArticle.update({
+          where: { slug: article.slug },
+          data: {
+            titre: article.titre,
+            contenu: article.contenu,
+            categorie: article.categorie,
+            position: article.position,
+          },
+        });
+        updated++;
+      } else {
+        await prisma.docArticle.create({
+          data: article,
+        });
+        created++;
       }
-
-      await prisma.docArticle.create({
-        data: article,
-      });
-      created++;
     }
 
     return NextResponse.json({
       success: true,
       created,
-      skipped,
+      updated,
       total: SEED_ARTICLES.length,
     });
   } catch (error: any) {
