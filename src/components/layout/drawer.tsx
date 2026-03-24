@@ -42,12 +42,12 @@ export function Drawer({
 
       {/* Drawer */}
       <div
-       className="fixed top-4 right-4 bottom-4 bg-card shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-out rounded-2xl"
+        className="fixed top-0 right-0 bottom-0 bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-out w-full sm:w-auto sm:top-4 sm:right-4 sm:bottom-4 sm:rounded-2xl"
         style={{
-          width: `${width}px`,
+          maxWidth: `${width}px`,
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
-  }}
->
+        }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">{title}</h2>

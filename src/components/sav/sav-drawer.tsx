@@ -285,7 +285,7 @@ export default function SAVDrawer({
       {loading || !dossier ? (
         <div className="space-y-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 bg-gray-200 rounded-lg animate-pulse" />
+            <div key={i} className="h-12 bg-cockpit-dark rounded-lg animate-pulse" />
           ))}
         </div>
       ) : (
