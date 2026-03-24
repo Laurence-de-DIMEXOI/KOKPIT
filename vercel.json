@@ -11,6 +11,10 @@
     {
       "path": "/api/cron?job=sla-check",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/recap-hebdo",
+      "schedule": "57 8 * * 2"
     }
   ]
 }
