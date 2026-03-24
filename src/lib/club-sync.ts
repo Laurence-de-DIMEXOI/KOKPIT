@@ -359,49 +359,30 @@ export async function syncClubTags(limit?: number) {
   let synced = 0;
   let errors = 0;
 
-  // Batch parallèle de 5 avec pause entre chaque batch
-  const BATCH_SIZE = 5;
-  const PAUSE_MS = 400;
+  // Séquentiel avec pause légère (API Sellsy V1 ne supporte pas le parallèle)
+  for (const membre of membres) {
+    const contactId = parseInt(membre.sellsyContactId, 10);
+    if (isNaN(contactId)) { errors++; continue; }
 
-  for (let i = 0; i < membres.length; i += BATCH_SIZE) {
-    const batch = membres.slice(i, i + BATCH_SIZE);
+    const level = CLUB_LEVELS.find((l) => l.niveau === membre.niveau);
+    if (!level) { errors++; continue; }
 
-    const results = await Promise.allSettled(
-      batch.map(async (membre) => {
-        const contactId = parseInt(membre.sellsyContactId, 10);
-        if (isNaN(contactId)) throw new Error("Invalid contactId");
-
-        const level = CLUB_LEVELS.find((l) => l.niveau === membre.niveau);
-        if (!level) throw new Error("Invalid level");
-
-        await assignSmartTag(contactId, level.sellsyTag);
-
-        await prisma.clubMembre.update({
-          where: { id: membre.id },
-          data: { sellsySynced: true },
-        });
-      })
-    );
-
-    for (const r of results) {
-      if (r.status === "fulfilled") synced++;
-      else {
-        errors++;
-        // Marquer quand même pour ne pas reboucler
-        const idx = results.indexOf(r);
-        if (batch[idx]) {
-          await prisma.clubMembre.update({
-            where: { id: batch[idx].id },
-            data: { sellsySynced: true },
-          }).catch(() => {});
-        }
-      }
+    try {
+      await assignSmartTag(contactId, level.sellsyTag);
+      synced++;
+    } catch (err: any) {
+      console.warn(`[Club Tags] Erreur ${contactId} (${membre.nom}):`, err.message);
+      errors++;
     }
 
-    // Pause entre les batches (pas entre chaque membre)
-    if (i + BATCH_SIZE < membres.length) {
-      await new Promise((r) => setTimeout(r, PAUSE_MS));
-    }
+    // Marquer comme traité (même en erreur, pour ne pas reboucler)
+    await prisma.clubMembre.update({
+      where: { id: membre.id },
+      data: { sellsySynced: true },
+    });
+
+    // Pause légère entre chaque appel
+    await new Promise((r) => setTimeout(r, 150));
   }
 
   const remaining = total - membres.length;
