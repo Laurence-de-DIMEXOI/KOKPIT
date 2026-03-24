@@ -209,8 +209,25 @@ function buildSignOff(team: string, showrooms: boolean = true): string {
   const showroomLine = showrooms
     ? `
     <tr>
-      <td style="padding-top:4px;font-family:${FONT.body};font-size:12px;color:#888888;line-height:1.5;">
-        Showroom SUD &ndash; Saint-Pierre &middot; Showroom NORD &ndash; Saint-Denis
+      <td style="padding-top:12px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td width="50%" valign="top" style="padding-right:8px;font-family:${FONT.body};font-size:11px;color:#888888;line-height:1.6;">
+              <strong style="color:#555555;">Showroom SUD</strong><br/>
+              8 rue Benjamin Hoareau<br/>
+              ZI n&deg;3, 97410 Saint-Pierre<br/>
+              <a href="tel:0262350679" style="color:#515712;text-decoration:none;">0262 35 06 79</a><br/>
+              Mar - Sam : 9h - 17h
+            </td>
+            <td width="50%" valign="top" style="padding-left:8px;font-family:${FONT.body};font-size:11px;color:#888888;line-height:1.6;">
+              <strong style="color:#555555;">Showroom NORD</strong><br/>
+              43 rue Tourette<br/>
+              97400 Saint-Denis<br/>
+              <a href="tel:0262203030" style="color:#515712;text-decoration:none;">0262 20 30 30</a><br/>
+              Mar - Sam : 10h-13h &amp; 14h-18h
+            </td>
+          </tr>
+        </table>
       </td>
     </tr>`
     : '';
@@ -553,8 +570,25 @@ function buildTemplateLevel5(): TemplateDefinition {
             </td>
           </tr>
           <tr>
-            <td style="padding-top:4px;font-family:${FONT.body};font-size:12px;color:#888888;line-height:1.5;">
-              Showroom SUD &ndash; Saint-Pierre &middot; Showroom NORD &ndash; Saint-Denis
+            <td style="padding-top:12px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="50%" valign="top" style="padding-right:8px;font-family:${FONT.body};font-size:11px;color:#888888;line-height:1.6;">
+                    <strong style="color:#555555;">Showroom SUD</strong><br/>
+                    8 rue Benjamin Hoareau<br/>
+                    ZI n&deg;3, 97410 Saint-Pierre<br/>
+                    <a href="tel:0262350679" style="color:#515712;text-decoration:none;">0262 35 06 79</a><br/>
+                    Mar - Sam : 9h - 17h
+                  </td>
+                  <td width="50%" valign="top" style="padding-left:8px;font-family:${FONT.body};font-size:11px;color:#888888;line-height:1.6;">
+                    <strong style="color:#555555;">Showroom NORD</strong><br/>
+                    43 rue Tourette<br/>
+                    97400 Saint-Denis<br/>
+                    <a href="tel:0262203030" style="color:#515712;text-decoration:none;">0262 20 30 30</a><br/>
+                    Mar - Sam : 10h-13h &amp; 14h-18h
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
         </table>
