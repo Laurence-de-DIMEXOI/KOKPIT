@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { syncClubTags } from "@/lib/club-sync";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * POST /api/club/sync-tags
@@ -18,7 +18,7 @@ export async function POST() {
   }
 
   try {
-    const result = await syncClubTags(20);
+    const result = await syncClubTags(100);
 
     return NextResponse.json({
       success: true,
