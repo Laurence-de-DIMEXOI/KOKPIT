@@ -90,25 +90,42 @@ export async function GET(request: Request) {
       }
     }
 
-    const campagnes = (campagnesRes.campaigns || []).map((c: any) => {
-      const stats = c.statistics?.globalStats || {};
-      const destinataires = stats.sent || c.statistics?.sent || 0;
-      const ouvertures = stats.uniqueOpens || 0;
-      const clics = stats.uniqueClicks || 0;
-      const desabonnements = stats.unsubscriptions || 0;
-      const bounces = (stats.hardBounces || 0) + (stats.softBounces || 0);
+    // Fetch individual campaign stats when globalStats returns 0
+    // L'API Brevo ne retourne pas toujours les stats dans le listing
+    const rawCampaigns = campagnesRes.campaigns || [];
+    const campagnes = await Promise.all(
+      rawCampaigns.map(async (c: any) => {
+        let stats = c.statistics?.globalStats || {};
+        let destinataires = stats.sent || stats.delivered || 0;
 
-      return {
-        id: c.id,
-        nom: c.name || "Sans nom",
-        dateEnvoi: c.sentDate || c.scheduledAt || c.createdAt,
-        destinataires,
-        tauxOuverture: destinataires > 0 ? Math.round((ouvertures / destinataires) * 1000) / 10 : 0,
-        tauxClic: destinataires > 0 ? Math.round((clics / destinataires) * 1000) / 10 : 0,
-        desabonnements,
-        bounces,
-      };
-    });
+        // Si 0 dans le listing, tenter un appel individuel
+        if (destinataires === 0 && c.status === "sent") {
+          try {
+            const detail = await brevoFetch(`/emailCampaigns/${c.id}`);
+            stats = detail.statistics?.globalStats || stats;
+            destinataires = stats.sent || stats.delivered || 0;
+          } catch {
+            // Silently fallback to listing data
+          }
+        }
+
+        const ouvertures = stats.uniqueViews || stats.uniqueOpens || 0;
+        const clics = stats.uniqueClicks || 0;
+        const desabonnements = stats.unsubscriptions || 0;
+        const bounces = (stats.hardBounces || 0) + (stats.softBounces || 0);
+
+        return {
+          id: c.id,
+          nom: c.name || "Sans nom",
+          dateEnvoi: c.sentDate || c.scheduledAt || c.createdAt,
+          destinataires,
+          tauxOuverture: destinataires > 0 ? Math.round((ouvertures / destinataires) * 1000) / 10 : 0,
+          tauxClic: destinataires > 0 ? Math.round((clics / destinataires) * 1000) / 10 : 0,
+          desabonnements,
+          bounces,
+        };
+      })
+    );
 
     // Moyennes
     const campagnesAvecDonnees = campagnes.filter((c: any) => c.destinataires > 0);
