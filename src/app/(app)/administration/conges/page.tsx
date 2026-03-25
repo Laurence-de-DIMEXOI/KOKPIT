@@ -76,9 +76,9 @@ interface Periode {
 // ============================================================================
 
 const ADMIN_GRADIENT = {
-  from: "#F17142",
-  to: "#9A3F08",
-  shadow: "rgba(209, 95, 18, 0.30)",
+  from: "var(--color-active)",
+  to: "#FEEB9C",
+  shadow: "var(--color-active-border)",
 };
 
 const CURRENT_YEAR = 2026;
@@ -402,7 +402,7 @@ function ModalNouvelleDemande({
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary focus:border-[#F17142] focus:outline-none focus:ring-1 focus:ring-[#F17142]/30"
+              className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary focus:border-[var(--color-active)] focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]/30"
               required
             >
               <option value="">Sélectionner...</option>
@@ -437,7 +437,7 @@ function ModalNouvelleDemande({
             <select
               value={typeConge}
               onChange={(e) => setTypeConge(e.target.value)}
-              className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary focus:border-[#F17142] focus:outline-none focus:ring-1 focus:ring-[#F17142]/30"
+              className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary focus:border-[var(--color-active)] focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]/30"
             >
               {TYPES_CONGE.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -475,14 +475,14 @@ function ModalNouvelleDemande({
                     type="date"
                     value={p.dateDebut}
                     onChange={(e) => handlePeriodeChange(i, "dateDebut", e.target.value)}
-                    className="flex-1 rounded-lg border border-cockpit bg-cockpit-darker p-2 text-sm text-cockpit-primary focus:border-[#F17142] focus:outline-none"
+                    className="flex-1 rounded-lg border border-cockpit bg-cockpit-darker p-2 text-sm text-cockpit-primary focus:border-[var(--color-active)] focus:outline-none"
                   />
                   <span className="text-cockpit-secondary text-xs">au</span>
                   <input
                     type="date"
                     value={p.dateFin}
                     onChange={(e) => handlePeriodeChange(i, "dateFin", e.target.value)}
-                    className="flex-1 rounded-lg border border-cockpit bg-cockpit-darker p-2 text-sm text-cockpit-primary focus:border-[#F17142] focus:outline-none"
+                    className="flex-1 rounded-lg border border-cockpit bg-cockpit-darker p-2 text-sm text-cockpit-primary focus:border-[var(--color-active)] focus:outline-none"
                   />
                   <span className="text-xs text-cockpit-secondary w-16 text-right">
                     {joursPerPeriode[i] > 0 ? `${joursPerPeriode[i]} j.` : ""}
@@ -506,7 +506,7 @@ function ModalNouvelleDemande({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary placeholder-cockpit-secondary focus:border-[#F17142] focus:outline-none focus:ring-1 focus:ring-[#F17142]/30 resize-none"
+              className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary placeholder-cockpit-secondary focus:border-[var(--color-active)] focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]/30 resize-none"
               placeholder="Notes complémentaires..."
             />
           </div>
@@ -526,7 +526,7 @@ function ModalNouvelleDemande({
                     updated[i] = e.target.checked;
                     setChecks(updated);
                   }}
-                  className="mt-0.5 accent-[#F17142]"
+                  className="mt-0.5 accent-[var(--color-active)]"
                 />
                 <span className="text-xs text-cockpit-secondary">{label}</span>
               </label>
@@ -647,7 +647,7 @@ function ModalValidation({
                   value={opt.value}
                   checked={statut === opt.value}
                   onChange={() => setStatut(opt.value)}
-                  className="accent-[#F17142]"
+                  className="accent-[var(--color-active)]"
                 />
                 <span className={clsx("text-sm font-medium", opt.color)}>
                   {opt.label}
@@ -665,7 +665,7 @@ function ModalValidation({
               value={commentaire}
               onChange={(e) => setCommentaire(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary placeholder-cockpit-secondary focus:border-[#F17142] focus:outline-none resize-none"
+              className="w-full rounded-lg border border-cockpit bg-cockpit-darker p-2.5 text-cockpit-primary placeholder-cockpit-secondary focus:border-[var(--color-active)] focus:outline-none resize-none"
               placeholder="Commentaire optionnel..."
             />
           </div>
@@ -1043,7 +1043,7 @@ export default function CongesPage() {
               className={clsx(
                 "px-3 sm:px-4 py-3 font-medium text-sm transition whitespace-nowrap border-b-2 min-h-[44px]",
                 activeTab === tab.id
-                  ? "border-[#F17142] text-[#F17142]"
+                  ? "border-[var(--color-active)] text-[var(--color-active)]"
                   : "text-cockpit-secondary border-transparent hover:text-cockpit-primary"
               )}
             >

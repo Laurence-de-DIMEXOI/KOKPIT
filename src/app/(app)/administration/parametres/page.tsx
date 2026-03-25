@@ -36,9 +36,9 @@ interface UserInfo {
 // ============================================================================
 
 const ADMIN_GRADIENT = {
-  from: "#F17142",
-  to: "#A04A0E",
-  shadow: "rgba(209,95,18,0.30)",
+  from: "var(--color-active)",
+  to: "#FEEB9C",
+  shadow: "var(--color-active-border)",
 };
 
 const ROLES_CONFIG: Record<string, { label: string; couleur: string; modules: string[] }> = {
@@ -202,7 +202,7 @@ export default function ParametresPage() {
               onChange={(e) => updateConfig("slaHeures", parseInt(e.target.value) || 72)}
               min={1}
               max={168}
-              className="w-20 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary text-center focus:outline-none focus:ring-2 focus:ring-[#F17142]/40"
+              className="w-20 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
             />
             <span className="text-sm text-cockpit-secondary">heures</span>
           </div>
@@ -236,7 +236,7 @@ export default function ParametresPage() {
                 min={1}
                 max={12}
                 step={0.5}
-                className="w-20 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary text-center focus:outline-none focus:ring-2 focus:ring-[#F17142]/40"
+                className="w-20 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
               />
               <span className="text-sm text-cockpit-secondary">heures</span>
             </div>
@@ -254,7 +254,7 @@ export default function ParametresPage() {
                 min={0}
                 max={3}
                 step={0.25}
-                className="w-20 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary text-center focus:outline-none focus:ring-2 focus:ring-[#F17142]/40"
+                className="w-20 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
               />
               <span className="text-sm text-cockpit-secondary">heures</span>
             </div>

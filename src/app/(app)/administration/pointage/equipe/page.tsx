@@ -57,9 +57,9 @@ interface RecapMensuel {
 // ============================================================================
 
 const ADMIN_GRADIENT = {
-  from: "#F17142",
-  to: "#9A3F08",
-  shadow: "rgba(209, 95, 18, 0.30)",
+  from: "var(--color-active)",
+  to: "#FEEB9C",
+  shadow: "var(--color-active-border)",
 };
 
 const MONTH_NAMES = [
@@ -257,7 +257,7 @@ function CorrectionModal({ pointage, date, onClose, onSuccess }: CorrectionModal
                 type="time"
                 value={arrivee}
                 onChange={(e) => setArrivee(e.target.value)}
-                className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[#F17142] transition-colors"
+                className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[var(--color-active)] transition-colors"
               />
             </div>
             <div>
@@ -268,7 +268,7 @@ function CorrectionModal({ pointage, date, onClose, onSuccess }: CorrectionModal
                 type="time"
                 value={debutPause}
                 onChange={(e) => setDebutPause(e.target.value)}
-                className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[#F17142] transition-colors"
+                className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[var(--color-active)] transition-colors"
               />
             </div>
             <div>
@@ -279,7 +279,7 @@ function CorrectionModal({ pointage, date, onClose, onSuccess }: CorrectionModal
                 type="time"
                 value={finPause}
                 onChange={(e) => setFinPause(e.target.value)}
-                className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[#F17142] transition-colors"
+                className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[var(--color-active)] transition-colors"
               />
             </div>
             <div>
@@ -290,7 +290,7 @@ function CorrectionModal({ pointage, date, onClose, onSuccess }: CorrectionModal
                 type="time"
                 value={depart}
                 onChange={(e) => setDepart(e.target.value)}
-                className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[#F17142] transition-colors"
+                className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[var(--color-active)] transition-colors"
               />
             </div>
           </div>
@@ -305,7 +305,7 @@ function CorrectionModal({ pointage, date, onClose, onSuccess }: CorrectionModal
               required
               rows={3}
               placeholder="Motif de la correction..."
-              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[#F17142] transition-colors resize-none"
+              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-cockpit-primary text-sm focus:outline-none focus:border-[var(--color-active)] transition-colors resize-none"
             />
           </div>
 
@@ -461,7 +461,7 @@ export default function PointageEquipePage() {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#F17142]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-active)]" />
       </div>
     );
   }
@@ -645,7 +645,7 @@ export default function PointageEquipePage() {
                           <td className="px-4 py-3 text-right">
                             <button
                               onClick={() => setCorrectionTarget(p)}
-                              className="p-1.5 rounded-lg hover:bg-white/10 text-cockpit-secondary hover:text-[#F17142] transition-colors"
+                              className="p-1.5 rounded-lg hover:bg-white/10 text-cockpit-secondary hover:text-[var(--color-active)] transition-colors"
                               title="Corriger"
                             >
                               <Pencil className="w-4 h-4" />
@@ -690,7 +690,7 @@ export default function PointageEquipePage() {
                       </div>
                       <button
                         onClick={() => setCorrectionTarget(p)}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-cockpit-secondary hover:text-[#F17142] transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-white/10 text-cockpit-secondary hover:text-[var(--color-active)] transition-colors"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
