@@ -100,8 +100,10 @@ export const ESPACES: Espace[] = [
     id: "achat",
     label: "Achat",
     requiredModule: "catalogue",
-    defaultHref: "/commercial/commandes",
+    defaultHref: "/achat/need-price",
     menu: [
+      { label: "Need Price", href: "/achat/need-price", icon: FileText, module: "catalogue" },
+      { label: "Calculateur", href: "/achat/calculateur", icon: Package, module: "catalogue" },
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
@@ -127,6 +129,7 @@ export const STORAGE_KEY = "kokpit_espace_actif";
 
 export function detectSpaceFromPath(pathname: string): string | null {
   if (pathname.startsWith("/commercial")) return "commercial";
+  if (pathname.startsWith("/achat")) return "achat";
   if (pathname.startsWith("/administration")) return "administration";
   // Marketing pages (routes legacy sans préfixe /marketing + nouvelles routes /marketing/*)
   if (

@@ -105,8 +105,8 @@ export function useMessagerie() {
     try {
       const res = await fetch("/api/messagerie/unread");
       if (!res.ok) throw new Error("Erreur chargement non-lus");
-      const data: Record<string, number> = await res.json();
-      setUnreadCounts(data);
+      const data = await res.json();
+      setUnreadCounts(data.parCanal || {});
     } catch (err) {
       console.error("[messagerie] fetchUnread:", err);
     }
