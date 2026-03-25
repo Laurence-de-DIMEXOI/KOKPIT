@@ -1119,7 +1119,9 @@ model NeedPrice {
   finitions       String?
   photoUrl        String?   // Supabase Storage
   statut          String    @default("DEMANDE") // "DEMANDE" | "PRIX_RECU" | "ANNULE"
-  prixFournisseur Float?    // Base reçue du fournisseur
+  prixFournisseur Float?    // Base fournisseur en IDR
+  prixVente       Float?    // Prix de vente calculé (Arrondi ou Cuisine)
+  typePrix        String?   // "ARRONDI" | "CUISINE"
   notes           String?
   createdById     String
   createdBy       User      @relation("NeedPriceCreator", fields: [createdById], references: [id])

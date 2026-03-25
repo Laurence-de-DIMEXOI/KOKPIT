@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import {
   Calculator,
@@ -94,6 +95,13 @@ export default function CalculateurPage() {
   // --- Simple calc state ---
   const [baseSimple, setBaseSimple] = useState<number | "">("");
 
+  // --- Ajouter à une demande ---
+  const [showAddToDemande, setShowAddToDemande] = useState(false);
+  const [demandes, setDemandes] = useState<{ id: string; reference: string; denomination: string; nomClient: string | null }[]>([]);
+  const [selectedDemande, setSelectedDemande] = useState("");
+  const [selectedTypePrix, setSelectedTypePrix] = useState<"ARRONDI" | "CUISINE">("ARRONDI");
+  const [addingToDemande, setAddingToDemande] = useState(false);
+
   // --- Multi calc state ---
   const [rows, setRows] = useState<MultiRow[]>([
     { id: crypto.randomUUID(), base: "" },
@@ -147,6 +155,48 @@ export default function CalculateurPage() {
       addToast("Erreur de connexion", "error");
     }
     setSaving(false);
+  };
+
+  // ========================================================================
+  // AJOUTER À UNE DEMANDE
+  // ========================================================================
+
+  useEffect(() => {
+    if (showAddToDemande && demandes.length === 0) {
+      fetch("/api/achat/need-price?statut=DEMANDE&limit=100")
+        .then((r) => r.json())
+        .then((data) => setDemandes(data.items || []))
+        .catch(() => {});
+    }
+  }, [showAddToDemande]);
+
+  const handleAddToDemande = async () => {
+    if (!selectedDemande || !simpleResult) return;
+    setAddingToDemande(true);
+    const prix = selectedTypePrix === "ARRONDI" ? simpleResult.arrondi : simpleResult.cuisine;
+    try {
+      const res = await fetch(`/api/achat/need-price/${selectedDemande}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prixFournisseur: typeof baseSimple === "number" ? baseSimple : 0,
+          prixVente: prix,
+          typePrix: selectedTypePrix,
+          statut: "PRIX_RECU",
+        }),
+      });
+      if (res.ok) {
+        addToast(`Prix ${formatEUR(prix)} ajouté à la demande`, "success");
+        setShowAddToDemande(false);
+        setSelectedDemande("");
+        setDemandes([]);
+      } else {
+        addToast("Erreur lors de l'ajout", "error");
+      }
+    } catch {
+      addToast("Erreur de connexion", "error");
+    }
+    setAddingToDemande(false);
   };
 
   // ========================================================================
@@ -420,6 +470,20 @@ export default function CalculateurPage() {
             value={simpleResult ? formatEUR(simpleResult.cuisine) : "—"}
           />
         </div>
+
+        {/* Bouton ajouter à une demande */}
+        {simpleResult && typeof baseSimple === "number" && baseSimple > 0 && (
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => setShowAddToDemande(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90"
+              style={{ background: `linear-gradient(135deg, ${ACHAT_GRADIENT.from}, ${ACHAT_GRADIENT.to})` }}
+            >
+              <Plus className="w-4 h-4" />
+              Ajouter à une demande
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ================================================================ */}
@@ -595,6 +659,97 @@ export default function CalculateurPage() {
           })}
         </div>
       </div>
+      {/* ================================================================ */}
+      {/* MODALE - Ajouter à une demande                                */}
+      {/* ================================================================ */}
+      {showAddToDemande && simpleResult && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setShowAddToDemande(false)}
+          >
+            <div
+              className="bg-cockpit-card border border-cockpit rounded-card shadow-cockpit-lg w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="px-5 py-4 border-b border-cockpit"
+                style={{ background: `linear-gradient(135deg, ${ACHAT_GRADIENT.from}, ${ACHAT_GRADIENT.to})` }}
+              >
+                <h3 className="text-white font-semibold">Ajouter le prix à une demande</h3>
+              </div>
+              <div className="p-5 space-y-4">
+                {/* Sélection demande */}
+                <div>
+                  <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
+                    Demande Need Price
+                  </label>
+                  <select
+                    value={selectedDemande}
+                    onChange={(e) => setSelectedDemande(e.target.value)}
+                    className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary focus:outline-none"
+                  >
+                    <option value="">Sélectionner une demande...</option>
+                    {demandes.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.reference} — {d.denomination} {d.nomClient ? `(${d.nomClient})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Choix type prix */}
+                <div>
+                  <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
+                    Type de prix
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setSelectedTypePrix("ARRONDI")}
+                      className={`flex-1 px-4 py-3 rounded-lg border-2 text-center transition-all ${
+                        selectedTypePrix === "ARRONDI"
+                          ? "border-[var(--color-active)] bg-[var(--color-active)]/10"
+                          : "border-cockpit hover:border-[var(--color-active)]/50"
+                      }`}
+                    >
+                      <p className="text-xs text-cockpit-secondary">Arrondi</p>
+                      <p className="text-lg font-bold text-cockpit-heading">{formatEUR(simpleResult.arrondi)}</p>
+                    </button>
+                    <button
+                      onClick={() => setSelectedTypePrix("CUISINE")}
+                      className={`flex-1 px-4 py-3 rounded-lg border-2 text-center transition-all ${
+                        selectedTypePrix === "CUISINE"
+                          ? "border-[var(--color-active)] bg-[var(--color-active)]/10"
+                          : "border-cockpit hover:border-[var(--color-active)]/50"
+                      }`}
+                    >
+                      <p className="text-xs text-cockpit-secondary">Cuisine</p>
+                      <p className="text-lg font-bold text-cockpit-heading">{formatEUR(simpleResult.cuisine)}</p>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-cockpit">
+                <button
+                  onClick={() => setShowAddToDemande(false)}
+                  className="px-4 py-2 text-sm text-cockpit-secondary hover:text-cockpit-primary"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleAddToDemande}
+                  disabled={!selectedDemande || addingToDemande}
+                  className="px-4 py-2 text-sm font-medium rounded-lg text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                  style={{ background: `linear-gradient(135deg, ${ACHAT_GRADIENT.from}, ${ACHAT_GRADIENT.to})` }}
+                >
+                  {addingToDemande && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Ajouter le prix
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
