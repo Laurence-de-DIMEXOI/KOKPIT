@@ -51,7 +51,7 @@ export function ExpiringQuotes({ estimates }: { estimates: EstimateRow[] }) {
   now.setHours(0, 0, 0, 0);
 
   // Filtrer : expiry_date dans les 7 prochains jours, pas annulé/expiré/accepté
-  const excludedStatuses = ["cancelled", "annulé", "annule", "expired", "accepted", "invoiced"];
+  const excludedStatuses = ["cancelled", "annulé", "annule", "expired", "accepted", "invoiced", "refused", "refusé", "refuse"];
   const expiring = estimates
     .filter((e) => {
       if (!e.expiry_date) return false;
