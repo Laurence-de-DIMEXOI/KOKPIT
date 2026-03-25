@@ -52,6 +52,14 @@ const MODULE_GROUPS = [
       { key: "nos-reseaux", label: "Réseaux" },
       { key: "automatisations", label: "Auto." },
       { key: "analytique", label: "ROI" },
+      { key: "club-tectona", label: "Club" },
+    ],
+  },
+  {
+    label: "Achat",
+    modules: [
+      { key: "need-price", label: "Need Price" },
+      { key: "calculateur", label: "Calculateur" },
     ],
   },
   {
@@ -70,7 +78,6 @@ const MODULE_GROUPS = [
     modules: [
       { key: "messagerie", label: "Messagerie" },
       { key: "taches", label: "Tâches" },
-      { key: "club-tectona", label: "Club" },
       { key: "liens-utiles", label: "Liens" },
       { key: "docs", label: "Docs" },
     ],
@@ -87,7 +94,7 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
     "devis", "ventes", "analytique", "parametres", "dashboard-commercial", "pipeline",
     "catalogue", "commandes", "taches", "dashboard-admin", "conges", "collaborateurs",
     "planning", "liens-utiles", "nos-reseaux", "docs", "club-tectona", "bois-dorient",
-    "pointage", "pointage-equipe", "sav", "messagerie",
+    "pointage", "pointage-equipe", "sav", "messagerie", "need-price", "calculateur",
   ],
   MARKETING: [
     "dashboard", "leads", "contacts", "campagnes", "emailing", "automatisations",
@@ -105,12 +112,12 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
     "devis", "ventes", "analytique", "parametres", "dashboard-commercial", "pipeline",
     "catalogue", "commandes", "taches", "dashboard-admin", "conges", "collaborateurs",
     "planning", "liens-utiles", "nos-reseaux", "docs", "club-tectona", "bois-dorient",
-    "pointage", "pointage-equipe", "sav", "messagerie",
+    "pointage", "pointage-equipe", "sav", "messagerie", "need-price", "calculateur",
   ],
   ACHAT: [
     "dashboard-commercial", "commandes", "sav", "catalogue", "contacts", "docs",
     "club-tectona", "liens-utiles", "taches", "dashboard-admin", "conges", "pointage",
-    "messagerie",
+    "messagerie", "need-price", "calculateur",
   ],
 };
 
@@ -157,7 +164,6 @@ export default function PermissionsPage() {
 
   const [users, setUsers] = useState<UserWithOverrides[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingUsers, setSavingUsers] = useState<Set<string>>(new Set());
 
   // --------------------------------------------------------------------------
   // Fetch users
@@ -230,104 +236,59 @@ export default function PermissionsPage() {
   // Toggle
   // --------------------------------------------------------------------------
 
-  async function handleToggle(user: UserWithOverrides, moduleKey: string) {
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  function handleToggle(user: UserWithOverrides, moduleKey: string) {
     const current = getAccessState(user, moduleKey);
     const newValue = !current.checked;
 
-    // Build new overrides
     const currentOverrides = user.moduleAccessOverrides
       ? { ...user.moduleAccessOverrides }
       : {};
     currentOverrides[moduleKey] = newValue;
 
-    // If the override matches the role default, remove it
     if (newValue === hasDefaultAccess(user.role, moduleKey)) {
       delete currentOverrides[moduleKey];
     }
 
-    // If all overrides removed, send null
     const finalOverrides =
       Object.keys(currentOverrides).length === 0 ? null : currentOverrides;
 
-    // Optimistic update
     setUsers((prev) =>
       prev.map((u) =>
         u.id === user.id ? { ...u, moduleAccessOverrides: finalOverrides } : u
       )
     );
-
-    setSavingUsers((prev) => new Set(prev).add(user.id));
-
-    try {
-      const res = await fetch(`/api/admin/user-modules/${user.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ overrides: finalOverrides }),
-      });
-      if (!res.ok) throw new Error("Erreur");
-      addToast(
-        `Permission mise à jour pour ${user.prenom} ${user.nom}`,
-        "success"
-      );
-    } catch {
-      // Revert
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === user.id
-            ? { ...u, moduleAccessOverrides: user.moduleAccessOverrides }
-            : u
-        )
-      );
-      addToast("Erreur lors de la mise à jour", "error");
-    } finally {
-      setSavingUsers((prev) => {
-        const next = new Set(prev);
-        next.delete(user.id);
-        return next;
-      });
-    }
+    setHasChanges(true);
   }
 
-  // --------------------------------------------------------------------------
-  // Reset
-  // --------------------------------------------------------------------------
+  async function handleSaveAll() {
+    setSaving(true);
+    try {
+      for (const user of users) {
+        await fetch(`/api/admin/user-modules/${user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ overrides: user.moduleAccessOverrides }),
+        });
+      }
+      addToast("Permissions enregistrées", "success");
+      setHasChanges(false);
+    } catch {
+      addToast("Erreur lors de l'enregistrement", "error");
+    }
+    setSaving(false);
+  }
 
-  async function handleReset(user: UserWithOverrides) {
-    setSavingUsers((prev) => new Set(prev).add(user.id));
-    const prevOverrides = user.moduleAccessOverrides;
-
-    // Optimistic
+  function handleReset(user: UserWithOverrides) {
     setUsers((prev) =>
       prev.map((u) =>
         u.id === user.id ? { ...u, moduleAccessOverrides: null } : u
       )
     );
-
-    try {
-      const res = await fetch(`/api/admin/user-modules/${user.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ overrides: null }),
-      });
-      if (!res.ok) throw new Error("Erreur");
-      addToast(
-        `Permissions réinitialisées pour ${user.prenom} ${user.nom}`,
-        "success"
-      );
-    } catch {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === user.id ? { ...u, moduleAccessOverrides: prevOverrides } : u
-        )
-      );
-      addToast("Erreur lors de la réinitialisation", "error");
-    } finally {
-      setSavingUsers((prev) => {
-        const next = new Set(prev);
-        next.delete(user.id);
-        return next;
-      });
-    }
+    setHasChanges(true);
+    addToast(`Permissions réinitialisées pour ${user.prenom} ${user.nom}`, "info");
   }
 
   // --------------------------------------------------------------------------
@@ -458,7 +419,6 @@ export default function PermissionsPage() {
                 </tr>
               ) : (
                 users.map((user) => {
-                  const isSaving = savingUsers.has(user.id);
                   const hasOverrides =
                     user.moduleAccessOverrides &&
                     Object.keys(user.moduleAccessOverrides).length > 0;
@@ -485,7 +445,7 @@ export default function PermissionsPage() {
                               <p className="text-sm font-semibold text-cockpit-heading truncate">
                                 {user.prenom} {user.nom}
                               </p>
-                              {isSaving && (
+                              {saving && (
                                 <Loader2 className="w-3 h-3 animate-spin text-cockpit-secondary flex-shrink-0" />
                               )}
                             </div>
@@ -552,7 +512,7 @@ export default function PermissionsPage() {
                                   ? "par défaut"
                                   : "personnalisé"
                               })`}
-                              disabled={isSaving}
+                              disabled={saving}
                             >
                               {state.checked ? (
                                 <Check
@@ -576,7 +536,7 @@ export default function PermissionsPage() {
                           <button
                             type="button"
                             onClick={() => handleReset(user)}
-                            disabled={isSaving}
+                            disabled={saving}
                             className="p-1.5 rounded-lg hover:bg-cockpit-dark/40 transition-colors group"
                             title={`Réinitialiser les permissions de ${user.prenom}`}
                           >
@@ -592,31 +552,30 @@ export default function PermissionsPage() {
           </table>
         </div>
 
-        {/* ── Legend ──────────────────────────────────────────────────── */}
+        {/* ── Legend + Save ─────────────────────────────────────────── */}
         {!loading && users.length > 0 && (
-          <div className="px-4 py-3 border-t border-cockpit flex flex-wrap items-center gap-4 text-[10px] text-cockpit-secondary">
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded border-2 border-cockpit bg-cockpit-dark/40 opacity-70 flex items-center justify-center">
-                <Check className="w-2.5 h-2.5 text-cockpit-secondary" />
+          <div className="px-4 py-3 border-t border-cockpit flex items-center justify-between">
+            <div className="flex items-center gap-4 text-[10px] text-cockpit-secondary">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded border-2 flex items-center justify-center" style={{ borderColor: "var(--color-active)", backgroundColor: "var(--color-active-light)" }}>
+                  <Check className="w-2.5 h-2.5" style={{ color: "var(--color-active)" }} />
+                </div>
+                <span>Accès</span>
               </div>
-              <span>Accès par défaut (rôle)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded border-2 flex items-center justify-center" style={{ borderColor: "var(--color-active)", backgroundColor: "var(--color-active)", opacity: 0.2 }}>
-                <Check className="w-2.5 h-2.5" style={{ color: "var(--color-active)" }} />
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded border-2 border-cockpit bg-transparent opacity-50" />
+                <span>Pas d&apos;accès</span>
               </div>
-              <span>Accès ajouté (override)</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded border-2 border-red-400/60 bg-red-400/10 flex items-center justify-center">
-                <X className="w-2.5 h-2.5 text-red-400" />
-              </div>
-              <span>Accès retiré (override)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded border-2 border-cockpit bg-transparent opacity-50" />
-              <span>Pas d&apos;accès</span>
-            </div>
+            <button
+              onClick={handleSaveAll}
+              disabled={!hasChanges || saving}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
+              style={{ background: "linear-gradient(135deg, var(--color-active), #FEEB9C)" }}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Enregistrer
+            </button>
           </div>
         )}
       </div>

@@ -30,7 +30,9 @@ export type Module =
   | "pointage"
   | "pointage-equipe"
   | "sav"
-  | "messagerie";
+  | "messagerie"
+  | "need-price"
+  | "calculateur";
 
 /**
  * Permissions par rôle — DIMEXOI
@@ -71,6 +73,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "pointage-equipe",
     "sav",
     "messagerie",
+    "need-price",
+    "calculateur",
   ],
   MARKETING: [
     // Marketing complet
@@ -151,6 +155,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "pointage-equipe",
     "sav",
     "messagerie",
+    "need-price",
+    "calculateur",
   ],
   ACHAT: [
     // Section commerciale (Commandes + SAV + Catalogue)
@@ -169,6 +175,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "conges",
     "pointage",
     "messagerie",
+    "need-price",
+    "calculateur",
   ],
 };
 
