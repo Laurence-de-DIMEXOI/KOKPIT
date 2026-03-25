@@ -55,6 +55,11 @@ export async function PUT(
     heuresSupp = calc.heuresSupp;
   }
 
+  // Calculer la diff d'heures supp pour ajuster le solde cumulé
+  const ancienSupp = pointage.heuresSupp ?? 0;
+  const nouveauSupp = heuresSupp ?? 0;
+  const diffSupp = nouveauSupp - ancienSupp;
+
   const updated = await prisma.pointage.update({
     where: { id },
     data: {
@@ -72,6 +77,14 @@ export async function PUT(
       user: { select: { nom: true, prenom: true } },
     },
   });
+
+  // Ajuster le solde cumulé si les heures supp ont changé
+  if (diffSupp !== 0) {
+    await prisma.user.update({
+      where: { id: pointage.userId },
+      data: { soldeHeures: { increment: diffSupp } },
+    });
+  }
 
   return NextResponse.json(updated);
 }

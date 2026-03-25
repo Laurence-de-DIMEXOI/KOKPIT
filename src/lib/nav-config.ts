@@ -98,7 +98,7 @@ export const ESPACES: Espace[] = [
   {
     id: "achat",
     label: "Achat",
-    requiredModule: "commandes",
+    requiredModule: "catalogue",
     defaultHref: "/commercial/commandes",
     menu: [
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },

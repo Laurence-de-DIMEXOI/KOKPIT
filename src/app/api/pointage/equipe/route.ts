@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   // Récupérer les utilisateurs avec pointage actif uniquement
   const users = await prisma.user.findMany({
     where: { actif: true, pointageActif: true },
-    select: { id: true, nom: true, prenom: true, couleur: true, role: true },
+    select: { id: true, nom: true, prenom: true, couleur: true, role: true, soldeHeures: true },
     orderBy: { nom: "asc" },
   });
 
@@ -77,14 +77,24 @@ export async function GET(req: NextRequest) {
       d.setDate(d.getDate() + 1);
     }
 
+    const config = await prisma.configPointage.findFirst();
+    const seuilRecup = config?.seuilRecup ?? 4;
+
     return NextResponse.json({
       mois: moisParam,
       joursOuvres,
-      recap: Array.from(recapMap.values()).map((r) => ({
-        ...r,
-        totalHeures: Math.round(r.totalHeures * 100) / 100,
-        totalSupp: Math.round(r.totalSupp * 100) / 100,
-      })),
+      seuilRecup,
+      recap: Array.from(recapMap.values()).map((r) => {
+        const user = users.find((u) => u.id === r.userId);
+        const solde = user?.soldeHeures ?? 0;
+        return {
+          ...r,
+          totalHeures: Math.round(r.totalHeures * 100) / 100,
+          totalSupp: Math.round(r.totalSupp * 100) / 100,
+          soldeHeures: Math.round(solde * 100) / 100,
+          recupDispo: solde >= seuilRecup,
+        };
+      }),
       pointages,
     });
   }

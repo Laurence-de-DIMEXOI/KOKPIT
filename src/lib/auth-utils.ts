@@ -71,7 +71,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "sav",
   ],
   MARKETING: [
-    // Tout sauf pointage-equipe et options Michelle
+    // Marketing complet
     "dashboard",
     "leads",
     "contacts",
@@ -94,11 +94,11 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "catalogue",
     "commandes",
     "bois-dorient",
-    // Administration (sans pointage-equipe, collaborateurs, parametres)
+    // Administration (congés + pointage perso, pas pointage-equipe/collaborateurs/parametres)
     "dashboard-admin",
   ],
   COMMERCIAL: [
-    // Section commerciale + Général + Admin light (congés/pointage)
+    // Section commerciale
     "dashboard-commercial",
     "pipeline",
     "catalogue",
@@ -112,7 +112,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "docs",
     "club-tectona",
     "liens-utiles",
-    // Admin light
+    // Administration (congés + pointage perso uniquement)
+    "dashboard-admin",
     "conges",
     "pointage",
   ],
@@ -147,7 +148,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "sav",
   ],
   ACHAT: [
-    // Commandes + SAV + Catalogue + Général + Admin light
+    // Section commerciale (Commandes + SAV + Catalogue)
+    "dashboard-commercial",
     "commandes",
     "sav",
     "catalogue",
@@ -157,7 +159,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "club-tectona",
     "liens-utiles",
     "taches",
-    // Admin light
+    // Administration (congés + pointage perso uniquement)
+    "dashboard-admin",
     "conges",
     "pointage",
   ],

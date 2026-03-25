@@ -150,6 +150,7 @@ model User {
   couleur         String?   // couleur hex pour calendrier congés (#FF6B6B)
   pointageActif   Boolean   @default(true) // false = pas de pointage (Liliane, Alain)
   pointageDelegueId String? // userId de la personne qui peut pointer pour ce user
+  soldeHeures     Float     @default(0) // solde cumulé heures supp (positif = récup dispo, négatif = à rattraper)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -965,6 +966,7 @@ model ConfigPointage {
   id                    String   @id @default(cuid())
   heuresTheoriquesJour  Float    @default(7)
   heurePauseDefaut      Float    @default(1)
+  seuilRecup            Float    @default(4) // heures cumulées nécessaires pour déclencher une demi-journée de récup
   updatedAt             DateTime @updatedAt
 }
 

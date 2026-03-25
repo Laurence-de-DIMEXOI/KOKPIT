@@ -13,10 +13,18 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const dateJour = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  // Mon propre pointage
-  const pointage = await prisma.pointage.findUnique({
-    where: { userId_date: { userId: sessionUserId, date: dateJour } },
-  });
+  // Mon propre pointage + solde heures
+  const [pointage, currentUser] = await Promise.all([
+    prisma.pointage.findUnique({
+      where: { userId_date: { userId: sessionUserId, date: dateJour } },
+    }),
+    prisma.user.findUnique({
+      where: { id: sessionUserId },
+      select: { soldeHeures: true },
+    }),
+  ]);
+
+  const soldeHeures = currentUser?.soldeHeures ?? 0;
 
   // Personnes dont je suis le délégué (je peux pointer pour elles)
   const delegues = await prisma.user.findMany({
@@ -33,8 +41,16 @@ export async function GET(req: NextRequest) {
     deleguesPointages[d.id] = dp;
   }
 
+  // Config pointage (seuil récup)
+  const config = await prisma.configPointage.findFirst();
+  const seuilRecup = config?.seuilRecup ?? 4;
+  const recupDispo = soldeHeures >= seuilRecup;
+
   return NextResponse.json({
     pointage,
+    soldeHeures: Math.round(soldeHeures * 100) / 100,
+    seuilRecup,
+    recupDispo,
     delegues: delegues.map((d) => ({
       ...d,
       pointage: deleguesPointages[d.id] || null,

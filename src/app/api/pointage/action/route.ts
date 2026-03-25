@@ -99,6 +99,14 @@ export async function POST(req: Request) {
     update: updateData,
   });
 
+  // Si départ : accumuler les heures supp/manque dans le solde cumulé
+  if (action === "depart" && updateData.heuresSupp != null) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { soldeHeures: { increment: updateData.heuresSupp } },
+    });
+  }
+
   // Si c'est l'arrivée, vérifier si c'est la semaine café de l'utilisateur
   let cafe: { message: string } | null = null;
   if (action === "arrivee") {
