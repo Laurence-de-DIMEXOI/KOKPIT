@@ -18,9 +18,9 @@ import { useToast } from "@/components/ui/toast";
 // ============================================================================
 
 const ACHAT_GRADIENT = {
-  from: "#E23260",
-  to: "#B8264D",
-  shadow: "rgba(226,50,96,0.30)",
+  from: "#CBA1D4",
+  to: "#FEEB9C",
+  shadow: "rgba(203,161,212,0.25)",
 };
 
 const formatEUR = (n: number) =>
@@ -241,6 +241,23 @@ export default function CalculateurPage() {
   // ========================================================================
   // RENDER
   // ========================================================================
+
+  // Role gate: only ACHAT and ADMIN can access
+  if (!canEdit) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-3">
+          <Calculator className="w-12 h-12 text-cockpit-secondary mx-auto opacity-40" />
+          <h2 className="text-lg font-semibold text-cockpit-heading">
+            Accès réservé au service Achat
+          </h2>
+          <p className="text-sm text-cockpit-secondary">
+            Vous n&apos;avez pas les permissions nécessaires pour accéder au calculateur.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-5">

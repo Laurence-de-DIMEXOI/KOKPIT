@@ -128,6 +128,17 @@ export const STORAGE_KEY = "kokpit_espace_actif";
 // ===== DÉTECTION ESPACE DEPUIS URL =====
 
 export function detectSpaceFromPath(pathname: string): string | null {
+  // Pages partagées (existent dans plusieurs espaces) → null = garder l'espace courant
+  const sharedPaths = [
+    "/commercial/commandes",
+    "/commercial/sav",
+    "/commercial/catalogue",
+    "/commercial/tracabilite",
+    "/leads",
+    "/contacts",
+  ];
+  if (sharedPaths.some((p) => pathname.startsWith(p))) return null;
+
   if (pathname.startsWith("/commercial")) return "commercial";
   if (pathname.startsWith("/achat")) return "achat";
   if (pathname.startsWith("/administration")) return "administration";
@@ -145,6 +156,6 @@ export function detectSpaceFromPath(pathname: string): string | null {
   ) {
     return "marketing";
   }
-  // Pages partagées (/leads, /contacts, /docs) → null = garder l'espace courant
+  // Pages partagées (/docs, etc.) → null = garder l'espace courant
   return null;
 }

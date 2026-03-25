@@ -25,9 +25,9 @@ import { useToast } from "@/components/ui/toast";
 // ============================================================================
 
 const ACHAT_GRADIENT = {
-  from: "#E23260",
-  to: "#B8264D",
-  shadow: "rgba(226,50,96,0.30)",
+  from: "#CBA1D4",
+  to: "#FEEB9C",
+  shadow: "rgba(203,161,212,0.25)",
 };
 
 const STATUT_BADGE: Record<string, { label: string; cls: string }> = {
@@ -297,6 +297,7 @@ function NouvellDemandeModal({
   const [dimensions, setDimensions] = useState("");
   const [finitions, setFinitions] = useState("");
   const [photo, setPhoto] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -314,7 +315,7 @@ function NouvellDemandeModal({
           denomination: denomination.trim(),
           dimensions: dimensions.trim(),
           finitions: finitions.trim() || null,
-          photo: photo.trim() || null,
+          photo: null,
           notes: notes.trim() || null,
         }),
       });
@@ -386,7 +387,7 @@ function NouvellDemandeModal({
               type="text"
               value={denomination}
               onChange={(e) => setDenomination(e.target.value)}
-              placeholder="Nom du produit"
+              placeholder="Nom du produit en anglais (ex: Wardrobe 3 doors)"
               className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
               required
             />
@@ -413,28 +414,59 @@ function NouvellDemandeModal({
               Finitions{" "}
               <span className="text-cockpit-secondary/60">(optionnel)</span>
             </label>
-            <input
-              type="text"
+            <select
               value={finitions}
               onChange={(e) => setFinitions(e.target.value)}
-              placeholder="Ex: Teck huilé naturel"
-              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
-            />
+              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+            >
+              <option value="">Sélectionner une finition</option>
+              <option value="Natural">Natural</option>
+              <option value="Raw">Raw</option>
+              <option value="WW">WW</option>
+              <option value="BW">BW</option>
+              <option value="Antic">Antic</option>
+            </select>
           </div>
 
-          {/* Photo URL */}
+          {/* Photo upload */}
           <div>
             <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-              Photo{" "}
-              <span className="text-cockpit-secondary/60">(URL)</span>
+              Photo / PDF{" "}
+              <span className="text-cockpit-secondary/60">(optionnel)</span>
             </label>
             <input
-              type="text"
-              value={photo}
-              onChange={(e) => setPhoto(e.target.value)}
-              placeholder="https://..."
-              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+              type="file"
+              accept="image/*,.pdf"
+              id="photo-upload"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setPhotoFile(file);
+                setPhoto(file ? file.name : "");
+              }}
             />
+            <button
+              type="button"
+              onClick={() => document.getElementById("photo-upload")?.click()}
+              className="w-full flex items-center gap-2 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-secondary hover:border-[var(--color-active)]/40 transition-colors"
+            >
+              <ImageIcon className="w-4 h-4" />
+              {photoFile ? photoFile.name : "Ajouter une photo / PDF"}
+            </button>
+            {photoFile && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-cockpit-secondary truncate flex-1">
+                  {photoFile.name} ({(photoFile.size / 1024).toFixed(0)} Ko)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setPhotoFile(null); setPhoto(""); }}
+                  className="text-xs text-red-400 hover:text-red-300"
+                >
+                  Supprimer
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Notes */}

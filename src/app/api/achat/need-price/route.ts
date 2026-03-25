@@ -131,19 +131,19 @@ export async function POST(request: NextRequest) {
 
     // Send email notification to Elaury via Brevo
     try {
-      const htmlContent = `
-        <h2>Nouvelle demande de prix</h2>
-        <table style="border-collapse:collapse;width:100%">
-          <tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Référence</td><td style="padding:8px;border:1px solid #ddd">${reference}</td></tr>
-          <tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Dénomination</td><td style="padding:8px;border:1px solid #ddd">${denomination}</td></tr>
-          <tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Dimensions</td><td style="padding:8px;border:1px solid #ddd">${dimensions}</td></tr>
-          ${finitions ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Finitions</td><td style="padding:8px;border:1px solid #ddd">${finitions}</td></tr>` : ""}
-          ${refDevis ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Réf. Devis</td><td style="padding:8px;border:1px solid #ddd">${refDevis}</td></tr>` : ""}
-          ${notes ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Notes</td><td style="padding:8px;border:1px solid #ddd">${notes}</td></tr>` : ""}
-          ${photoUrl ? `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">Photo</td><td style="padding:8px;border:1px solid #ddd"><a href="${photoUrl}">Voir la photo</a></td></tr>` : ""}
-        </table>
-        <p style="margin-top:16px;color:#666">Demandé par ${needPrice.createdBy.prenom} ${needPrice.createdBy.nom}</p>
-      `;
+      const creatorName = `${needPrice.createdBy.prenom} ${needPrice.createdBy.nom}`;
+      const htmlContent = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">
+  <p><strong>Nouvelle demande de prix</strong></p>
+  <p>---</p>
+  <p>Réf : ${reference}</p>
+  <p>Devis lié : ${refDevis || '\u2014'}</p>
+  <p>Dénomination : ${denomination}</p>
+  <p>Dimensions : ${dimensions}</p>
+  <p>Finition : ${finitions || '\u2014'}</p>
+  <p>Notes : ${notes || '\u2014'}</p>
+  <p>---</p>
+  <p>Demandé par : ${creatorName}</p>
+</div>`;
 
       await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",

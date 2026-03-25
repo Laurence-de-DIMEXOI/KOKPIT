@@ -35,10 +35,10 @@
   --color-admin: #D15F12;
   --color-admin-light: rgba(209, 95, 18, 0.12);
   --color-admin-border: rgba(209, 95, 18, 0.35);
-  /* Achat — palette Charleston/Light Pink (#E23260 → #FCA9AA) */
-  --color-achat: #E23260;
-  --color-achat-light: rgba(226, 50, 96, 0.10);
-  --color-achat-border: rgba(226, 50, 96, 0.30);
+  /* Achat — palette Butter Yellow + Lavender */
+  --color-achat: #CBA1D4;
+  --color-achat-light: rgba(203, 161, 212, 0.12);
+  --color-achat-border: rgba(203, 161, 212, 0.35);
 
   /* Variable active — jaune global par defaut */
   --color-active: #F4B400;
