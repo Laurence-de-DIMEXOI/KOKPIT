@@ -193,9 +193,10 @@ export default function PermissionsPage() {
   // Access check
   // --------------------------------------------------------------------------
 
-  // Accès uniquement pour Laurence (super-admin permissions)
+  // Accès uniquement pour Laurence + Dev Kokpit
   const isAdmin =
     session?.user?.email === "laurence.payet@dimexoi.fr" ||
+    session?.user?.email === "admin@kokpit.re" ||
     session?.user?.role === "DIRECTION";
 
   if (!isAdmin && !loading) {
