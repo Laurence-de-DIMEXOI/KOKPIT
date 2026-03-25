@@ -216,7 +216,10 @@ export default function CalculateurPage() {
         }),
       });
       if (res.ok) {
-        addToast(`Prix ${formatEUR(prix)} ajouté à la demande`, "success");
+        const msg = selectedTypePrix === "MINIMUM_ARRONDI"
+          ? `Min ${formatEUR(Math.round(simpleResult.minimum))} — Arrondi ${formatEUR(prix)} ajoutés`
+          : `Cuisine ${formatEUR(prix)} ajouté`;
+        addToast(msg, "success");
         setShowAddToDemande(false);
         setSelectedDemande("");
         setDemandes([]);
@@ -253,12 +256,21 @@ export default function CalculateurPage() {
       if (!res) return sum;
       return sum + (selectedMultiTypePrix === "MINIMUM_ARRONDI" ? res.arrondi : res.cuisine);
     }, 0);
+    const totalMinimum = selectedMultiTypePrix === "MINIMUM_ARRONDI"
+      ? validRows.reduce((sum, r) => {
+          const origIdx = rows.indexOf(r);
+          const res = multiResults[origIdx];
+          return sum + (res ? Math.round(res.minimum) : 0);
+        }, 0)
+      : undefined;
     const notes = validRows.map((r) => {
       const origIdx = rows.indexOf(r);
       const res = multiResults[origIdx];
       if (!res) return "";
-      const prix = selectedMultiTypePrix === "MINIMUM_ARRONDI" ? res.arrondi : res.cuisine;
-      return `${r.nom || "Sans nom"}: ${formatEUR(prix)}`;
+      if (selectedMultiTypePrix === "MINIMUM_ARRONDI") {
+        return `${r.nom || "Sans nom"}: Min ${formatEUR(Math.round(res.minimum))} — Arrondi ${formatEUR(res.arrondi)}`;
+      }
+      return `${r.nom || "Sans nom"}: ${formatEUR(res.cuisine)}`;
     }).join("\n");
     try {
       const res = await fetch(`/api/achat/need-price/${selectedMultiDemande}`, {
@@ -267,6 +279,7 @@ export default function CalculateurPage() {
         body: JSON.stringify({
           prixFournisseur: totalBase,
           prixVente: totalPrix,
+          prixMinimum: totalMinimum,
           typePrix: selectedMultiTypePrix,
           statut: "PRIX_RECU",
           notes,
