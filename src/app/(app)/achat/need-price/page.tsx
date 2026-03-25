@@ -245,16 +245,21 @@ function NeedPriceDrawer({
           {/* Prix reçus */}
           {item.statut === "PRIX_RECU" && !editing && (
             <div className="space-y-3 pt-3 border-t border-cockpit">
-              {item.prixVente != null && (
+              {item.typePrix === "MINIMUM_ARRONDI" && item.prixMinimum != null && item.prixVente != null ? (
                 <Field
-                  label={`Prix de vente (${item.typePrix === "CUISINE" ? "Cuisine" : "Arrondi"})`}
+                  label="Prix"
+                  value={`${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixMinimum)} - ${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}`}
+                />
+              ) : item.prixVente != null ? (
+                <Field
+                  label="Prix cuisine"
                   value={new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}
                 />
-              )}
-              {item.prixMinimum != null && (
+              ) : null}
+              {item.prixFournisseur != null && (
                 <Field
-                  label="Prix minimum"
-                  value={new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixMinimum)}
+                  label="Base fournisseur (IDR)"
+                  value={new Intl.NumberFormat("fr-FR").format(item.prixFournisseur)}
                 />
               )}
               <button
