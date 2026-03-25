@@ -366,7 +366,7 @@ export default function LeadsPage() {
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                 isActive
                   ? s === "ALL"
-                    ? "bg-[#E36887] text-white"
+                    ? "bg-[var(--color-active)] text-white"
                     : `${sc.bg} ${sc.text} ring-1 ${sc.ring}`
                   : "bg-cockpit-card border border-cockpit text-cockpit-secondary hover:text-cockpit-primary"
               }`}
@@ -421,7 +421,7 @@ export default function LeadsPage() {
               <div
                 key={demande.id}
                 className={`bg-cockpit-card rounded-card border transition-all ${
-                  isExpanded ? "border-[#E36887]/50 shadow-cockpit-lg" : "border-cockpit hover:border-[#E36887]/30"
+                  isExpanded ? "border-[var(--color-active)]/50 shadow-cockpit-lg" : "border-cockpit hover:border-[var(--color-active)]/30"
                 }`}
               >
                 {/* Row principal — cliquable — grille fixe pour alignement */}
@@ -530,7 +530,7 @@ export default function LeadsPage() {
                   {(() => {
                     const amount = demande.venteMontant || demande.devisMontant;
                     return amount ? (
-                      <span className="text-xs font-bold text-[#E36887] text-right" title="Montant HT (base)">
+                      <span className="text-xs font-bold text-[var(--color-active)] text-right" title="Montant HT (base)">
                         {Number(amount).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}&nbsp;€
                       </span>
                     ) : (
@@ -546,20 +546,20 @@ export default function LeadsPage() {
                       {/* Col 1 — Contact & Demande */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
-                          <User className="w-4 h-4 text-[#E36887]" />
+                          <User className="w-4 h-4 text-[var(--color-active)]" />
                           Contact
                         </h3>
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2 text-cockpit-primary">
                             <Mail className="w-3.5 h-3.5 text-cockpit-secondary" />
-                            <a href={`mailto:${demande.email}`} className="hover:text-[#E36887] transition-colors">
+                            <a href={`mailto:${demande.email}`} className="hover:text-[var(--color-active)] transition-colors">
                               {demande.email}
                             </a>
                           </div>
                           {demande.telephone && (
                             <div className="flex items-center gap-2 text-cockpit-primary">
                               <Phone className="w-3.5 h-3.5 text-cockpit-secondary" />
-                              <a href={`tel:${demande.telephone}`} className="hover:text-[#E36887] transition-colors">
+                              <a href={`tel:${demande.telephone}`} className="hover:text-[var(--color-active)] transition-colors">
                                 {demande.telephone}
                               </a>
                             </div>
@@ -591,7 +591,7 @@ export default function LeadsPage() {
                         {demande.message && (
                           <div className="mt-3">
                             <div className="flex items-center gap-2 text-sm font-semibold text-cockpit-heading mb-1">
-                              <MessageSquare className="w-4 h-4 text-[#E36887]" />
+                              <MessageSquare className="w-4 h-4 text-[var(--color-active)]" />
                               Message
                             </div>
                             <p className="text-sm text-cockpit-secondary bg-cockpit-dark p-3 rounded-lg">
@@ -604,7 +604,7 @@ export default function LeadsPage() {
                         {articles && articles.length > 0 && (
                           <div className="mt-3">
                             <div className="flex items-center gap-2 text-sm font-semibold text-cockpit-heading mb-2">
-                              <Package className="w-4 h-4 text-[#E36887]" />
+                              <Package className="w-4 h-4 text-[var(--color-active)]" />
                               Articles ({articles.length})
                             </div>
                             <div className="space-y-1.5">
@@ -630,7 +630,7 @@ export default function LeadsPage() {
                       {/* Col 2 — Correspondance Catalogue Sellsy */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
-                          <Search className="w-4 h-4 text-[#E36887]" />
+                          <Search className="w-4 h-4 text-[var(--color-active)]" />
                           Correspondance Catalogue Sellsy
                         </h3>
 
@@ -661,9 +661,9 @@ export default function LeadsPage() {
                               }
                               if (sellsy.totalEstimatedTTC > 0) {
                                 return (
-                                  <div className="bg-[#E36887]/10 border border-[#E36887]/30 p-4 rounded-lg">
-                                    <div className="text-xs text-[#E36887] font-semibold mb-1">ESTIMATION CATALOGUE</div>
-                                    <div className="text-2xl font-bold text-[#E36887]">
+                                  <div className="bg-[var(--color-active)]/10 border border-[var(--color-active)]/30 p-4 rounded-lg">
+                                    <div className="text-xs text-[var(--color-active)] font-semibold mb-1">ESTIMATION CATALOGUE</div>
+                                    <div className="text-2xl font-bold text-[var(--color-active)]">
                                       {Number(sellsy.totalEstimatedTTC).toFixed(2)}€ <span className="text-sm font-normal">TTC</span>
                                     </div>
                                     <div className="text-xs text-cockpit-secondary mt-1">
@@ -700,7 +700,7 @@ export default function LeadsPage() {
                                       <span className="text-cockpit-secondary">
                                         {Number(m.bestMatch.prixHT).toFixed(2)}€ HT
                                       </span>
-                                      <span className="text-[#E36887] font-semibold">
+                                      <span className="text-[var(--color-active)] font-semibold">
                                         {Number(m.estimatedValueTTC).toFixed(2)}€ TTC
                                       </span>
                                     </div>
@@ -741,7 +741,7 @@ export default function LeadsPage() {
                       {/* Col 3 — Actions & Statut */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-[#E36887]" />
+                          <Tag className="w-4 h-4 text-[var(--color-active)]" />
                           Actions
                         </h3>
 
@@ -876,7 +876,7 @@ export default function LeadsPage() {
                     {((demande.devisList?.length || 0) > 0 || (demande.ventesList?.length || 0) > 0) && (
                       <div className="col-span-1 lg:col-span-3 pt-4 border-t border-cockpit">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2 mb-3">
-                          <FileText className="w-4 h-4 text-[#E36887]" />
+                          <FileText className="w-4 h-4 text-[var(--color-active)]" />
                           Documents Sellsy
                           <span className="text-[10px] px-2 py-0.5 bg-[#71DD37]/10 text-[#71DD37] rounded-full font-bold">lié</span>
                         </h3>

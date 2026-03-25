@@ -261,7 +261,7 @@ export default function DashboardPage() {
           <button
             onClick={() => fetchFunnel(true)}
             className="px-4 py-2 font-medium rounded-lg transition text-white"
-            style={{ backgroundColor: 'var(--mk-raspberry, #E36887)' }}
+            style={{ backgroundColor: 'var(--mk-raspberry, var(--color-active))' }}
           >
             R&eacute;essayer
           </button>
@@ -287,7 +287,8 @@ export default function DashboardPage() {
         <button
           onClick={() => { fetchFunnel(true); fetchMetaMonthly(); fetchDemandes(); }}
           disabled={refreshing}
-          className="flex items-center gap-2 bg-cockpit-dark border border-cockpit px-4 py-2.5 rounded-lg font-medium hover:bg-cockpit-card transition disabled:opacity-50 text-sm"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-white text-sm hover:opacity-90 transition disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg, var(--color-active), #FEEB9C)' }}
         >
           {refreshing ? (
             <Loader2 className="w-4 h-4 animate-spin" />

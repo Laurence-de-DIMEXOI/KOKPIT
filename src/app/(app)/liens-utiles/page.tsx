@@ -220,7 +220,7 @@ export default function LiensUtilesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#E36887]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-active)]" />
       </div>
     );
   }
@@ -230,8 +230,8 @@ export default function LiensUtilesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#E36887]/15 flex items-center justify-center">
-            <Link2 className="w-5 h-5 text-[#E36887]" />
+          <div className="w-10 h-10 rounded-xl bg-[var(--color-active)]/15 flex items-center justify-center">
+            <Link2 className="w-5 h-5 text-[var(--color-active)]" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-cockpit-heading">
@@ -259,7 +259,7 @@ export default function LiensUtilesPage() {
           <p className="text-cockpit-secondary">Aucun lien pour le moment.</p>
           <button
             onClick={openCreateModal}
-            className="mt-4 text-[#E36887] font-medium text-sm hover:underline"
+            className="mt-4 text-[var(--color-active)] font-medium text-sm hover:underline"
           >
             Ajouter votre premier lien
           </button>
@@ -286,7 +286,7 @@ export default function LiensUtilesPage() {
                     "group bg-cockpit-card rounded-card border border-cockpit p-4 hover:shadow-cockpit-lg transition-all cursor-grab active:cursor-grabbing",
                     dragOverId === lien.id &&
                       dragId !== lien.id &&
-                      "border-[#E36887]/50 bg-[#E36887]/5"
+                      "border-[var(--color-active)]/50 bg-[var(--color-active)]/5"
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -391,7 +391,7 @@ export default function LiensUtilesPage() {
                   value={formNom}
                   onChange={(e) => setFormNom(e.target.value)}
                   placeholder="Ex: Sellsy CRM"
-                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[#E36887]/30 focus:border-[#E36887]"
+                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/30 focus:border-[var(--color-active)]"
                 />
               </div>
 
@@ -408,7 +408,7 @@ export default function LiensUtilesPage() {
                     setFormIconeUrl("");
                   }}
                   placeholder="https://..."
-                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[#E36887]/30 focus:border-[#E36887]"
+                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/30 focus:border-[var(--color-active)]"
                 />
               </div>
 
@@ -425,7 +425,7 @@ export default function LiensUtilesPage() {
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Courte description..."
-                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[#E36887]/30 focus:border-[#E36887]"
+                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/30 focus:border-[var(--color-active)]"
                 />
               </div>
 
@@ -437,7 +437,7 @@ export default function LiensUtilesPage() {
                 <select
                   value={formCategorie}
                   onChange={(e) => setFormCategorie(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[#E36887]/30 focus:border-[#E36887]"
+                  className="w-full px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-card text-cockpit-heading text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/30 focus:border-[var(--color-active)]"
                 >
                   {CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>

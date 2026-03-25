@@ -392,7 +392,8 @@ export default function CommercialDashboardPage() {
           <button
             onClick={fetchAll}
             disabled={refreshing}
-            className="flex items-center gap-2 bg-cockpit-dark border border-cockpit px-4 py-2.5 rounded-lg font-medium hover:bg-cockpit-card transition disabled:opacity-50 text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-white text-sm hover:opacity-90 transition disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, var(--color-active), #FEEB9C)' }}
             title="Actualiser les données"
           >
             {refreshing ? (

@@ -136,7 +136,7 @@ export default function ListesPage() {
       {/* Lists grid */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--mk-raspberry, #E36887)' }} />
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--mk-raspberry, var(--color-active))' }} />
         </div>
       ) : listes.length === 0 ? (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8 text-center">
@@ -180,7 +180,7 @@ export default function ListesPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-cockpit">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(194, 24, 91, 0.10)' }}>
-                  <Plus className="w-5 h-5" style={{ color: 'var(--mk-raspberry, #E36887)' }} />
+                  <Plus className="w-5 h-5" style={{ color: 'var(--mk-raspberry, var(--color-active))' }} />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-cockpit-heading">Nouvelle liste</h2>
@@ -244,12 +244,12 @@ export default function ListesPage() {
                       <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-xs text-cockpit-primary cursor-pointer">
                           <input type="checkbox" checked={hasDevis} onChange={(e) => setHasDevis(e.target.checked)}
-                            className="rounded border-cockpit" style={{ accentColor: 'var(--mk-raspberry, #E36887)' }} />
+                            className="rounded border-cockpit" style={{ accentColor: 'var(--mk-raspberry, var(--color-active))' }} />
                           Avec devis
                         </label>
                         <label className="flex items-center gap-2 text-xs text-cockpit-primary cursor-pointer">
                           <input type="checkbox" checked={hasVente} onChange={(e) => setHasVente(e.target.checked)}
-                            className="rounded border-cockpit" style={{ accentColor: 'var(--mk-raspberry, #E36887)' }} />
+                            className="rounded border-cockpit" style={{ accentColor: 'var(--mk-raspberry, var(--color-active))' }} />
                           Avec commande
                         </label>
                       </div>
@@ -285,7 +285,7 @@ export default function ListesPage() {
               {!createResult && (
                 <button onClick={handleCreate} disabled={creating || !listName.trim()}
                   className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--mk-raspberry, #E36887)' }}>
+                  style={{ backgroundColor: 'var(--mk-raspberry, var(--color-active))' }}>
                   {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                   Créer et exporter
                 </button>
