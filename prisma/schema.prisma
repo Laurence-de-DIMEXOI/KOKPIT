@@ -175,6 +175,8 @@ model User {
   documentsSav         DocumentSAV[]
   commentairesSav      CommentaireSAV[]
   coutsMarketing       CoutMarketing[]
+  canaux               CanalMembre[]
+  messagesSent         MessageChat[]  @relation("MessageChatExpediteur")
 
   @@index([showroomId])
 }
@@ -1053,4 +1055,51 @@ model CoutMarketing {
 
   @@index([periode])
   @@index([type])
+}
+
+// ============================================================================
+// MESSAGERIE
+// ============================================================================
+
+model Canal {
+  id          String         @id @default(cuid())
+  nom         String         @unique
+  description String?
+  type        String         @default("PUBLIC") // "PUBLIC" | "DM"
+  createdAt   DateTime       @default(now())
+
+  messages    MessageChat[]
+  membres     CanalMembre[]
+
+  @@index([type])
+}
+
+model CanalMembre {
+  id        String   @id @default(cuid())
+  canalId   String
+  userId    String
+  dernierLu DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  canal     Canal    @relation(fields: [canalId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([canalId, userId])
+  @@index([userId])
+}
+
+model MessageChat {
+  id           String   @id @default(cuid())
+  canalId      String
+  expediteurId String
+  contenu      String
+  fichierUrl   String?
+  fichierNom   String?
+  createdAt    DateTime @default(now())
+
+  canal        Canal    @relation(fields: [canalId], references: [id], onDelete: Cascade)
+  expediteur   User     @relation("MessageChatExpediteur", fields: [expediteurId], references: [id])
+
+  @@index([canalId, createdAt])
+  @@index([expediteurId])
 }

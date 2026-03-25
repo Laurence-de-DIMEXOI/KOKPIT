@@ -22,6 +22,7 @@ import {
   Clock,
   AlertTriangle,
   Settings,
+  MessageSquare,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -111,6 +112,7 @@ export const ESPACES: Espace[] = [
 // ===== MENU GÉNÉRAL (toujours visible) =====
 
 export const MENU_GENERAL: NavItem[] = [
+  { label: "Messagerie", href: "/messagerie", icon: MessageSquare, module: "messagerie" },
   { label: "Mes Tâches", href: "/commercial/taches", icon: ClipboardList, module: "taches" },
   { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
   { label: "Liens utiles", href: "/liens-utiles", icon: Link2, module: "liens-utiles" },

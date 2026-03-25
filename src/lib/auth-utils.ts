@@ -29,7 +29,8 @@ export type Module =
   | "bois-dorient"
   | "pointage"
   | "pointage-equipe"
-  | "sav";
+  | "sav"
+  | "messagerie";
 
 /**
  * Permissions par rôle — DIMEXOI
@@ -69,6 +70,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "pointage",
     "pointage-equipe",
     "sav",
+    "messagerie",
   ],
   MARKETING: [
     // Marketing complet
@@ -96,6 +98,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "bois-dorient",
     // Administration (congés + pointage perso, pas pointage-equipe/collaborateurs/parametres)
     "dashboard-admin",
+    "messagerie",
   ],
   COMMERCIAL: [
     // Section commerciale
@@ -116,6 +119,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "dashboard-admin",
     "conges",
     "pointage",
+    "messagerie",
   ],
   DIRECTION: [
     // Tout accès (comme ADMIN)
@@ -146,6 +150,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "pointage",
     "pointage-equipe",
     "sav",
+    "messagerie",
   ],
   ACHAT: [
     // Section commerciale (Commandes + SAV + Catalogue)
@@ -163,6 +168,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "dashboard-admin",
     "conges",
     "pointage",
+    "messagerie",
   ],
 };
 
