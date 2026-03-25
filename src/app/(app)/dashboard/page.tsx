@@ -261,7 +261,7 @@ export default function DashboardPage() {
           <button
             onClick={() => fetchFunnel(true)}
             className="px-4 py-2 font-medium rounded-lg transition text-white"
-            style={{ backgroundColor: 'var(--mk-raspberry, #838F58)' }}
+            style={{ backgroundColor: 'var(--mk-raspberry, #E36887)' }}
           >
             R&eacute;essayer
           </button>
@@ -362,7 +362,7 @@ export default function DashboardPage() {
           <div className="text-right">
             <p className={clsx(
               "text-2xl font-bold",
-              budgetRestant < 200 ? "text-[#838F58]" : budgetRestant < 500 ? "text-[#A4B078]" : "text-[#6B7A45]"
+              budgetRestant < 200 ? "text-[#E36887]" : budgetRestant < 500 ? "text-[#EDA0B2]" : "text-[#D15570]"
             )}>
               {budgetRestant.toLocaleString("fr-FR")} &euro;
             </p>
@@ -405,7 +405,7 @@ export default function DashboardPage() {
             <p className="text-xs text-cockpit-secondary mb-1">Restant</p>
             <p className={clsx(
               "text-sm font-bold",
-              budgetRestant < 200 ? "text-[#838F58]" : "text-[#6B7A45]"
+              budgetRestant < 200 ? "text-[#E36887]" : "text-[#D15570]"
             )}>
               {budgetRestant.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} &euro;
             </p>
@@ -435,7 +435,7 @@ export default function DashboardPage() {
                 const order = docs?.orders?.[0];
                 const sellsyAmount = order?.amounts?.total_incl_tax || estimate?.amounts?.total_incl_tax;
                 return (
-                  <div key={d.id} className="flex items-center justify-between p-3 bg-cockpit-dark rounded-lg border border-cockpit/50 hover:border-[#A4B078]/30 transition">
+                  <div key={d.id} className="flex items-center justify-between p-3 bg-cockpit-dark rounded-lg border border-cockpit/50 hover:border-[#EDA0B2]/30 transition">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={clsx(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
@@ -548,9 +548,9 @@ export default function DashboardPage() {
                     {r.roas > 0 ? (
                       <span className={clsx(
                         "text-xs font-bold px-2 py-0.5 rounded-full",
-                        r.roas >= 3 ? "bg-[#6B7A45]/15 text-[#6B7A45]"
-                          : r.roas >= 1 ? "bg-[#A4B078]/15 text-[#A4B078]"
-                          : "bg-[#838F58]/15 text-[#838F58]"
+                        r.roas >= 3 ? "bg-[#D15570]/15 text-[#D15570]"
+                          : r.roas >= 1 ? "bg-[#EDA0B2]/15 text-[#EDA0B2]"
+                          : "bg-[#E36887]/15 text-[#E36887]"
                       )}>
                         {r.roas.toFixed(1)}x
                       </span>
@@ -578,9 +578,9 @@ export default function DashboardPage() {
                   {roiTotals.totalRoas > 0 ? (
                     <span className={clsx(
                       "text-sm font-bold px-2.5 py-0.5 rounded-full",
-                      roiTotals.totalRoas >= 3 ? "bg-[#6B7A45]/15 text-[#6B7A45]"
-                        : roiTotals.totalRoas >= 1 ? "bg-[#A4B078]/15 text-[#A4B078]"
-                        : "bg-[#838F58]/15 text-[#838F58]"
+                      roiTotals.totalRoas >= 3 ? "bg-[#D15570]/15 text-[#D15570]"
+                        : roiTotals.totalRoas >= 1 ? "bg-[#EDA0B2]/15 text-[#EDA0B2]"
+                        : "bg-[#E36887]/15 text-[#E36887]"
                     )}>
                       {roiTotals.totalRoas.toFixed(1)}x
                     </span>
@@ -608,9 +608,9 @@ export default function DashboardPage() {
             Commandes: m.commandes,
           }))}
           series={[
-            { dataKey: "Contacts", name: "Contacts", color: "#A4B078" },
-            { dataKey: "Devis", name: "Devis", color: "#6B7A45" },
-            { dataKey: "Commandes", name: "Commandes", color: "#838F58" },
+            { dataKey: "Contacts", name: "Contacts", color: "#EDA0B2" },
+            { dataKey: "Devis", name: "Devis", color: "#D15570" },
+            { dataKey: "Commandes", name: "Commandes", color: "#E36887" },
           ]}
           height={300}
         />
@@ -642,10 +642,10 @@ export default function DashboardPage() {
             {(showAllContacts ? contactsSansDevis : contactsSansDevis.slice(0, 5)).map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between p-3 bg-cockpit rounded-lg border border-cockpit/50 hover:border-[#A4B078]/30 transition"
+                className="flex items-center justify-between p-3 bg-cockpit rounded-lg border border-cockpit/50 hover:border-[#EDA0B2]/30 transition"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#A4B078]/15 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-[#EDA0B2]/15 flex items-center justify-center">
                     <Users className="w-4 h-4" style={{ color: 'var(--mk-lemon)' }} />
                   </div>
                   <div>

@@ -70,7 +70,7 @@ interface ROIData {
 // ============================================================================
 
 const MKT_GRADIENT = {
-  from: "#838F58",
+  from: "#E36887",
   to: "#9C1449",
   shadow: "rgba(194,24,91,0.30)",
 };
@@ -80,7 +80,7 @@ const CANAL_COLORS: Record<string, string> = {
   seo: "#AD1457",
   email: "#F06292",
   social: "#EC407A",
-  print: "#838F58",
+  print: "#E36887",
   event: "#D81B60",
   other: "#880E4F",
 };

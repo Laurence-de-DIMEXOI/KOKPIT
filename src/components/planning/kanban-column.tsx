@@ -57,7 +57,7 @@ export default function KanbanColumn({
   return (
     <div
       className={`flex flex-col min-w-[280px] max-w-[280px] rounded-xl transition-colors ${
-        isDragOver ? "bg-[#838F58]/5 ring-2 ring-[#838F58]" : "bg-[#F4F5F7]"
+        isDragOver ? "bg-[#E36887]/5 ring-2 ring-[#E36887]" : "bg-[#F4F5F7]"
       }`}
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, statut)}

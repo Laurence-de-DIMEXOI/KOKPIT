@@ -27,10 +27,10 @@
   --color-commercial: #4C9DB0;
   --color-commercial-light: rgba(76, 157, 176, 0.12);
   --color-commercial-border: rgba(76, 157, 176, 0.35);
-  /* Marketing — palette Strawberry + Matcha */
-  --color-marketing: #838F58;
-  --color-marketing-light: rgba(131, 143, 88, 0.12);
-  --color-marketing-border: rgba(131, 143, 88, 0.35);
+  /* Marketing — palette Blush + Butter Yellow */
+  --color-marketing: #E36887;
+  --color-marketing-light: rgba(227, 104, 135, 0.12);
+  --color-marketing-border: rgba(227, 104, 135, 0.35);
   /* Administration — palette Pale Apricot + Vibrant Orange */
   --color-admin: #F17142;
   --color-admin-light: rgba(241, 113, 66, 0.12);

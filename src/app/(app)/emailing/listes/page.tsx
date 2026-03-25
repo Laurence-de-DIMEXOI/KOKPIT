@@ -136,7 +136,7 @@ export default function ListesPage() {
       {/* Lists grid */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--mk-raspberry, #838F58)' }} />
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--mk-raspberry, #E36887)' }} />
         </div>
       ) : listes.length === 0 ? (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8 text-center">
@@ -150,9 +150,9 @@ export default function ListesPage() {
             <div key={liste.id} className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(212, 86, 122, 0.10)' }}>
-                  <List className="w-5 h-5" style={{ color: 'var(--mk-grapefruit, #9BA775)' }} />
+                  <List className="w-5 h-5" style={{ color: 'var(--mk-grapefruit, #E8899F)' }} />
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: 'rgba(141, 160, 53, 0.10)', color: 'var(--mk-lime, #6B7A45)' }}>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: 'rgba(141, 160, 53, 0.10)', color: 'var(--mk-lime, #D15570)' }}>
                   Active
                 </span>
               </div>
@@ -180,7 +180,7 @@ export default function ListesPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-cockpit">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(194, 24, 91, 0.10)' }}>
-                  <Plus className="w-5 h-5" style={{ color: 'var(--mk-raspberry, #838F58)' }} />
+                  <Plus className="w-5 h-5" style={{ color: 'var(--mk-raspberry, #E36887)' }} />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-cockpit-heading">Nouvelle liste</h2>
@@ -196,17 +196,17 @@ export default function ListesPage() {
             <div className="px-6 py-4 space-y-4">
               {createResult ? (
                 <div className="text-center py-4">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--mk-lime, #6B7A45)' }} />
+                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--mk-lime, #D15570)' }} />
                   <h3 className="text-base font-semibold text-cockpit-heading mb-2">
                     Liste &quot;{createResult.listName}&quot; créée
                   </h3>
                   <div className="grid grid-cols-2 gap-3 mt-4">
                     <div className="bg-cockpit-dark rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold" style={{ color: 'var(--mk-grapefruit, #9BA775)' }}>{createResult.contactsMatched}</p>
+                      <p className="text-2xl font-bold" style={{ color: 'var(--mk-grapefruit, #E8899F)' }}>{createResult.contactsMatched}</p>
                       <p className="text-[10px] text-cockpit-secondary">Contacts trouvés</p>
                     </div>
                     <div className="bg-cockpit-dark rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold" style={{ color: 'var(--mk-lime, #6B7A45)' }}>{createResult.contactsAdded}</p>
+                      <p className="text-2xl font-bold" style={{ color: 'var(--mk-lime, #D15570)' }}>{createResult.contactsAdded}</p>
                       <p className="text-[10px] text-cockpit-secondary">Ajoutés à Brevo</p>
                     </div>
                   </div>
@@ -244,12 +244,12 @@ export default function ListesPage() {
                       <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-xs text-cockpit-primary cursor-pointer">
                           <input type="checkbox" checked={hasDevis} onChange={(e) => setHasDevis(e.target.checked)}
-                            className="rounded border-cockpit" style={{ accentColor: 'var(--mk-raspberry, #838F58)' }} />
+                            className="rounded border-cockpit" style={{ accentColor: 'var(--mk-raspberry, #E36887)' }} />
                           Avec devis
                         </label>
                         <label className="flex items-center gap-2 text-xs text-cockpit-primary cursor-pointer">
                           <input type="checkbox" checked={hasVente} onChange={(e) => setHasVente(e.target.checked)}
-                            className="rounded border-cockpit" style={{ accentColor: 'var(--mk-raspberry, #838F58)' }} />
+                            className="rounded border-cockpit" style={{ accentColor: 'var(--mk-raspberry, #E36887)' }} />
                           Avec commande
                         </label>
                       </div>
@@ -285,7 +285,7 @@ export default function ListesPage() {
               {!createResult && (
                 <button onClick={handleCreate} disabled={creating || !listName.trim()}
                   className="flex items-center gap-2 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--mk-raspberry, #838F58)' }}>
+                  style={{ backgroundColor: 'var(--mk-raspberry, #E36887)' }}>
                   {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                   Créer et exporter
                 </button>
