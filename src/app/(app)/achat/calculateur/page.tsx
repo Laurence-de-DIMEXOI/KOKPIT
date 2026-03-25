@@ -568,8 +568,8 @@ export default function CalculateurPage() {
             value={simpleResult ? formatEUR(simpleResult.affiche) : "—"}
           />
           <KpiCard
-            label="Arrondi"
-            value={simpleResult ? formatEUR(simpleResult.arrondi) : "—"}
+            label="Min - Arrondi"
+            value={simpleResult ? `${formatEUR(Math.round(simpleResult.minimum))} - ${formatEUR(simpleResult.arrondi)}` : "—"}
           />
           <KpiCard
             label="Cuisine"
@@ -647,7 +647,7 @@ export default function CalculateurPage() {
                   Affiché
                 </th>
                 <th className="text-right text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-3">
-                  Arrondi
+                  Min - Arrondi
                 </th>
                 <th className="text-right text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-3">
                   Cuisine
@@ -693,7 +693,7 @@ export default function CalculateurPage() {
                       className="p-3 text-right text-sm font-bold"
                       style={{ color: "var(--color-active)" }}
                     >
-                      {r ? formatEUR(r.arrondi) : "—"}
+                      {r ? `${formatEUR(Math.round(r.minimum))} - ${formatEUR(r.arrondi)}` : "—"}
                     </td>
                     <td className="p-3 text-right text-sm font-semibold text-cockpit-heading">
                       {r ? formatEUR(r.cuisine) : "—"}
@@ -769,9 +769,9 @@ export default function CalculateurPage() {
                     </p>
                   </div>
                   <div>
-                    <span className="text-cockpit-secondary">Arrondi</span>
+                    <span className="text-cockpit-secondary">Min - Arrondi</span>
                     <p className="font-bold" style={{ color: "var(--color-active)" }}>
-                      {r ? formatEUR(r.arrondi) : "—"}
+                      {r ? `${formatEUR(Math.round(r.minimum))} - ${formatEUR(r.arrondi)}` : "—"}
                     </p>
                   </div>
                   <div>

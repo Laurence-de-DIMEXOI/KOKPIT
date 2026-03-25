@@ -245,22 +245,27 @@ function NeedPriceDrawer({
           {/* Prix reçus */}
           {item.statut === "PRIX_RECU" && !editing && (
             <div className="space-y-3 pt-3 border-t border-cockpit">
-              {item.typePrix === "MINIMUM_ARRONDI" && item.prixMinimum != null && item.prixVente != null ? (
+              <Field
+                label="Prix fournisseur"
+                value={item.prixFournisseur != null ? new Intl.NumberFormat("fr-FR").format(item.prixFournisseur) : "—"}
+              />
+              {item.prixMinimum != null && item.prixVente != null && (
                 <Field
                   label="Prix"
                   value={`${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixMinimum)} - ${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}`}
                 />
-              ) : item.prixVente != null ? (
+              )}
+              {item.prixMinimum == null && item.prixVente != null && (
                 <Field
-                  label="Prix cuisine"
+                  label="Prix"
                   value={new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}
                 />
-              ) : null}
-              {item.prixFournisseur != null && (
-                <Field
-                  label="Base fournisseur (IDR)"
-                  value={new Intl.NumberFormat("fr-FR").format(item.prixFournisseur)}
-                />
+              )}
+              {item.notes && (
+                <div>
+                  <p className="text-xs font-medium text-cockpit-secondary mb-1">Détail prix</p>
+                  <pre className="text-xs text-cockpit-primary bg-cockpit-dark rounded-lg p-3 whitespace-pre-wrap">{item.notes}</pre>
+                </div>
               )}
               <button
                 onClick={() => setEditing(true)}
