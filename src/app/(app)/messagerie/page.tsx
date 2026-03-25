@@ -344,6 +344,15 @@ export default function MessageriePage() {
   const [showUserPicker, setShowUserPicker] = useState(false);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [mobileShowMessages, setMobileShowMessages] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ id: string; nom: string; prenom: string; role: string }[]>([]);
+
+  // Charger tous les utilisateurs pour la section Messages privés
+  useEffect(() => {
+    fetch("/api/messagerie/utilisateurs")
+      .then((r) => r.json())
+      .then((data) => setAllUsers(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -510,31 +519,54 @@ export default function MessageriePage() {
           })}
         </div>
 
-        {/* DM Channels */}
+        {/* Messages privés — tous les utilisateurs */}
         <div>
           <span className="block px-2 mb-1 text-[10px] font-semibold tracking-wider text-cockpit-secondary uppercase">
             Messages privés
           </span>
-          {dmChannels.length === 0 ? (
-            <p className="px-2 text-xs text-cockpit-secondary/60 italic">
-              Aucune conversation
-            </p>
-          ) : (
-            dmChannels.map((canal) => {
-              const isActive = canal.id === canalActif;
-              const unread = unreadCounts[canal.id] || 0;
-              const name = getDMName(canal, currentUserId);
+          {(() => {
+            // Map des DM existants par userId de l'autre personne
+            const dmByUserId = new Map<string, typeof dmChannels[0]>();
+            for (const dm of dmChannels) {
+              const other = dm.membres.find((m) => m.id !== currentUserId);
+              if (other) dmByUserId.set(other.id, dm);
+            }
+
+            // Tous les users : ceux avec conversation d'abord, puis les autres
+            const usersWithDM = allUsers.filter((u) => dmByUserId.has(u.id));
+            const usersWithoutDM = allUsers.filter((u) => !dmByUserId.has(u.id));
+            const sortedUsers = [...usersWithDM, ...usersWithoutDM];
+
+            return sortedUsers.map((user) => {
+              const existingDM = dmByUserId.get(user.id);
+              const isActive = existingDM ? existingDM.id === canalActif : false;
+              const unread = existingDM ? (unreadCounts[existingDM.id] || 0) : 0;
+              const name = `${user.prenom} ${user.nom}`;
+
               return (
                 <button
-                  key={canal.id}
-                  onClick={() => handleSelectCanal(canal.id)}
+                  key={user.id}
+                  onClick={async () => {
+                    if (existingDM) {
+                      handleSelectCanal(existingDM.id);
+                    } else {
+                      await creerDM(user.id);
+                    }
+                  }}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors ${
                     isActive
                       ? "bg-[var(--color-active)]/10 text-[var(--color-active)]"
-                      : "text-cockpit-secondary hover:bg-cockpit-dark hover:text-cockpit-primary"
+                      : existingDM
+                        ? "text-cockpit-primary hover:bg-cockpit-dark"
+                        : "text-cockpit-secondary/60 hover:bg-cockpit-dark hover:text-cockpit-primary"
                   }`}
                 >
-                  <MessageCircle size={14} className="shrink-0 opacity-60" />
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0"
+                    style={{ backgroundColor: existingDM ? "var(--color-active)" : "#D1D5DB" }}
+                  >
+                    {user.prenom?.[0]}{user.nom?.[0]}
+                  </div>
                   <span className="truncate flex-1 font-medium">{name}</span>
                   {unread > 0 && (
                     <span className="shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
@@ -543,8 +575,8 @@ export default function MessageriePage() {
                   )}
                 </button>
               );
-            })
-          )}
+            });
+          })()}
         </div>
       </div>
     </div>
