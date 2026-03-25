@@ -85,6 +85,8 @@ function NeedPriceDrawer({
   onClose: () => void;
   onUpdate: () => void;
 }) {
+  const { data: session } = useSession();
+  const isAchat = ["ACHAT", "ADMIN"].includes(session?.user?.role || "");
   const { addToast } = useToast();
   const [prixInput, setPrixInput] = useState(item.prixFournisseur?.toString() || "");
   const [editing, setEditing] = useState(false);
@@ -218,16 +220,6 @@ function NeedPriceDrawer({
             <Field label="Dimensions" value={item.dimensions} />
             <Field label="Finitions" value={item.finitions || "—"} />
             <Field label="Notes" value={item.notes || "—"} />
-            {item.prixFournisseur != null && (
-              <Field
-                label="Prix fournisseur"
-                value={new Intl.NumberFormat("fr-FR", {
-                  style: "currency",
-                  currency: "EUR",
-                  maximumFractionDigits: 2,
-                }).format(item.prixFournisseur)}
-              />
-            )}
             <Field
               label="Créé par"
               value={`${item.createdBy.prenom} ${item.createdBy.nom}`}
@@ -243,24 +235,41 @@ function NeedPriceDrawer({
           </div>
 
           {/* Prix reçus */}
-          {item.statut === "PRIX_RECU" && !editing && (
+          {/* Prix reçus — vue commerciaux : juste le prix de vente */}
+          {item.statut === "PRIX_RECU" && !isAchat && (
+            <div className="space-y-3 pt-3 border-t border-cockpit">
+              {item.prixMinimum != null && item.prixVente != null ? (
+                <Field
+                  label="Prix"
+                  value={`${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixMinimum)} - ${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}`}
+                />
+              ) : item.prixVente != null ? (
+                <Field
+                  label="Prix"
+                  value={new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}
+                />
+              ) : null}
+            </div>
+          )}
+
+          {/* Prix reçus — vue Elaury : tout + modifier */}
+          {item.statut === "PRIX_RECU" && isAchat && !editing && (
             <div className="space-y-3 pt-3 border-t border-cockpit">
               <Field
                 label="Prix fournisseur"
                 value={item.prixFournisseur != null ? new Intl.NumberFormat("fr-FR").format(item.prixFournisseur) : "—"}
               />
-              {item.prixMinimum != null && item.prixVente != null && (
+              {item.prixMinimum != null && item.prixVente != null ? (
                 <Field
                   label="Prix"
                   value={`${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixMinimum)} - ${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}`}
                 />
-              )}
-              {item.prixMinimum == null && item.prixVente != null && (
+              ) : item.prixVente != null ? (
                 <Field
                   label="Prix"
                   value={new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}
                 />
-              )}
+              ) : null}
               {item.notes && (
                 <div>
                   <p className="text-xs font-medium text-cockpit-secondary mb-1">Détail prix</p>
@@ -276,8 +285,8 @@ function NeedPriceDrawer({
             </div>
           )}
 
-          {/* Actions — saisie prix (DEMANDE ou édition) */}
-          {(item.statut === "DEMANDE" || editing) && (
+          {/* Actions — saisie prix (ACHAT uniquement : DEMANDE ou édition) */}
+          {isAchat && (item.statut === "DEMANDE" || editing) && (
             <div className="space-y-3 pt-3 border-t border-cockpit">
               <div>
                 <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
@@ -329,16 +338,18 @@ function NeedPriceDrawer({
             </div>
           )}
 
-          {/* Supprimer */}
-          <div className="pt-3 border-t border-cockpit">
-            <button
-              onClick={handleSupprimer}
-              disabled={submitting}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-            >
-              Supprimer cette demande
-            </button>
-          </div>
+          {/* Supprimer — ACHAT/ADMIN uniquement */}
+          {isAchat && (
+            <div className="pt-3 border-t border-cockpit">
+              <button
+                onClick={handleSupprimer}
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+              >
+                Supprimer cette demande
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>,
