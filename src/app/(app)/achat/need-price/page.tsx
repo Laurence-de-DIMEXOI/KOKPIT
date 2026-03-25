@@ -86,7 +86,7 @@ function NeedPriceDrawer({
   onUpdate: () => void;
 }) {
   const { data: session } = useSession();
-  const isAchat = ["ACHAT", "ADMIN"].includes(session?.user?.role || "");
+  const isAchat = session?.user?.role === "ACHAT";
   const { addToast } = useToast();
   const [prixInput, setPrixInput] = useState(item.prixFournisseur?.toString() || "");
   const [editing, setEditing] = useState(false);
