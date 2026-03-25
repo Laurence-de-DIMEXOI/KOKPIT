@@ -52,7 +52,11 @@ interface NeedPrice {
   notes: string | null;
   statut: "DEMANDE" | "PRIX_RECU" | "ANNULE";
   prixFournisseur: number | null;
+  prixVente: number | null;
+  prixMinimum: number | null;
+  typePrix: string | null;
   devisLie: string | null;
+  nomClient: string | null;
   createdBy: { nom: string; prenom: string };
   createdAt: string;
 }
@@ -82,7 +86,8 @@ function NeedPriceDrawer({
   onUpdate: () => void;
 }) {
   const { addToast } = useToast();
-  const [prixInput, setPrixInput] = useState("");
+  const [prixInput, setPrixInput] = useState(item.prixFournisseur?.toString() || "");
+  const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const badge = STATUT_BADGE[item.statut] || STATUT_BADGE.DEMANDE;
 
@@ -105,6 +110,24 @@ function NeedPriceDrawer({
       } else {
         const d = await res.json();
         addToast(d.error || "Erreur", "error");
+      }
+    } catch {
+      addToast("Erreur de connexion", "error");
+    }
+    setSubmitting(false);
+  };
+
+  const handleSupprimer = async () => {
+    if (!confirm("Supprimer définitivement cette demande ?")) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/achat/need-price/${item.id}`, { method: "DELETE" });
+      if (res.ok) {
+        addToast("Demande supprimée", "success");
+        onUpdate();
+        onClose();
+      } else {
+        addToast("Erreur lors de la suppression", "error");
       }
     } catch {
       addToast("Erreur de connexion", "error");
@@ -219,19 +242,42 @@ function NeedPriceDrawer({
             />
           </div>
 
-          {/* Actions */}
-          {item.statut === "DEMANDE" && (
+          {/* Prix reçus */}
+          {item.statut === "PRIX_RECU" && !editing && (
+            <div className="space-y-3 pt-3 border-t border-cockpit">
+              {item.prixVente != null && (
+                <Field
+                  label={`Prix de vente (${item.typePrix === "CUISINE" ? "Cuisine" : "Arrondi"})`}
+                  value={new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}
+                />
+              )}
+              {item.prixMinimum != null && (
+                <Field
+                  label="Prix minimum"
+                  value={new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixMinimum)}
+                />
+              )}
+              <button
+                onClick={() => setEditing(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-cockpit text-cockpit-secondary hover:text-[var(--color-active)] hover:border-[var(--color-active)]/30 transition-colors"
+              >
+                Modifier le prix fournisseur
+              </button>
+            </div>
+          )}
+
+          {/* Actions — saisie prix (DEMANDE ou édition) */}
+          {(item.statut === "DEMANDE" || editing) && (
             <div className="space-y-3 pt-3 border-t border-cockpit">
               <div>
                 <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-                  Prix fournisseur reçu
+                  Prix fournisseur (IDR)
                 </label>
                 <input
                   type="number"
                   value={prixInput}
                   onChange={(e) => setPrixInput(e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
+                  placeholder="Base fournisseur en IDR"
                   min="0"
                   className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
                 />
@@ -250,18 +296,39 @@ function NeedPriceDrawer({
                 ) : (
                   <CheckCircle className="w-4 h-4" />
                 )}
-                Marquer prix reçu
+                {editing ? "Mettre à jour le prix" : "Marquer prix reçu"}
               </button>
-              <button
-                onClick={handleAnnuler}
-                disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-cockpit text-cockpit-secondary hover:text-red-500 hover:border-red-500/30 transition-colors disabled:opacity-50"
-              >
-                <XCircle className="w-4 h-4" />
-                Annuler la demande
-              </button>
+              {editing && (
+                <button
+                  onClick={() => setEditing(false)}
+                  className="w-full text-xs text-cockpit-secondary hover:text-cockpit-primary transition-colors"
+                >
+                  Annuler la modification
+                </button>
+              )}
+              {item.statut === "DEMANDE" && (
+                <button
+                  onClick={handleAnnuler}
+                  disabled={submitting}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-cockpit text-cockpit-secondary hover:text-red-500 hover:border-red-500/30 transition-colors disabled:opacity-50"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Annuler la demande
+                </button>
+              )}
             </div>
           )}
+
+          {/* Supprimer */}
+          <div className="pt-3 border-t border-cockpit">
+            <button
+              onClick={handleSupprimer}
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              Supprimer cette demande
+            </button>
+          </div>
         </div>
       </div>
     </div>,

@@ -93,8 +93,18 @@ export default function CalculateurPage() {
   const [configLoading, setConfigLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // --- Simple calc state ---
-  const [baseSimple, setBaseSimple] = useState<number | "">("");
+  // --- Simple calc state (persisté dans localStorage) ---
+  const [baseSimple, setBaseSimple] = useState<number | "">(() => {
+    if (typeof window === "undefined") return "";
+    const saved = localStorage.getItem("kokpit_calc_simple");
+    return saved ? Number(saved) || "" : "";
+  });
+
+  useEffect(() => {
+    if (typeof baseSimple === "number" && baseSimple > 0) {
+      localStorage.setItem("kokpit_calc_simple", String(baseSimple));
+    }
+  }, [baseSimple]);
 
   // --- Ajouter à une demande ---
   const [showAddToDemande, setShowAddToDemande] = useState(false);
@@ -103,10 +113,22 @@ export default function CalculateurPage() {
   const [selectedTypePrix, setSelectedTypePrix] = useState<"MINIMUM_ARRONDI" | "CUISINE">("MINIMUM_ARRONDI");
   const [addingToDemande, setAddingToDemande] = useState(false);
 
-  // --- Multi calc state ---
-  const [rows, setRows] = useState<MultiRow[]>([
-    { id: crypto.randomUUID(), nom: "", base: "" },
-  ]);
+  // --- Multi calc state (persisté dans localStorage) ---
+  const [rows, setRows] = useState<MultiRow[]>(() => {
+    if (typeof window === "undefined") return [{ id: crypto.randomUUID(), nom: "", base: "" }];
+    try {
+      const saved = localStorage.getItem("kokpit_calc_multi");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [{ id: crypto.randomUUID(), nom: "", base: "" }];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("kokpit_calc_multi", JSON.stringify(rows));
+  }, [rows]);
   const [showAddMultiToDemande, setShowAddMultiToDemande] = useState(false);
   const [multiDemandes, setMultiDemandes] = useState<{ id: string; reference: string; denomination: string; nomClient: string | null }[]>([]);
   const [selectedMultiDemande, setSelectedMultiDemande] = useState("");

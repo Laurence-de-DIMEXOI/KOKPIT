@@ -107,3 +107,25 @@ export async function PUT(
     );
   }
 }
+
+// DELETE - Delete NeedPrice (ACHAT or ADMIN only)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Authentification requise" }, { status: 401 });
+    }
+    if (!["ACHAT", "ADMIN"].includes(session.user.role)) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    }
+    const { id } = await params;
+    await prisma.needPrice.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Erreur suppression NeedPrice:", error);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
