@@ -15,7 +15,7 @@ export async function PUT(
 
   const role = (session.user as any).role;
   const email = session.user?.email;
-  if (email !== "laurence.payet@dimexoi.fr" && !["DIRECTION"].includes(role)) {
+  if (email !== "laurence.payet@dimexoi.fr" && email !== "admin@kokpit.re" && !["DIRECTION"].includes(role)) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
