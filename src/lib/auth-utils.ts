@@ -214,12 +214,18 @@ export function requireRole(
   return true;
 }
 
-export function canAccessModule(role: Role, module: Module): boolean {
-  const allowedModules = roleModuleAccess[role];
-
-  if (!allowedModules) {
-    return false;
+export function canAccessModule(
+  role: Role,
+  module: Module,
+  overrides?: Record<string, boolean> | null
+): boolean {
+  // Per-user overrides take priority
+  if (overrides && module in overrides) {
+    return overrides[module];
   }
 
+  // Fall back to role defaults
+  const allowedModules = roleModuleAccess[role];
+  if (!allowedModules) return false;
   return allowedModules.includes(module);
 }

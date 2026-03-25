@@ -151,6 +151,7 @@ model User {
   pointageActif   Boolean   @default(true) // false = pas de pointage (Liliane, Alain)
   pointageDelegueId String? // userId de la personne qui peut pointer pour ce user
   soldeHeures     Float     @default(0) // solde cumulé heures supp (positif = récup dispo, négatif = à rattraper)
+  moduleAccessOverrides Json? // {"module": true/false} — overrides par utilisateur
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

@@ -14,6 +14,7 @@ declare module "next-auth" {
       prenom: string;
       role: string;
       showroomId: string | null;
+      moduleAccessOverrides: Record<string, boolean> | null;
     };
   }
 }
@@ -25,6 +26,7 @@ declare module "next-auth/jwt" {
     showroomId: string | null;
     nom: string;
     prenom: string;
+    moduleAccessOverrides: Record<string, boolean> | null;
   }
 }
 
@@ -95,17 +97,19 @@ export const authOptions: NextAuthOptions = {
         token.showroomId = (user as any).showroomId || null;
         token.nom = (user as any).nom;
         token.prenom = (user as any).prenom;
+        token.moduleAccessOverrides = ((user as any).moduleAccessOverrides as Record<string, boolean>) || null;
       }
       if (trigger === "update") {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { nom: true, prenom: true, role: true, showroomId: true },
+          select: { nom: true, prenom: true, role: true, showroomId: true, moduleAccessOverrides: true },
         });
         if (dbUser) {
           token.nom = dbUser.nom;
           token.prenom = dbUser.prenom;
           token.role = dbUser.role;
           token.showroomId = dbUser.showroomId;
+          token.moduleAccessOverrides = (dbUser.moduleAccessOverrides as Record<string, boolean>) || null;
         }
       }
       return token;
@@ -117,6 +121,7 @@ export const authOptions: NextAuthOptions = {
         session.user.showroomId = token.showroomId;
         session.user.nom = token.nom;
         session.user.prenom = token.prenom;
+        session.user.moduleAccessOverrides = (token.moduleAccessOverrides as Record<string, boolean>) || null;
       }
       return session;
     },

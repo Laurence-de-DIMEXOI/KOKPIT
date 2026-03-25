@@ -7,15 +7,15 @@ import { ESPACES, MENU_GENERAL } from "@/lib/nav-config";
 import { canAccessModule, type Role, type Module } from "@/lib/auth-utils";
 
 // ===== Pages statiques depuis nav-config — filtrées par rôle =====
-function searchPages(query: string, role: Role): { label: string; href: string; espace: string }[] {
+function searchPages(query: string, role: Role, overrides?: Record<string, boolean> | null): { label: string; href: string; espace: string }[] {
   const q = query.toLowerCase();
   const results: { label: string; href: string; espace: string }[] = [];
 
   for (const espace of ESPACES) {
     if (espace.disabled) continue;
-    if (!canAccessModule(role, espace.requiredModule)) continue;
+    if (!canAccessModule(role, espace.requiredModule, overrides)) continue;
     for (const item of espace.menu) {
-      if (!canAccessModule(role, item.module)) continue;
+      if (!canAccessModule(role, item.module, overrides)) continue;
       if (item.label.toLowerCase().includes(q)) {
         results.push({ label: item.label, href: item.href, espace: espace.label });
       }
@@ -23,7 +23,7 @@ function searchPages(query: string, role: Role): { label: string; href: string; 
   }
 
   for (const item of MENU_GENERAL) {
-    if (!canAccessModule(role, item.module)) continue;
+    if (!canAccessModule(role, item.module, overrides)) continue;
     if (item.label.toLowerCase().includes(q)) {
       results.push({ label: item.label, href: item.href, espace: "Général" });
     }
@@ -118,19 +118,20 @@ export async function GET(request: NextRequest) {
   }
 
   const role = ((session.user as any).role || "COMMERCIAL") as Role;
+  const overrides = (session.user as any).moduleAccessOverrides as Record<string, boolean> | null;
 
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q || q.length < 2) {
     return NextResponse.json({ contacts: [], tasks: [], leads: [], estimates: [], orders: [], products: [], pages: [] });
   }
 
-  // Déterminer quels modules sont accessibles
-  const canContacts = canAccessModule(role, "contacts");
-  const canLeads = canAccessModule(role, "leads");
-  const canDevis = canAccessModule(role, "pipeline");
-  const canCommandes = canAccessModule(role, "commandes");
-  const canCatalogue = canAccessModule(role, "catalogue");
-  const canTaches = canAccessModule(role, "taches");
+  // Déterminer quels modules sont accessibles (avec overrides)
+  const canContacts = canAccessModule(role, "contacts", overrides);
+  const canLeads = canAccessModule(role, "leads", overrides);
+  const canDevis = canAccessModule(role, "pipeline", overrides);
+  const canCommandes = canAccessModule(role, "commandes", overrides);
+  const canCatalogue = canAccessModule(role, "catalogue", overrides);
+  const canTaches = canAccessModule(role, "taches", overrides);
 
   try {
     // Lancer uniquement les recherches autorisées
@@ -208,7 +209,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Pages filtrées par rôle
-    const pages = searchPages(q, role);
+    const pages = searchPages(q, role, overrides);
 
     return NextResponse.json({ contacts, tasks, leads, estimates, orders, products, pages });
   } catch (error: unknown) {

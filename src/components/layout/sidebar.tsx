@@ -63,13 +63,14 @@ export function Sidebar({
   const pathname = usePathname();
   const { data: session } = useSession();
   const userRole = session?.user?.role as Role | undefined;
+  const userOverrides = (session?.user as any)?.moduleAccessOverrides as Record<string, boolean> | null | undefined;
   const unreadMessages = useUnreadMessages();
 
-  // Filtrer MENU_GENERAL par rôle (fallback si generalItems non fourni)
+  // Filtrer MENU_GENERAL par rôle + overrides utilisateur
   const generalNav = generalItems.length > 0
     ? generalItems
     : userRole
-      ? MENU_GENERAL.filter((item) => canAccessModule(userRole, item.module))
+      ? MENU_GENERAL.filter((item) => canAccessModule(userRole, item.module, userOverrides))
       : [];
 
   // Helper: lien actif ?
@@ -139,7 +140,9 @@ export function Sidebar({
       {/* Menu items de l'espace actif */}
       <nav className="flex-1 overflow-y-auto px-3 pt-1 pb-2">
         <ul className="space-y-0.5">
-          {menuItems.map(renderNavLink)}
+          {menuItems
+            .filter((item) => !userRole || canAccessModule(userRole, item.module, userOverrides))
+            .map(renderNavLink)}
         </ul>
 
         {/* Séparateur + Général */}

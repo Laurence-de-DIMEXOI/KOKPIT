@@ -11,6 +11,7 @@ export interface ExtendedSession extends Session {
     prenom: string;
     role: string;
     showroomId: string | null;
+    moduleAccessOverrides: Record<string, boolean> | null;
   };
 }
 
