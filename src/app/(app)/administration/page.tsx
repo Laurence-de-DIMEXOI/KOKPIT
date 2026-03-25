@@ -1,233 +1,237 @@
-'use client';
+"use client";
 
-import clsx from 'clsx';
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   Users,
   CalendarDays,
-  UserCheck,
   Clock,
   ArrowRight,
-  CalendarPlus,
   UserCircle,
-} from 'lucide-react';
+  Loader2,
+} from "lucide-react";
 
-interface KPICard {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  subtitle?: string;
+interface DashStats {
+  effectifTotal: number;
+  enCongeAujourdhui: { count: number; noms: string[] };
+  demandesEnAttente: number;
+  pointagesAujourdhui: { count: number; total: number };
+  prochainsConges: {
+    id: string;
+    nom: string;
+    prenom: string;
+    dateDebut: string;
+    dateFin: string;
+    type: string;
+  }[];
 }
 
-interface UpcomingLeave {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  type: 'Congé payé' | 'RTT' | 'Maladie';
-}
-
-const mockKPIs: KPICard[] = [
-  {
-    icon: <Users className="w-6 h-6" />,
-    label: 'Effectif total',
-    value: '9',
-  },
-  {
-    icon: <UserCheck className="w-6 h-6" />,
-    label: 'En congé aujourd\'hui',
-    value: '1',
-    subtitle: 'Michelle Perrot',
-  },
-  {
-    icon: <Clock className="w-6 h-6" />,
-    label: 'Demandes en attente',
-    value: '3',
-  },
-  {
-    icon: <CalendarDays className="w-6 h-6" />,
-    label: 'Solde moyen congés',
-    value: '18.5',
-    subtitle: 'jours',
-  },
-];
-
-const mockUpcomingLeaves: UpcomingLeave[] = [
-  {
-    id: '1',
-    name: 'Michelle Perrot',
-    startDate: '2026-03-03',
-    endDate: '2026-03-16',
-    type: 'Congé payé',
-  },
-  {
-    id: '2',
-    name: 'Laurent Batisse',
-    startDate: '2026-03-20',
-    endDate: '2026-03-20',
-    type: 'RTT',
-  },
-  {
-    id: '3',
-    name: 'Daniella Folio',
-    startDate: '2026-03-25',
-    endDate: '2026-03-28',
-    type: 'Congé payé',
-  },
-  {
-    id: '4',
-    name: 'Laurence Payet',
-    startDate: '2026-04-06',
-    endDate: '2026-04-10',
-    type: 'Congé payé',
-  },
-];
-
-function getLeaveTypeBadgeColor(type: UpcomingLeave['type']): string {
-  switch (type) {
-    case 'Congé payé':
-      return 'bg-cockpit-success/20 text-cockpit-success';
-    case 'RTT':
-      return 'bg-cockpit-primary/20 text-cockpit-primary';
-    case 'Maladie':
-      return 'bg-red-500/20 text-red-500';
-    default:
-      return 'bg-cockpit-secondary/20 text-cockpit-secondary';
-  }
-}
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+function formatDate(d: string): string {
+  return new Date(d).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 }
 
 export default function AdministrationPage() {
+  const router = useRouter();
+  const [stats, setStats] = useState<DashStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/dashboard-stats");
+      if (res.ok) setStats(await res.json());
+    } catch {
+      // silencieux
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  const kpis = [
+    {
+      icon: <Users className="w-5 h-5" />,
+      label: "Effectif total",
+      value: stats?.effectifTotal ?? "—",
+    },
+    {
+      icon: <UserCircle className="w-5 h-5" />,
+      label: "En congé aujourd'hui",
+      value: stats?.enCongeAujourdhui.count ?? "—",
+      subtitle: stats?.enCongeAujourdhui.noms.join(", "),
+    },
+    {
+      icon: <Clock className="w-5 h-5" />,
+      label: "Demandes en attente",
+      value: stats?.demandesEnAttente ?? "—",
+    },
+    {
+      icon: <CalendarDays className="w-5 h-5" />,
+      label: "Pointés aujourd'hui",
+      value: stats ? `${stats.pointagesAujourdhui.count}/${stats.pointagesAujourdhui.total}` : "—",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-cockpit-darker p-6 sm:p-8">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Building2 className="w-8 h-8 text-cockpit-success" />
-          <h1 className="text-3xl font-bold text-cockpit-heading">
-            Administration
-          </h1>
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: "var(--color-active-light)" }}
+        >
+          <Building2 className="w-5 h-5" style={{ color: "var(--color-active)" }} />
         </div>
-        <p className="text-cockpit-secondary">Gestion RH & Comptabilité</p>
-      </div>
-
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {mockKPIs.map((kpi, index) => (
-          <div
-            key={index}
-            className="bg-cockpit-dark border border-cockpit rounded-xl p-6 hover:border-cockpit-success/50 transition-colors"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-cockpit-success">{kpi.icon}</div>
-            </div>
-            <p className="text-cockpit-secondary text-sm mb-2">{kpi.label}</p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold text-cockpit-heading">
-                {kpi.value}
-              </p>
-              {kpi.subtitle && (
-                <p className="text-sm text-cockpit-secondary">{kpi.subtitle}</p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Quick Actions Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Congés & Absences Card */}
-        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-8 hover:border-cockpit-success/50 transition-colors group cursor-pointer">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-cockpit-success/10 rounded-lg group-hover:bg-cockpit-success/20 transition-colors">
-                <CalendarPlus className="w-6 h-6 text-cockpit-success" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-cockpit-heading">
-                  Congés & Absences
-                </h3>
-                <p className="text-sm text-cockpit-secondary">
-                  Gérer les demandes et soldes
-                </p>
-              </div>
-            </div>
-            <ArrowRight className="w-5 h-5 text-cockpit-success group-hover:translate-x-1 transition-transform" />
-          </div>
-        </div>
-
-        {/* Collaborateurs Card */}
-        <div className="bg-cockpit-dark border border-cockpit rounded-xl p-8 hover:border-cockpit-success/50 transition-colors group cursor-pointer">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-cockpit-success/10 rounded-lg group-hover:bg-cockpit-success/20 transition-colors">
-                <Users className="w-6 h-6 text-cockpit-success" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-cockpit-heading">
-                  Collaborateurs
-                </h3>
-                <p className="text-sm text-cockpit-secondary">
-                  Annuaire et fiches RH
-                </p>
-              </div>
-            </div>
-            <ArrowRight className="w-5 h-5 text-cockpit-success group-hover:translate-x-1 transition-transform" />
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-cockpit-heading">Administration</h1>
+          <p className="text-sm text-cockpit-secondary">Gestion RH & Comptabilité</p>
         </div>
       </div>
 
-      {/* Prochains Congés Preview Section */}
-      <div className="bg-cockpit-dark border border-cockpit rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <CalendarDays className="w-5 h-5 text-cockpit-success" />
-          <h2 className="text-xl font-semibold text-cockpit-heading">
-            Prochains congés
-          </h2>
+      {/* KPI Cards */}
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl bg-cockpit-card border border-cockpit animate-pulse h-24" />
+          ))}
         </div>
-
-        <div className="space-y-3">
-          {mockUpcomingLeaves.map((leave) => (
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {kpis.map((kpi, i) => (
             <div
-              key={leave.id}
-              className="flex items-center justify-between p-4 bg-cockpit-darker rounded-lg hover:bg-cockpit-darker/80 transition-colors border border-cockpit/30"
+              key={i}
+              className="rounded-xl overflow-hidden bg-white border border-cockpit transition-transform hover:-translate-y-0.5"
             >
-              <div className="flex items-center gap-3 flex-1">
-                <div className="p-2 bg-cockpit-success/10 rounded-lg">
-                  <UserCircle className="w-5 h-5 text-cockpit-success" />
+              <div className="h-1.5" style={{ background: "linear-gradient(90deg, var(--color-active), #FEEB9C)" }} />
+              <div className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: "var(--color-active-light)" }}
+                  >
+                    <div style={{ color: "var(--color-active)" }}>{kpi.icon}</div>
+                  </div>
+                  <p className="text-[10px] sm:text-xs font-medium text-cockpit-secondary">{kpi.label}</p>
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium text-cockpit-heading">
-                    {leave.name}
-                  </p>
-                  <p className="text-sm text-cockpit-secondary">
-                    {formatDate(leave.startDate)}
-                    {leave.startDate !== leave.endDate &&
-                      ` - ${formatDate(leave.endDate)}`}
-                  </p>
-                </div>
-              </div>
-              <div
-                className={clsx(
-                  'px-3 py-1 rounded-full text-sm font-medium',
-                  getLeaveTypeBadgeColor(leave.type)
+                <p className="text-xl sm:text-2xl font-bold" style={{ color: "var(--color-active)" }}>
+                  {kpi.value}
+                </p>
+                {kpi.subtitle && (
+                  <p className="text-xs text-cockpit-secondary mt-0.5 truncate">{kpi.subtitle}</p>
                 )}
-              >
-                {leave.type}
               </div>
             </div>
           ))}
         </div>
+      )}
 
-        <button className="w-full mt-6 py-3 px-4 bg-cockpit-success/10 hover:bg-cockpit-success/20 border border-cockpit-success/30 rounded-lg text-cockpit-success font-medium transition-colors">
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button
+          onClick={() => router.push("/administration/conges")}
+          className="bg-cockpit-card border border-cockpit rounded-card shadow-cockpit-lg p-5 text-left hover:border-[var(--color-active)]/30 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className="p-2.5 rounded-lg"
+                style={{ backgroundColor: "var(--color-active-light)" }}
+              >
+                <CalendarDays className="w-5 h-5" style={{ color: "var(--color-active)" }} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-cockpit-heading">Congés & Absences</h3>
+                <p className="text-xs text-cockpit-secondary">Gérer les demandes et soldes</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-cockpit-secondary group-hover:translate-x-1 transition-transform" style={{ color: "var(--color-active)" }} />
+          </div>
+        </button>
+
+        <button
+          onClick={() => router.push("/administration/collaborateurs")}
+          className="bg-cockpit-card border border-cockpit rounded-card shadow-cockpit-lg p-5 text-left hover:border-[var(--color-active)]/30 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className="p-2.5 rounded-lg"
+                style={{ backgroundColor: "var(--color-active-light)" }}
+              >
+                <Users className="w-5 h-5" style={{ color: "var(--color-active)" }} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-cockpit-heading">Collaborateurs</h3>
+                <p className="text-xs text-cockpit-secondary">Annuaire et fiches RH</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-cockpit-secondary group-hover:translate-x-1 transition-transform" style={{ color: "var(--color-active)" }} />
+          </div>
+        </button>
+      </div>
+
+      {/* Prochains Congés */}
+      <div className="bg-cockpit-card border border-cockpit rounded-card shadow-cockpit-lg p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <CalendarDays className="w-5 h-5" style={{ color: "var(--color-active)" }} />
+          <h2 className="text-lg font-semibold text-cockpit-heading">Prochains congés</h2>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-cockpit-secondary" />
+          </div>
+        ) : stats?.prochainsConges.length === 0 ? (
+          <p className="text-sm text-cockpit-secondary text-center py-8">Aucun congé à venir</p>
+        ) : (
+          <div className="space-y-2">
+            {stats?.prochainsConges.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between px-4 py-3 bg-cockpit-dark rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                    style={{ backgroundColor: "var(--color-active)" }}
+                  >
+                    {c.prenom?.[0]}{c.nom?.[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-cockpit-heading">
+                      {c.prenom} {c.nom}
+                    </p>
+                    <p className="text-xs text-cockpit-secondary">
+                      {formatDate(c.dateDebut)}
+                      {c.dateDebut !== c.dateFin && ` - ${formatDate(c.dateFin)}`}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className="text-xs font-medium px-2.5 py-1 rounded-full"
+                  style={{
+                    backgroundColor: "var(--color-active-light)",
+                    color: "var(--color-active)",
+                  }}
+                >
+                  {c.type === "CP" ? "Congé payé" : c.type === "RTT" ? "RTT" : c.type === "MALADIE" ? "Maladie" : c.type}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={() => router.push("/administration/conges")}
+          className="w-full mt-4 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-90 text-white"
+          style={{ background: "linear-gradient(135deg, var(--color-active), #FEEB9C)" }}
+        >
           Voir tous les congés
         </button>
       </div>
