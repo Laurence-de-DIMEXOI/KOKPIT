@@ -43,6 +43,7 @@ interface ConfigCalculateur {
 
 interface MultiRow {
   id: string;
+  nom: string;
   base: number | "";
 }
 
@@ -99,13 +100,18 @@ export default function CalculateurPage() {
   const [showAddToDemande, setShowAddToDemande] = useState(false);
   const [demandes, setDemandes] = useState<{ id: string; reference: string; denomination: string; nomClient: string | null }[]>([]);
   const [selectedDemande, setSelectedDemande] = useState("");
-  const [selectedTypePrix, setSelectedTypePrix] = useState<"ARRONDI" | "CUISINE">("ARRONDI");
+  const [selectedTypePrix, setSelectedTypePrix] = useState<"MINIMUM_ARRONDI" | "CUISINE">("MINIMUM_ARRONDI");
   const [addingToDemande, setAddingToDemande] = useState(false);
 
   // --- Multi calc state ---
   const [rows, setRows] = useState<MultiRow[]>([
-    { id: crypto.randomUUID(), base: "" },
+    { id: crypto.randomUUID(), nom: "", base: "" },
   ]);
+  const [showAddMultiToDemande, setShowAddMultiToDemande] = useState(false);
+  const [multiDemandes, setMultiDemandes] = useState<{ id: string; reference: string; denomination: string; nomClient: string | null }[]>([]);
+  const [selectedMultiDemande, setSelectedMultiDemande] = useState("");
+  const [selectedMultiTypePrix, setSelectedMultiTypePrix] = useState<"MINIMUM_ARRONDI" | "CUISINE">("MINIMUM_ARRONDI");
+  const [addingMultiToDemande, setAddingMultiToDemande] = useState(false);
 
   // ========================================================================
   // LOAD CONFIG
@@ -173,7 +179,8 @@ export default function CalculateurPage() {
   const handleAddToDemande = async () => {
     if (!selectedDemande || !simpleResult) return;
     setAddingToDemande(true);
-    const prix = selectedTypePrix === "ARRONDI" ? simpleResult.arrondi : simpleResult.cuisine;
+    const prix = selectedTypePrix === "MINIMUM_ARRONDI" ? simpleResult.arrondi : simpleResult.cuisine;
+    const prixMinimum = selectedTypePrix === "MINIMUM_ARRONDI" ? Math.round(simpleResult.minimum) : undefined;
     try {
       const res = await fetch(`/api/achat/need-price/${selectedDemande}`, {
         method: "PUT",
@@ -181,6 +188,7 @@ export default function CalculateurPage() {
         body: JSON.stringify({
           prixFournisseur: typeof baseSimple === "number" ? baseSimple : 0,
           prixVente: prix,
+          prixMinimum,
           typePrix: selectedTypePrix,
           statut: "PRIX_RECU",
         }),
@@ -197,6 +205,63 @@ export default function CalculateurPage() {
       addToast("Erreur de connexion", "error");
     }
     setAddingToDemande(false);
+  };
+
+  // ========================================================================
+  // AJOUTER TOUT (MULTI) À UNE DEMANDE
+  // ========================================================================
+
+  useEffect(() => {
+    if (showAddMultiToDemande && multiDemandes.length === 0) {
+      fetch("/api/achat/need-price?statut=DEMANDE&limit=100")
+        .then((r) => r.json())
+        .then((data) => setMultiDemandes(data.items || []))
+        .catch(() => {});
+    }
+  }, [showAddMultiToDemande]);
+
+  const handleAddMultiToDemande = async () => {
+    if (!selectedMultiDemande) return;
+    setAddingMultiToDemande(true);
+    const validRows = rows.filter((r, i) => typeof r.base === "number" && r.base > 0 && multiResults[i]);
+    const totalBase = validRows.reduce((sum, r) => sum + (typeof r.base === "number" ? r.base : 0), 0);
+    const totalPrix = validRows.reduce((sum, r, idx) => {
+      const origIdx = rows.indexOf(r);
+      const res = multiResults[origIdx];
+      if (!res) return sum;
+      return sum + (selectedMultiTypePrix === "MINIMUM_ARRONDI" ? res.arrondi : res.cuisine);
+    }, 0);
+    const notes = validRows.map((r) => {
+      const origIdx = rows.indexOf(r);
+      const res = multiResults[origIdx];
+      if (!res) return "";
+      const prix = selectedMultiTypePrix === "MINIMUM_ARRONDI" ? res.arrondi : res.cuisine;
+      return `${r.nom || "Sans nom"}: ${formatEUR(prix)}`;
+    }).join("\n");
+    try {
+      const res = await fetch(`/api/achat/need-price/${selectedMultiDemande}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prixFournisseur: totalBase,
+          prixVente: totalPrix,
+          typePrix: selectedMultiTypePrix,
+          statut: "PRIX_RECU",
+          notes,
+        }),
+      });
+      if (res.ok) {
+        addToast(`Prix total ${formatEUR(totalPrix)} ajouté à la demande`, "success");
+        setShowAddMultiToDemande(false);
+        setSelectedMultiDemande("");
+        setMultiDemandes([]);
+      } else {
+        addToast("Erreur lors de l'ajout", "error");
+      }
+    } catch {
+      addToast("Erreur de connexion", "error");
+    }
+    setAddingMultiToDemande(false);
   };
 
   // ========================================================================
@@ -220,7 +285,7 @@ export default function CalculateurPage() {
   }, [rows, config]);
 
   const addRow = () => {
-    setRows((prev) => [...prev, { id: crypto.randomUUID(), base: "" }]);
+    setRows((prev) => [...prev, { id: crypto.randomUUID(), nom: "", base: "" }]);
   };
 
   const removeRow = (id: string) => {
@@ -233,18 +298,23 @@ export default function CalculateurPage() {
     );
   };
 
+  const updateRowNom = (id: string, nom: string) => {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, nom } : r)));
+  };
+
   // ========================================================================
   // COPY / EXPORT
   // ========================================================================
 
   const handleCopyTable = () => {
-    const header = "Base (IDR)\tMinimum\tAffiché\tArrondi\tCuisine";
+    const header = "Nom\tBase (IDR)\tMinimum\tAffiché\tArrondi\tCuisine";
     const lines = rows
       .map((row, i) => {
         const r = multiResults[i];
         const base = row.base === "" ? "" : String(row.base);
-        if (!r) return `${base}\t—\t—\t—\t—`;
-        return `${base}\t${formatEUR(r.minimum)}\t${formatEUR(r.affiche)}\t${formatEUR(r.arrondi)}\t${formatEUR(r.cuisine)}`;
+        const nom = row.nom || "";
+        if (!r) return `${nom}\t${base}\t—\t—\t—\t—`;
+        return `${nom}\t${base}\t${formatEUR(r.minimum)}\t${formatEUR(r.affiche)}\t${formatEUR(r.arrondi)}\t${formatEUR(r.cuisine)}`;
       })
       .join("\n");
     navigator.clipboard.writeText(`${header}\n${lines}`);
@@ -252,13 +322,14 @@ export default function CalculateurPage() {
   };
 
   const handleExportCSV = () => {
-    const header = "Base (IDR);Minimum;Affiché;Arrondi;Cuisine";
+    const header = "Nom;Base (IDR);Minimum;Affiché;Arrondi;Cuisine";
     const lines = rows
       .map((row, i) => {
         const r = multiResults[i];
         const base = row.base === "" ? "" : String(row.base);
-        if (!r) return `${base};—;—;—;—`;
-        return `${base};${formatEUR(r.minimum)};${formatEUR(r.affiche)};${formatEUR(r.arrondi)};${formatEUR(r.cuisine)}`;
+        const nom = row.nom || "";
+        if (!r) return `${nom};${base};—;—;—;—`;
+        return `${nom};${base};${formatEUR(r.minimum)};${formatEUR(r.affiche)};${formatEUR(r.arrondi)};${formatEUR(r.cuisine)}`;
       })
       .join("\n");
     const csv = `${header}\n${lines}`;
@@ -529,6 +600,9 @@ export default function CalculateurPage() {
             <thead>
               <tr className="border-b border-cockpit">
                 <th className="text-left text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-3">
+                  Nom
+                </th>
+                <th className="text-left text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-3">
                   Base (IDR)
                 </th>
                 <th className="text-right text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-3">
@@ -551,6 +625,15 @@ export default function CalculateurPage() {
                 const r = multiResults[i];
                 return (
                   <tr key={row.id} className="hover:bg-cockpit-dark/50 transition-colors">
+                    <td className="p-3">
+                      <input
+                        type="text"
+                        value={row.nom}
+                        onChange={(e) => updateRowNom(row.id, e.target.value)}
+                        placeholder="Ex: Miroir SDB"
+                        className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                      />
+                    </td>
                     <td className="p-3">
                       <input
                         type="number"
@@ -606,6 +689,15 @@ export default function CalculateurPage() {
                 key={row.id}
                 className="bg-cockpit-dark/50 rounded-lg border border-cockpit p-4 space-y-3"
               >
+                <div>
+                  <input
+                    type="text"
+                    value={row.nom}
+                    onChange={(e) => updateRowNom(row.id, e.target.value)}
+                    placeholder="Ex: Miroir SDB"
+                    className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40 mb-2"
+                  />
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -658,6 +750,20 @@ export default function CalculateurPage() {
             );
           })}
         </div>
+
+        {/* Bouton ajouter tout à une demande */}
+        {rows.some(r => typeof r.base === 'number' && r.base > 0) && (
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => setShowAddMultiToDemande(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90"
+              style={{ background: `linear-gradient(135deg, ${ACHAT_GRADIENT.from}, ${ACHAT_GRADIENT.to})` }}
+            >
+              <Plus className="w-4 h-4" />
+              Ajouter tout à une demande
+            </button>
+          </div>
+        )}
       </div>
       {/* ================================================================ */}
       {/* MODALE - Ajouter à une demande                                */}
@@ -705,15 +811,15 @@ export default function CalculateurPage() {
                   </label>
                   <div className="flex gap-3">
                     <button
-                      onClick={() => setSelectedTypePrix("ARRONDI")}
+                      onClick={() => setSelectedTypePrix("MINIMUM_ARRONDI")}
                       className={`flex-1 px-4 py-3 rounded-lg border-2 text-center transition-all ${
-                        selectedTypePrix === "ARRONDI"
+                        selectedTypePrix === "MINIMUM_ARRONDI"
                           ? "border-[var(--color-active)] bg-[var(--color-active)]/10"
                           : "border-cockpit hover:border-[var(--color-active)]/50"
                       }`}
                     >
-                      <p className="text-xs text-cockpit-secondary">Arrondi</p>
-                      <p className="text-lg font-bold text-cockpit-heading">{formatEUR(simpleResult.arrondi)}</p>
+                      <p className="text-xs text-cockpit-secondary">Minimum - Arrondi</p>
+                      <p className="text-sm font-bold">{formatEUR(simpleResult.minimum)} — {formatEUR(simpleResult.arrondi)}</p>
                     </button>
                     <button
                       onClick={() => setSelectedTypePrix("CUISINE")}
@@ -724,7 +830,7 @@ export default function CalculateurPage() {
                       }`}
                     >
                       <p className="text-xs text-cockpit-secondary">Cuisine</p>
-                      <p className="text-lg font-bold text-cockpit-heading">{formatEUR(simpleResult.cuisine)}</p>
+                      <p className="text-lg font-bold">{formatEUR(simpleResult.cuisine)}</p>
                     </button>
                   </div>
                 </div>
@@ -744,6 +850,128 @@ export default function CalculateurPage() {
                 >
                   {addingToDemande && <Loader2 className="w-4 h-4 animate-spin" />}
                   Ajouter le prix
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* ================================================================ */}
+      {/* MODALE - Ajouter tout (multi) à une demande                    */}
+      {/* ================================================================ */}
+      {showAddMultiToDemande && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setShowAddMultiToDemande(false)}
+          >
+            <div
+              className="bg-cockpit-card border border-cockpit rounded-card shadow-cockpit-lg w-full max-w-lg max-h-[80vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="px-5 py-4 border-b border-cockpit flex-shrink-0"
+                style={{ background: `linear-gradient(135deg, ${ACHAT_GRADIENT.from}, ${ACHAT_GRADIENT.to})` }}
+              >
+                <h3 className="text-white font-semibold">Ajouter tout à une demande</h3>
+              </div>
+              <div className="p-5 space-y-4 overflow-y-auto">
+                {/* Sélection demande */}
+                <div>
+                  <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
+                    Demande Need Price
+                  </label>
+                  <select
+                    value={selectedMultiDemande}
+                    onChange={(e) => setSelectedMultiDemande(e.target.value)}
+                    className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary focus:outline-none"
+                  >
+                    <option value="">Sélectionner une demande...</option>
+                    {multiDemandes.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.reference} — {d.denomination} {d.nomClient ? `(${d.nomClient})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Choix type prix */}
+                <div>
+                  <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
+                    Type de prix
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setSelectedMultiTypePrix("MINIMUM_ARRONDI")}
+                      className={`flex-1 px-4 py-3 rounded-lg border-2 text-center transition-all ${
+                        selectedMultiTypePrix === "MINIMUM_ARRONDI"
+                          ? "border-[var(--color-active)] bg-[var(--color-active)]/10"
+                          : "border-cockpit hover:border-[var(--color-active)]/50"
+                      }`}
+                    >
+                      <p className="text-xs text-cockpit-secondary">Minimum - Arrondi</p>
+                    </button>
+                    <button
+                      onClick={() => setSelectedMultiTypePrix("CUISINE")}
+                      className={`flex-1 px-4 py-3 rounded-lg border-2 text-center transition-all ${
+                        selectedMultiTypePrix === "CUISINE"
+                          ? "border-[var(--color-active)] bg-[var(--color-active)]/10"
+                          : "border-cockpit hover:border-[var(--color-active)]/50"
+                      }`}
+                    >
+                      <p className="text-xs text-cockpit-secondary">Cuisine</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Récapitulatif des lignes */}
+                <div>
+                  <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
+                    Récapitulatif
+                  </label>
+                  <div className="bg-cockpit-dark rounded-lg border border-cockpit divide-y divide-cockpit">
+                    {rows.map((row, i) => {
+                      const r = multiResults[i];
+                      if (!r || typeof row.base !== "number" || row.base <= 0) return null;
+                      const prix = selectedMultiTypePrix === "MINIMUM_ARRONDI" ? r.arrondi : r.cuisine;
+                      return (
+                        <div key={row.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <span className="text-cockpit-primary">{row.nom || "Sans nom"}</span>
+                          <span className="font-semibold" style={{ color: "var(--color-active)" }}>{formatEUR(prix)}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between px-3 py-2 text-sm font-bold border-t-2 border-cockpit">
+                      <span className="text-cockpit-heading">Total</span>
+                      <span style={{ color: "var(--color-active)" }}>
+                        {formatEUR(
+                          rows.reduce((sum, row, i) => {
+                            const r = multiResults[i];
+                            if (!r || typeof row.base !== "number" || row.base <= 0) return sum;
+                            return sum + (selectedMultiTypePrix === "MINIMUM_ARRONDI" ? r.arrondi : r.cuisine);
+                          }, 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-cockpit flex-shrink-0">
+                <button
+                  onClick={() => setShowAddMultiToDemande(false)}
+                  className="px-4 py-2 text-sm text-cockpit-secondary hover:text-cockpit-primary"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleAddMultiToDemande}
+                  disabled={!selectedMultiDemande || addingMultiToDemande}
+                  className="px-4 py-2 text-sm font-medium rounded-lg text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                  style={{ background: `linear-gradient(135deg, ${ACHAT_GRADIENT.from}, ${ACHAT_GRADIENT.to})` }}
+                >
+                  {addingMultiToDemande && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Ajouter le prix total
                 </button>
               </div>
             </div>

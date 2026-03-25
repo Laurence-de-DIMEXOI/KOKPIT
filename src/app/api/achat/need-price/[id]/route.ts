@@ -77,12 +77,13 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { statut, prixFournisseur, prixVente, typePrix, notes, refDevis } = body;
+    const { statut, prixFournisseur, prixVente, prixMinimum, typePrix, notes, refDevis } = body;
 
     const data: any = {};
     if (statut !== undefined) data.statut = statut;
     if (prixFournisseur !== undefined) data.prixFournisseur = prixFournisseur;
     if (prixVente !== undefined) data.prixVente = prixVente;
+    if (prixMinimum !== undefined) data.prixMinimum = prixMinimum;
     if (typePrix !== undefined) data.typePrix = typePrix;
     if (notes !== undefined) data.notes = notes;
     if (refDevis !== undefined) data.refDevis = refDevis;
