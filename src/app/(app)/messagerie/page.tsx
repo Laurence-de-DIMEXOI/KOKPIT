@@ -52,9 +52,11 @@ function getDMName(
   canal: Canal,
   currentUserId: string | undefined
 ): string {
-  if (!currentUserId) return canal.nom;
+  if (!canal.membres || canal.membres.length === 0) return canal.nom;
+  if (!currentUserId) return canal.membres[0] ? `${canal.membres[0].prenom || ""} ${canal.membres[0].nom || ""}`.trim() || canal.nom : canal.nom;
   const other = canal.membres.find((m) => m.id !== currentUserId);
-  return other ? `${other.prenom} ${other.nom}` : canal.nom;
+  if (!other) return canal.membres[0] ? `${canal.membres[0].prenom || ""} ${canal.membres[0].nom || ""}`.trim() || canal.nom : canal.nom;
+  return `${other.prenom || ""} ${other.nom || ""}`.trim() || canal.nom;
 }
 
 /* ─── grouping messages by date ─── */

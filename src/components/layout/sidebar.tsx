@@ -3,12 +3,35 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
 import { X, Lock } from "lucide-react";
 import clsx from "clsx";
 import type { Espace, NavItem } from "@/lib/nav-config";
 import { MENU_GENERAL } from "@/lib/nav-config";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Role } from "@/lib/auth-utils";
+
+function useUnreadMessages() {
+  const [total, setTotal] = useState(0);
+  useEffect(() => {
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/messagerie/unread");
+        if (res.ok && mounted) {
+          const data = await res.json();
+          setTotal(data.total || 0);
+        }
+      } catch { /* silencieux */ }
+    };
+    poll();
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") poll();
+    }, 15000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+  return total;
+}
 
 // ===== PROPS =====
 
@@ -40,6 +63,7 @@ export function Sidebar({
   const pathname = usePathname();
   const { data: session } = useSession();
   const userRole = session?.user?.role as Role | undefined;
+  const unreadMessages = useUnreadMessages();
 
   // Filtrer MENU_GENERAL par rôle (fallback si generalItems non fourni)
   const generalNav = generalItems.length > 0
@@ -81,7 +105,12 @@ export function Sidebar({
           } : undefined}
         >
           <Icon className="w-4 h-4 flex-shrink-0" />
-          <span>{item.label}</span>
+          <span className="flex-1">{item.label}</span>
+          {item.href === "/messagerie" && unreadMessages > 0 && (
+            <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+              {unreadMessages > 99 ? "99+" : unreadMessages}
+            </span>
+          )}
         </Link>
       </li>
     );
