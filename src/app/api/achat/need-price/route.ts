@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { refDevis, denomination, dimensions, finitions, photoUrl, notes } = body;
+    const { refDevis, nomClient, denomination, dimensions, finitions, photoUrl, notes } = body;
 
     if (!denomination || !dimensions) {
       return NextResponse.json(
@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
       data: {
         reference,
         refDevis,
+        nomClient,
         denomination,
         dimensions,
         finitions,
@@ -132,17 +133,14 @@ export async function POST(request: NextRequest) {
     // Send email notification to Elaury via Brevo
     try {
       const creatorName = `${needPrice.createdBy.prenom} ${needPrice.createdBy.nom}`;
-      const htmlContent = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">
-  <p><strong>Nouvelle demande de prix</strong></p>
-  <p>---</p>
-  <p>Réf : ${reference}</p>
-  <p>Devis lié : ${refDevis || '\u2014'}</p>
-  <p>Dénomination : ${denomination}</p>
-  <p>Dimensions : ${dimensions}</p>
-  <p>Finition : ${finitions || '\u2014'}</p>
-  <p>Notes : ${notes || '\u2014'}</p>
-  <p>---</p>
-  <p>Demandé par : ${creatorName}</p>
+      const subject = `Need Price ${refDevis || reference} ${nomClient || ''}`.trim();
+      const htmlContent = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.8;">
+${denomination}<br>
+${dimensions}<br>
+${finitions || ''}<br>
+${notes ? notes + '<br>' : ''}
+<br>
+Asked by : ${creatorName}
 </div>`;
 
       await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -155,7 +153,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           sender: { name: "KOKPIT", email: "laurence.payet@dimexoi.fr" },
           to: [{ email: "elaury.decaunes@dimexoi.fr" }],
-          subject: `[${reference}] Nouvelle demande de prix — ${denomination}`,
+          subject,
           htmlContent,
         }),
       });

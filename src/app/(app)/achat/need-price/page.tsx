@@ -293,6 +293,7 @@ function NouvellDemandeModal({
 }) {
   const { addToast } = useToast();
   const [referenceDepi, setReferenceDepi] = useState("");
+  const [nomClient, setNomClient] = useState("");
   const [denomination, setDenomination] = useState("");
   const [dimensions, setDimensions] = useState("");
   const [finitions, setFinitions] = useState("");
@@ -311,11 +312,12 @@ function NouvellDemandeModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          referenceDepi: referenceDepi.trim() || null,
+          refDevis: referenceDepi.trim() || null,
+          nomClient: nomClient.trim() || null,
           denomination: denomination.trim(),
           dimensions: dimensions.trim(),
           finitions: finitions.trim() || null,
-          photo: null,
+          photoUrl: null,
           notes: notes.trim() || null,
         }),
       });
@@ -374,6 +376,21 @@ function NouvellDemandeModal({
               value={referenceDepi}
               onChange={(e) => setReferenceDepi(e.target.value)}
               placeholder="Ex: DEPI-2024-001"
+              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+            />
+          </div>
+
+          {/* Nom Client */}
+          <div>
+            <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
+              Nom du client{" "}
+              <span className="text-cockpit-secondary/60">(optionnel)</span>
+            </label>
+            <input
+              type="text"
+              value={nomClient}
+              onChange={(e) => setNomClient(e.target.value)}
+              placeholder="Ex: M. Dupont"
               className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
             />
           </div>

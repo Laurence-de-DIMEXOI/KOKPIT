@@ -1113,6 +1113,7 @@ model NeedPrice {
   id              String    @id @default(cuid())
   reference       String    @unique // Auto : "NP-2026-001"
   refDevis        String?   // Référence DEPI- associée
+  nomClient       String?   // Nom du client
   denomination    String    // Nom du meuble en anglais
   dimensions      String    // ex: "200x90x75cm"
   finitions       String?
