@@ -880,9 +880,6 @@ export default function NeedPricePage() {
                   Dénomination
                 </th>
                 <th className="text-left text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-4">
-                  Devis lié
-                </th>
-                <th className="text-left text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-4">
                   Statut
                 </th>
                 <th className="text-left text-xs font-semibold text-cockpit-secondary uppercase tracking-wider p-4">
@@ -913,11 +910,6 @@ export default function NeedPricePage() {
                       </p>
                       <p className="text-xs text-cockpit-secondary">
                         {item.dimensions}
-                      </p>
-                    </td>
-                    <td className="p-4">
-                      <p className="text-sm text-cockpit-secondary">
-                        {item.refDevis || "—"}
                       </p>
                     </td>
                     <td className="p-4">
