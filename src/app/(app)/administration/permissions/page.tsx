@@ -185,8 +185,10 @@ export default function PermissionsPage() {
   // Access check
   // --------------------------------------------------------------------------
 
+  // Accès uniquement pour Laurence (super-admin permissions)
   const isAdmin =
-    session?.user?.role === "ADMIN" || session?.user?.role === "DIRECTION";
+    session?.user?.email === "laurence.payet@dimexoi.fr" ||
+    session?.user?.role === "DIRECTION";
 
   if (!isAdmin && !loading) {
     return (

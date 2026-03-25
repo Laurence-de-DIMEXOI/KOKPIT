@@ -11,7 +11,8 @@ export async function GET() {
   }
 
   const role = (session.user as any).role;
-  if (!["ADMIN", "DIRECTION"].includes(role)) {
+  const email = session.user?.email;
+  if (email !== "laurence.payet@dimexoi.fr" && !["DIRECTION"].includes(role)) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
