@@ -66,6 +66,14 @@ const MODULE_GROUPS = [
     ],
   },
   {
+    label: "Achat",
+    modules: [
+      { key: "catalogue", label: "Catalogue" },
+      { key: "commandes", label: "Commandes" },
+      { key: "sav", label: "SAV" },
+    ],
+  },
+  {
     label: "Général",
     modules: [
       { key: "messagerie", label: "Messagerie" },
@@ -431,7 +439,7 @@ export default function PermissionsPage() {
                   >
                     <td className="sticky left-0 z-10 bg-cockpit-card border-r border-cockpit px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-cockpit-dark/50 animate-pulse" />
+                        <div className="w-6 h-6 rounded-full bg-cockpit-dark/50 animate-pulse" />
                         <div className="space-y-1.5">
                           <div className="w-24 h-3 rounded bg-cockpit-dark/50 animate-pulse" />
                           <div className="w-16 h-2.5 rounded bg-cockpit-dark/30 animate-pulse" />
@@ -471,7 +479,7 @@ export default function PermissionsPage() {
                       <td className="sticky left-0 z-10 bg-cockpit-card border-r border-cockpit px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
                             style={{
                               background: `linear-gradient(135deg, ${ADMIN_GRADIENT.from}, ${ADMIN_GRADIENT.to})`,
                             }}
