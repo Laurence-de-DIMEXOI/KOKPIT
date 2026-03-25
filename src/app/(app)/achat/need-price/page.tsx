@@ -308,18 +308,19 @@ function NouvellDemandeModal({
 
     setSubmitting(true);
     try {
+      const formData = new FormData();
+      formData.append("refDevis", referenceDepi.trim());
+      formData.append("nomClient", nomClient.trim());
+      formData.append("denomination", denomination.trim());
+      formData.append("dimensions", dimensions.trim());
+      formData.append("finitions", finitions.trim());
+      formData.append("notes", notes.trim());
+      if (photoFile) {
+        formData.append("photo", photoFile);
+      }
       const res = await fetch("/api/achat/need-price", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          refDevis: referenceDepi.trim() || null,
-          nomClient: nomClient.trim() || null,
-          denomination: denomination.trim(),
-          dimensions: dimensions.trim(),
-          finitions: finitions.trim() || null,
-          photoUrl: null,
-          notes: notes.trim() || null,
-        }),
+        body: formData,
       });
       if (res.ok) {
         addToast("Demande créée avec succès", "success");

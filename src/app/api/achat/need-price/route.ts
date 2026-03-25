@@ -80,8 +80,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { refDevis, nomClient, denomination, dimensions, finitions, photoUrl, notes } = body;
+    const formData = await request.formData();
+    const refDevis = formData.get("refDevis") as string || null;
+    const nomClient = formData.get("nomClient") as string || null;
+    const denomination = formData.get("denomination") as string;
+    const dimensions = formData.get("dimensions") as string;
+    const finitions = formData.get("finitions") as string || null;
+    const notes = formData.get("notes") as string || null;
+    const photoFile = formData.get("photo") as File | null;
+
+    // Lire le fichier en base64 pour pièce jointe email
+    let photoBase64: string | null = null;
+    let photoName: string | null = null;
+    if (photoFile && photoFile.size > 0) {
+      const buffer = Buffer.from(await photoFile.arrayBuffer());
+      photoBase64 = buffer.toString("base64");
+      photoName = photoFile.name;
+    }
 
     if (!denomination || !dimensions) {
       return NextResponse.json(
@@ -114,13 +129,13 @@ export async function POST(request: NextRequest) {
     const needPrice = await prisma.needPrice.create({
       data: {
         reference,
-        refDevis,
-        nomClient,
+        refDevis: refDevis || undefined,
+        nomClient: nomClient || undefined,
         denomination,
         dimensions,
-        finitions,
-        photoUrl,
-        notes,
+        finitions: finitions || undefined,
+        photoUrl: photoName || undefined,
+        notes: notes || undefined,
         createdById: session.user.id,
       },
       include: {
@@ -143,6 +158,20 @@ ${notes ? notes + '<br>' : ''}
 Asked by : ${creatorName}
 </div>`;
 
+      const emailPayload: any = {
+        sender: { name: "KOKPIT", email: "laurence.payet@dimexoi.fr" },
+        to: [{ email: "elaury.decaunes@dimexoi.fr" }],
+        subject,
+        htmlContent,
+      };
+
+      // Ajouter la pièce jointe si présente
+      if (photoBase64 && photoName) {
+        emailPayload.attachment = [
+          { content: photoBase64, name: photoName },
+        ];
+      }
+
       await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
@@ -150,12 +179,7 @@ Asked by : ${creatorName}
           "content-type": "application/json",
           "api-key": process.env.BREVO_API_KEY!,
         },
-        body: JSON.stringify({
-          sender: { name: "KOKPIT", email: "laurence.payet@dimexoi.fr" },
-          to: [{ email: "elaury.decaunes@dimexoi.fr" }],
-          subject,
-          htmlContent,
-        }),
+        body: JSON.stringify(emailPayload),
       });
     } catch (emailError) {
       console.error("Erreur lors de l'envoi de l'email Brevo:", emailError);
