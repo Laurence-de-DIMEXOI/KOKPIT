@@ -268,19 +268,19 @@ export default function LeadsPage() {
 
   const getStatusColor = (statut: string) => {
     const colors: Record<string, { bg: string; text: string; ring: string }> = {
-      NOUVEAU: { bg: "bg-[#D15570]/10", text: "text-[#D15570]", ring: "ring-[#D15570]/30" },
-      EN_COURS: { bg: "bg-[#EDA0B2]/10", text: "text-[#EDA0B2]", ring: "ring-[#EDA0B2]/30" },
-      DEVIS: { bg: "bg-[#E8899F]/10", text: "text-[#E8899F]", ring: "ring-[#E8899F]/30" },
-      VENTE: { bg: "bg-[#D15570]/10", text: "text-[#D15570]", ring: "ring-[#D15570]/30" },
-      PERDU: { bg: "bg-[#E36887]/10", text: "text-[#E36887]", ring: "ring-[#E36887]/30" },
+      NOUVEAU: { bg: "bg-[#03C3EC]/10", text: "text-[#03C3EC]", ring: "ring-[#03C3EC]/30" },
+      EN_COURS: { bg: "bg-[#F59E0B]/10", text: "text-[#F59E0B]", ring: "ring-[#F59E0B]/30" },
+      DEVIS: { bg: "bg-[var(--color-active)]/10", text: "text-[var(--color-active)]", ring: "ring-[var(--color-active)]/30" },
+      VENTE: { bg: "bg-[#71DD37]/10", text: "text-[#71DD37]", ring: "ring-[#71DD37]/30" },
+      PERDU: { bg: "bg-[#EF4444]/10", text: "text-[#EF4444]", ring: "ring-[#EF4444]/30" },
     };
     return colors[statut] || { bg: "bg-gray-500/10", text: "text-gray-400", ring: "ring-gray-500/30" };
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-[#D15570]";
-    if (score >= 50) return "text-[#EDA0B2]";
-    return "text-[#E36887]";
+    if (score >= 80) return "text-[var(--color-active)]";
+    if (score >= 50) return "text-[var(--color-active)]/60";
+    return "text-[var(--color-active)]/40";
   };
 
   const nomComplet = (d: Demande) => `${d.prenom || ""} ${d.nom || ""}`.trim();

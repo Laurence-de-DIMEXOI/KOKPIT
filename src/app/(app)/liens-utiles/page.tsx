@@ -330,7 +330,7 @@ export default function LiensUtilesPage() {
                         href={lien.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-1.5 rounded-md hover:bg-cockpit-dark/80 text-cockpit-secondary hover:text-[#E8899F] transition-colors"
+                        className="p-1.5 rounded-md hover:bg-cockpit-dark/80 text-cockpit-secondary hover:text-[var(--color-active)] transition-colors"
                         title="Ouvrir"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />

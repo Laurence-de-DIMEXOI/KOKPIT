@@ -150,9 +150,9 @@ export default function ListesPage() {
             <div key={liste.id} className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-5">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(212, 86, 122, 0.10)' }}>
-                  <List className="w-5 h-5" style={{ color: 'var(--mk-grapefruit, #E8899F)' }} />
+                  <List className="w-5 h-5" style={{ color: 'var(--mk-grapefruit, var(--color-active))' }} />
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: 'rgba(141, 160, 53, 0.10)', color: 'var(--mk-lime, #D15570)' }}>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: 'rgba(141, 160, 53, 0.10)', color: 'var(--mk-lime, var(--color-active))' }}>
                   Active
                 </span>
               </div>
@@ -196,17 +196,17 @@ export default function ListesPage() {
             <div className="px-6 py-4 space-y-4">
               {createResult ? (
                 <div className="text-center py-4">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--mk-lime, #D15570)' }} />
+                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--mk-lime, var(--color-active))' }} />
                   <h3 className="text-base font-semibold text-cockpit-heading mb-2">
                     Liste &quot;{createResult.listName}&quot; créée
                   </h3>
                   <div className="grid grid-cols-2 gap-3 mt-4">
                     <div className="bg-cockpit-dark rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold" style={{ color: 'var(--mk-grapefruit, #E8899F)' }}>{createResult.contactsMatched}</p>
+                      <p className="text-2xl font-bold" style={{ color: 'var(--mk-grapefruit, var(--color-active))' }}>{createResult.contactsMatched}</p>
                       <p className="text-[10px] text-cockpit-secondary">Contacts trouvés</p>
                     </div>
                     <div className="bg-cockpit-dark rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold" style={{ color: 'var(--mk-lime, #D15570)' }}>{createResult.contactsAdded}</p>
+                      <p className="text-2xl font-bold" style={{ color: 'var(--mk-lime, var(--color-active))' }}>{createResult.contactsAdded}</p>
                       <p className="text-[10px] text-cockpit-secondary">Ajoutés à Brevo</p>
                     </div>
                   </div>

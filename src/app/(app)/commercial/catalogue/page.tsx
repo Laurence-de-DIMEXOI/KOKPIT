@@ -393,7 +393,7 @@ export default function CataloguePage() {
         <Link
           href="/commercial/catalogue/scan"
           className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white text-sm min-h-[44px]"
-          style={{ background: `linear-gradient(135deg, var(--color-active), var(--color-active))` }}
+          style={{ background: `linear-gradient(135deg, var(--color-active), #FEEB9C)` }}
         >
           <ScanBarcode className="w-4 h-4" />
           Scanner

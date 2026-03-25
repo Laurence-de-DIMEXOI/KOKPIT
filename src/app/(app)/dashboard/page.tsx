@@ -300,52 +300,66 @@ export default function DashboardPage() {
 
       {/* ===== KPI Cards — Funnel Demandes ===== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Demandes reçues — Lemon */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <Inbox className="w-5 h-5 text-white/70" />
+        {/* Demandes reçues */}
+        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Inbox className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+            </div>
+            <p className="text-cockpit-secondary text-xs mb-1">Demandes reçues</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--color-active)' }}>{demandesStats.total}</p>
+            <p className="text-cockpit-secondary text-[10px] mt-1">
+              {demandesStats.nouveau} nouvelle{demandesStats.nouveau > 1 ? "s" : ""} &middot; {demandesStats.enCours} en cours
+            </p>
           </div>
-          <p className="text-white/75 text-xs mb-1">Demandes reçues</p>
-          <p className="text-2xl font-bold text-white">{demandesStats.total}</p>
-          <p className="text-white/60 text-[10px] mt-1">
-            {demandesStats.nouveau} nouvelle{demandesStats.nouveau > 1 ? "s" : ""} &middot; {demandesStats.enCours} en cours
-          </p>
         </div>
 
-        {/* Devis envoyés — Lime */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <FileText className="w-5 h-5 text-white/70" />
-            <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
-              {convDevis}%
-            </span>
+        {/* Devis envoyés */}
+        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2">
+              <FileText className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'var(--color-active-light)', color: 'var(--color-active)' }}>
+                {convDevis}%
+              </span>
+            </div>
+            <p className="text-cockpit-secondary text-xs mb-1">Ont un devis</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--color-active)' }}>{demandesAvecDevis}</p>
+            <p className="text-cockpit-secondary text-[10px] mt-1">Demande &rarr; Devis</p>
           </div>
-          <p className="text-white/75 text-xs mb-1">Ont un devis</p>
-          <p className="text-2xl font-bold text-white">{demandesAvecDevis}</p>
-          <p className="text-white/60 text-[10px] mt-1">Demande &rarr; Devis</p>
         </div>
 
-        {/* Ventes signées — Pink Grapefruit */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <ShoppingCart className="w-5 h-5 text-white/70" />
-            <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
-              {convVente}%
-            </span>
+        {/* Ventes signées */}
+        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2">
+              <ShoppingCart className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'var(--color-active-light)', color: 'var(--color-active)' }}>
+                {convVente}%
+              </span>
+            </div>
+            <p className="text-cockpit-secondary text-xs mb-1">Ont commandé</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--color-active)' }}>{demandesVentes}</p>
+            <p className="text-cockpit-secondary text-[10px] mt-1">Devis &rarr; Commande</p>
           </div>
-          <p className="text-white/75 text-xs mb-1">Ont commandé</p>
-          <p className="text-2xl font-bold text-white">{demandesVentes}</p>
-          <p className="text-white/60 text-[10px] mt-1">Devis &rarr; Commande</p>
         </div>
 
-        {/* Conversion globale — Raspberry */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <Target className="w-5 h-5 text-white/70" />
+        {/* Conversion globale */}
+        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Target className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+            </div>
+            <p className="text-cockpit-secondary text-xs mb-1">Conversion globale</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--color-active)' }}>{convGlobale}%</p>
+            <p className="text-cockpit-secondary text-[10px] mt-1">Demande &rarr; Commande</p>
           </div>
-          <p className="text-white/75 text-xs mb-1">Conversion globale</p>
-          <p className="text-2xl font-bold text-white">{convGlobale}%</p>
-          <p className="text-white/60 text-[10px] mt-1">Demande &rarr; Commande</p>
         </div>
       </div>
 
@@ -362,7 +376,7 @@ export default function DashboardPage() {
           <div className="text-right">
             <p className={clsx(
               "text-2xl font-bold",
-              budgetRestant < 200 ? "text-[#E36887]" : budgetRestant < 500 ? "text-[#EDA0B2]" : "text-[#D15570]"
+              budgetRestant < 200 ? "text-[#EF4444]" : budgetRestant < 500 ? "text-[#F59E0B]" : "text-[var(--color-active)]"
             )}>
               {budgetRestant.toLocaleString("fr-FR")} &euro;
             </p>
@@ -376,11 +390,7 @@ export default function DashboardPage() {
             className="h-full rounded-full transition-all duration-700 ease-out"
             style={{
               width: `${budgetPercent}%`,
-              background: budgetPercent > 90
-                ? 'linear-gradient(90deg, var(--color-active), var(--color-active))'
-                : budgetPercent > 70
-                ? 'linear-gradient(90deg, var(--color-active), var(--color-active))'
-                : 'linear-gradient(90deg, var(--color-active), var(--color-active))',
+              background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)',
             }}
           />
         </div>
@@ -405,7 +415,7 @@ export default function DashboardPage() {
             <p className="text-xs text-cockpit-secondary mb-1">Restant</p>
             <p className={clsx(
               "text-sm font-bold",
-              budgetRestant < 200 ? "text-[#E36887]" : "text-[#D15570]"
+              budgetRestant < 200 ? "text-[#EF4444]" : "text-[var(--color-active)]"
             )}>
               {budgetRestant.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} &euro;
             </p>
@@ -435,7 +445,7 @@ export default function DashboardPage() {
                 const order = docs?.orders?.[0];
                 const sellsyAmount = order?.amounts?.total_incl_tax || estimate?.amounts?.total_incl_tax;
                 return (
-                  <div key={d.id} className="flex items-center justify-between p-3 bg-cockpit-dark rounded-lg border border-cockpit/50 hover:border-[#EDA0B2]/30 transition">
+                  <div key={d.id} className="flex items-center justify-between p-3 bg-cockpit-dark rounded-lg border border-cockpit/50 hover:border-[var(--color-active)]/30 transition">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={clsx(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
@@ -548,9 +558,9 @@ export default function DashboardPage() {
                     {r.roas > 0 ? (
                       <span className={clsx(
                         "text-xs font-bold px-2 py-0.5 rounded-full",
-                        r.roas >= 3 ? "bg-[#D15570]/15 text-[#D15570]"
-                          : r.roas >= 1 ? "bg-[#EDA0B2]/15 text-[#EDA0B2]"
-                          : "bg-[#E36887]/15 text-[#E36887]"
+                        r.roas >= 3 ? "bg-[#71DD37]/15 text-[#71DD37]"
+                          : r.roas >= 1 ? "bg-[#F59E0B]/15 text-[#F59E0B]"
+                          : "bg-[#EF4444]/15 text-[#EF4444]"
                       )}>
                         {r.roas.toFixed(1)}x
                       </span>
@@ -578,9 +588,9 @@ export default function DashboardPage() {
                   {roiTotals.totalRoas > 0 ? (
                     <span className={clsx(
                       "text-sm font-bold px-2.5 py-0.5 rounded-full",
-                      roiTotals.totalRoas >= 3 ? "bg-[#D15570]/15 text-[#D15570]"
-                        : roiTotals.totalRoas >= 1 ? "bg-[#EDA0B2]/15 text-[#EDA0B2]"
-                        : "bg-[#E36887]/15 text-[#E36887]"
+                      roiTotals.totalRoas >= 3 ? "bg-[#71DD37]/15 text-[#71DD37]"
+                        : roiTotals.totalRoas >= 1 ? "bg-[#F59E0B]/15 text-[#F59E0B]"
+                        : "bg-[#EF4444]/15 text-[#EF4444]"
                     )}>
                       {roiTotals.totalRoas.toFixed(1)}x
                     </span>
@@ -608,9 +618,9 @@ export default function DashboardPage() {
             Commandes: m.commandes,
           }))}
           series={[
-            { dataKey: "Contacts", name: "Contacts", color: "#EDA0B2" },
-            { dataKey: "Devis", name: "Devis", color: "#D15570" },
-            { dataKey: "Commandes", name: "Commandes", color: "#E36887" },
+            { dataKey: "Contacts", name: "Contacts", color: "#03C3EC" },
+            { dataKey: "Devis", name: "Devis", color: "#F59E0B" },
+            { dataKey: "Commandes", name: "Commandes", color: "#71DD37" },
           ]}
           height={300}
         />
@@ -642,10 +652,10 @@ export default function DashboardPage() {
             {(showAllContacts ? contactsSansDevis : contactsSansDevis.slice(0, 5)).map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between p-3 bg-cockpit rounded-lg border border-cockpit/50 hover:border-[#EDA0B2]/30 transition"
+                className="flex items-center justify-between p-3 bg-cockpit rounded-lg border border-cockpit/50 hover:border-[var(--color-active)]/30 transition"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#EDA0B2]/15 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-[var(--color-active)]/15 flex items-center justify-center">
                     <Users className="w-4 h-4" style={{ color: 'var(--mk-lemon)' }} />
                   </div>
                   <div>

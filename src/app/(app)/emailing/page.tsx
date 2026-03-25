@@ -386,13 +386,13 @@ export default function EmailingPage() {
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-[#D15570] rounded-full"
+                              className="h-full bg-[var(--color-active)] rounded-full"
                               style={{
                                 width: `${Math.min(c.tauxOuverture, 100)}%`,
                               }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-[#D15570] w-12 text-right">
+                          <span className="text-sm font-medium text-[var(--color-active)] w-12 text-right">
                             {c.tauxOuverture}%
                           </span>
                         </div>
@@ -401,13 +401,13 @@ export default function EmailingPage() {
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-[#EDA0B2] rounded-full"
+                              className="h-full bg-[var(--color-active)]/60 rounded-full"
                               style={{
                                 width: `${Math.min(c.tauxClic * 3, 100)}%`,
                               }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-[#EDA0B2] w-12 text-right">
+                          <span className="text-sm font-medium text-[var(--color-active)]/60 w-12 text-right">
                             {c.tauxClic}%
                           </span>
                         </div>
@@ -454,13 +454,13 @@ export default function EmailingPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-[#D15570] rounded-full"
+                            className="h-full bg-[var(--color-active)] rounded-full"
                             style={{
                               width: `${Math.min(c.tauxOuverture, 100)}%`,
                             }}
                           />
                         </div>
-                        <span className="text-xs font-semibold text-[#D15570]">
+                        <span className="text-xs font-semibold text-[var(--color-active)]">
                           {c.tauxOuverture}%
                         </span>
                       </div>
@@ -472,13 +472,13 @@ export default function EmailingPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-[#EDA0B2] rounded-full"
+                            className="h-full bg-[var(--color-active)]/60 rounded-full"
                             style={{
                               width: `${Math.min(c.tauxClic * 3, 100)}%`,
                             }}
                           />
                         </div>
-                        <span className="text-xs font-semibold text-[#EDA0B2]">
+                        <span className="text-xs font-semibold text-[var(--color-active)]/60">
                           {c.tauxClic}%
                         </span>
                       </div>
@@ -518,8 +518,8 @@ export default function EmailingPage() {
                 className="bg-cockpit-card rounded-xl border border-cockpit p-4 flex flex-col gap-3"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#E8899F]/10 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-4.5 h-4.5 text-[#E8899F]" />
+                  <div className="w-9 h-9 rounded-lg bg-[var(--color-active)]/10 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4.5 h-4.5 text-[var(--color-active)]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-cockpit-heading">
@@ -550,7 +550,7 @@ export default function EmailingPage() {
                   <div
                     className={`text-xs px-2 py-1 rounded ${
                       result.success
-                        ? "bg-[#D15570]/10 text-[#D15570]"
+                        ? "bg-[var(--color-active)]/10 text-[var(--color-active)]"
                         : "bg-red-500/10 text-red-400"
                     }`}
                   >
@@ -567,7 +567,7 @@ export default function EmailingPage() {
                       href={`https://app.brevo.com/contact/list/id/${result.listeBrevoId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-[#E8899F] hover:underline"
+                      className="flex items-center gap-1 text-xs text-[var(--color-active)] hover:underline"
                     >
                       Voir dans Brevo
                       <ExternalLink className="w-3 h-3" />
@@ -620,7 +620,7 @@ export default function EmailingPage() {
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           log.statut === "success"
-                            ? "bg-[#D15570]/10 text-[#D15570]"
+                            ? "bg-[var(--color-active)]/10 text-[var(--color-active)]"
                             : "bg-red-500/10 text-red-400"
                         }`}
                       >
@@ -648,7 +648,7 @@ export default function EmailingPage() {
           href="https://app.brevo.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 text-sm text-[#E8899F] hover:underline"
+          className="flex items-center gap-2 text-sm text-[var(--color-active)] hover:underline"
         >
           Créer une campagne dans Brevo
           <ExternalLink className="w-3.5 h-3.5" />

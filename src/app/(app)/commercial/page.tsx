@@ -225,9 +225,9 @@ function VariationBadge({
     <span
       className={clsx(
         "inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-        isNeutral && "bg-black/20 text-white/80",
-        isUp && "bg-black/20 text-white",
-        !isUp && !isNeutral && "bg-black/20 text-white/90"
+        isNeutral && "text-cockpit-secondary",
+        isUp && "text-cockpit-success",
+        !isUp && !isNeutral && "text-red-400"
       )}
     >
       {isNeutral ? (
@@ -426,65 +426,77 @@ export default function CommercialDashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs sm:text-sm font-semibold text-white/75">
-              Devis
+        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+                Devis
+              </p>
+              <FileText className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-active)' }}>
+              {activeEstimates.length}
             </p>
-            <FileText className="w-5 h-5 text-white/60" />
+            <VariationBadge
+              current={activeEstimates.length}
+              previous={prevActiveEstimates.length}
+            />
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-white">
-            {activeEstimates.length}
-          </p>
-          <VariationBadge
-            current={activeEstimates.length}
-            previous={prevActiveEstimates.length}
-          />
         </div>
 
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs sm:text-sm font-semibold text-white/75">
-              Commandes
+        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+                Commandes
+              </p>
+              <ShoppingCart className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-active)' }}>
+              {activeOrders.length}
             </p>
-            <ShoppingCart className="w-5 h-5 text-white/60" />
+            <VariationBadge
+              current={activeOrders.length}
+              previous={prevActiveOrders.length}
+            />
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-white">
-            {activeOrders.length}
-          </p>
-          <VariationBadge
-            current={activeOrders.length}
-            previous={prevActiveOrders.length}
-          />
         </div>
 
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs sm:text-sm font-semibold text-white/75">
-              Produits
+        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+                Produits
+              </p>
+              <Package className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-active)' }}>
+              {totalProducts}
             </p>
-            <Package className="w-5 h-5 text-white/60" />
+            <span className="text-xs text-cockpit-secondary">Catalogue</span>
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-white">
-            {totalProducts}
-          </p>
-          <span className="text-xs text-white/70">Catalogue</span>
         </div>
 
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs sm:text-sm font-semibold text-white/75">
-              Conversion
+        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+                Conversion
+              </p>
+              <TrendingUp className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-active)' }}>
+              {conversionRate}%
             </p>
-            <TrendingUp className="w-5 h-5 text-white/60" />
+            <VariationBadge
+              current={conversionRate}
+              previous={prevConversionRate}
+            />
           </div>
-          <p className="text-2xl sm:text-3xl font-bold text-white">
-            {conversionRate}%
-          </p>
-          <VariationBadge
-            current={conversionRate}
-            previous={prevConversionRate}
-          />
         </div>
 
         <ConversionTime

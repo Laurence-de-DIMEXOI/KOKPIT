@@ -101,23 +101,30 @@ export function ConversionTime({
       : null, [previousEstimates, previousOrders]);
 
   return (
-    <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs sm:text-sm font-semibold text-white/75">
-          Temps conversion
+    <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
+      {/* Top gradient stripe */}
+      <div
+        className="h-1.5"
+        style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }}
+      />
+      <div className="p-4 sm:p-5">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
+            Temps conversion
+          </p>
+          <Clock className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
+        </div>
+        <p className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-active)' }}>
+          {avgDays !== null ? `${avgDays}j` : "—"}
         </p>
-        <Clock className="w-5 h-5 text-white/60" />
+        {avgDays !== null && prevAvgDays !== null ? (
+          <VariationBadge current={avgDays} previous={prevAvgDays} inverted />
+        ) : (
+          <span className="text-xs text-cockpit-secondary">
+            {avgDays !== null ? "Moy. devis → commande" : "Pas assez de données"}
+          </span>
+        )}
       </div>
-      <p className="text-2xl sm:text-3xl font-bold text-white">
-        {avgDays !== null ? `${avgDays}j` : "—"}
-      </p>
-      {avgDays !== null && prevAvgDays !== null ? (
-        <VariationBadge current={avgDays} previous={prevAvgDays} inverted />
-      ) : (
-        <span className="text-xs text-white/70">
-          {avgDays !== null ? "Moy. devis → commande" : "Pas assez de données"}
-        </span>
-      )}
     </div>
   );
 }

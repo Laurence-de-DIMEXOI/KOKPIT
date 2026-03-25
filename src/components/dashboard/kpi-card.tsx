@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import clsx from "clsx";
 
 function useCountUp(target: number, duration = 600): number {
   const [value, setValue] = useState(0);
@@ -49,41 +48,44 @@ export function KPICard({
 
   return (
     <div
-      className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
-      style={{
-        background: "linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)",
-        boxShadow: "0 4px 14px var(--color-active-border)",
-      }}
+      className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit"
     >
-      {icon && (
-        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-          <div className="text-white [&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5 sm:[&>svg]:h-5">
-            {icon}
-          </div>
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">
-          {title}
-        </p>
-        <p className="text-lg sm:text-xl font-bold text-white truncate">
-          {displayValue}
-        </p>
-        {change && (
-          <div className="flex items-center gap-1">
-            <span
-              className={clsx(
-                "inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-                change.direction === "up"
-                  ? "bg-white/25 text-white"
-                  : "bg-black/15 text-white/90"
-              )}
-            >
-              {change.direction === "up" ? "+" : ""}
-              {change.value}%
-            </span>
+      {/* Top gradient stripe */}
+      <div
+        className="h-1.5"
+        style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }}
+      />
+      <div className="p-3 sm:p-4 flex items-center gap-3">
+        {icon && (
+          <div
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'var(--color-active-light)' }}
+          >
+            <div style={{ color: 'var(--color-active)' }} className="[&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5 sm:[&>svg]:h-5">
+              {icon}
+            </div>
           </div>
         )}
+        <div className="flex-1 min-w-0">
+          <p className="text-cockpit-secondary text-[10px] sm:text-xs font-medium truncate">
+            {title}
+          </p>
+          <p className="text-lg sm:text-xl font-bold truncate" style={{ color: 'var(--color-active)' }}>
+            {displayValue}
+          </p>
+          {change && (
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: 'var(--color-active-light)',
+                  color: 'var(--color-active)'
+                }}
+              >
+                {change.direction === "up" ? "+" : ""}{change.value}%
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

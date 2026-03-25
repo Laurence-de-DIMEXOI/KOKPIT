@@ -119,7 +119,7 @@ export default function PostChecklist({ postId, items, onUpdate }: PostChecklist
         <button
           onClick={addItem}
           disabled={!newText.trim() || loading}
-          className="p-1.5 rounded-md bg-[#E36887] text-white hover:bg-[#C94D6E] disabled:opacity-40 transition-colors"
+          className="p-1.5 rounded-md bg-[#E36887] text-white hover:bg-[#E36887]/80 disabled:opacity-40 transition-colors"
         >
           <Plus className="w-4 h-4" />
         </button>

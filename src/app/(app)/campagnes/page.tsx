@@ -68,10 +68,10 @@ interface MetaCampaign {
 // ===== HELPERS =====
 
 const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
-  ACTIVE: { label: "Active", bg: "bg-[#D15570]/10", text: "text-[#D15570]" },
-  PAUSED: { label: "Pause", bg: "bg-[#EDA0B2]/10", text: "text-[#EDA0B2]" },
+  ACTIVE: { label: "Active", bg: "bg-[var(--color-active)]/10", text: "text-[var(--color-active)]" },
+  PAUSED: { label: "Pause", bg: "bg-[#8592A3]/10", text: "text-[#8592A3]" },
   ARCHIVED: { label: "Archivée", bg: "bg-[#8592A3]/10", text: "text-[#8592A3]" },
-  DELETED: { label: "Supprimée", bg: "bg-[#E36887]/10", text: "text-[#E36887]" },
+  DELETED: { label: "Supprimée", bg: "bg-[#EF4444]/10", text: "text-[#EF4444]" },
 };
 
 const periodOptions = [
@@ -300,7 +300,7 @@ export default function CampagnesPage() {
           <p className="text-cockpit-secondary text-xs sm:text-sm">
             {displayKpis.totalCampaigns} campagnes · {displayKpis.totalAdSets} ensembles · {displayKpis.totalAds} publicités
             {displayKpis.campaignsWithData > 0 && selectedPeriod !== "maximum" && (
-              <span className="text-[#D15570] ml-1">(filtrées par dépense)</span>
+              <span className="text-[var(--color-active)] ml-1">(filtrées par dépense)</span>
             )}
           </p>
           {syncedAt && (
@@ -427,24 +427,24 @@ export default function CampagnesPage() {
       {error && (
         <div className={`flex items-start gap-3 p-4 rounded-lg border ${
           error.includes("TOKEN_EXPIRED") || error.includes("expiré")
-            ? "bg-[#EDA0B2]/10 border-[#EDA0B2]/30"
+            ? "bg-[#F59E0B]/10 border-[#F59E0B]/30"
             : "bg-[#FF3E1D]/10 border-[#FF3E1D]/30"
         }`}>
           <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
             error.includes("TOKEN_EXPIRED") || error.includes("expiré")
-              ? "text-[#EDA0B2]"
+              ? "text-[#F59E0B]"
               : "text-[#FF3E1D]"
           }`} />
           <div className="space-y-1">
             {error.includes("TOKEN_EXPIRED:") ? (
               <>
-                <p className="text-sm font-semibold text-[#EDA0B2]">Token Meta expiré</p>
+                <p className="text-sm font-semibold text-[#F59E0B]">Token Meta expiré</p>
                 <p className="text-xs text-cockpit-secondary">{error.replace("TOKEN_EXPIRED:", "")}</p>
                 <a
                   href="https://developers.facebook.com/tools/explorer/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-[#EDA0B2] hover:underline mt-1"
+                  className="inline-flex items-center gap-1 text-xs text-[#F59E0B] hover:underline mt-1"
                 >
                   Renouveler le token →
                 </a>
@@ -564,8 +564,8 @@ export default function CampagnesPage() {
 function LevelIndicator({ level }: { level: "campaign" | "adset" | "ad" }) {
   const config = {
     campaign: { bg: "bg-[#E36887]/15", text: "text-[#E36887]", label: "Camp." },
-    adset: { bg: "bg-[#E8899F]/15", text: "text-[#E8899F]", label: "Ens." },
-    ad: { bg: "bg-[#EDA0B2]/15", text: "text-[#EDA0B2]", label: "Pub" },
+    adset: { bg: "bg-[var(--color-active)]/15", text: "text-[var(--color-active)]", label: "Ens." },
+    ad: { bg: "bg-[var(--color-active)]/10", text: "text-[var(--color-active)]/80", label: "Pub" },
   };
   const c = config[level];
   return (

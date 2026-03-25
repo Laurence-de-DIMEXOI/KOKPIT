@@ -243,8 +243,8 @@ export default function SAVPage() {
           onClick={() => setShowModal(true)}
           className="flex items-center justify-center gap-2 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all"
           style={{
-            background: "linear-gradient(135deg, var(--color-active), var(--color-active))",
-            boxShadow: "0 4px 14px rgba(14,105,115,0.30)",
+            background: "linear-gradient(135deg, var(--color-active), #FEEB9C)",
+            boxShadow: "0 4px 14px var(--color-active-border)",
           }}
         >
           <Plus className="w-4 h-4" />
@@ -257,16 +257,15 @@ export default function SAVPage() {
         {kpis.map((kpi, i) => (
           <div
             key={i}
-            className="rounded-xl p-4 text-white"
-            style={{
-              background: "linear-gradient(135deg, var(--color-active), var(--color-active))",
-              boxShadow: "0 4px 14px rgba(14,105,115,0.30)",
-            }}
+            className="rounded-xl overflow-hidden bg-white border border-cockpit"
           >
-            <p className="text-xs font-medium text-white/70 uppercase tracking-wide">
-              {kpi.label}
-            </p>
-            <p className="text-2xl font-bold mt-1">{kpi.value}</p>
+            <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
+            <div className="p-4">
+              <p className="text-xs font-medium text-cockpit-secondary uppercase tracking-wide">
+                {kpi.label}
+              </p>
+              <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-active)' }}>{kpi.value}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -826,8 +825,8 @@ function CreationModal({ onClose, onSuccess, users }: CreationModalProps) {
                 disabled={submitting}
                 className="flex items-center gap-2 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all disabled:opacity-50"
                 style={{
-                  background: "linear-gradient(135deg, var(--color-active), var(--color-active))",
-                  boxShadow: "0 4px 14px rgba(14,105,115,0.30)",
+                  background: "linear-gradient(135deg, var(--color-active), #FEEB9C)",
+                  boxShadow: "0 4px 14px var(--color-active-border)",
                 }}
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
