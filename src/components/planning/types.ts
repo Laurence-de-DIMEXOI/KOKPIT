@@ -124,7 +124,7 @@ export const LABEL_CONFIG: Record<PostLabel, LabelInfo> = {
   AVIS_CLIENTS:          { name: "Avis clients",             color: "#15803D", bg: "#DCFCE7", category: "Contenu" },
   FIDELISATION:          { name: "Fidélisation",             color: "#1D4ED8", bg: "#DBEAFE", category: "Contenu" },
   TEASING_AVRIL:         { name: "Teasing avril",            color: "#A16207", bg: "#FEF9C3", category: "Contenu" },
-  VIDEO_REEL:            { name: "Vidéo / Réel",             color: "#6B21A8", bg: "#F3E8FF", category: "Contenu" },
+  VIDEO_REEL:            { name: "Vidéo / Réel",             color: "var(--color-active)", bg: "var(--color-active-light)", category: "Contenu" },
   BLOG_SEO:              { name: "Blog / SEO",               color: "#475569", bg: "#F1F5F9", category: "Contenu" },
   EMAIL_BREVO:           { name: "Email Brevo",              color: "#92400E", bg: "#FEF3C7", category: "Contenu" },
   STORY:                 { name: "Story",                    color: "#9D174D", bg: "#FCE7F3", category: "Contenu" },

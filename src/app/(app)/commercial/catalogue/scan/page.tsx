@@ -32,9 +32,9 @@ interface ProductMatch {
 // ============================================================================
 
 const COMMERCIAL_GRADIENT = {
-  from: "#4C9DB0",
-  to: "#3A8899",
-  shadow: "rgba(14,105,115,0.30)",
+  from: "var(--color-active)",
+  to: "#FEEB9C",
+  shadow: "var(--color-active-border)",
 };
 
 // ============================================================================

@@ -77,7 +77,7 @@ export default function KanbanCard({ post, onClick, onDragStart }: KanbanCardPro
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           {/* Scheduled date (date de publication) */}
           {post.scheduledDate && (
-            <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded text-[#7758A3] bg-[#F3E8FF]">
+            <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded text-[var(--color-active)] bg-[var(--color-active-light)]">
               <CalendarCheck className="w-3 h-3" />
               {new Date(post.scheduledDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
             </span>

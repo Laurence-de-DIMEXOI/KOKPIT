@@ -48,7 +48,7 @@ export default function FormatSignatureSelector({
             }`}
             style={
               selectedId === format.id
-                ? { backgroundColor: "#7758A3" }
+                ? { backgroundColor: "var(--color-active)" }
                 : undefined
             }
           >
@@ -62,8 +62,8 @@ export default function FormatSignatureSelector({
         <div
           className="mt-3 rounded-lg p-3 border-l-[3px] transition-all duration-200"
           style={{
-            backgroundColor: "#F9F7FF",
-            borderLeftColor: "#7758A3",
+            backgroundColor: "var(--color-active-light)",
+            borderLeftColor: "var(--color-active)",
           }}
         >
           {/* Header script */}
@@ -84,10 +84,10 @@ export default function FormatSignatureSelector({
                 className="text-xs font-mono text-gray-600 leading-relaxed"
               >
                 {line.startsWith("→") || line.startsWith("  →") ? (
-                  <span className="text-[#7758A3]">{line}</span>
+                  <span className="text-[var(--color-active)]">{line}</span>
                 ) : (
                   <>
-                    <span className="text-[#7758A3] mr-1">▸</span>
+                    <span className="text-[var(--color-active)] mr-1">▸</span>
                     {line}
                   </>
                 )}
@@ -101,7 +101,7 @@ export default function FormatSignatureSelector({
               type="button"
               onClick={() => handleApply(selected)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-colors hover:opacity-90"
-              style={{ backgroundColor: "#7758A3" }}
+              style={{ backgroundColor: "var(--color-active)" }}
             >
               Utiliser ce format
               <ChevronDown className="w-3 h-3" />

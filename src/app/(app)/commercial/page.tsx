@@ -512,7 +512,7 @@ export default function CommercialDashboardPage() {
 
       {/* Amount Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
-        <div className="bg-cockpit-card rounded-xl border-t-[3px] border-t-[#6BB3C4] border border-cockpit shadow-cockpit-lg p-4 sm:p-6 transition-all duration-200 hover:shadow-xl">
+        <div className="bg-cockpit-card rounded-xl border-t-[3px] border-t-[var(--color-active)] border border-cockpit shadow-cockpit-lg p-4 sm:p-6 transition-all duration-200 hover:shadow-xl">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-cockpit-info/15 flex items-center justify-center">

@@ -71,9 +71,9 @@ interface DocumentBdo {
 // ============================================================================
 
 const BDO_GRADIENT = {
-  from: "#F17142",
-  to: "#9A3F08",
-  shadow: "rgba(209, 95, 18, 0.30)",
+  from: "var(--color-active)",
+  to: "#FEEB9C",
+  shadow: "var(--color-active-border)",
 };
 
 const STATUT_BADGES: Record<
@@ -383,10 +383,10 @@ export default function BoisDOrientPage() {
           <div
             className="w-11 h-11 rounded-xl flex items-center justify-center"
             style={{
-              background: `linear-gradient(135deg, ${BDO_GRADIENT.from} 0%, ${BDO_GRADIENT.to} 100%)`,
+              backgroundColor: 'var(--color-active-light)',
             }}
           >
-            <TreePine className="w-6 h-6 text-white" />
+            <TreePine className="w-6 h-6" style={{ color: 'var(--color-active)' }} />
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-cockpit-heading">
@@ -416,128 +416,110 @@ export default function BoisDOrientPage() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
           {/* Total contacts */}
-          <div
-            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
-            style={{
-              background: `linear-gradient(135deg, ${BDO_GRADIENT.from} 0%, ${BDO_GRADIENT.to} 100%)`,
-              boxShadow: `0 4px 14px ${BDO_GRADIENT.shadow}`,
-            }}
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">
-                Contacts BDO
-              </p>
-              <p className="text-lg sm:text-xl font-bold text-white">
-                {stats?.totalContacts ?? 0}
-              </p>
+          <div className="rounded-xl overflow-hidden bg-white border border-cockpit transition-transform hover:-translate-y-0.5">
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${BDO_GRADIENT.from}, ${BDO_GRADIENT.to})` }} />
+            <div className="p-3 sm:p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--color-active-light)' }}>
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--color-active)' }} />
+              </div>
+              <div>
+                <p className="text-cockpit-secondary text-[10px] sm:text-xs font-medium">
+                  Contacts BDO
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--color-active)' }}>
+                  {stats?.totalContacts ?? 0}
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Matchés */}
-          <div
-            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
-            style={{
-              background: `linear-gradient(135deg, ${BDO_GRADIENT.from} 0%, ${BDO_GRADIENT.to} 100%)`,
-              boxShadow: `0 4px 14px ${BDO_GRADIENT.shadow}`,
-            }}
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-              <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">
-                Matchés
-              </p>
-              <p className="text-lg sm:text-xl font-bold text-white">
-                {stats?.matches ?? 0}
-              </p>
+          <div className="rounded-xl overflow-hidden bg-white border border-cockpit transition-transform hover:-translate-y-0.5">
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${BDO_GRADIENT.from}, ${BDO_GRADIENT.to})` }} />
+            <div className="p-3 sm:p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--color-active-light)' }}>
+                <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--color-active)' }} />
+              </div>
+              <div>
+                <p className="text-cockpit-secondary text-[10px] sm:text-xs font-medium">
+                  Matchés
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--color-active)' }}>
+                  {stats?.matches ?? 0}
+                </p>
+              </div>
             </div>
           </div>
 
           {/* À vérifier */}
-          <div
-            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
-            style={{
-              background: `linear-gradient(135deg, ${BDO_GRADIENT.from} 0%, ${BDO_GRADIENT.to} 100%)`,
-              boxShadow: `0 4px 14px ${BDO_GRADIENT.shadow}`,
-            }}
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">
-                À vérifier
-              </p>
-              <p className="text-lg sm:text-xl font-bold text-white">
-                {stats?.aVerifier ?? 0}
-              </p>
+          <div className="rounded-xl overflow-hidden bg-white border border-cockpit transition-transform hover:-translate-y-0.5">
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${BDO_GRADIENT.from}, ${BDO_GRADIENT.to})` }} />
+            <div className="p-3 sm:p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--color-active-light)' }}>
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--color-active)' }} />
+              </div>
+              <div>
+                <p className="text-cockpit-secondary text-[10px] sm:text-xs font-medium">
+                  À vérifier
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--color-active)' }}>
+                  {stats?.aVerifier ?? 0}
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Nouveaux */}
-          <div
-            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
-            style={{
-              background: `linear-gradient(135deg, ${BDO_GRADIENT.from} 0%, ${BDO_GRADIENT.to} 100%)`,
-              boxShadow: `0 4px 14px ${BDO_GRADIENT.shadow}`,
-            }}
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-              <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">
-                Nouveaux
-              </p>
-              <p className="text-lg sm:text-xl font-bold text-white">
-                {stats?.nouveaux ?? 0}
-              </p>
+          <div className="rounded-xl overflow-hidden bg-white border border-cockpit transition-transform hover:-translate-y-0.5">
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${BDO_GRADIENT.from}, ${BDO_GRADIENT.to})` }} />
+            <div className="p-3 sm:p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--color-active-light)' }}>
+                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--color-active)' }} />
+              </div>
+              <div>
+                <p className="text-cockpit-secondary text-[10px] sm:text-xs font-medium">
+                  Nouveaux
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--color-active)' }}>
+                  {stats?.nouveaux ?? 0}
+                </p>
+              </div>
             </div>
           </div>
 
           {/* CA Total */}
-          <div
-            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
-            style={{
-              background: `linear-gradient(135deg, ${BDO_GRADIENT.from} 0%, ${BDO_GRADIENT.to} 100%)`,
-              boxShadow: `0 4px 14px ${BDO_GRADIENT.shadow}`,
-            }}
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">
-                CA total
-              </p>
-              <p className="text-lg sm:text-xl font-bold text-white">
-                {formatMontant(stats?.caTotal ?? 0)}
-              </p>
+          <div className="rounded-xl overflow-hidden bg-white border border-cockpit transition-transform hover:-translate-y-0.5">
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${BDO_GRADIENT.from}, ${BDO_GRADIENT.to})` }} />
+            <div className="p-3 sm:p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--color-active-light)' }}>
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--color-active)' }} />
+              </div>
+              <div>
+                <p className="text-cockpit-secondary text-[10px] sm:text-xs font-medium">
+                  CA total
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--color-active)' }}>
+                  {formatMontant(stats?.caTotal ?? 0)}
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Documents */}
-          <div
-            className="rounded-xl p-3 sm:p-4 flex items-center gap-3 transition-transform duration-200 hover:-translate-y-0.5"
-            style={{
-              background: `linear-gradient(135deg, ${BDO_GRADIENT.from} 0%, ${BDO_GRADIENT.to} 100%)`,
-              boxShadow: `0 4px 14px ${BDO_GRADIENT.shadow}`,
-            }}
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white/75 text-[10px] sm:text-xs font-medium truncate">
-                Documents
-              </p>
-              <p className="text-lg sm:text-xl font-bold text-white">
-                {stats?.documentsCount ?? 0}
-              </p>
+          <div className="rounded-xl overflow-hidden bg-white border border-cockpit transition-transform hover:-translate-y-0.5">
+            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${BDO_GRADIENT.from}, ${BDO_GRADIENT.to})` }} />
+            <div className="p-3 sm:p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--color-active-light)' }}>
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--color-active)' }} />
+              </div>
+              <div>
+                <p className="text-cockpit-secondary text-[10px] sm:text-xs font-medium">
+                  Documents
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--color-active)' }}>
+                  {stats?.documentsCount ?? 0}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -755,23 +737,23 @@ export default function BoisDOrientPage() {
           <table className="w-full">
             <thead
               className="border-b border-cockpit"
-              style={{ backgroundColor: BDO_GRADIENT.from }}
+              style={{ backgroundColor: 'var(--color-active-light)' }}
             >
               <tr>
-                <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold text-white w-8"></th>
-                <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold text-white">
+                <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold w-8" style={{ color: 'var(--color-active)' }}></th>
+                <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold" style={{ color: 'var(--color-active)' }}>
                   NOM
                 </th>
-                <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold text-white hidden md:table-cell">
+                <th className="text-left px-4 lg:px-6 py-3 text-xs font-semibold hidden md:table-cell" style={{ color: 'var(--color-active)' }}>
                   EMAIL
                 </th>
-                <th className="text-right px-4 lg:px-6 py-3 text-xs font-semibold text-white">
+                <th className="text-right px-4 lg:px-6 py-3 text-xs font-semibold" style={{ color: 'var(--color-active)' }}>
                   CA BDO
                 </th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-white hidden sm:table-cell">
+                <th className="text-center px-3 py-3 text-xs font-semibold hidden sm:table-cell" style={{ color: 'var(--color-active)' }}>
                   FACTURES
                 </th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-white">
+                <th className="text-center px-3 py-3 text-xs font-semibold" style={{ color: 'var(--color-active)' }}>
                   STATUT
                 </th>
               </tr>

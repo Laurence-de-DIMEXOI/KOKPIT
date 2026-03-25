@@ -313,7 +313,7 @@ export default function PostModal({
 
               {/* Toast format appliqué */}
               {formatToast && (
-                <div className="text-xs text-[#7758A3] bg-[#F9F7FF] border border-[#7758A3]/20 rounded-lg px-3 py-2 transition-all duration-200">
+                <div className="text-xs text-[var(--color-active)] bg-[var(--color-active-light)] border border-[var(--color-active)]/20 rounded-lg px-3 py-2 transition-all duration-200">
                   {formatToast}
                 </div>
               )}
