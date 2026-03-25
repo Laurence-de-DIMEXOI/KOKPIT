@@ -969,24 +969,23 @@ export default function CalculateurPage() {
                     {rows.map((row, i) => {
                       const r = multiResults[i];
                       if (!r || typeof row.base !== "number" || row.base <= 0) return null;
-                      const prix = selectedMultiTypePrix === "MINIMUM_ARRONDI" ? r.arrondi : r.cuisine;
                       return (
                         <div key={row.id} className="flex items-center justify-between px-3 py-2 text-sm">
                           <span className="text-cockpit-primary">{row.nom || "Sans nom"}</span>
-                          <span className="font-semibold" style={{ color: "var(--color-active)" }}>{formatEUR(prix)}</span>
+                          <span className="font-semibold" style={{ color: "var(--color-active)" }}>
+                            {selectedMultiTypePrix === "MINIMUM_ARRONDI"
+                              ? `${formatEUR(Math.round(r.minimum))} - ${formatEUR(r.arrondi)}`
+                              : formatEUR(r.cuisine)}
+                          </span>
                         </div>
                       );
                     })}
                     <div className="flex items-center justify-between px-3 py-2 text-sm font-bold border-t-2 border-cockpit">
                       <span className="text-cockpit-heading">Total</span>
                       <span style={{ color: "var(--color-active)" }}>
-                        {formatEUR(
-                          rows.reduce((sum, row, i) => {
-                            const r = multiResults[i];
-                            if (!r || typeof row.base !== "number" || row.base <= 0) return sum;
-                            return sum + (selectedMultiTypePrix === "MINIMUM_ARRONDI" ? r.arrondi : r.cuisine);
-                          }, 0)
-                        )}
+                        {selectedMultiTypePrix === "MINIMUM_ARRONDI"
+                          ? `${formatEUR(rows.reduce((s, row, i) => { const r = multiResults[i]; return s + (r && typeof row.base === "number" && row.base > 0 ? Math.round(r.minimum) : 0); }, 0))} - ${formatEUR(rows.reduce((s, row, i) => { const r = multiResults[i]; return s + (r && typeof row.base === "number" && row.base > 0 ? r.arrondi : 0); }, 0))}`
+                          : formatEUR(rows.reduce((s, row, i) => { const r = multiResults[i]; return s + (r && typeof row.base === "number" && row.base > 0 ? r.cuisine : 0); }, 0))}
                       </span>
                     </div>
                   </div>

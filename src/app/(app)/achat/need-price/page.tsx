@@ -238,7 +238,33 @@ function NeedPriceDrawer({
           {/* Prix reçus — vue commerciaux : juste le prix de vente */}
           {item.statut === "PRIX_RECU" && !isAchat && (
             <div className="space-y-3 pt-3 border-t border-cockpit">
-              {item.prixMinimum != null && item.prixVente != null ? (
+              {item.notes && item.notes.includes(":") ? (
+                <div>
+                  <p className="text-xs font-medium text-cockpit-secondary mb-2">Prix</p>
+                  <div className="space-y-1.5">
+                    {item.notes.split("\n").filter(Boolean).map((line, i) => {
+                      const parts = line.split(":");
+                      const nom = parts[0]?.trim();
+                      const prix = parts.slice(1).join(":").trim()
+                        .replace(/Min /g, "").replace(/ — Arrondi /g, " - ");
+                      return (
+                        <div key={i} className="flex items-center justify-between bg-cockpit-dark rounded-lg px-3 py-2">
+                          <span className="text-sm text-cockpit-primary font-medium">{nom}</span>
+                          <span className="text-sm font-bold" style={{ color: "var(--color-active)" }}>{prix}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {item.prixMinimum != null && item.prixVente != null && (
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-cockpit">
+                      <span className="text-xs font-semibold text-cockpit-secondary">Total</span>
+                      <span className="text-sm font-bold" style={{ color: "var(--color-active)" }}>
+                        {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixMinimum)} - {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : item.prixMinimum != null && item.prixVente != null ? (
                 <Field
                   label="Prix"
                   value={`${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixMinimum)} - ${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.prixVente)}`}
