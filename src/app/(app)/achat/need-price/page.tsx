@@ -44,19 +44,19 @@ const PAGE_SIZE = 20;
 
 interface NeedPrice {
   id: string;
-  referenceDepi: string | null;
+  reference: string;
+  refDevis: string | null;
+  nomClient: string | null;
   denomination: string;
   dimensions: string;
   finitions: string | null;
-  photo: string | null;
+  photoUrl: string | null;
   notes: string | null;
   statut: "DEMANDE" | "PRIX_RECU" | "ANNULE";
   prixFournisseur: number | null;
   prixVente: number | null;
   prixMinimum: number | null;
   typePrix: string | null;
-  devisLie: string | null;
-  nomClient: string | null;
   createdBy: { nom: string; prenom: string };
   createdAt: string;
 }
@@ -195,18 +195,18 @@ function NeedPriceDrawer({
             >
               {badge.label}
             </span>
-            {item.devisLie && (
+            {item.refDevis && (
               <span className="text-xs text-cockpit-secondary">
-                Devis: {item.devisLie}
+                Devis: {item.refDevis}
               </span>
             )}
           </div>
 
           {/* Photo */}
-          {item.photo && (
+          {item.photoUrl && (
             <div className="rounded-lg overflow-hidden border border-cockpit">
               <img
-                src={item.photo}
+                src={item.photoUrl}
                 alt={item.denomination}
                 className="w-full h-48 object-cover"
               />
@@ -215,7 +215,7 @@ function NeedPriceDrawer({
 
           {/* Fields */}
           <div className="space-y-3">
-            <Field label="Référence DEPI" value={item.referenceDepi || "—"} />
+            <Field label="Référence DEPI" value={item.refDevis || "—"} />
             <Field label="Dénomination" value={item.denomination} />
             <Field label="Dimensions" value={item.dimensions} />
             <Field label="Finitions" value={item.finitions || "—"} />
@@ -878,7 +878,7 @@ export default function NeedPricePage() {
                   >
                     <td className="p-4">
                       <p className="text-sm font-medium text-cockpit-primary">
-                        {item.referenceDepi || "—"}
+                        {item.refDevis || "—"}
                       </p>
                     </td>
                     <td className="p-4">
@@ -891,7 +891,7 @@ export default function NeedPricePage() {
                     </td>
                     <td className="p-4">
                       <p className="text-sm text-cockpit-secondary">
-                        {item.devisLie || "—"}
+                        {item.refDevis || "—"}
                       </p>
                     </td>
                     <td className="p-4">
@@ -954,7 +954,7 @@ export default function NeedPricePage() {
                       {item.denomination}
                     </p>
                     <p className="text-xs text-cockpit-secondary">
-                      {item.referenceDepi || item.dimensions}
+                      {item.refDevis || item.dimensions}
                     </p>
                   </div>
                   <span
