@@ -101,7 +101,7 @@ export function ConversionTime({
       : null, [previousEstimates, previousOrders]);
 
   return (
-    <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #4C9DB0 0%, #3A8899 100%)', boxShadow: '0 4px 14px rgba(14, 105, 115, 0.30)' }}>
+    <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs sm:text-sm font-semibold text-white/75">
           Temps conversion
