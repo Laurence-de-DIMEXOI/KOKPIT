@@ -66,14 +66,6 @@ const MODULE_GROUPS = [
     ],
   },
   {
-    label: "Achat",
-    modules: [
-      { key: "catalogue", label: "Catalogue" },
-      { key: "commandes", label: "Commandes" },
-      { key: "sav", label: "SAV" },
-    ],
-  },
-  {
     label: "Général",
     modules: [
       { key: "messagerie", label: "Messagerie" },
