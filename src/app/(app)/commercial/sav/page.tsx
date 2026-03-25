@@ -243,7 +243,7 @@ export default function SAVPage() {
           onClick={() => setShowModal(true)}
           className="flex items-center justify-center gap-2 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all"
           style={{
-            background: "linear-gradient(135deg, #0E6973, #0A4F57)",
+            background: "linear-gradient(135deg, #4C9DB0, #3A8899)",
             boxShadow: "0 4px 14px rgba(14,105,115,0.30)",
           }}
         >
@@ -259,7 +259,7 @@ export default function SAVPage() {
             key={i}
             className="rounded-xl p-4 text-white"
             style={{
-              background: "linear-gradient(135deg, #0E6973, #0A4F57)",
+              background: "linear-gradient(135deg, #4C9DB0, #3A8899)",
               boxShadow: "0 4px 14px rgba(14,105,115,0.30)",
             }}
           >
@@ -826,7 +826,7 @@ function CreationModal({ onClose, onSuccess, users }: CreationModalProps) {
                 disabled={submitting}
                 className="flex items-center gap-2 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all disabled:opacity-50"
                 style={{
-                  background: "linear-gradient(135deg, #0E6973, #0A4F57)",
+                  background: "linear-gradient(135deg, #4C9DB0, #3A8899)",
                   boxShadow: "0 4px 14px rgba(14,105,115,0.30)",
                 }}
               >

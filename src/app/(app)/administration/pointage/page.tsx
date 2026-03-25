@@ -144,7 +144,7 @@ const BUTTON_STYLES: Record<
   },
   EN_PAUSE: {
     className:
-      "bg-gradient-to-r from-[#D15F12] to-[#A04A0E] hover:from-[#C05510] hover:to-[#8F400C] text-white shadow-lg",
+      "bg-gradient-to-r from-[#F17142] to-[#A04A0E] hover:from-[#C05510] hover:to-[#8F400C] text-white shadow-lg",
     icon: Play,
   },
   RETOUR_PAUSE: {
@@ -358,7 +358,7 @@ export default function PointagePage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-cockpit-heading flex items-center gap-2">
-            <Clock className="w-7 h-7 text-[#D15F12]" />
+            <Clock className="w-7 h-7 text-[#F17142]" />
             Mon Pointage
           </h1>
           <p className="text-cockpit-secondary text-sm mt-1">
@@ -366,7 +366,7 @@ export default function PointagePage() {
           </p>
         </div>
         <div className="flex items-center gap-2 bg-cockpit-card border border-cockpit rounded-card px-4 py-2 shadow-cockpit-lg">
-          <Timer className="w-5 h-5 text-[#D15F12]" />
+          <Timer className="w-5 h-5 text-[#F17142]" />
           <span className="text-xl font-mono font-bold text-cockpit-heading tabular-nums">
             {heureFormatee}
           </span>
@@ -418,7 +418,7 @@ export default function PointagePage() {
         pointage && (
           <div className="bg-cockpit-card border border-cockpit rounded-card p-5 shadow-cockpit-lg">
             <h2 className="text-sm font-semibold text-cockpit-heading mb-3 flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-[#D15F12]" />
+              <CalendarDays className="w-4 h-4 text-[#F17142]" />
               Résumé du jour
             </h2>
 
@@ -482,7 +482,7 @@ export default function PointagePage() {
       {delegues.length > 0 && (
         <div className="bg-cockpit-card border border-cockpit rounded-card p-5 shadow-cockpit-lg">
           <h2 className="text-sm font-semibold text-cockpit-heading mb-4 flex items-center gap-2">
-            <Users className="w-4 h-4 text-[#D15F12]" />
+            <Users className="w-4 h-4 text-[#F17142]" />
             Pointer pour un collaborateur
           </h2>
           <div className="space-y-3">
@@ -508,7 +508,7 @@ export default function PointagePage() {
                         : dEtat === "NON_ARRIVE"
                           ? "bg-amber-500 text-white hover:bg-amber-600"
                           : dEtat === "EN_PAUSE"
-                            ? "bg-[#D15F12] text-white hover:bg-[#A04A0E]"
+                            ? "bg-[#F17142] text-white hover:bg-[#A04A0E]"
                             : "border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
                     )}
                   >
@@ -526,7 +526,7 @@ export default function PointagePage() {
       {/* ================================================================ */}
       <div className="bg-cockpit-card border border-cockpit rounded-card p-5 shadow-cockpit-lg">
         <h2 className="text-sm font-semibold text-cockpit-heading mb-4 flex items-center gap-2">
-          <History className="w-4 h-4 text-[#D15F12]" />
+          <History className="w-4 h-4 text-[#F17142]" />
           Historique (10 derniers jours)
         </h2>
 

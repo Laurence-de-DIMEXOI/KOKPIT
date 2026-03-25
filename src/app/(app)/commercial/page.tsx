@@ -426,7 +426,7 @@ export default function CommercialDashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #118C8C 0%, #0E6973 100%)', boxShadow: '0 4px 14px rgba(14, 105, 115, 0.30)' }}>
+        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #6BB3C4 0%, #4C9DB0 100%)', boxShadow: '0 4px 14px rgba(14, 105, 115, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs sm:text-sm font-semibold text-white/75">
               Devis
@@ -500,7 +500,7 @@ export default function CommercialDashboardPage() {
 
       {/* Amount Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
-        <div className="bg-cockpit-card rounded-xl border-t-[3px] border-t-[#118C8C] border border-cockpit shadow-cockpit-lg p-4 sm:p-6 transition-all duration-200 hover:shadow-xl">
+        <div className="bg-cockpit-card rounded-xl border-t-[3px] border-t-[#6BB3C4] border border-cockpit shadow-cockpit-lg p-4 sm:p-6 transition-all duration-200 hover:shadow-xl">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-cockpit-info/15 flex items-center justify-center">

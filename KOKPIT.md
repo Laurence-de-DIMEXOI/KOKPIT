@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 24 mars 2026 (v14 — Sprint complet : Pointage, SAV, Club Tectona, X1-X9, ROI, Paramètres, Docs)
-**Mis à jour par** : Session Claude Code (Sprint 24 mars — session marathon)
+**Dernière mise à jour** : 24 mars 2026 (v15 — Renommage Club Tectona + Templates Brevo + 1429 emails envoyés + Comptes utilisateurs + Permissions rôles + Section Achat bloquée + Congés responsive)
+**Mis à jour par** : Session Claude Code (Sprint 24 mars — session 2)
 
 ---
 
@@ -270,6 +270,15 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | SAV | Module SAV/Litiges | Page /commercial/sav — 4 KPIs, filtres, drawer détail, documents, commentaires, autocomplete contact, numéro auto SAV-2026-XXXX, assigné limité (Michelle/Daniella/Bernard/Elaury), intégré fiche contact |
 | CONGES-RESP | Congés responsive mobile | Table→cards mobile, calendrier 1 col, boutons tap-friendly, modal périodes responsive |
 | MODAL-FIX | Fix modales congés | createPortal pour échapper overflow layout parent |
+| RENAME | Club Grandis → Club Tectona | Renommage complet : code, logo (croppé), Brevo listes + templates, KOKPIT.md, nav, auth-utils, cron. Niveau V = "Le Tectona Grandis" |
+| EMAILS-CLUB | 1 429 emails Club Tectona envoyés | Tous niveaux : V (3) + IV (39) + III (90) + II (385) + I (904). Templates Brevo IDs 14-18, showrooms dans footer, lien dimexoi.fr/club-grandis |
+| BREVO-TPL | Templates Brevo mis à jour | Alignés avec le site dimexoi.fr/club-grandis : avantages cumulatifs, remises avec durée, conditions, logo Club Tectona, infos showrooms SUD+NORD |
+| COMPTES | Comptes utilisateurs + première connexion | 9 comptes avec email d'invitation (lien token 24h → page set-password). Laurent corrigé → laurent@dimexoi.fr. Alain séparé de admin@kokpit.re (dev) |
+| ROLES | Permissions par rôle affinées | Admin (Michelle/Liliane/Alain) : tout. Marketing (Laurence) : tout sauf pointage équipe. Commercial (Bernard/Daniella/Laurent) : Commercial + Général + congés/pointage. Achat (Elaury) : Commandes + SAV + Catalogue + congés/pointage |
+| ACHAT-BLOCK | Section Achat temporairement bloquée | Commentée dans nav-config.ts — invisible pour tous les rôles. À réactiver lors du développement espace Achat (ACH1) |
+| NAV-CLEAN | Nettoyage navigation | Club Tectona + Liens utiles retirés des doublons Commercial/Marketing → dans Général uniquement. Tâches dans Général |
+| BREVO-STATS | AUD-BREVO classé | Limitation plan Brevo Starter : l'API REST ne retourne pas les stats campagnes. Export webhook nécessite plan Professional+. Pas de fix possible |
+| CRON-EMAIL | Cron 6h05 : emails Club Tectona automatiques | Si un membre monte de niveau lors du sync commandes → email envoyé automatiquement via Brevo transactionnel |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée
@@ -340,6 +349,14 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Congés — Modales | createPortal(document.body) obligatoire pour les modales dans le layout (app) | Layout a overflow qui casse fixed |
 | Bois d'Orient — PDFs | Stockés dans Supabase Storage bucket `bois-dorient-docs`, path `{clientBdoId}/{type}-{reference}.pdf` | Pérenne même après fermeture Sellsy BDO |
 | Bois d'Orient — Sellsy | Client séparé `sellsy-bdo.ts` avec ses propres credentials et cache. Fichier temporaire, supprimable après migration | Pas de pollution du client DIMEXOI |
+| Club Tectona — Emails | Templates Brevo IDs 14-18 (actifs). Sender : DIMEXOI / laurence.payet@dimexoi.fr. Avantages cumulatifs rappelés. Footer avec showrooms SUD (St-Pierre) + NORD (St-Denis) + lien dimexoi.fr/club-grandis | Cohérence avec le site vitrine |
+| Club Tectona — Sync tags | Ne retagger que les membres avec `sellsySynced=false`. Batch séquentiel avec pause 150ms. Flag remis à false seulement si niveau change | Optimisation : 0 appel API si 0 changement |
+| Club Tectona — Brevo listes | Auto-créées par nom via `findOrCreateList()`. Pas d'IDs env vars nécessaires (les BREVO_CLUB_LIST_ID_* dans Vercel sont optionnels) | Simplifie le déploiement |
+| Comptes utilisateurs | Système première connexion : token 64 chars + expiry 24h + page /set-password. Mot de passe hashé bcrypt. admin@kokpit.re = compte dev séparé | Pas de mot de passe en clair par email |
+| AUD-BREVO | Stats campagnes à 0 dans l'API = limitation plan Starter Brevo. L'API `/v3/smtp/statistics/aggregatedReport` fonctionne (stats transactionnelles). Export webhook nécessite plan Professional+ | Pas de fix possible côté KOKPIT |
+| Section Achat | Temporairement commentée dans nav-config.ts. À réactiver pour ACH1 | En attente de développement |
+| Horaires La Réunion | Repos dimanche + lundi (pas samedi + dimanche). Showroom SUD : Mar-Sam 9h-17h. Showroom NORD : Mar-Sam 10h-13h & 14h-18h | Spécifique DOM |
+| Email Laurent Batisse | laurent@dimexoi.fr (pas laurent.batisse@dimexoi.fr) | Corrigé en base |
 
 ---
 
@@ -369,7 +386,22 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **DocumentBoisDOrient** — documents BDO (factures, commandes, devis) — sellsyDocId unique, pdfUrl/pdfPath Supabase Storage ✅
 - **ImportBoisDOrient** — log d'import BDO pour traçabilité ✅
 
-**Données en base au 17 mars 2026** : 1 243 contacts · 1 377 devis · 139 BDC · 156 991€ CA · 85 contacts auto-upgradés PROSPECT→CLIENT · Club Tectona membres synchronisés
+**Données en base au 24 mars 2026** : 1 243 contacts · 1 377 devis · 139 BDC · 156 991€ CA · 1 685 membres Club Tectona (1 429 avec email) · 1 429 emails Club envoyés · 9 utilisateurs KOKPIT
+
+**Utilisateurs KOKPIT :**
+
+| Nom | Email | Rôle | Notes |
+|-----|-------|------|-------|
+| admin@kokpit.re | admin@kokpit.re | ADMIN | Compte dev — ne pas toucher |
+| Laurent Batisse | laurent@dimexoi.fr | COMMERCIAL | Showroom NORD |
+| Bernard Robert | bernard@dimexoi.fr | COMMERCIAL | Showroom NORD |
+| Daniella Folio | commercial@dimexoi.fr | COMMERCIAL | Showroom SUD |
+| Elaury Decaunes | elaury.decaunes@dimexoi.fr | ACHAT | |
+| Georget Morel | georget.morel@dimexoi.fr | COMMERCIAL | N'utilise pas KOKPIT — Michelle pointe pour lui |
+| Laurence Payet | laurence.payet@dimexoi.fr | MARKETING | |
+| Michelle Perrot | michelle.perrot@dimexoi.fr | ADMIN | Validation congés, pointage Georget |
+| Liliane Dambreville | adm@dimexoi.fr | ADMIN | Pointage désactivé |
+| Alain Dambreville | alain.dambreville@dimexoi.fr | ADMIN | Pointage désactivé |
 
 **À créer (prochains sprints) :**
 - `ActivityLog` — log d'activité contacts (X1)
@@ -628,11 +660,11 @@ model ConfigABC {
 
 | ID | Feature | Pourquoi | Effort est. |
 |----|---------|----------|------------|
-| X1 | Log d'activité contacts | Logger appels, notes, relances | 1j |
-| X2 | Tâches avec rappels | Évite devis dans les oubliettes | 1j |
-| X3 | Recherche globale topbar | Contacts + devis + commandes en parallèle | 0.5j |
+| ~~X1~~ | ~~Log d'activité contacts~~ | ✅ | Timeline filtrable (EMAIL/VISITE_WEB/APPEL/NOTE/RELANCE) + auto-log EMAIL_ENVOYE et VISITE_WEB |
+| ~~X2~~ | ~~Tâches avec rappels~~ | ✅ | Modèle Tache + page /commercial/taches + tâches auto (congés→Michelle, SLA→commercial) + collaboration (invitation accepter/refuser) |
+| ~~X3~~ | ~~Recherche globale topbar~~ | ✅ | Contacts + devis + commandes en parallèle — déjà implémenté |
 | ~~X4~~ | ~~Priorité contact~~ | ✅ Déployé `ddf18ac` — 4 niveaux | — |
-| X5 | Brevo enrichi | Listes dynamiques + webhook Brevo→KOKPIT | 2j |
+| X5 | Brevo enrichi | Stand-by — plan Starter ne supporte pas export webhook. Listes dynamiques possibles mais webhooks limités | 2j |
 | A1 | Espace Achat — Classification ABC | Rôle ACHAT + catalogue ABC + alertes stock | 2j |
 | ~~X6~~ | ~~Notifications internes~~ | ✅ | Bell topbar + API 5 types (token Meta, devis expirant, Brevo sync, tâches retard, SLA 72h) — déjà implémenté |
 | ~~X7~~ | ~~Dashboards avec courbes~~ | ✅ | Recharts LineChart + ComposedChart + BarChart — évolution devis/commandes, leads par source — déjà implémenté |

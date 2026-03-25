@@ -261,7 +261,7 @@ export default function DashboardPage() {
           <button
             onClick={() => fetchFunnel(true)}
             className="px-4 py-2 font-medium rounded-lg transition text-white"
-            style={{ backgroundColor: 'var(--mk-raspberry, #C2185B)' }}
+            style={{ backgroundColor: 'var(--mk-raspberry, #838F58)' }}
           >
             R&eacute;essayer
           </button>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
       {/* ===== KPI Cards — Funnel Demandes ===== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Demandes reçues — Lemon */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #E2A90A 0%, #C89208 100%)', boxShadow: '0 4px 14px rgba(226, 169, 10, 0.30)' }}>
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #A4B078 0%, #C89208 100%)', boxShadow: '0 4px 14px rgba(226, 169, 10, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <Inbox className="w-5 h-5 text-white/70" />
           </div>
@@ -313,7 +313,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Devis envoyés — Lime */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #8DA035 0%, #6E8028 100%)', boxShadow: '0 4px 14px rgba(141, 160, 53, 0.30)' }}>
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #6B7A45 0%, #6E8028 100%)', boxShadow: '0 4px 14px rgba(141, 160, 53, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <FileText className="w-5 h-5 text-white/70" />
             <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
@@ -326,7 +326,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Ventes signées — Pink Grapefruit */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #D4567A 0%, #B8406A 100%)', boxShadow: '0 4px 14px rgba(212, 86, 122, 0.30)' }}>
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #9BA775 0%, #B8406A 100%)', boxShadow: '0 4px 14px rgba(212, 86, 122, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <ShoppingCart className="w-5 h-5 text-white/70" />
             <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
@@ -339,7 +339,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Conversion globale — Raspberry */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #C2185B 0%, #A01248 100%)', boxShadow: '0 4px 14px rgba(194, 24, 91, 0.30)' }}>
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #838F58 0%, #A01248 100%)', boxShadow: '0 4px 14px rgba(194, 24, 91, 0.30)' }}>
           <div className="flex items-center justify-between mb-2">
             <Target className="w-5 h-5 text-white/70" />
           </div>
@@ -362,7 +362,7 @@ export default function DashboardPage() {
           <div className="text-right">
             <p className={clsx(
               "text-2xl font-bold",
-              budgetRestant < 200 ? "text-[#C2185B]" : budgetRestant < 500 ? "text-[#E2A90A]" : "text-[#8DA035]"
+              budgetRestant < 200 ? "text-[#838F58]" : budgetRestant < 500 ? "text-[#A4B078]" : "text-[#6B7A45]"
             )}>
               {budgetRestant.toLocaleString("fr-FR")} &euro;
             </p>
@@ -377,10 +377,10 @@ export default function DashboardPage() {
             style={{
               width: `${budgetPercent}%`,
               background: budgetPercent > 90
-                ? 'linear-gradient(90deg, #C2185B, #D4567A)'
+                ? 'linear-gradient(90deg, #838F58, #9BA775)'
                 : budgetPercent > 70
-                ? 'linear-gradient(90deg, #E2A90A, #C89208)'
-                : 'linear-gradient(90deg, #8DA035, #6E8028)',
+                ? 'linear-gradient(90deg, #A4B078, #C89208)'
+                : 'linear-gradient(90deg, #6B7A45, #6E8028)',
             }}
           />
         </div>
@@ -405,7 +405,7 @@ export default function DashboardPage() {
             <p className="text-xs text-cockpit-secondary mb-1">Restant</p>
             <p className={clsx(
               "text-sm font-bold",
-              budgetRestant < 200 ? "text-[#C2185B]" : "text-[#8DA035]"
+              budgetRestant < 200 ? "text-[#838F58]" : "text-[#6B7A45]"
             )}>
               {budgetRestant.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} &euro;
             </p>
@@ -435,7 +435,7 @@ export default function DashboardPage() {
                 const order = docs?.orders?.[0];
                 const sellsyAmount = order?.amounts?.total_incl_tax || estimate?.amounts?.total_incl_tax;
                 return (
-                  <div key={d.id} className="flex items-center justify-between p-3 bg-cockpit-dark rounded-lg border border-cockpit/50 hover:border-[#E2A90A]/30 transition">
+                  <div key={d.id} className="flex items-center justify-between p-3 bg-cockpit-dark rounded-lg border border-cockpit/50 hover:border-[#A4B078]/30 transition">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={clsx(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
@@ -548,9 +548,9 @@ export default function DashboardPage() {
                     {r.roas > 0 ? (
                       <span className={clsx(
                         "text-xs font-bold px-2 py-0.5 rounded-full",
-                        r.roas >= 3 ? "bg-[#8DA035]/15 text-[#8DA035]"
-                          : r.roas >= 1 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
-                          : "bg-[#C2185B]/15 text-[#C2185B]"
+                        r.roas >= 3 ? "bg-[#6B7A45]/15 text-[#6B7A45]"
+                          : r.roas >= 1 ? "bg-[#A4B078]/15 text-[#A4B078]"
+                          : "bg-[#838F58]/15 text-[#838F58]"
                       )}>
                         {r.roas.toFixed(1)}x
                       </span>
@@ -578,9 +578,9 @@ export default function DashboardPage() {
                   {roiTotals.totalRoas > 0 ? (
                     <span className={clsx(
                       "text-sm font-bold px-2.5 py-0.5 rounded-full",
-                      roiTotals.totalRoas >= 3 ? "bg-[#8DA035]/15 text-[#8DA035]"
-                        : roiTotals.totalRoas >= 1 ? "bg-[#E2A90A]/15 text-[#E2A90A]"
-                        : "bg-[#C2185B]/15 text-[#C2185B]"
+                      roiTotals.totalRoas >= 3 ? "bg-[#6B7A45]/15 text-[#6B7A45]"
+                        : roiTotals.totalRoas >= 1 ? "bg-[#A4B078]/15 text-[#A4B078]"
+                        : "bg-[#838F58]/15 text-[#838F58]"
                     )}>
                       {roiTotals.totalRoas.toFixed(1)}x
                     </span>
@@ -608,9 +608,9 @@ export default function DashboardPage() {
             Commandes: m.commandes,
           }))}
           series={[
-            { dataKey: "Contacts", name: "Contacts", color: "#E2A90A" },
-            { dataKey: "Devis", name: "Devis", color: "#8DA035" },
-            { dataKey: "Commandes", name: "Commandes", color: "#C2185B" },
+            { dataKey: "Contacts", name: "Contacts", color: "#A4B078" },
+            { dataKey: "Devis", name: "Devis", color: "#6B7A45" },
+            { dataKey: "Commandes", name: "Commandes", color: "#838F58" },
           ]}
           height={300}
         />
@@ -642,10 +642,10 @@ export default function DashboardPage() {
             {(showAllContacts ? contactsSansDevis : contactsSansDevis.slice(0, 5)).map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between p-3 bg-cockpit rounded-lg border border-cockpit/50 hover:border-[#E2A90A]/30 transition"
+                className="flex items-center justify-between p-3 bg-cockpit rounded-lg border border-cockpit/50 hover:border-[#A4B078]/30 transition"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#E2A90A]/15 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-[#A4B078]/15 flex items-center justify-center">
                     <Users className="w-4 h-4" style={{ color: 'var(--mk-lemon)' }} />
                   </div>
                   <div>

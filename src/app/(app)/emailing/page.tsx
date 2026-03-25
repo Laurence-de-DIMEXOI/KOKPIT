@@ -386,13 +386,13 @@ export default function EmailingPage() {
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-[#8DA035] rounded-full"
+                              className="h-full bg-[#6B7A45] rounded-full"
                               style={{
                                 width: `${Math.min(c.tauxOuverture, 100)}%`,
                               }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-[#8DA035] w-12 text-right">
+                          <span className="text-sm font-medium text-[#6B7A45] w-12 text-right">
                             {c.tauxOuverture}%
                           </span>
                         </div>
@@ -401,13 +401,13 @@ export default function EmailingPage() {
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-[#E2A90A] rounded-full"
+                              className="h-full bg-[#A4B078] rounded-full"
                               style={{
                                 width: `${Math.min(c.tauxClic * 3, 100)}%`,
                               }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-[#E2A90A] w-12 text-right">
+                          <span className="text-sm font-medium text-[#A4B078] w-12 text-right">
                             {c.tauxClic}%
                           </span>
                         </div>
@@ -454,13 +454,13 @@ export default function EmailingPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-[#8DA035] rounded-full"
+                            className="h-full bg-[#6B7A45] rounded-full"
                             style={{
                               width: `${Math.min(c.tauxOuverture, 100)}%`,
                             }}
                           />
                         </div>
-                        <span className="text-xs font-semibold text-[#8DA035]">
+                        <span className="text-xs font-semibold text-[#6B7A45]">
                           {c.tauxOuverture}%
                         </span>
                       </div>
@@ -472,13 +472,13 @@ export default function EmailingPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-[#E2A90A] rounded-full"
+                            className="h-full bg-[#A4B078] rounded-full"
                             style={{
                               width: `${Math.min(c.tauxClic * 3, 100)}%`,
                             }}
                           />
                         </div>
-                        <span className="text-xs font-semibold text-[#E2A90A]">
+                        <span className="text-xs font-semibold text-[#A4B078]">
                           {c.tauxClic}%
                         </span>
                       </div>
@@ -518,8 +518,8 @@ export default function EmailingPage() {
                 className="bg-cockpit-card rounded-xl border border-cockpit p-4 flex flex-col gap-3"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#D4567A]/10 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-4.5 h-4.5 text-[#D4567A]" />
+                  <div className="w-9 h-9 rounded-lg bg-[#9BA775]/10 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4.5 h-4.5 text-[#9BA775]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-cockpit-heading">
@@ -550,7 +550,7 @@ export default function EmailingPage() {
                   <div
                     className={`text-xs px-2 py-1 rounded ${
                       result.success
-                        ? "bg-[#8DA035]/10 text-[#8DA035]"
+                        ? "bg-[#6B7A45]/10 text-[#6B7A45]"
                         : "bg-red-500/10 text-red-400"
                     }`}
                   >
@@ -567,7 +567,7 @@ export default function EmailingPage() {
                       href={`https://app.brevo.com/contact/list/id/${result.listeBrevoId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-[#D4567A] hover:underline"
+                      className="flex items-center gap-1 text-xs text-[#9BA775] hover:underline"
                     >
                       Voir dans Brevo
                       <ExternalLink className="w-3 h-3" />
@@ -620,7 +620,7 @@ export default function EmailingPage() {
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           log.statut === "success"
-                            ? "bg-[#8DA035]/10 text-[#8DA035]"
+                            ? "bg-[#6B7A45]/10 text-[#6B7A45]"
                             : "bg-red-500/10 text-red-400"
                         }`}
                       >
@@ -648,7 +648,7 @@ export default function EmailingPage() {
           href="https://app.brevo.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 text-sm text-[#D4567A] hover:underline"
+          className="flex items-center gap-2 text-sm text-[#9BA775] hover:underline"
         >
           Créer une campagne dans Brevo
           <ExternalLink className="w-3.5 h-3.5" />

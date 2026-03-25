@@ -29,25 +29,25 @@ const gradientMap: Record<string, { from: string; to: string; shadow: string }> 
   // Primary / Total — Citron (commercial palette)
   "bg-cockpit-yellow":  { from: "#F2BB16", to: "#BF820F", shadow: "rgba(242, 187, 22, 0.30)" },
   // Info / Devis — Teal (commercial palette)
-  "bg-cockpit-info":    { from: "#118C8C", to: "#0E6973", shadow: "rgba(17, 140, 140, 0.30)" },
+  "bg-cockpit-info":    { from: "#6BB3C4", to: "#4C9DB0", shadow: "rgba(17, 140, 140, 0.30)" },
   // Success / Commandes — reste vert (universel positif)
   "bg-cockpit-success": { from: "#71DD37", to: "#5AC42D", shadow: "rgba(113, 221, 55, 0.30)" },
   // Warning — Sandy Brown (admin palette)
-  "bg-cockpit-warning": { from: "#ED9F58", to: "#D15F12", shadow: "rgba(237, 159, 88, 0.30)" },
+  "bg-cockpit-warning": { from: "#F5A070", to: "#F17142", shadow: "rgba(237, 159, 88, 0.30)" },
   // Danger — reste rouge (universel urgent)
   "bg-cockpit-danger":  { from: "#EF4444", to: "#DC2626", shadow: "rgba(239, 68, 68, 0.30)" },
   // Leads status colors
   "bg-[#71DD37]":       { from: "#71DD37", to: "#5AC42D", shadow: "rgba(113, 221, 55, 0.30)" },
-  "bg-[#F59E0B]":       { from: "#EE9520", to: "#D15F12", shadow: "rgba(238, 149, 32, 0.30)" },
-  "bg-[#60A5FA]":       { from: "#118C8C", to: "#0E6973", shadow: "rgba(17, 140, 140, 0.30)" },
+  "bg-[#F59E0B]":       { from: "#F48B60", to: "#F17142", shadow: "rgba(238, 149, 32, 0.30)" },
+  "bg-[#60A5FA]":       { from: "#6BB3C4", to: "#4C9DB0", shadow: "rgba(17, 140, 140, 0.30)" },
   "bg-[#34D399]":       { from: "#849A28", to: "#6B7E1F", shadow: "rgba(132, 154, 40, 0.30)" },
-  "bg-[#EF4444]":       { from: "#E23260", to: "#C2185B", shadow: "rgba(226, 50, 96, 0.30)" },
+  "bg-[#EF4444]":       { from: "#E23260", to: "#838F58", shadow: "rgba(226, 50, 96, 0.30)" },
 
   // === Marketing palette — Cream/Vanilla/Lime/Lemon/Pink Grapefruit/Raspberry ===
-  "bg-mk-lemon":       { from: "#E2A90A", to: "#C89208", shadow: "rgba(226, 169, 10, 0.30)" },
-  "bg-mk-lime":        { from: "#8DA035", to: "#6E8028", shadow: "rgba(141, 160, 53, 0.30)" },
-  "bg-mk-grapefruit":  { from: "#D4567A", to: "#B8406A", shadow: "rgba(212, 86, 122, 0.30)" },
-  "bg-mk-raspberry":   { from: "#C2185B", to: "#A01248", shadow: "rgba(194, 24, 91, 0.30)" },
+  "bg-mk-lemon":       { from: "#A4B078", to: "#C89208", shadow: "rgba(226, 169, 10, 0.30)" },
+  "bg-mk-lime":        { from: "#6B7A45", to: "#6E8028", shadow: "rgba(141, 160, 53, 0.30)" },
+  "bg-mk-grapefruit":  { from: "#9BA775", to: "#B8406A", shadow: "rgba(212, 86, 122, 0.30)" },
+  "bg-mk-raspberry":   { from: "#838F58", to: "#A01248", shadow: "rgba(194, 24, 91, 0.30)" },
 };
 
 const fallback = { from: "#F2BB16", to: "#BF820F", shadow: "rgba(242, 187, 22, 0.30)" };

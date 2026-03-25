@@ -220,7 +220,7 @@ export default function PostModal({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="w-full border-2 border-dashed border-gray-300 rounded-lg py-8 flex flex-col items-center gap-2 text-gray-400 hover:border-[#C2185B] hover:text-[#C2185B] transition-colors cursor-pointer disabled:opacity-50"
+                    className="w-full border-2 border-dashed border-gray-300 rounded-lg py-8 flex flex-col items-center gap-2 text-gray-400 hover:border-[#838F58] hover:text-[#838F58] transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {uploading ? (
                       <>
@@ -251,7 +251,7 @@ export default function PostModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Ex: Post Instagram - Nouvelle collection"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/50 focus:border-[#C2185B]"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#838F58]/50 focus:border-[#838F58]"
                   autoFocus
                 />
               </div>
@@ -263,7 +263,7 @@ export default function PostModal({
                   <select
                     value={statut}
                     onChange={(e) => setStatut(e.target.value as PostStatut)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/50 focus:border-[#C2185B] bg-white"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#838F58]/50 focus:border-[#838F58] bg-white"
                   >
                     {COLUMNS.map((col) => (
                       <option key={col.statut} value={col.statut}>
@@ -281,7 +281,7 @@ export default function PostModal({
                     type="date"
                     value={scheduledDate}
                     onChange={(e) => setScheduledDate(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/50 focus:border-[#C2185B]"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#838F58]/50 focus:border-[#838F58]"
                   />
                 </div>
                 <div>
@@ -292,7 +292,7 @@ export default function PostModal({
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/50 focus:border-[#C2185B]"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#838F58]/50 focus:border-[#838F58]"
                   />
                 </div>
               </div>
@@ -326,7 +326,7 @@ export default function PostModal({
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                   placeholder="Notes, briefing, texte du post..."
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C2185B]/50 focus:border-[#C2185B] resize-y"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#838F58]/50 focus:border-[#838F58] resize-y"
                 />
               </div>
 
@@ -376,7 +376,7 @@ export default function PostModal({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="flex-1 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#C2185B] hover:text-[#C2185B] transition-colors cursor-pointer disabled:opacity-50 min-h-[200px]"
+                  className="flex-1 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#838F58] hover:text-[#838F58] transition-colors cursor-pointer disabled:opacity-50 min-h-[200px]"
                 >
                   {uploading ? (
                     <>

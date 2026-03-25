@@ -393,7 +393,7 @@ export default function CataloguePage() {
         <Link
           href="/commercial/catalogue/scan"
           className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white text-sm min-h-[44px]"
-          style={{ background: `linear-gradient(135deg, #0E6973, #0A4F57)` }}
+          style={{ background: `linear-gradient(135deg, #4C9DB0, #3A8899)` }}
         >
           <ScanBarcode className="w-4 h-4" />
           Scanner
@@ -458,7 +458,7 @@ export default function CataloguePage() {
                     type="checkbox"
                     checked={allFilteredChecked}
                     onChange={toggleAll}
-                    className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#0E6973)] cursor-pointer"
+                    className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
                   />
                 </th>
                 <th
@@ -511,7 +511,7 @@ export default function CataloguePage() {
                           checked={checkedIds.has(item.id)}
                           onChange={() => {}}
                           onClick={(e) => toggleCheck(item.id, e)}
-                          className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#0E6973)] cursor-pointer"
+                          className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
                         />
                       </td>
                       <td className="px-4 lg:px-6 py-3">
@@ -592,7 +592,7 @@ export default function CataloguePage() {
                         checked={checkedIds.has(item.id)}
                         onChange={() => {}}
                         onClick={(e) => toggleCheck(item.id, e)}
-                        className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#0E6973)] cursor-pointer"
+                        className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -646,7 +646,7 @@ export default function CataloguePage() {
           <button
             onClick={handlePrintMulti}
             className="flex items-center gap-2.5 px-6 py-3 rounded-full shadow-xl text-sm font-bold transition-all hover:scale-105 active:scale-95"
-            style={{ backgroundColor: "var(--color-active, #0E6973)", color: "white" }}
+            style={{ backgroundColor: "var(--color-active, #4C9DB0)", color: "white" }}
           >
             <Printer className="w-4 h-4" />
             Imprimer {checkedIds.size} étiquette{checkedIds.size > 1 ? "s" : ""}

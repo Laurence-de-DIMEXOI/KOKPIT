@@ -528,7 +528,7 @@ export default function SAVDrawer({
                     disabled={submittingDoc}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-50"
                     style={{
-                      background: "linear-gradient(135deg, #0E6973, #0A4F57)",
+                      background: "linear-gradient(135deg, #4C9DB0, #3A8899)",
                     }}
                   >
                     {submittingDoc && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -636,7 +636,7 @@ export default function SAVDrawer({
                 disabled={submittingComment || !commentValue.trim()}
                 className="p-2.5 rounded-lg text-white transition-all disabled:opacity-40"
                 style={{
-                  background: "linear-gradient(135deg, #0E6973, #0A4F57)",
+                  background: "linear-gradient(135deg, #4C9DB0, #3A8899)",
                 }}
               >
                 {submittingComment ? (

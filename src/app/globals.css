@@ -23,18 +23,18 @@
   --radius-card: 0.75rem;
   --radius-input: 0.5rem;
 
-  /* Commercial — palette Teal/Citron (#0E6973 → #F2BB16) */
-  --color-commercial: #0E6973;
-  --color-commercial-light: rgba(14, 105, 115, 0.12);
-  --color-commercial-border: rgba(14, 105, 115, 0.35);
-  /* Marketing — palette Cream/Raspberry (Lemon → Raspberry) */
-  --color-marketing: #C2185B;
-  --color-marketing-light: rgba(194, 24, 91, 0.10);
-  --color-marketing-border: rgba(194, 24, 91, 0.30);
-  /* Administration — palette Brick Ember/Bronze Spice (#B92708 → #D15F12) */
-  --color-admin: #D15F12;
-  --color-admin-light: rgba(209, 95, 18, 0.12);
-  --color-admin-border: rgba(209, 95, 18, 0.35);
+  /* Commercial — palette Vanilla + Moonstone */
+  --color-commercial: #4C9DB0;
+  --color-commercial-light: rgba(76, 157, 176, 0.12);
+  --color-commercial-border: rgba(76, 157, 176, 0.35);
+  /* Marketing — palette Strawberry + Matcha */
+  --color-marketing: #838F58;
+  --color-marketing-light: rgba(131, 143, 88, 0.12);
+  --color-marketing-border: rgba(131, 143, 88, 0.35);
+  /* Administration — palette Pale Apricot + Vibrant Orange */
+  --color-admin: #F17142;
+  --color-admin-light: rgba(241, 113, 66, 0.12);
+  --color-admin-border: rgba(241, 113, 66, 0.35);
   /* Achat — palette Butter Yellow + Lavender */
   --color-achat: #CBA1D4;
   --color-achat-light: rgba(203, 161, 212, 0.12);

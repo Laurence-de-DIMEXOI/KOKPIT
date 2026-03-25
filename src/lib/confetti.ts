@@ -5,7 +5,7 @@ export function celebrerVente() {
     particleCount: 80,
     spread: 70,
     origin: { y: 0.3 },
-    colors: ["#F4B400", "#0E6973", "#ffffff", "#F2BB16"],
+    colors: ["#F4B400", "#4C9DB0", "#ffffff", "#F2BB16"],
     disableForReducedMotion: true,
   });
 }
