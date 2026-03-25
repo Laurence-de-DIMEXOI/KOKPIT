@@ -426,7 +426,7 @@ export default function CommercialDashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #6BB3C4 0%, #4C9DB0 100%)', boxShadow: '0 4px 14px rgba(14, 105, 115, 0.30)' }}>
+        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs sm:text-sm font-semibold text-white/75">
               Devis
@@ -442,7 +442,7 @@ export default function CommercialDashboardPage() {
           />
         </div>
 
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #71DD37 0%, #5AC42D 100%)', boxShadow: '0 4px 14px rgba(113, 221, 55, 0.30)' }}>
+        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs sm:text-sm font-semibold text-white/75">
               Commandes
@@ -458,7 +458,7 @@ export default function CommercialDashboardPage() {
           />
         </div>
 
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #5A9E82 0%, #3D7D63 100%)', boxShadow: '0 4px 14px rgba(61, 125, 99, 0.30)' }}>
+        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs sm:text-sm font-semibold text-white/75">
               Produits
@@ -471,7 +471,7 @@ export default function CommercialDashboardPage() {
           <span className="text-xs text-white/70">Catalogue</span>
         </div>
 
-        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #F2BB16 0%, #BF820F 100%)', boxShadow: '0 4px 14px rgba(242, 187, 22, 0.30)' }}>
+        <div className="rounded-xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs sm:text-sm font-semibold text-white/75">
               Conversion

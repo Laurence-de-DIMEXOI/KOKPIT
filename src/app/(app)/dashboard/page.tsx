@@ -301,7 +301,7 @@ export default function DashboardPage() {
       {/* ===== KPI Cards — Funnel Demandes ===== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Demandes reçues — Lemon */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #A4B078 0%, #C89208 100%)', boxShadow: '0 4px 14px rgba(226, 169, 10, 0.30)' }}>
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
           <div className="flex items-center justify-between mb-2">
             <Inbox className="w-5 h-5 text-white/70" />
           </div>
@@ -313,7 +313,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Devis envoyés — Lime */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #6B7A45 0%, #6E8028 100%)', boxShadow: '0 4px 14px rgba(141, 160, 53, 0.30)' }}>
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
           <div className="flex items-center justify-between mb-2">
             <FileText className="w-5 h-5 text-white/70" />
             <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
@@ -326,7 +326,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Ventes signées — Pink Grapefruit */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #9BA775 0%, #B8406A 100%)', boxShadow: '0 4px 14px rgba(212, 86, 122, 0.30)' }}>
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
           <div className="flex items-center justify-between mb-2">
             <ShoppingCart className="w-5 h-5 text-white/70" />
             <span className="text-xs font-bold text-white bg-white/20 px-2 py-0.5 rounded-full">
@@ -339,7 +339,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Conversion globale — Raspberry */}
-        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #838F58 0%, #A01248 100%)', boxShadow: '0 4px 14px rgba(194, 24, 91, 0.30)' }}>
+        <div className="rounded-xl p-3 sm:p-4 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, var(--color-active) 0%, var(--color-active) 100%)', boxShadow: '0 4px 14px var(--color-active-border)' }}>
           <div className="flex items-center justify-between mb-2">
             <Target className="w-5 h-5 text-white/70" />
           </div>
@@ -377,10 +377,10 @@ export default function DashboardPage() {
             style={{
               width: `${budgetPercent}%`,
               background: budgetPercent > 90
-                ? 'linear-gradient(90deg, #838F58, #9BA775)'
+                ? 'linear-gradient(90deg, var(--color-active), var(--color-active))'
                 : budgetPercent > 70
-                ? 'linear-gradient(90deg, #A4B078, #C89208)'
-                : 'linear-gradient(90deg, #6B7A45, #6E8028)',
+                ? 'linear-gradient(90deg, var(--color-active), var(--color-active))'
+                : 'linear-gradient(90deg, var(--color-active), var(--color-active))',
             }}
           />
         </div>
