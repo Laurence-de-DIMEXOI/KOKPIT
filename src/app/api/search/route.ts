@@ -3,16 +3,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listEstimates, listOrders, listItems } from "@/lib/sellsy";
-import { ESPACES, MENU_GENERAL, type NavItem } from "@/lib/nav-config";
+import { ESPACES, MENU_GENERAL } from "@/lib/nav-config";
+import { canAccessModule, type Role, type Module } from "@/lib/auth-utils";
 
-// ===== Pages statiques depuis nav-config =====
-function searchPages(query: string): { label: string; href: string; espace: string }[] {
+// ===== Pages statiques depuis nav-config — filtrées par rôle =====
+function searchPages(query: string, role: Role): { label: string; href: string; espace: string }[] {
   const q = query.toLowerCase();
   const results: { label: string; href: string; espace: string }[] = [];
 
   for (const espace of ESPACES) {
     if (espace.disabled) continue;
+    if (!canAccessModule(role, espace.requiredModule)) continue;
     for (const item of espace.menu) {
+      if (!canAccessModule(role, item.module)) continue;
       if (item.label.toLowerCase().includes(q)) {
         results.push({ label: item.label, href: item.href, espace: espace.label });
       }
@@ -20,6 +23,7 @@ function searchPages(query: string): { label: string; href: string; espace: stri
   }
 
   for (const item of MENU_GENERAL) {
+    if (!canAccessModule(role, item.module)) continue;
     if (item.label.toLowerCase().includes(q)) {
       results.push({ label: item.label, href: item.href, espace: "Général" });
     }
@@ -113,16 +117,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
+  const role = ((session.user as any).role || "COMMERCIAL") as Role;
+
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q || q.length < 2) {
     return NextResponse.json({ contacts: [], tasks: [], leads: [], estimates: [], orders: [], products: [], pages: [] });
   }
 
+  // Déterminer quels modules sont accessibles
+  const canContacts = canAccessModule(role, "contacts");
+  const canLeads = canAccessModule(role, "leads");
+  const canDevis = canAccessModule(role, "pipeline");
+  const canCommandes = canAccessModule(role, "commandes");
+  const canCatalogue = canAccessModule(role, "catalogue");
+  const canTaches = canAccessModule(role, "taches");
+
   try {
-    // Lancer toutes les recherches en parallèle
+    // Lancer uniquement les recherches autorisées
     const [contacts, tasks, leads, estimates, orders, products] = await Promise.all([
-      // Contacts Prisma
-      prisma.contact.findMany({
+      // Contacts Prisma (si accès contacts)
+      canContacts ? prisma.contact.findMany({
         where: {
           OR: [
             { nom: { contains: q, mode: "insensitive" } },
@@ -140,10 +154,10 @@ export async function GET(request: NextRequest) {
         },
         take: 5,
         orderBy: { updatedAt: "desc" },
-      }),
+      }) : Promise.resolve([]),
 
-      // Tâches Prisma
-      prisma.task.findMany({
+      // Tâches Prisma (si accès tâches)
+      canTaches ? prisma.task.findMany({
         where: {
           OR: [
             { titre: { contains: q, mode: "insensitive" } },
@@ -159,10 +173,10 @@ export async function GET(request: NextRequest) {
         },
         take: 5,
         orderBy: { createdAt: "desc" },
-      }),
+      }) : Promise.resolve([]),
 
-      // Leads / Demandes Prisma
-      prisma.lead.findMany({
+      // Leads / Demandes Prisma (si accès leads)
+      canLeads ? prisma.lead.findMany({
         where: {
           OR: [
             { contact: { nom: { contains: q, mode: "insensitive" } } },
@@ -181,20 +195,20 @@ export async function GET(request: NextRequest) {
         },
         take: 5,
         orderBy: { createdAt: "desc" },
-      }),
+      }) : Promise.resolve([]),
 
-      // Devis Sellsy
-      searchSellsyEstimates(q),
+      // Devis Sellsy (si accès devis)
+      canDevis ? searchSellsyEstimates(q) : Promise.resolve([]),
 
-      // Commandes Sellsy
-      searchSellsyOrders(q),
+      // Commandes Sellsy (si accès commandes)
+      canCommandes ? searchSellsyOrders(q) : Promise.resolve([]),
 
-      // Produits Sellsy
-      searchSellsyProducts(q),
+      // Produits Sellsy (si accès catalogue)
+      canCatalogue ? searchSellsyProducts(q) : Promise.resolve([]),
     ]);
 
-    // Pages (statiques, pas async)
-    const pages = searchPages(q);
+    // Pages filtrées par rôle
+    const pages = searchPages(q, role);
 
     return NextResponse.json({ contacts, tasks, leads, estimates, orders, products, pages });
   } catch (error: unknown) {
