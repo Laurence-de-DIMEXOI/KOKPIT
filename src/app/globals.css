@@ -39,6 +39,10 @@
   --color-achat: #CBA1D4;
   --color-achat-light: rgba(203, 161, 212, 0.12);
   --color-achat-border: rgba(203, 161, 212, 0.35);
+  /* Général — Jaune KOKPIT */
+  --color-general: #F4B400;
+  --color-general-light: rgba(244, 180, 0, 0.14);
+  --color-general-border: rgba(244, 180, 0, 0.40);
 
   /* Variable active — jaune global par defaut */
   --color-active: #F4B400;
@@ -77,6 +81,11 @@
   --color-active: var(--color-achat);
   --color-active-light: var(--color-achat-light);
   --color-active-border: var(--color-achat-border);
+}
+[data-espace="general"] {
+  --color-active: var(--color-general);
+  --color-active-light: var(--color-general-light);
+  --color-active-border: var(--color-general-border);
 }
 
 * {

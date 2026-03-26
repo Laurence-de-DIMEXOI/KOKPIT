@@ -151,13 +151,21 @@ export function detectSpaceFromPath(pathname: string): string | null {
     pathname.startsWith("/automatisations") ||
     pathname.startsWith("/emailing") ||
     pathname.startsWith("/planning") ||
-    pathname.startsWith("/liens-utiles") ||
     pathname.startsWith("/nos-reseaux") ||
     pathname.startsWith("/parametres") ||
     pathname.startsWith("/marketing")
   ) {
     return "marketing";
   }
-  // Pages partagées (/docs, etc.) → null = garder l'espace courant
+  // Pages Général — jaune KOKPIT
+  if (
+    pathname.startsWith("/messagerie") ||
+    pathname.startsWith("/taches") ||
+    pathname.startsWith("/docs") ||
+    pathname.startsWith("/liens-utiles")
+  ) {
+    return "general";
+  }
+  // Pages partagées → null = garder l'espace courant
   return null;
 }
