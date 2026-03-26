@@ -69,6 +69,32 @@ export default function SuiviCommandesPage() {
         </p>
       </div>
 
+      {/* Légende statuts */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
+        <p className="text-xs font-semibold text-cockpit-secondary mb-2">Étapes de fabrication</p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: "BCDI", desc: "Commande enregistrée", color: "#6B7280", bg: "#F3F4F6" },
+            { label: "Questions", desc: "En attente de réponse", color: "#D97706", bg: "#FEF3C7" },
+            { label: "Check 1→3", desc: "Vérification menuisier", color: "#2563EB", bg: "#DBEAFE" },
+            { label: "Warehouse", desc: "En entrepôt", color: "#7C3AED", bg: "#EDE9FE" },
+            { label: "Finishing", desc: "Finitions en cours", color: "#D97706", bg: "#FEF3C7" },
+            { label: "Ready", desc: "Prêt à expédier", color: "#059669", bg: "#D1FAE5" },
+            { label: "Sent", desc: "Expédié", color: "#059669", bg: "#D1FAE5" },
+          ].map((s) => (
+            <div key={s.label} className="flex items-center gap-1.5">
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium"
+                style={{ backgroundColor: s.bg, color: s.color }}
+              >
+                {s.label}
+              </span>
+              <span className="text-[10px] text-cockpit-secondary">{s.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Search */}
       <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
         <form onSubmit={handleSearch} className="flex gap-3">
