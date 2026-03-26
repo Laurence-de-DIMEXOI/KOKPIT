@@ -32,7 +32,9 @@ export type Module =
   | "sav"
   | "messagerie"
   | "need-price"
-  | "calculateur";
+  | "calculateur"
+  | "suivi-commandes"
+  | "permissions";
 
 /**
  * Permissions par rôle — DIMEXOI
@@ -75,6 +77,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "messagerie",
     "need-price",
     "calculateur",
+    "suivi-commandes",
+    "permissions",
   ],
   MARKETING: [
     // Marketing complet
@@ -104,6 +108,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "dashboard-admin",
     "messagerie",
     "need-price",
+    "suivi-commandes",
   ],
   COMMERCIAL: [
     // Section commerciale
@@ -126,6 +131,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "pointage",
     "messagerie",
     "need-price",
+    "suivi-commandes",
   ],
   DIRECTION: [
     // Tout accès (comme ADMIN)
@@ -159,6 +165,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "messagerie",
     "need-price",
     "calculateur",
+    "suivi-commandes",
+    "permissions",
   ],
   ACHAT: [
     // Section commerciale (Commandes + SAV + Catalogue)
@@ -179,6 +187,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "messagerie",
     "need-price",
     "calculateur",
+    "suivi-commandes",
   ],
 };
 

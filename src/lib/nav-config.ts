@@ -94,7 +94,6 @@ export const ESPACES: Espace[] = [
       { label: "Congés & Absences", href: "/administration/conges", icon: CalendarDays, module: "conges" },
       { label: "Pointage", href: "/administration/pointage", icon: Clock, module: "pointage" },
       { label: "Pointage Équipe", href: "/administration/pointage/equipe", icon: Users, module: "pointage-equipe" },
-      { label: "Permissions", href: "/administration/permissions", icon: Shield, module: "dashboard-admin" },
       { label: "Paramètres", href: "/administration/parametres", icon: Settings, module: "dashboard-admin" },
     ],
   },
@@ -106,7 +105,7 @@ export const ESPACES: Espace[] = [
     menu: [
       { label: "Need Price", href: "/achat/need-price", icon: FileText, module: "need-price" },
       { label: "Calculateur", href: "/achat/calculateur", icon: Package, module: "calculateur" },
-      { label: "Suivi commandes", href: "/achat/suivi-commandes", icon: ShoppingCart, module: "commandes" },
+      { label: "Suivi commandes", href: "/achat/suivi-commandes", icon: ShoppingCart, module: "suivi-commandes" },
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
