@@ -2,21 +2,57 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { listItems, listAllOrders } from "@/lib/sellsy";
+import { listItems, sellsyFetch } from "@/lib/sellsy";
 import { calculerClassificationABC, type RefABC } from "@/lib/calcul-abc";
 
 export const maxDuration = 60;
 
 // Cache simple en mémoire (1h)
 let cachedResult: { data: any; timestamp: number } | null = null;
-const CACHE_DURATION = 60 * 60 * 1000; // 1h
+const CACHE_DURATION = 60 * 60 * 1000;
+
+/**
+ * Récupère TOUTES les commandes des 12 derniers mois AVEC les lignes (rows embeddées).
+ */
+async function fetchOrdersWithRows(sinceISO: string) {
+  const pageSize = 100;
+  const allOrders: any[] = [];
+
+  // Page 1
+  const qs1 = `limit=${pageSize}&offset=0&embed[]=rows`;
+  const page1 = await sellsyFetch<any>(`/orders/search?${qs1}`, {
+    method: "POST",
+    body: JSON.stringify({ filters: { date: { start: sinceISO } } }),
+  });
+
+  allOrders.push(...(page1.data || []));
+  const total = page1.pagination?.total || 0;
+
+  // Pages suivantes
+  for (let offset = pageSize; offset < total; offset += pageSize) {
+    const qs = `limit=${pageSize}&offset=${offset}&embed[]=rows`;
+    try {
+      const page = await sellsyFetch<any>(`/orders/search?${qs}`, {
+        method: "POST",
+        body: JSON.stringify({ filters: { date: { start: sinceISO } } }),
+      });
+      allOrders.push(...(page.data || []));
+    } catch (err: any) {
+      console.warn(`[ABC] Erreur page offset=${offset}:`, err.message);
+    }
+    // Petite pause anti rate-limit
+    await new Promise((r) => setTimeout(r, 200));
+  }
+
+  console.log(`[ABC] ${allOrders.length} commandes récupérées (total API: ${total})`);
+  return allOrders;
+}
 
 /**
  * GET /api/achat/abc
- * Calcul classification ABC complet.
- * ?seuilA=80&seuilB=95 pour preview custom
- * ?mode=stats pour KPIs seulement
- * ?mode=alertes pour références sous seuil uniquement
+ * ?mode=stats | alertes
+ * ?seuilA=80&seuilB=95
+ * ?fresh=true pour forcer le recalcul
  */
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -29,85 +65,85 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
-  const mode = req.nextUrl.searchParams.get("mode"); // "stats" | "alertes" | null
+  const mode = req.nextUrl.searchParams.get("mode");
   const seuilAParam = req.nextUrl.searchParams.get("seuilA");
   const seuilBParam = req.nextUrl.searchParams.get("seuilB");
+  const fresh = req.nextUrl.searchParams.get("fresh") === "true";
 
   try {
-    // Config ABC
     const config = await prisma.configABC.findFirst();
     const seuilA = seuilAParam ? parseFloat(seuilAParam) : (config?.seuilA ?? 80);
     const seuilB = seuilBParam ? parseFloat(seuilBParam) : (config?.seuilB ?? 95);
 
-    // Check cache (sauf si custom seuils)
-    if (!seuilAParam && !seuilBParam && cachedResult && Date.now() - cachedResult.timestamp < CACHE_DURATION) {
+    // Cache
+    if (!fresh && !seuilAParam && !seuilBParam && cachedResult && Date.now() - cachedResult.timestamp < CACHE_DURATION) {
       if (mode === "stats") return NextResponse.json(cachedResult.data.stats);
       if (mode === "alertes") return NextResponse.json(cachedResult.data.alertes);
       return NextResponse.json(cachedResult.data);
     }
 
-    // 1. Récupérer le catalogue Sellsy
+    // 1. Catalogue Sellsy
     const catalogueRes = await listItems({ limit: 500 });
     const items = catalogueRes.data || [];
 
-    // 2. Récupérer les commandes des 12 derniers mois
+    // 2. Commandes 12 mois AVEC lignes
     const dateDebut = new Date();
     dateDebut.setFullYear(dateDebut.getFullYear() - 1);
     const sinceISO = dateDebut.toISOString().split("T")[0];
-    const orders = await listAllOrders(sinceISO);
+    const orders = await fetchOrdersWithRows(sinceISO);
 
-    // 3. Agréger le CA par produit (via les lignes de commande)
-    const refMap = new Map<string, RefABC>();
-
-    // Initialiser avec le catalogue
+    // 3. Map catalogue par ID
+    const catalogueMap = new Map<string, { name: string; reference: string }>();
     for (const item of items) {
       if (item.is_archived) continue;
-      refMap.set(String(item.id), {
-        sellsyRefId: String(item.id),
-        designation: item.name || "Sans nom",
-        reference: item.reference || "",
-        caAnnuel: 0,
-        nbCommandes: 0,
-        stockActuel: null, // Sellsy V2 ne retourne pas le stock dans /items
-      });
+      catalogueMap.set(String(item.id), { name: item.name || "Sans nom", reference: item.reference || "" });
     }
 
-    // Agréger les commandes par produit (via related items)
-    for (const order of orders) {
-      const montant = Number(order.amounts?.total_excl_tax) || 0;
-      if (montant <= 0) continue;
+    // 4. Agréger le CA par produit via les lignes de commande
+    const refMap = new Map<string, RefABC>();
 
-      // Si l'order a des lignes avec des items
-      const rows = (order as any).rows || (order as any)._embed?.rows || [];
-      if (rows.length > 0) {
+    for (const order of orders) {
+      // Chercher les lignes dans _embed.rows ou rows
+      const rows = order._embed?.rows || order.rows || [];
+
+      if (Array.isArray(rows) && rows.length > 0) {
         for (const row of rows) {
-          const itemId = String(row.item_id || row.related_id || "");
-          if (!itemId || itemId === "undefined") continue;
+          // Identifier le produit : item_id, related_id, ou item.id
+          const itemId = String(row.item_id || row.related_id || row.item?.id || "");
+          if (!itemId || itemId === "undefined" || itemId === "null") continue;
+
+          // Montant HT de cette ligne
+          const qty = Number(row.quantity) || 1;
+          const unitPrice = Number(row.unit_amount_excl_tax || row.unit_amount || 0);
+          const totalRow = Number(row.total_amount_excl_tax) || (unitPrice * qty);
+          if (totalRow <= 0) continue;
 
           const existing = refMap.get(itemId);
-          const rowAmount = Number(row.total_amount_excl_tax || row.unit_amount_excl_tax || 0) * (Number(row.quantity) || 1);
-
           if (existing) {
-            existing.caAnnuel += rowAmount > 0 ? rowAmount : 0;
+            existing.caAnnuel += totalRow;
             existing.nbCommandes += 1;
+          } else {
+            const cat = catalogueMap.get(itemId);
+            refMap.set(itemId, {
+              sellsyRefId: itemId,
+              designation: row.name || row.description || cat?.name || "Produit #" + itemId,
+              reference: row.reference || cat?.reference || "",
+              caAnnuel: totalRow,
+              nbCommandes: 1,
+              stockActuel: null,
+            });
           }
-        }
-      } else {
-        // Fallback : attribuer le montant total au related
-        const related = order.related?.[0];
-        if (related) {
-          // On ne peut pas lier à un produit spécifique, skip
         }
       }
     }
 
-    // Filtrer les refs avec CA > 0
-    const refsAvecCA = Array.from(refMap.values()).filter((r) => r.caAnnuel > 0);
+    console.log(`[ABC] ${refMap.size} produits identifiés dans les lignes de commande`);
 
-    // 4. Calculer ABC
+    // 5. Calcul ABC
+    const refsAvecCA = Array.from(refMap.values()).filter((r) => r.caAnnuel > 0);
     const classees = calculerClassificationABC(refsAvecCA, seuilA, seuilB);
 
-    // 5. Enrichir avec les seuils de stock
+    // 6. Enrichir avec seuils
     const seuils = await prisma.seuilStockAchat.findMany();
     const seuilMap = new Map(seuils.map((s) => [s.sellsyRefId, s]));
 
@@ -115,6 +151,7 @@ export async function GET(req: NextRequest) {
       const seuil = seuilMap.get(ref.sellsyRefId);
       return {
         ...ref,
+        caAnnuel: Math.round(ref.caAnnuel * 100) / 100,
         seuilAlerte: seuil?.seuilAlerte ?? null,
         sousSeuilAlerte: seuil ? (ref.stockActuel !== null && ref.stockActuel < seuil.seuilAlerte) : false,
         noteSeuil: seuil?.note ?? null,
@@ -150,7 +187,7 @@ export async function GET(req: NextRequest) {
       lastSync: new Date().toISOString(),
     };
 
-    // Mettre en cache
+    // Cache
     if (!seuilAParam && !seuilBParam) {
       cachedResult = { data: result, timestamp: Date.now() };
     }
