@@ -45,11 +45,17 @@ interface PointageEquipe {
 
 interface RecapMensuel {
   userId: string;
-  user: PointageUser;
+  nom: string;
+  prenom: string;
+  couleur: string | null;
   joursTravailles: number;
-  joursOuvres: number;
-  heuresTotales: number;
-  heuresSupp: number;
+  joursOuvres?: number;
+  totalHeures: number;
+  totalSupp: number;
+  heuresTotales?: number;
+  heuresSupp?: number;
+  soldeHeures?: number;
+  recupDispo?: boolean;
 }
 
 // ============================================================================
@@ -360,6 +366,7 @@ export default function PointageEquipePage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [pointages, setPointages] = useState<PointageEquipe[]>([]);
   const [recaps, setRecaps] = useState<RecapMensuel[]>([]);
+  const [joursOuvresMois, setJoursOuvresMois] = useState(0);
   const [loadingToday, setLoadingToday] = useState(true);
   const [loadingRecap, setLoadingRecap] = useState(false);
   const [correctionTarget, setCorrectionTarget] = useState<PointageEquipe | null>(null);
@@ -411,7 +418,8 @@ export default function PointageEquipePage() {
       const res = await fetch(`/api/pointage/equipe?mois=${moisStr}`);
       if (!res.ok) throw new Error("Erreur chargement");
       const data = await res.json();
-      setRecaps(data.recaps || data || []);
+      setRecaps(data.recap || data.recaps || []);
+      setJoursOuvresMois(data.joursOuvres || 0);
     } catch {
       addToast("Impossible de charger le récapitulatif", "error");
       setRecaps([]);
@@ -825,34 +833,34 @@ export default function PointageEquipePage() {
                             <div
                               className="w-2.5 h-2.5 rounded-full shrink-0"
                               style={{
-                                backgroundColor: r.user.couleur || "#6B7280",
+                                backgroundColor: r.couleur || "#6B7280",
                               }}
                             />
                             <span className="text-cockpit-primary font-medium">
-                              {r.user.prenom} {r.user.nom}
+                              {r.prenom} {r.nom}
                             </span>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-cockpit-primary">
                           {r.joursTravailles}
                           <span className="text-cockpit-secondary">
-                            /{r.joursOuvres}
+                            /{joursOuvresMois}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-cockpit-primary font-medium">
-                          {r.heuresTotales.toFixed(1)}h
+                          {(r.totalHeures ?? r.heuresTotales ?? 0).toFixed(1)}h
                         </td>
                         <td className="px-4 py-3">
                           <span
                             className={`font-medium ${
-                              r.heuresSupp > 0
+                              (r.totalSupp ?? r.heuresSupp ?? 0) > 0
                                 ? "text-amber-400"
-                                : r.heuresSupp < 0
+                                : (r.totalSupp ?? r.heuresSupp ?? 0) < 0
                                 ? "text-red-400"
                                 : "text-cockpit-secondary"
                             }`}
                           >
-                            {formatDuree(r.heuresSupp)}
+                            {formatDuree(r.totalSupp ?? r.heuresSupp ?? 0)}
                           </span>
                         </td>
                       </tr>
