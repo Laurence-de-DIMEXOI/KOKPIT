@@ -29,9 +29,21 @@ export async function PUT(
     );
   }
 
-  const pointage = await prisma.pointage.findUnique({ where: { id } });
+  let pointage = await prisma.pointage.findUnique({ where: { id } });
+
+  // Si pas trouvé par ID, c'est peut-être un userId (correction sur un absent)
   if (!pointage) {
-    return NextResponse.json({ error: "Pointage introuvable" }, { status: 404 });
+    const { getReunionDateJour } = await import("@/data/pointage-config");
+    const dateJour = getReunionDateJour();
+    // Vérifier si l'utilisateur existe
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return NextResponse.json({ error: "Pointage introuvable" }, { status: 404 });
+    }
+    // Créer un pointage vide pour cette date
+    pointage = await prisma.pointage.create({
+      data: { userId: id, date: dateJour },
+    });
   }
 
   // Préparer les nouvelles valeurs
