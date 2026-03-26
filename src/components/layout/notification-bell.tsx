@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Bell, AlertTriangle, Info, ExternalLink } from "lucide-react";
 import clsx from "clsx";
 import Link from "next/link";
+import { notifierDesktop } from "@/lib/notifications-desktop";
 
 interface NotificationItem {
   type: string;
@@ -22,7 +23,16 @@ export function NotificationBell() {
       try {
         const res = await fetch("/api/notifications");
         const data = await res.json();
-        setItems(data.items || []);
+        const newItems: NotificationItem[] = data.items || [];
+        setItems(newItems);
+
+        // Notifications desktop pour les alertes critiques
+        const critical = newItems.filter(
+          (i) => i.severity === "danger" || i.severity === "warning"
+        );
+        for (const item of critical) {
+          notifierDesktop("KOKPIT", item.message);
+        }
       } catch {
         // Silently fail
       }
