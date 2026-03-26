@@ -103,6 +103,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     // Administration (congés + pointage perso, pas pointage-equipe/collaborateurs/parametres)
     "dashboard-admin",
     "messagerie",
+    "need-price",
   ],
   COMMERCIAL: [
     // Section commerciale
@@ -124,6 +125,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "conges",
     "pointage",
     "messagerie",
+    "need-price",
   ],
   DIRECTION: [
     // Tout accès (comme ADMIN)
