@@ -215,6 +215,9 @@ export default function PointagePage() {
   } | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [delegues, setDelegues] = useState<DelegueInfo[]>([]);
+  const [soldeHeures, setSoldeHeures] = useState(0);
+  const [recupDispo, setRecupDispo] = useState(false);
+  const [meteo, setMeteo] = useState<{ temp: number; icon: string } | null>(null);
 
   // ----------------------------------
   // Real-time clock
@@ -222,6 +225,21 @@ export default function PointagePage() {
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // ----------------------------------
+  // Météo La Réunion (Open-Meteo, gratuit)
+  // ----------------------------------
+  useEffect(() => {
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=-21.34&longitude=55.48&current=temperature_2m,weather_code&timezone=Indian%2FReunion")
+      .then((r) => r.json())
+      .then((data) => {
+        const temp = Math.round(data.current?.temperature_2m ?? 0);
+        const code = data.current?.weather_code ?? 0;
+        const icon = code <= 1 ? "☀️" : code <= 3 ? "⛅" : code <= 48 ? "🌫️" : code <= 67 ? "🌧️" : code <= 77 ? "❄️" : "⛈️";
+        setMeteo({ temp, icon });
+      })
+      .catch(() => {});
   }, []);
 
   // ----------------------------------
@@ -236,6 +254,8 @@ export default function PointagePage() {
       setPointage(data.pointage || data);
       setEtat(getPointageEtat(data.pointage || data));
       setDelegues(data.delegues || []);
+      setSoldeHeures(data.soldeHeures ?? 0);
+      setRecupDispo(data.recupDispo ?? false);
     } catch {
       addToast("Impossible de charger le pointage", "error");
     } finally {
@@ -365,12 +385,39 @@ export default function PointagePage() {
             {formatDateLongue(currentTime)}
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-cockpit-card border border-cockpit rounded-card px-4 py-2 shadow-cockpit-lg">
-          <Timer className="w-5 h-5 text-[var(--color-active)]" />
-          <span className="text-xl font-mono font-bold text-cockpit-heading tabular-nums">
-            {heureFormatee}
-          </span>
+        <div className="flex items-center gap-3">
+          {meteo && (
+            <div className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit rounded-card px-3 py-2 shadow-cockpit-lg">
+              <span className="text-lg">{meteo.icon}</span>
+              <span className="text-sm font-semibold text-cockpit-heading">{meteo.temp}°C</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 bg-cockpit-card border border-cockpit rounded-card px-4 py-2 shadow-cockpit-lg">
+            <Timer className="w-5 h-5 text-[var(--color-active)]" />
+            <span className="text-xl font-mono font-bold text-cockpit-heading tabular-nums">
+              {heureFormatee}
+            </span>
+          </div>
         </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* SOLDE HEURES */}
+      {/* ================================================================ */}
+      <div className="flex items-center gap-3">
+        <div className={clsx(
+          "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border",
+          soldeHeures >= 0 ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
+        )}>
+          <span>Solde heures :</span>
+          <span className="font-bold">{formatDuree(soldeHeures)}</span>
+        </div>
+        {recupDispo && (
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-amber-50 border border-amber-200 text-amber-700">
+            <span>🎉</span>
+            <span>Récup dispo !</span>
+          </div>
+        )}
       </div>
 
       {/* ================================================================ */}
