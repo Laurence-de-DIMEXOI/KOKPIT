@@ -54,6 +54,11 @@ export async function GET(request: NextRequest) {
       expediteur: {
         select: { id: true, nom: true, prenom: true, couleur: true },
       },
+      reactions: {
+        include: {
+          user: { select: { id: true, prenom: true } },
+        },
+      },
     },
   });
 

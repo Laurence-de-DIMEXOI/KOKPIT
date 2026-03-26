@@ -178,6 +178,7 @@ model User {
   coutsMarketing       CoutMarketing[]
   canaux               CanalMembre[]
   messagesSent         MessageChat[]  @relation("MessageChatExpediteur")
+  reactionsMessages    ReactionMessage[] @relation("ReactionsUser")
   needPrices           NeedPrice[]    @relation("NeedPriceCreator")
   seuilStockUpdates    SeuilStockAchat[] @relation("SeuilStockUpdatedBy")
 
@@ -1124,9 +1125,24 @@ model MessageChat {
 
   canal        Canal    @relation(fields: [canalId], references: [id], onDelete: Cascade)
   expediteur   User     @relation("MessageChatExpediteur", fields: [expediteurId], references: [id])
+  reactions    ReactionMessage[]
 
   @@index([canalId, createdAt])
   @@index([expediteurId])
+}
+
+model ReactionMessage {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String   // ex: "👍", "❤️", "😂"
+  createdAt DateTime @default(now())
+
+  message   MessageChat @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User        @relation("ReactionsUser", fields: [userId], references: [id])
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 // ============================================================================

@@ -16,7 +16,94 @@ import {
   Search,
   Users,
 } from "lucide-react";
-import { useMessagerie, type Canal, type Message } from "@/hooks/use-messagerie";
+import { Smile } from "lucide-react";
+import { useMessagerie, type Canal, type Message, type Reaction } from "@/hooks/use-messagerie";
+
+/* ─── Emoji picker rapide ─── */
+
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🎉", "🔥", "👏"];
+
+function MessageReactions({
+  messageId,
+  reactions,
+  currentUserId,
+  onToggle,
+}: {
+  messageId: string;
+  reactions: Reaction[];
+  currentUserId: string;
+  onToggle: (emoji: string) => void;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Grouper les réactions par emoji
+  const grouped = useMemo(() => {
+    const map = new Map<string, { count: number; users: string[]; hasMe: boolean }>();
+    for (const r of reactions) {
+      const existing = map.get(r.emoji);
+      if (existing) {
+        existing.count++;
+        existing.users.push(r.user.prenom);
+        if (r.userId === currentUserId) existing.hasMe = true;
+      } else {
+        map.set(r.emoji, {
+          count: 1,
+          users: [r.user.prenom],
+          hasMe: r.userId === currentUserId,
+        });
+      }
+    }
+    return map;
+  }, [reactions, currentUserId]);
+
+  return (
+    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+      {/* Réactions existantes */}
+      {Array.from(grouped.entries()).map(([emoji, { count, users, hasMe }]) => (
+        <button
+          key={emoji}
+          onClick={() => onToggle(emoji)}
+          title={users.join(", ")}
+          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-all ${
+            hasMe
+              ? "bg-[var(--color-active)]/15 border border-[var(--color-active)]/30"
+              : "bg-cockpit-dark border border-transparent hover:border-cockpit"
+          }`}
+        >
+          <span>{emoji}</span>
+          {count > 1 && <span className="text-[10px] font-medium text-cockpit-secondary">{count}</span>}
+        </button>
+      ))}
+
+      {/* Bouton + pour ajouter */}
+      <div className="relative">
+        <button
+          onClick={() => setShowPicker(!showPicker)}
+          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-cockpit-dark transition-colors text-cockpit-secondary hover:text-cockpit-primary"
+          title="Réagir"
+        >
+          <Smile size={14} />
+        </button>
+        {showPicker && (
+          <div className="absolute bottom-full left-0 mb-1 bg-white border border-cockpit rounded-xl shadow-lg p-1.5 flex gap-0.5 z-50">
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => {
+                  onToggle(emoji);
+                  setShowPicker(false);
+                }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-cockpit-dark text-lg transition-colors"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ─── helpers ─── */
 
@@ -337,7 +424,9 @@ export default function MessageriePage() {
     changerCanal,
     creerDM,
     creerCanal,
+    refreshMessages,
   } = useMessagerie();
+  const userId = (session?.user as any)?.id || "";
 
   const [inputValue, setInputValue] = useState("");
   const [sending, setSending] = useState(false);
@@ -715,6 +804,20 @@ export default function MessageriePage() {
                               </a>
                             )}
                           </div>
+                          {/* Réactions */}
+                          <MessageReactions
+                            messageId={msg.id}
+                            reactions={msg.reactions || []}
+                            currentUserId={userId}
+                            onToggle={async (emoji) => {
+                              const res = await fetch("/api/messagerie/reactions", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ messageId: msg.id, emoji }),
+                              });
+                              if (res.ok) refreshMessages();
+                            }}
+                          />
                         </div>
                       </div>
                     );

@@ -14,6 +14,13 @@ export interface Canal {
   membres: { id: string; nom: string; prenom: string }[];
 }
 
+export interface Reaction {
+  id: string;
+  emoji: string;
+  userId: string;
+  user: { id: string; prenom: string };
+}
+
 export interface Message {
   id: string;
   canalId: string;
@@ -28,6 +35,7 @@ export interface Message {
     prenom: string;
     couleur: string | null;
   };
+  reactions?: Reaction[];
 }
 
 export function useMessagerie() {
@@ -287,6 +295,11 @@ export function useMessagerie() {
     };
   }, [fetchUnread]);
 
+  // Force refresh messages (ex: après ajout réaction)
+  const refreshMessages = useCallback(() => {
+    if (canalActif) fetchMessages(canalActif);
+  }, [canalActif, fetchMessages]);
+
   return {
     canaux,
     canalActif,
@@ -299,5 +312,6 @@ export function useMessagerie() {
     creerDM,
     creerCanal,
     fetchCanaux,
+    refreshMessages,
   };
 }
