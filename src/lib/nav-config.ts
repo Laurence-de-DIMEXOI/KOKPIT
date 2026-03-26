@@ -82,6 +82,8 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Achat",
     color: "#CBA1D4",
     items: [
+      { label: "Catalogue ABC", href: "/achat/catalogue", icon: Package, module: "catalogue-abc" },
+      { label: "Alertes stock", href: "/achat/alertes", icon: AlertTriangle, module: "alertes-stock" },
       { label: "Need Price", href: "/achat/need-price", icon: FileText, module: "need-price" },
       { label: "Calculateur", href: "/achat/calculateur", icon: Calculator, module: "calculateur" },
       { label: "Suivi commandes", href: "/achat/suivi-commandes", icon: Truck, module: "suivi-commandes" },

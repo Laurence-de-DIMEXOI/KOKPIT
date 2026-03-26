@@ -179,6 +179,7 @@ model User {
   canaux               CanalMembre[]
   messagesSent         MessageChat[]  @relation("MessageChatExpediteur")
   needPrices           NeedPrice[]    @relation("NeedPriceCreator")
+  seuilStockUpdates    SeuilStockAchat[] @relation("SeuilStockUpdatedBy")
 
   @@index([showroomId])
 }
@@ -980,6 +981,28 @@ model ConfigApp {
   pointageHeuresJour    Float    @default(7)
   pointagePauseDefaut   Float    @default(1)
   updatedAt             DateTime @updatedAt
+}
+
+// ============================================================================
+// ACHAT — CLASSIFICATION ABC
+// ============================================================================
+
+model SeuilStockAchat {
+  id            String   @id @default(cuid())
+  sellsyRefId   String   @unique
+  seuilAlerte   Int
+  classeABC     String   // "A" | "B" | "C"
+  note          String?
+  updatedAt     DateTime @updatedAt
+  updatedById   String
+  updatedBy     User     @relation("SeuilStockUpdatedBy", fields: [updatedById], references: [id])
+}
+
+model ConfigABC {
+  id        String   @id @default(cuid())
+  seuilA    Float    @default(80)
+  seuilB    Float    @default(95)
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================================================
