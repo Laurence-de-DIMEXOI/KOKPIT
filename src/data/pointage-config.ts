@@ -6,6 +6,26 @@
  */
 
 // ============================================================================
+// FUSEAU HORAIRE — La Réunion UTC+4
+// ============================================================================
+
+const REUNION_OFFSET_MS = 4 * 60 * 60 * 1000; // +4h en ms
+
+/** Retourne la date/heure actuelle à La Réunion */
+export function getReunionNow(): Date {
+  const utc = new Date();
+  return new Date(utc.getTime() + REUNION_OFFSET_MS);
+}
+
+/** Retourne la date du jour (sans heure) à La Réunion, en UTC pour Prisma */
+export function getReunionDateJour(refDate?: Date): Date {
+  const utc = refDate || new Date();
+  const reunion = new Date(utc.getTime() + REUNION_OFFSET_MS);
+  // Retourner minuit UTC du jour La Réunion
+  return new Date(Date.UTC(reunion.getUTCFullYear(), reunion.getUTCMonth(), reunion.getUTCDate()));
+}
+
+// ============================================================================
 // CONSTANTES
 // ============================================================================
 

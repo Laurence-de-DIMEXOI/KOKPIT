@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculerHeuresTravaillees } from "@/data/pointage-config";
+import { calculerHeuresTravaillees, getReunionDateJour } from "@/data/pointage-config";
 import { estSemaineCafe, getMessageCafe } from "@/data/cafe-planning";
 
 export async function POST(req: Request) {
@@ -35,9 +35,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Action invalide" }, { status: 400 });
   }
 
-  // Date du jour (sans heure) pour le @@unique
+  // Date du jour La Réunion (UTC+4) pour le @@unique
   const now = new Date();
-  const dateJour = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dateJour = getReunionDateJour(now);
 
   // Récupérer ou créer le pointage du jour
   let pointage = await prisma.pointage.findUnique({

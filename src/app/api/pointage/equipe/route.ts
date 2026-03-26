@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getReunionDateJour } from "@/data/pointage-config";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -27,8 +28,8 @@ export async function GET(req: NextRequest) {
   if (moisParam) {
     // Vue mensuelle : récap par collaborateur
     const [annee, mois] = moisParam.split("-").map(Number);
-    const debut = new Date(annee, mois - 1, 1);
-    const fin = new Date(annee, mois, 0, 23, 59, 59);
+    const debut = new Date(Date.UTC(annee, mois - 1, 1));
+    const fin = new Date(Date.UTC(annee, mois, 0, 23, 59, 59));
 
     const pointages = await prisma.pointage.findMany({
       where: { date: { gte: debut, lte: fin } },
@@ -99,9 +100,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Vue journalière
-  const date = dateParam ? new Date(dateParam) : new Date();
-  const dateJour = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  // Vue journalière — fuseau La Réunion UTC+4
+  const dateJour = dateParam ? getReunionDateJour(new Date(dateParam)) : getReunionDateJour();
 
   const pointages = await prisma.pointage.findMany({
     where: { date: dateJour },

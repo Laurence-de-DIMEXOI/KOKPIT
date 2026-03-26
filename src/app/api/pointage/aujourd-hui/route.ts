@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getReunionDateJour } from "@/data/pointage-config";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -10,8 +11,7 @@ export async function GET(req: NextRequest) {
   }
 
   const sessionUserId = (session.user as any).id;
-  const now = new Date();
-  const dateJour = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dateJour = getReunionDateJour();
 
   // Mon propre pointage + solde heures
   const [pointage, currentUser] = await Promise.all([

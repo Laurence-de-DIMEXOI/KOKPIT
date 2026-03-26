@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getReunionDateJour } from "@/data/pointage-config";
 
 /**
  * POST /api/pointage/recup
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
 
   // Créer un pointage "récup" pour la date du jour
   const now = new Date();
-  const dateJour = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dateJour = getReunionDateJour(now);
 
   await prisma.pointage.upsert({
     where: { userId_date: { userId, date: dateJour } },
