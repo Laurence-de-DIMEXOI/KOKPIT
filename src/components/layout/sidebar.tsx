@@ -4,10 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { X, Lock } from "lucide-react";
+import { X, ChevronDown, ChevronRight } from "lucide-react";
 import clsx from "clsx";
-import type { Espace, NavItem } from "@/lib/nav-config";
-import { MENU_GENERAL } from "@/lib/nav-config";
+import { NAV_CATEGORIES, type NavCategory, type NavItem } from "@/lib/nav-config";
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Role } from "@/lib/auth-utils";
 
@@ -36,77 +35,64 @@ function useUnreadMessages() {
 // ===== PROPS =====
 
 interface SidebarProps {
-  activeSpaceId: string;
-  currentSpace: Espace | undefined;
-  menuItems: NavItem[];
-  generalItems: NavItem[];
-  // Mobile
   mobileOpen: boolean;
   onCloseMobile: () => void;
-  // Onglets espaces dans le drawer mobile
-  showTabs: boolean;
-  visibleSpaces: Espace[];
-  onSwitchSpace: (id: string) => void;
 }
 
-export function Sidebar({
-  activeSpaceId,
-  currentSpace,
-  menuItems,
-  generalItems,
-  mobileOpen,
-  onCloseMobile,
-  showTabs,
-  visibleSpaces,
-  onSwitchSpace,
-}: SidebarProps) {
+export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const userRole = session?.user?.role as Role | undefined;
   const userOverrides = (session?.user as any)?.moduleAccessOverrides as Record<string, boolean> | null | undefined;
   const unreadMessages = useUnreadMessages();
 
-  // Filtrer MENU_GENERAL par rôle + overrides utilisateur
-  const generalNav = generalItems.length > 0
-    ? generalItems
-    : userRole
-      ? MENU_GENERAL.filter((item) => canAccessModule(userRole, item.module, userOverrides))
-      : [];
+  // Catégories collapsed/expanded — défaut: toutes ouvertes
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggleCategory = (id: string) => {
+    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   // Helper: lien actif ?
   const isNavActive = (href: string): boolean => {
-    // Dashboard pages: exact match
     if (href === "/commercial" || href === "/administration" || href === "/dashboard") {
       return pathname === href;
     }
     return pathname.startsWith(href);
   };
 
+  // Filtrer les catégories par permissions
+  const visibleCategories = NAV_CATEGORIES.map((cat) => ({
+    ...cat,
+    items: cat.items.filter((item) =>
+      !userRole || canAccessModule(userRole, item.module, userOverrides)
+    ),
+  })).filter((cat) => cat.items.length > 0);
+
   // Render un lien de navigation
-  const renderNavLink = (item: NavItem) => {
+  const renderNavLink = (item: NavItem, catColor: string) => {
     const isActive = isNavActive(item.href);
     const Icon = item.icon;
 
     return (
-      <li key={`${activeSpaceId}-${item.href}`}>
+      <li key={item.href}>
         <Link
           href={item.href}
           onClick={onCloseMobile}
           className={clsx(
-            "flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm relative",
+            "flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all text-[13px] relative",
             isActive
               ? "font-semibold"
-              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
           )}
           style={isActive ? {
-            backgroundColor: 'var(--color-active-light)',
-            color: 'var(--color-active)',
-            borderLeft: '4px solid var(--color-active)',
-            boxShadow: '0 1px 3px var(--color-active-border)',
+            backgroundColor: `${catColor}15`,
+            color: catColor,
+            borderLeft: `3px solid ${catColor}`,
           } : undefined}
         >
           <Icon className="w-4 h-4 flex-shrink-0" />
-          <span className="flex-1">{item.label}</span>
+          <span className="flex-1 truncate">{item.label}</span>
           {item.href === "/messagerie" && unreadMessages > 0 && (
             <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
               {unreadMessages > 99 ? "99+" : unreadMessages}
@@ -117,46 +103,52 @@ export function Sidebar({
     );
   };
 
+  // Render une catégorie
+  const renderCategory = (cat: NavCategory & { items: NavItem[] }) => {
+    const isCollapsed = collapsed[cat.id] || false;
+    const hasActiveItem = cat.items.some((item) => isNavActive(item.href));
+
+    return (
+      <div key={cat.id} className="mb-1">
+        {/* Header catégorie */}
+        <button
+          onClick={() => toggleCategory(cat.id)}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-gray-50 rounded-lg"
+          style={{ color: cat.color }}
+        >
+          <div
+            className="w-2 h-2 rounded-full flex-shrink-0"
+            style={{ backgroundColor: cat.color }}
+          />
+          <span className="flex-1 text-left">{cat.label}</span>
+          {isCollapsed ? (
+            <ChevronRight className="w-3 h-3" />
+          ) : (
+            <ChevronDown className="w-3 h-3" />
+          )}
+          {isCollapsed && hasActiveItem && (
+            <div
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: cat.color }}
+            />
+          )}
+        </button>
+
+        {/* Items */}
+        {!isCollapsed && (
+          <ul className="space-y-0.5 mt-0.5">
+            {cat.items.map((item) => renderNavLink(item, cat.color))}
+          </ul>
+        )}
+      </div>
+    );
+  };
+
   const sidebarContent = (
     <>
-      {/* Espace actif — badge */}
-      {currentSpace && (
-        <div className="px-3 pt-4 pb-2">
-          <div
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold"
-            style={{
-              backgroundColor: 'var(--color-active-light)',
-              color: 'var(--color-active)',
-              borderLeft: '4px solid var(--color-active)',
-              boxShadow: '0 1px 4px var(--color-active-border)',
-            }}
-          >
-            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--color-active)' }} />
-            {currentSpace.label}
-          </div>
-        </div>
-      )}
-
-      {/* Menu items de l'espace actif */}
-      <nav className="flex-1 overflow-y-auto px-3 pt-1 pb-2">
-        <ul className="space-y-0.5">
-          {menuItems
-            .filter((item) => !userRole || canAccessModule(userRole, item.module, userOverrides))
-            .map(renderNavLink)}
-        </ul>
-
-        {/* Séparateur + Général */}
-        {generalNav.length > 0 && (
-          <>
-            <div className="border-t border-gray-200 my-3" />
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-2">
-              Général
-            </p>
-            <ul className="space-y-0.5">
-              {generalNav.map(renderNavLink)}
-            </ul>
-          </>
-        )}
+      {/* Menu catégories */}
+      <nav className="flex-1 overflow-y-auto px-2 pt-3 pb-2">
+        {visibleCategories.map(renderCategory)}
       </nav>
 
       {/* Footer — user compact */}
@@ -196,7 +188,7 @@ export function Sidebar({
       {/* Mobile drawer */}
       <div
         className={clsx(
-          "fixed left-0 top-0 h-screen w-[280px] z-50",
+          "fixed left-0 top-0 h-screen w-[240px] z-50",
           "bg-white border-r border-gray-200",
           "flex flex-col",
           "lg:hidden",
@@ -205,10 +197,10 @@ export function Sidebar({
         )}
       >
         {/* Mobile header: Logo + close */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-3 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg border-2 border-cockpit-yellow flex items-center justify-center bg-cockpit-yellow/10">
-              <span className="text-cockpit-yellow font-bold text-sm">K</span>
+            <div className="w-7 h-7 rounded-lg border-2 border-cockpit-yellow flex items-center justify-center bg-cockpit-yellow/10">
+              <span className="text-cockpit-yellow font-bold text-xs">K</span>
             </div>
             <span className="text-gray-900 font-bold text-sm">KOKPIT</span>
           </div>
@@ -220,58 +212,16 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Mobile: Space tabs (si showTabs) */}
-        {showTabs && (
-          <div className="px-3 pt-3 pb-1 flex flex-wrap gap-1">
-            {visibleSpaces.map((espace) => {
-              const isActive = espace.id === activeSpaceId;
-              const isDisabled = espace.disabled;
-
-              if (isDisabled) {
-                return (
-                  <div
-                    key={espace.id}
-                    className="px-3 py-1.5 text-xs text-gray-300 cursor-not-allowed flex items-center gap-1 rounded-lg"
-                  >
-                    {espace.label}
-                    <Lock className="w-3 h-3" />
-                  </div>
-                );
-              }
-
-              return (
-                <button
-                  key={espace.id}
-                  onClick={() => onSwitchSpace(espace.id)}
-                  className={clsx(
-                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border",
-                    isActive
-                      ? "font-semibold"
-                      : "text-gray-500 hover:text-gray-800 hover:bg-gray-100 border-transparent"
-                  )}
-                  style={isActive ? {
-                    backgroundColor: 'var(--color-active-light)',
-                    color: 'var(--color-active)',
-                    borderColor: 'var(--color-active-border)',
-                  } : undefined}
-                >
-                  {espace.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
         {sidebarContent}
       </div>
 
-      {/* Desktop sidebar — toujours visible sur lg+ */}
+      {/* Desktop sidebar */}
       <aside
         className={clsx(
-          "hidden lg:flex",
-          "fixed left-0 top-12 h-[calc(100vh-48px)] w-[200px]",
+          "hidden lg:flex lg:flex-col",
+          "fixed left-0 top-12 bottom-0 w-[200px]",
           "bg-white border-r border-gray-200",
-          "flex-col"
+          "overflow-hidden"
         )}
       >
         {sidebarContent}

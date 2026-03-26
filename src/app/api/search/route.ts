@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listEstimates, listOrders, listItems } from "@/lib/sellsy";
-import { ESPACES, MENU_GENERAL } from "@/lib/nav-config";
+import { NAV_CATEGORIES } from "@/lib/nav-config";
 import { canAccessModule, type Role, type Module } from "@/lib/auth-utils";
 
 // ===== Pages statiques depuis nav-config — filtrées par rôle =====
@@ -11,21 +11,12 @@ function searchPages(query: string, role: Role, overrides?: Record<string, boole
   const q = query.toLowerCase();
   const results: { label: string; href: string; espace: string }[] = [];
 
-  for (const espace of ESPACES) {
-    if (espace.disabled) continue;
-    if (!canAccessModule(role, espace.requiredModule, overrides)) continue;
-    for (const item of espace.menu) {
+  for (const cat of NAV_CATEGORIES) {
+    for (const item of cat.items) {
       if (!canAccessModule(role, item.module, overrides)) continue;
       if (item.label.toLowerCase().includes(q)) {
-        results.push({ label: item.label, href: item.href, espace: espace.label });
+        results.push({ label: item.label, href: item.href, espace: cat.label });
       }
-    }
-  }
-
-  for (const item of MENU_GENERAL) {
-    if (!canAccessModule(role, item.module, overrides)) continue;
-    if (item.label.toLowerCase().includes(q)) {
-      results.push({ label: item.label, href: item.href, espace: "Général" });
     }
   }
 
