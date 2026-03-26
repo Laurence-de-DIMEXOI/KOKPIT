@@ -185,16 +185,28 @@ function CorrectionModal({ pointage, date, onClose, onSuccess }: CorrectionModal
     if (!note.trim()) return;
 
     setSubmitting(true);
+
+    // Construire les ISO datetimes à partir de HH:MM + date du pointage
+    // La date est stockée en UTC minuit, les heures sont en UTC+4 (La Réunion)
+    const toISO = (time: string): string | null => {
+      if (!time) return null;
+      const [h, m] = time.split(":").map(Number);
+      const d = new Date(date);
+      // Convertir heure Réunion (UTC+4) en UTC
+      d.setUTCHours(h - 4, m, 0, 0);
+      return d.toISOString();
+    };
+
     try {
       const res = await fetch(`/api/pointage/corriger/${pointage.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          arrivee: arrivee || null,
-          debutPause: debutPause || null,
-          finPause: finPause || null,
-          depart: depart || null,
-          note: note.trim(),
+          arrivee: toISO(arrivee),
+          debutPause: toISO(debutPause),
+          finPause: toISO(finPause),
+          depart: toISO(depart),
+          noteCorrection: note.trim(),
         }),
       });
 
