@@ -104,8 +104,9 @@ export const ESPACES: Espace[] = [
     requiredModule: "catalogue",
     defaultHref: "/achat/need-price",
     menu: [
-      { label: "Need Price", href: "/achat/need-price", icon: FileText, module: "catalogue" },
-      { label: "Calculateur", href: "/achat/calculateur", icon: Package, module: "catalogue" },
+      { label: "Need Price", href: "/achat/need-price", icon: FileText, module: "need-price" },
+      { label: "Calculateur", href: "/achat/calculateur", icon: Package, module: "calculateur" },
+      { label: "Suivi commandes", href: "/achat/suivi-commandes", icon: ShoppingCart, module: "commandes" },
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
