@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 24 mars 2026 (v15 — Renommage Club Tectona + Templates Brevo + 1429 emails envoyés + Comptes utilisateurs + Permissions rôles + Section Achat bloquée + Congés responsive)
-**Mis à jour par** : Session Claude Code (Sprint 24 mars — session 2)
+**Dernière mise à jour** : 26 mars 2026 (v18 — Menu unique sidebar + DA harmonisée + Messagerie + Pointage + SAV + Need Price + Calculateur + Suivi Trello + Permissions Supabase + Reset password + Tâches collab + RFM + ROI + 1429 emails Club Tectona)
+**Mis à jour par** : Session Claude Code (Sprint 24-26 mars)
 
 ---
 
@@ -79,19 +79,31 @@
 
 ---
 
-## 3. SYSTÈME DE DESIGN — COULEURS PAR ESPACE ✅ DÉPLOYÉ
+## 3. SYSTÈME DE DESIGN — MENU UNIQUE + DA HARMONISÉE ✅ v18
 
-### Palette par espace
+### Navigation — Menu unique sidebar (plus d'onglets espaces)
 
-| Espace | Nom couleur | Hex principal | Palette complète |
-|--------|-------------|---------------|------------------|
-| Commercial | Teal | `#0E6973` | Teal → Citron : `#0E6973` `#118C8C` `#BAD9CE` `#F2BB16` `#BF820F` |
-| Marketing | Raspberry | `#C2185B` | Cream → Raspberry : `#E2A90A` `#8DA035` `#D4567A` `#C2185B` |
-| Administration | Bronze Spice | `#D15F12` | Brick Ember → Bronze : `#B92708` `#EE9520` `#A1A89D` `#ED9F58` `#D15F12` |
-| Achat | Cerise | `#E23260` | Charleston → Light Pink : `#1E3309` `#849A28` `#E23260` `#F2678E` `#FCA9AA` |
+Un seul menu sidebar pour tous les utilisateurs. 5 catégories collapsibles, filtrées par permissions (`moduleAccessOverrides` sur table User dans Supabase). Plus de topbar avec onglets.
 
-**Accent global** : `#F4B400` jaune — logo K, avatar initials, éléments hors-espace. Ne change jamais.
-**Vert/Rouge universels** : positif = vert, urgent/danger = rouge. Ces couleurs ne sont jamais remplacées par une couleur d'espace.
+| Catégorie | Couleur active | Gradient | Pages |
+|-----------|---------------|----------|-------|
+| Commercial | `#4C9DB0` Moonstone | → `#FEEB9C` | Dashboard, Demandes, Contacts, BDO, Pipeline, Commandes, Traçabilité, SAV, Catalogue |
+| Marketing | `#E36887` Blush | → `#FEEB9C` | Dashboard, Campagnes, Emailing, Planning, Réseaux, Auto., ROI |
+| Achat | `#CBA1D4` Lavender | → `#FEEB9C` | Need Price, Calculateur, Suivi commandes (Trello) |
+| Administration | `#F17142` Orange | → `#FEEB9C` | Dashboard, Collaborateurs, Congés, Pointage, Pt. Équipe, Paramètres |
+| Général | `#F4B400` Jaune KOKPIT | → `#FEEB9C` | Messagerie, Tâches, Club Tectona, Liens utiles, Docs |
+
+**DA harmonisée** : même style partout (sauf Club Tectona qui garde vert mousse `#515712`) :
+- KPI cards : fond blanc + barre gradient couleur active → Butter Yellow `#FEEB9C`
+- Boutons principaux : gradient couleur active → Butter Yellow
+- Headers drawer/modale : gradient couleur active → Butter Yellow
+
+### Permissions — Supabase (plus de page permissions dans KOKPIT)
+
+Table `User`, colonne `moduleAccessOverrides` (JSON). Pour bloquer un module : `{"pipeline": false}`. Pour ajouter : `{"need-price": true}`.
+
+**Accent global** : `#F4B400` jaune — logo K, avatar initials, Général.
+**Vert/Rouge universels** : positif = vert, urgent/danger = rouge. Jamais remplacés.
 
 ### Implémentation technique
 
@@ -279,6 +291,23 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | NAV-CLEAN | Nettoyage navigation | Club Tectona + Liens utiles retirés des doublons Commercial/Marketing → dans Général uniquement. Tâches dans Général |
 | BREVO-STATS | AUD-BREVO classé | Limitation plan Brevo Starter : l'API REST ne retourne pas les stats campagnes. Export webhook nécessite plan Professional+. Pas de fix possible |
 | CRON-EMAIL | Cron 6h05 : emails Club Tectona automatiques | Si un membre monte de niveau lors du sync commandes → email envoyé automatiquement via Brevo transactionnel |
+| MSG | Messagerie temps réel | Canaux (#général, #commercial, #marketing, #urgences) + DM privés + notifications non-lus badge sidebar + polling 15s |
+| NEED-PRICE | Module Need Price (Achat) | Formulaire demande prix sur-mesure → email Elaury (dimexoidepi@gmail.com) avec PJ image. Finitions: Natural/Raw/WW/BW/Antic. Drawer avec détail prix par article |
+| CALC | Calculateur prix Elaury | Base IDR → prix EUR (change/coeff revient/coeff marge/TVA 8.5%/transport). Calcul temps réel, multi-lignes avec noms, push prix → Need Price (type Min-Arrondi ou Cuisine) |
+| TRELLO | Suivi commandes Trello (lecture seule) | Recherche par réf/nom client → affiche dernier check coché de chaque carte. API Trello lecture seule, jamais modifier. Cache 5min |
+| SOLDE-H | Solde heures cumulé pointage | Accumulation automatique heures supp/manque. Seuil récup = 4h (ConfigPointage). Route /api/pointage/recup pour consommer. Correction manager ajuste le solde |
+| METEO | Météo temps réel pointage | Open-Meteo API (gratuit, pas de clé). Coordonnées Saint-Pierre La Réunion (-21.34, 55.48). Affichée à côté de l'horloge |
+| TACHES-COLLAB | Tâches avec collaboration | Champ "En collaboration avec" + statut invitation (INVITE/ACCEPTE/REFUSE). Le collaborateur peut accepter ou refuser |
+| X9-RFM | Segmentation RFM | 5 segments (Champions, Loyaux, À risque, Perdus, Nouveaux) calculés à la volée. Export vers listes Brevo |
+| X8-ROI | ROI Marketing | Page /marketing/roi — dépenses multi-canal (Meta, Google, Salon, Agence) + CA + ROI% + CAC réel |
+| X6-NOTIF | Notifications topbar | 5 types : token Meta expirant, devis expirant, SLA 72h, congé à valider, tâche assignée. Cloche avec badge |
+| RECAP-HEBDO | Récap hebdomadaire email | Cron lundi 7h — email à Laurence + Michelle : demandes reçues, statut traitement, devis associés, KPIs |
+| RESET-PWD | Reset password par email | Lien token 24h → page /set-password. Envoi via Brevo transactionnel. Route /api/auth/set-password + /api/auth/send-reset |
+| DA-HARMO | DA harmonisée tous espaces | Gradient 2 couleurs (couleur active → Butter Yellow #FEEB9C) partout. Cards blanches + barre colorée. Sauf Club Tectona (vert mousse) |
+| MENU-UNIQUE | Menu unique sidebar | Plus d'onglets espaces dans la topbar. 5 catégories collapsibles (Commercial/Marketing/Achat/Admin/Général) filtrées par permissions |
+| PERMS-SUPA | Permissions via Supabase | Page /administration/permissions supprimée. Gestion directe dans Supabase table User colonne moduleAccessOverrides (JSON) |
+| TZ-REUNION | Fuseau horaire La Réunion | UTC+4 appliqué partout (pointage, congés, cron). Fonction getReunionDateJour() centralisée |
+| CAFE | Popup café ☕ | Rotation hebdomadaire Planning CAFE 2026 (Excel importé). Popup fun au pointage arrivée quand c'est ta semaine |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée
@@ -403,14 +432,19 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Liliane Dambreville | adm@dimexoi.fr | ADMIN | Pointage désactivé |
 | Alain Dambreville | alain.dambreville@dimexoi.fr | ADMIN | Pointage désactivé |
 
+- **NeedPrice** — demandes de prix sur-mesure (Achat) — ref DEPI unique, dénomination anglais, finitions, photo, prix fournisseur/vente, statut DEMANDE/PRIX_RECU/ANNULE ✅
+- **ConfigCalculateur** — paramètres calculateur prix Elaury (changeIndo, coeffRevient, coeffMarge) ✅
+- **Message** — messages messagerie interne (canaux + DM) ✅
+- **Channel** — canaux de messagerie (#général, #commercial, #marketing, #urgences) ✅
+- **Tache** — tâches avec collaboration (assigneAId, collaborateurId, collaborationStatut INVITE/ACCEPTE/REFUSE) ✅
+- **ConfigApp** — paramètres globaux (SLA heures, etc.) ✅
+- **PasswordResetToken** — tokens de réinitialisation mot de passe (24h) ✅
+
 **À créer (prochains sprints) :**
-- `ActivityLog` — log d'activité contacts (X1)
-- `Task` — tâches avec échéances (X2)
-- `CoutMarketing` — coûts marketing ROI réel (X8)
-- `BrevoWebhookEvent` — signaux Brevo→KOKPIT (X5)
-- ~~`ProduitBarcode`~~ — non nécessaire, codes-barres générés à la volée (AUD10-CB ✅)
-- `SeuilStockAchat` — seuils stock par référence (A1)
-- `ConfigABC` — seuils globaux A/B/C configurables (A1)
+- `PlanTechnique` — dépôt plans PDF + transfert OneDrive (Module 3 Achat)
+- `BrevoWebhookEvent` — signaux Brevo→KOKPIT (X5 — plan Pro requis)
+- `SeuilStockAchat` — seuils stock par référence (ACH1)
+- `ConfigABC` — seuils globaux A/B/C configurables (ACH1)
 
 ---
 
@@ -674,9 +708,10 @@ model ConfigABC {
 | ~~BDO~~ | ~~Migration Bois d'Orient~~ | ✅ | Page + 7 routes API + extraction + matching + documents |
 | ~~X10~~ | ~~SLA 72h leads + relance commercial~~ | ✅ | SLA + bouton relance email + tâche auto commercial |
 | ~~ADM1~~ | ~~Espace Administration~~ | ✅ | Paramètres (SLA, pointage, rôles) + Pointage + Congés + Collaborateurs — `484e24d` |
-| F1 | Création devis KOKPIT → Sellsy | KOKPIT écrit dans Sellsy via API | ? |
-| E1 | Espace client externe | Site séparé connecté à KOKPIT — suivi de commande | ? |
-| **ACH1** | **Espace Achat complet** | Classification ABC (specs section 17) + commandes fournisseurs + réassort | 2j+ |
+| ACH-PLANS | Module 3 Achat — Plans PDF + OneDrive | Upload PDF → Supabase → transfert OneDrive via Microsoft Graph API. Bloqué : clés Microsoft à fournir | 1.5j |
+| ACH-ABC | Classification ABC | Catalogue Pareto 80/20 + alertes stock + seuils configurables | 2j |
+| F1 | Création devis KOKPIT → Sellsy | KOKPIT écrit dans Sellsy via API | À spécifier |
+| E1 | Espace client externe | Site séparé connecté à KOKPIT — suivi de commande | À spécifier |
 
 ---
 
