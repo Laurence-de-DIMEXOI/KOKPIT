@@ -167,7 +167,7 @@ Règle topbar : si un utilisateur n'a accès qu'à un seul espace, les onglets e
 | Meta Ads | Campagnes publicité (sync) | `META_ACCESS_TOKEN` + `META_ACCESS_TOKEN_EXPIRES_AT` | `/api/meta/` |
 | Supabase | Storage Upload images couverture Planning | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | — |
 | Anthropic | Chatbot KOKPIT (Haiku) | `ANTHROPIC_API_KEY` | — |
-| Brevo Club Tectona | 5 listes pour segments fidélité | `BREVO_CLUB_LIST_ID_1` à `_5` | `/api/club/` |
+| Brevo Club Tectona | 6 listes auto-créées par nom (pas d'env vars) | `findOrCreateList()` dans club-sync.ts | `/api/club/` |
 | Sellsy Bois d'Orient | Extraction données enseigne fermée (contacts + factures + commandes + devis + PDFs) | `SELLSY_BDO_CLIENT_ID` / `SELLSY_BDO_CLIENT_SECRET` | `/api/admin/bois-dorient/` |
 | Supabase Storage BDO | PDFs documents Bois d'Orient | Bucket `bois-dorient-docs` | — |
 
@@ -463,11 +463,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | `RESEND_API_KEY` | ⚠️ Optionnel | Fallback envoi email si Brevo indispo |
 | `SELLSY_ACCESS_TOKEN` | ✅ Vercel | Token Sellsy V2 (utilisé par Club Sync pour fetch individuals/companies) |
 | `BREVO_WEBHOOK_SECRET` | ⚠️ À créer | Authentification webhooks Brevo (X5) |
-| `BREVO_CLUB_LIST_ID_1` | ⚠️ À configurer | ID liste Brevo "Club Tectona · I" (L'Écorce) |
-| `BREVO_CLUB_LIST_ID_2` | ⚠️ À configurer | ID liste Brevo "Club Tectona · II" (L'Aubier) |
-| `BREVO_CLUB_LIST_ID_3` | ⚠️ À configurer | ID liste Brevo "Club Tectona · III" (Le Cœur) |
-| `BREVO_CLUB_LIST_ID_4` | ⚠️ À configurer | ID liste Brevo "Club Tectona · IV" (Le Grain) |
-| `BREVO_CLUB_LIST_ID_5` | ⚠️ À configurer | ID liste Brevo "Club Tectona · V" (Le Tectona Grandis) |
+| ~~`BREVO_CLUB_LIST_ID_1-5`~~ | ❌ Non utilisées | Listes auto-créées par nom via `findOrCreateList()` — pas besoin d'IDs en env |
 | `SELLSY_BDO_CLIENT_ID` | ✅ .env.local | Client ID Sellsy Bois d'Orient (migration) |
 | `SELLSY_BDO_CLIENT_SECRET` | ✅ .env.local | Client Secret Sellsy Bois d'Orient (migration) |
 | `ANTHROPIC_API_KEY` | ✅ Vercel | Chatbot M4C |
@@ -840,7 +836,7 @@ model ClubMembre {
 | Variable | Usage |
 |----------|-------|
 | `SELLSY_ACCESS_TOKEN` | Fetch noms contacts (fallback API) |
-| `BREVO_CLUB_LIST_ID_1` à `_5` | IDs listes Brevo par niveau (à créer dans Brevo puis configurer dans Vercel) |
+| ~~`BREVO_CLUB_LIST_ID_1-5`~~ | Non nécessaires — listes auto-créées par nom |
 
 ### Commits
 
