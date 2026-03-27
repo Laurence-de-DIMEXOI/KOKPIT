@@ -19,6 +19,18 @@ import {
   Bug,
 } from "lucide-react";
 
+// Badge plateforme
+const PlatformBadge = ({ platform }: { platform: "META" | "GOOGLE" }) =>
+  platform === "GOOGLE" ? (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#4285F4]/10 text-[#4285F4] flex-shrink-0">
+      G
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1877F2]/10 text-[#1877F2] flex-shrink-0">
+      f
+    </span>
+  );
+
 // ===== TYPES =====
 
 interface MetaInsight {
@@ -153,11 +165,17 @@ function parseCachedCampaign(c: any): MetaCampaign {
 // ===== MAIN COMPONENT =====
 
 export default function CampagnesPage() {
+  const [platform, setPlatform] = useState<"META" | "GOOGLE">("META");
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
+  const [googleCampaigns, setGoogleCampaigns] = useState<MetaCampaign[]>([]);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [googleError, setGoogleError] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
+  const [googleSyncedAt, setGoogleSyncedAt] = useState<string | null>(null);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
@@ -170,11 +188,12 @@ export default function CampagnesPage() {
     totalCampaigns: 0, totalAdSets: 0, totalAds: 0, campaignsWithData: 0,
   });
 
-  // Auto-sync au montage : charger le cache DB, puis sync live Meta en arrière-plan
+  // Auto-sync au montage
   useEffect(() => {
     loadFromCache().then(() => {
       handleSync("this_month");
     });
+    loadGoogleFromCache();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -182,7 +201,7 @@ export default function CampagnesPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/campagnes?limit=100");
+      const res = await fetch("/api/campagnes?limit=100&plateforme=META");
       if (res.ok) {
         const data = await res.json();
         const mapped: MetaCampaign[] = (data.campagnes || []).map(parseCachedCampaign);
@@ -193,6 +212,40 @@ export default function CampagnesPage() {
       }
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
+  };
+
+  const loadGoogleFromCache = async () => {
+    setGoogleLoading(true);
+    try {
+      const res = await fetch("/api/campagnes?limit=100&plateforme=GOOGLE");
+      if (res.ok) {
+        const data = await res.json();
+        const mapped: MetaCampaign[] = (data.campagnes || []).map(parseCachedCampaign);
+        setGoogleCampaigns(mapped);
+        const firstWithSync = (data.campagnes || []).find((c: any) => c.metaInsights?.syncedAt);
+        if (firstWithSync) setGoogleSyncedAt(firstWithSync.metaInsights.syncedAt);
+      }
+    } catch (err: any) { setGoogleError(err.message); }
+    finally { setGoogleLoading(false); }
+  };
+
+  const handleGoogleSync = async (period?: string, since?: string, until?: string) => {
+    const p = period || selectedPeriod;
+    setGoogleSyncing(true);
+    setGoogleError("");
+    try {
+      let url = `/api/google-ads/sync?period=${p}`;
+      if (p === "custom" && since && until) url += `&since=${since}&until=${until}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok) {
+        setGoogleCampaigns(data.campaigns || []);
+        setGoogleSyncedAt(new Date().toISOString());
+      } else {
+        setGoogleError(data.error || "Erreur sync Google Ads");
+      }
+    } catch (err: any) { setGoogleError(err.message); }
+    finally { setGoogleSyncing(false); }
   };
 
   const handleSync = async (period?: string, since?: string, until?: string) => {
@@ -251,14 +304,15 @@ export default function CampagnesPage() {
     });
   };
 
+  const activeCampaigns = platform === "GOOGLE" ? googleCampaigns : campaigns;
+
   const filteredCampaigns = useMemo(() => {
-    let result = selectedStatus === "ALL" ? campaigns : campaigns.filter((c) => c.status === selectedStatus);
-    // Quand un filtre de période est actif, n'afficher que les campagnes ayant dépensé
+    let result = selectedStatus === "ALL" ? activeCampaigns : activeCampaigns.filter((c) => c.status === selectedStatus);
     if (selectedPeriod !== "maximum") {
       result = result.filter((c) => c.insights.spend > 0 || c.insights.impressions > 0);
     }
     return result;
-  }, [campaigns, selectedStatus, selectedPeriod]);
+  }, [activeCampaigns, selectedStatus, selectedPeriod]);
 
   // KPIs calculés sur les campagnes visibles (filtrées)
   const displayKpis = useMemo(() => ({
@@ -291,6 +345,11 @@ export default function CampagnesPage() {
     return b.insights.spend - a.insights.spend;
   });
 
+  const activeLoading = platform === "GOOGLE" ? googleLoading : loading;
+  const activeSyncing = platform === "GOOGLE" ? googleSyncing : syncing;
+  const activeSyncedAt = platform === "GOOGLE" ? googleSyncedAt : syncedAt;
+  const activeError = platform === "GOOGLE" ? googleError : error;
+
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
       {/* Header */}
@@ -303,18 +362,39 @@ export default function CampagnesPage() {
               <span className="text-[var(--color-active)] ml-1">(filtrées par dépense)</span>
             )}
           </p>
-          {syncedAt && (
+          {activeSyncedAt && (
             <p className="text-cockpit-secondary text-[10px] flex items-center gap-1 mt-0.5">
               <Clock className="w-3 h-3" />
-              Sync : {new Date(syncedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              Sync : {new Date(activeSyncedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
         </div>
-        <button onClick={() => handleSync()} disabled={syncing || loading}
-          className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm">
-          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          <span className="hidden sm:inline">{syncing ? "Actualisation..." : "Actualiser"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Onglets plateforme */}
+          <div className="flex rounded-lg border border-cockpit overflow-hidden text-xs font-semibold">
+            <button
+              onClick={() => setPlatform("META")}
+              className={`px-3 py-2 transition-colors ${platform === "META" ? "bg-[#1877F2] text-white" : "bg-cockpit-card text-cockpit-secondary hover:bg-cockpit-dark"}`}
+            >
+              f&nbsp; Meta
+            </button>
+            <button
+              onClick={() => setPlatform("GOOGLE")}
+              className={`px-3 py-2 transition-colors ${platform === "GOOGLE" ? "bg-[#4285F4] text-white" : "bg-cockpit-card text-cockpit-secondary hover:bg-cockpit-dark"}`}
+            >
+              G&nbsp; Google
+            </button>
+          </div>
+          {/* Bouton Actualiser */}
+          <button
+            onClick={() => platform === "GOOGLE" ? handleGoogleSync(selectedPeriod, customSince, customUntil) : handleSync()}
+            disabled={activeSyncing || activeLoading}
+            className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+          >
+            {activeSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            <span className="hidden sm:inline">{activeSyncing ? "Actualisation..." : "Actualiser"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters row */}
@@ -424,22 +504,22 @@ export default function CampagnesPage() {
         </div>
       )}
 
-      {error && (
+      {activeError && (
         <div className={`flex items-start gap-3 p-4 rounded-lg border ${
-          error.includes("TOKEN_EXPIRED") || error.includes("expiré")
+          activeError.includes("TOKEN_EXPIRED") || activeError.includes("expiré")
             ? "bg-[#F59E0B]/10 border-[#F59E0B]/30"
             : "bg-[#FF3E1D]/10 border-[#FF3E1D]/30"
         }`}>
           <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-            error.includes("TOKEN_EXPIRED") || error.includes("expiré")
+            activeError.includes("TOKEN_EXPIRED") || activeError.includes("expiré")
               ? "text-[#F59E0B]"
               : "text-[#FF3E1D]"
           }`} />
           <div className="space-y-1">
-            {error.includes("TOKEN_EXPIRED:") ? (
+            {activeError.includes("TOKEN_EXPIRED:") ? (
               <>
                 <p className="text-sm font-semibold text-[#F59E0B]">Token Meta expiré</p>
-                <p className="text-xs text-cockpit-secondary">{error.replace("TOKEN_EXPIRED:", "")}</p>
+                <p className="text-xs text-cockpit-secondary">{activeError.replace("TOKEN_EXPIRED:", "")}</p>
                 <a
                   href="https://developers.facebook.com/tools/explorer/"
                   target="_blank"
@@ -449,8 +529,14 @@ export default function CampagnesPage() {
                   Renouveler le token →
                 </a>
               </>
+            ) : activeError.includes("manquantes") ? (
+              <>
+                <p className="text-sm font-semibold text-[#F59E0B]">Google Ads non configuré</p>
+                <p className="text-xs text-cockpit-secondary">{activeError}</p>
+                <p className="text-xs text-cockpit-secondary mt-1">→ Ajoute les 5 variables dans <strong>Vercel → Settings → Environment Variables</strong></p>
+              </>
             ) : (
-              <p className="text-xs text-[#FF3E1D]">{error}</p>
+              <p className="text-xs text-[#FF3E1D]">{activeError}</p>
             )}
           </div>
         </div>
@@ -496,14 +582,14 @@ export default function CampagnesPage() {
         </details>
       )}
 
-      {loading && (
+      {activeLoading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--color-active)]" />
         </div>
       )}
 
       {/* HIERARCHY TABLE */}
-      {!loading && sortedCampaigns.length > 0 && (
+      {!activeLoading && sortedCampaigns.length > 0 && (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
           {/* Desktop */}
           <div className="hidden md:block overflow-x-auto">
@@ -543,14 +629,23 @@ export default function CampagnesPage() {
       )}
 
       {/* Empty */}
-      {!loading && sortedCampaigns.length === 0 && !error && (
+      {!activeLoading && sortedCampaigns.length === 0 && !activeError && (
         <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-8 text-center">
           <BarChart3 className="w-12 h-12 mx-auto mb-4 text-cockpit-secondary opacity-50" />
-          <h3 className="text-base font-semibold text-cockpit-heading mb-2">Aucune campagne</h3>
-          <p className="text-cockpit-secondary text-sm mb-6">Les données Meta s'actualisent automatiquement</p>
-          <button onClick={() => handleSync()} disabled={syncing}
-            className="flex items-center gap-2 mx-auto bg-cockpit-card border border-cockpit px-6 py-3 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm">
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          <h3 className="text-base font-semibold text-cockpit-heading mb-2">
+            {platform === "GOOGLE" ? "Aucune campagne Google Ads" : "Aucune campagne"}
+          </h3>
+          <p className="text-cockpit-secondary text-sm mb-6">
+            {platform === "GOOGLE"
+              ? "Configure les variables d'environnement Google Ads puis clique Actualiser"
+              : "Les données Meta s'actualisent automatiquement"}
+          </p>
+          <button
+            onClick={() => platform === "GOOGLE" ? handleGoogleSync() : handleSync()}
+            disabled={activeSyncing}
+            className="flex items-center gap-2 mx-auto bg-cockpit-card border border-cockpit px-6 py-3 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+          >
+            {activeSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             Actualiser
           </button>
         </div>
@@ -598,7 +693,10 @@ function CampaignBlock({ campaign, isExpanded, hasAdSets, toggleCampaign, expand
             ) : <span className="w-4" />}
             <LevelIndicator level="campaign" />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-cockpit-primary truncate">{campaign.name}</p>
+              <div className="flex items-center gap-1.5">
+                <PlatformBadge platform={campaign.id.startsWith("google_") || !campaign.id.startsWith("act_") && campaign.id.match(/^\d+$/) ? "GOOGLE" : "META"} />
+                <p className="text-sm font-medium text-cockpit-primary truncate">{campaign.name}</p>
+              </div>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <StatusBadge status={campaign.status} />
                 {campaign.objective && (
