@@ -12,39 +12,53 @@ let cachedResult: { data: any; timestamp: number } | null = null;
 const CACHE_DURATION = 60 * 60 * 1000;
 
 /**
- * Récupère TOUTES les commandes des 12 derniers mois AVEC les lignes (rows embeddées).
+ * Récupère les IDs des commandes 12 mois via search,
+ * puis fetch chaque détail (qui inclut les rows) par batch de 10.
  */
 async function fetchOrdersWithRows(sinceISO: string) {
   const pageSize = 100;
-  const allOrders: any[] = [];
+  const allOrderIds: number[] = [];
 
-  // Page 1
-  const qs1 = `limit=${pageSize}&offset=0&embed[]=rows`;
-  const page1 = await sellsyFetch<any>(`/orders/search?${qs1}`, {
-    method: "POST",
-    body: JSON.stringify({ filters: { date: { start: sinceISO } } }),
-  });
-
-  allOrders.push(...(page1.data || []));
-  const total = page1.pagination?.total || 0;
-
-  // Pages suivantes
-  for (let offset = pageSize; offset < total; offset += pageSize) {
-    const qs = `limit=${pageSize}&offset=${offset}&embed[]=rows`;
+  // 1. Récupérer les IDs via search (sans rows — search ne les supporte pas)
+  let offset = 0;
+  let total = 0;
+  do {
     try {
-      const page = await sellsyFetch<any>(`/orders/search?${qs}`, {
+      const page = await sellsyFetch<any>(`/orders/search?limit=${pageSize}&offset=${offset}`, {
         method: "POST",
         body: JSON.stringify({ filters: { date: { start: sinceISO } } }),
       });
-      allOrders.push(...(page.data || []));
+      const orders = page.data || [];
+      total = page.pagination?.total || 0;
+      allOrderIds.push(...orders.map((o: any) => o.id));
+      offset += pageSize;
     } catch (err: any) {
-      console.warn(`[ABC] Erreur page offset=${offset}:`, err.message);
+      console.warn(`[ABC] Erreur search offset=${offset}:`, err.message);
+      break;
     }
-    // Petite pause anti rate-limit
+    await new Promise((r) => setTimeout(r, 100));
+  } while (offset < total);
+
+  console.log(`[ABC] ${allOrderIds.length} commandes identifiées, fetch détails avec rows...`);
+
+  // 2. Fetch détails par batch de 10 (le détail inclut automatiquement les rows)
+  const allOrders: any[] = [];
+  for (let i = 0; i < allOrderIds.length; i += 10) {
+    const batch = allOrderIds.slice(i, i + 10);
+    const results = await Promise.allSettled(
+      batch.map((id) => sellsyFetch<any>(`/orders/${id}`))
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) allOrders.push(r.value);
+    }
+    // Log progress
+    if ((i + 10) % 100 === 0 || i + 10 >= allOrderIds.length) {
+      console.log(`[ABC] Détails: ${Math.min(i + 10, allOrderIds.length)}/${allOrderIds.length}`);
+    }
     await new Promise((r) => setTimeout(r, 200));
   }
 
-  console.log(`[ABC] ${allOrders.length} commandes récupérées (total API: ${total})`);
+  console.log(`[ABC] ${allOrders.length} commandes avec rows récupérées`);
   return allOrders;
 }
 
@@ -103,33 +117,35 @@ export async function GET(req: NextRequest) {
     const refMap = new Map<string, RefABC>();
 
     for (const order of orders) {
-      // Chercher les lignes dans _embed.rows ou rows
-      const rows = order._embed?.rows || order.rows || [];
+      const rows = order.rows || [];
 
       if (Array.isArray(rows) && rows.length > 0) {
         for (const row of rows) {
-          // Identifier le produit : item_id, related_id, ou item.id
-          const itemId = String(row.item_id || row.related_id || row.item?.id || "");
-          if (!itemId || itemId === "undefined" || itemId === "null") continue;
+          // Utiliser la référence produit comme clé (c'est ce qu'on a dans les rows)
+          const ref = (row.reference || "").trim();
+          if (!ref) continue;
 
           // Montant HT de cette ligne
-          const qty = Number(row.quantity) || 1;
-          const unitPrice = Number(row.unit_amount_excl_tax || row.unit_amount || 0);
-          const totalRow = Number(row.total_amount_excl_tax) || (unitPrice * qty);
+          const totalRow = Number(row.amount_tax_exc) || 0;
+          const qty = Number(row.quantity) || 0;
           if (totalRow <= 0) continue;
 
-          const existing = refMap.get(itemId);
+          // Nettoyer la description (enlever HTML)
+          const desc = (row.description || ref).replace(/<[^>]+>/g, "").trim().slice(0, 120);
+
+          const existing = refMap.get(ref);
           if (existing) {
             existing.caAnnuel += totalRow;
             existing.nbCommandes += 1;
+            existing.quantiteVendue = (existing.quantiteVendue || 0) + qty;
           } else {
-            const cat = catalogueMap.get(itemId);
-            refMap.set(itemId, {
-              sellsyRefId: itemId,
-              designation: row.name || row.description || cat?.name || "Produit #" + itemId,
-              reference: row.reference || cat?.reference || "",
+            refMap.set(ref, {
+              sellsyRefId: ref,
+              designation: desc,
+              reference: ref,
               caAnnuel: totalRow,
               nbCommandes: 1,
+              quantiteVendue: qty,
               stockActuel: null,
             });
           }

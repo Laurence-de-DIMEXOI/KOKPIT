@@ -11,6 +11,7 @@ export interface RefABC {
   reference: string;
   caAnnuel: number;
   nbCommandes: number;
+  quantiteVendue: number;
   stockActuel: number | null;
 }
 
@@ -56,4 +57,57 @@ export function calculerClassificationABC(
 
     return { ...ref, classe, caPourcentage, caCumule: caCumulePct };
   });
+}
+
+/**
+ * Agrège les lignes de commande Sellsy en RefABC par référence.
+ */
+export function agregerParReference(
+  rows: {
+    reference: string;
+    description: string;
+    amount_tax_exc: string | number;
+    quantity: string | number;
+    orderId: number;
+  }[]
+): RefABC[] {
+  const map = new Map<
+    string,
+    { designation: string; ca: number; cmds: Set<number>; qty: number }
+  >();
+
+  for (const row of rows) {
+    if (!row.reference) continue;
+    const ref = row.reference.trim();
+    const montant = Number(row.amount_tax_exc) || 0;
+    const qty = Number(row.quantity) || 0;
+
+    const existing = map.get(ref);
+    if (existing) {
+      existing.ca += montant;
+      existing.cmds.add(row.orderId);
+      existing.qty += qty;
+    } else {
+      const designation = (row.description || ref)
+        .replace(/<[^>]+>/g, "")
+        .trim()
+        .slice(0, 120);
+      map.set(ref, {
+        designation,
+        ca: montant,
+        cmds: new Set([row.orderId]),
+        qty,
+      });
+    }
+  }
+
+  return Array.from(map.entries()).map(([reference, data]) => ({
+    sellsyRefId: reference,
+    reference,
+    designation: data.designation,
+    caAnnuel: Math.round(data.ca * 100) / 100,
+    nbCommandes: data.cmds.size,
+    quantiteVendue: Math.round(data.qty),
+    stockActuel: null,
+  }));
 }
