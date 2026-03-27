@@ -41,10 +41,15 @@ export function KPICard({
   change,
   icon,
 }: KPICardProps) {
-  const numericValue = typeof value === "number" ? value : parseInt(String(value), 10);
-  const isAnimatable = typeof value === "number" || (!isNaN(numericValue) && !String(value).includes("%"));
-  const animatedValue = useCountUp(isAnimatable ? numericValue : 0);
-  const displayValue = isAnimatable ? animatedValue : value;
+  // Extraire la valeur numérique en ignorant les séparateurs de milliers et symboles
+  const rawStr = String(value);
+  const numericValue = typeof value === "number"
+    ? value
+    : parseFloat(rawStr.replace(/\s|\u00a0|\u202f/g, "").replace(",", ".").replace(/[^\d.-]/g, ""));
+  const isAnimatable = typeof value === "number" || (!isNaN(numericValue) && numericValue > 0 && !rawStr.includes("%"));
+  const animatedValue = useCountUp(isAnimatable ? Math.round(numericValue) : 0);
+  const animationDone = !isAnimatable || animatedValue >= Math.round(numericValue);
+  const displayValue = animationDone ? value : animatedValue.toLocaleString("fr-FR");
 
   return (
     <div
