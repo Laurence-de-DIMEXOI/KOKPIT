@@ -30,8 +30,18 @@ const FIELD = {
   COUNTRY:      "COUNTRY",
 };
 
-function getField(data: { column_name: string; string_value?: string }[], key: string): string {
-  return data.find((d) => d.column_name === key)?.string_value?.trim() || "";
+function getField(data: { column_name?: string; column_id?: string; string_value?: string }[], key: string): string {
+  // Google envoie les champs standard dans column_id (ex: "FULL_NAME"), column_name est le label affiché
+  return data.find((d) => d.column_id === key || d.column_name === key)?.string_value?.trim() || "";
+}
+
+function getCustomFields(data: { column_name?: string; column_id?: string; string_value?: string }[]): string {
+  // Champs personnalisés : column_id contient la question (ex: "quelle_catégorie_...")
+  const standardIds = Object.values(FIELD);
+  return data
+    .filter((d) => d.column_id && !standardIds.includes(d.column_id) && d.string_value)
+    .map((d) => `${d.column_id?.replace(/_/g, " ")} : ${d.string_value}`)
+    .join("\n");
 }
 
 function cleanPhone(phone: string): string | null {
@@ -77,9 +87,8 @@ export async function POST(req: NextRequest) {
     const phone     = cleanPhone(getField(cols, FIELD.PHONE_NUMBER));
     const city      = getField(cols, FIELD.CITY);
 
-    if (!email && !phone) {
-      return NextResponse.json({ error: "Email ou téléphone requis" }, { status: 400, headers: CORS });
-    }
+    // Si aucun email ni téléphone → on accepte quand même (lead de test ou champs non collectés)
+    // et on génère un email placeholder pour respecter la contrainte @unique du modèle
 
     const leadId    = body.lead_id as string | undefined;
     const campaignId = String(body.campaign_id || "");
@@ -153,6 +162,7 @@ export async function POST(req: NextRequest) {
           campaignName ? `Campagne : ${campaignName}` : "",
           formName ? `Formulaire : ${formName}` : "",
           city ? `Ville : ${city}` : "",
+          getCustomFields(cols),
           isTest ? "⚠️ Lead de test" : "",
         ].filter(Boolean).join("\n") || null,
       },
@@ -161,7 +171,11 @@ export async function POST(req: NextRequest) {
     // Notification email
     void notifyNewLead({ contact, lead, campaignName, formName });
 
-    return NextResponse.json({ received: true, leadId: lead.id }, { status: 200, headers: CORS });
+    // Google Ads exige HTTP 200 — on echo le google_key pour confirmer
+    return NextResponse.json(
+      { received: true, google_key: body.google_key || "", leadId: lead.id },
+      { status: 200, headers: CORS }
+    );
 
   } catch (err: any) {
     console.error("[GADS-LEAD] Erreur:", err);
