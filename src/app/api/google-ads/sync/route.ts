@@ -13,7 +13,7 @@ export const maxDuration = 60;
 // GOOGLE_REFRESH_TOKEN        : via OAuth Playground (accounts.google.com/o/oauth2/playground)
 // ──────────────────────────────────────────────────────────────────────────
 
-const GADS_BASE = "https://googleads.googleapis.com/v18";
+const GADS_BASE = "https://googleads.googleapis.com/v20";
 
 const PERIOD_MAP: Record<string, string> = {
   today:      "TODAY",
