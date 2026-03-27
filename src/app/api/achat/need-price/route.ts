@@ -160,7 +160,7 @@ Asked by : ${creatorName}
 
       const emailPayload: any = {
         sender: { name: "KOKPIT", email: "laurence.payet@dimexoi.fr" },
-        to: [{ email: "dimexoidepi@gmail.com" }],
+        to: [{ email: "dimexoi.depi@gmail.com" }],
         subject,
         htmlContent,
       };
