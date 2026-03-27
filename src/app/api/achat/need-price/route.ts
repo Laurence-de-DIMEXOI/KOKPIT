@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { uploadToStorage } from "@/lib/supabase";
 
 // GET - List NeedPrice with pagination and filters
 export async function GET(request: NextRequest) {
@@ -89,13 +90,21 @@ export async function POST(request: NextRequest) {
     const notes = formData.get("notes") as string || null;
     const photoFile = formData.get("photo") as File | null;
 
-    // Lire le fichier en base64 pour pièce jointe email
+    // Uploader la photo sur Supabase Storage + base64 pour email
     let photoBase64: string | null = null;
     let photoName: string | null = null;
+    let photoPublicUrl: string | null = null;
     if (photoFile && photoFile.size > 0) {
       const buffer = Buffer.from(await photoFile.arrayBuffer());
       photoBase64 = buffer.toString("base64");
       photoName = photoFile.name;
+      const ext = photoFile.name.split(".").pop() || "jpg";
+      const storagePath = `need-price/${Date.now()}.${ext}`;
+      try {
+        photoPublicUrl = await uploadToStorage("kokpit-media", storagePath, buffer.buffer, photoFile.type || "image/jpeg");
+      } catch (uploadErr) {
+        console.error("Upload photo NeedPrice:", uploadErr);
+      }
     }
 
     if (!denomination || !dimensions) {
@@ -134,7 +143,7 @@ export async function POST(request: NextRequest) {
         denomination,
         dimensions,
         finitions: finitions || undefined,
-        photoUrl: photoName || undefined,
+        photoUrl: photoPublicUrl || photoName || undefined,
         notes: notes || undefined,
         createdById: session.user.id,
       },
