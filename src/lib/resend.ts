@@ -1,6 +1,9 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy init — évite l'erreur "Missing API key" au build (clé absente à ce moment)
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 export interface EmailOptions {
   to: string | string[];
@@ -32,7 +35,7 @@ export async function sendEmail(
   options: EmailOptions
 ): Promise<SendEmailResult> {
   try {
-    const response = await resend.emails.send({
+    const response = await getResend().emails.send({
       from: options.from || process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
       to: options.to,
       subject: options.subject,
