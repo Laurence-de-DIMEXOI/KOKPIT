@@ -69,8 +69,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     color: "#E36887",
     items: [
       { label: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, module: "dashboard" },
-      { label: "Campagnes Meta", href: "/campagnes", icon: Megaphone, module: "campagnes" },
-      { label: "Campagnes Google", href: "/campagnes?tab=GOOGLE", icon: TrendingUp, module: "campagnes" },
+      { label: "Campagnes", href: "/campagnes", icon: Megaphone, module: "campagnes" },
       { label: "Emailing", href: "/emailing", icon: Mail, module: "emailing" },
       { label: "Planning", href: "/planning", icon: CalendarDays, module: "planning" },
       { label: "Nos Réseaux", href: "/nos-reseaux", icon: Share2, module: "nos-reseaux" },
