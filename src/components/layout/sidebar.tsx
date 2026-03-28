@@ -32,6 +32,28 @@ function useUnreadMessages() {
   return total;
 }
 
+function useSlaOverdue() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/leads/sla-overdue");
+        if (res.ok && mounted) {
+          const data = await res.json();
+          setCount(data.count || 0);
+        }
+      } catch { /* silencieux */ }
+    };
+    poll();
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") poll();
+    }, 60000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+  return count;
+}
+
 // ===== PROPS =====
 
 interface SidebarProps {
@@ -45,6 +67,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const userRole = session?.user?.role as Role | undefined;
   const userOverrides = (session?.user as any)?.moduleAccessOverrides as Record<string, boolean> | null | undefined;
   const unreadMessages = useUnreadMessages();
+  const slaOverdue = useSlaOverdue();
 
   // Catégories collapsed/expanded — défaut: toutes ouvertes
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -96,6 +119,11 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           {item.href === "/messagerie" && unreadMessages > 0 && (
             <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
               {unreadMessages > 99 ? "99+" : unreadMessages}
+            </span>
+          )}
+          {item.href === "/leads" && slaOverdue > 0 && (
+            <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold px-1">
+              {slaOverdue > 99 ? "99+" : slaOverdue}
             </span>
           )}
         </Link>

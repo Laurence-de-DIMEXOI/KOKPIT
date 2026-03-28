@@ -477,6 +477,12 @@ export default function PointageEquipePage() {
     window.open(`/api/pointage/export?mois=${moisStr}`, "_blank");
   };
 
+  // --- Export Excel fiches de paie ---
+  const handleExportPaie = () => {
+    const moisStr = toMonthStr(selectedMonth);
+    window.open(`/api/pointage/export-paie?mois=${moisStr}`, "_blank");
+  };
+
   // --- Guard render ---
   if (status === "loading") {
     return (
@@ -781,6 +787,16 @@ export default function PointageEquipePage() {
               {selectedMonth.getFullYear()}
             </span>
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportPaie}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-all hover:opacity-90"
+                style={{
+                  background: `linear-gradient(135deg, #22c55e 0%, #16a34a 100%)`,
+                }}
+              >
+                <Download className="w-3.5 h-3.5" />
+                Fiches paie Excel
+              </button>
               <button
                 onClick={handleExportCSV}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-all hover:opacity-90"
