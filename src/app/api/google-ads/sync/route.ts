@@ -109,14 +109,10 @@ export async function GET(req: NextRequest) {
         campaign.advertising_channel_type,
         campaign.start_date,
         campaign.end_date,
-        campaign_budget.amount_micros,
         metrics.impressions,
         metrics.clicks,
         metrics.cost_micros,
-        metrics.conversions,
-        metrics.ctr,
-        metrics.average_cpc,
-        metrics.cost_per_conversion
+        metrics.conversions
       FROM campaign
       WHERE campaign.status != 'REMOVED'
       ${dc}
@@ -133,9 +129,7 @@ export async function GET(req: NextRequest) {
         metrics.impressions,
         metrics.clicks,
         metrics.cost_micros,
-        metrics.conversions,
-        metrics.ctr,
-        metrics.average_cpc
+        metrics.conversions
       FROM ad_group
       WHERE campaign.status != 'REMOVED'
       ${dc}
@@ -147,15 +141,12 @@ export async function GET(req: NextRequest) {
         ad_group_ad.ad.id,
         ad_group_ad.ad.name,
         ad_group_ad.status,
-        ad_group_ad.ad.final_urls,
         ad_group.id,
         campaign.id,
         metrics.impressions,
         metrics.clicks,
         metrics.cost_micros,
-        metrics.conversions,
-        metrics.ctr,
-        metrics.average_cpc
+        metrics.conversions
       FROM ad_group_ad
       WHERE campaign.status != 'REMOVED'
       ${dc}
@@ -170,17 +161,20 @@ export async function GET(req: NextRequest) {
       const cid = r.campaign?.id;
       if (!cid) continue;
       if (!groupsByCamp.has(cid)) groupsByCamp.set(cid, []);
+      const gImpr = Number(r.metrics?.impressions || 0);
+      const gClicks = Number(r.metrics?.clicks || 0);
+      const gSpend = micros(r.metrics?.costMicros);
       groupsByCamp.get(cid)!.push({
         id: r.adGroup?.id,
         name: r.adGroup?.name,
         status: statusMap[r.adGroup?.status] || "PAUSED",
         insights: {
-          impressions: Number(r.metrics?.impressions || 0),
-          clicks: Number(r.metrics?.clicks || 0),
-          spend: micros(r.metrics?.costMicros),
+          impressions: gImpr,
+          clicks: gClicks,
+          spend: gSpend,
           conversions: Number(r.metrics?.conversions || 0),
-          ctr: Math.round((Number(r.metrics?.ctr || 0) * 100) * 100) / 100,
-          cpc: micros(r.metrics?.averageCpc),
+          ctr: gImpr > 0 ? Math.round((gClicks / gImpr) * 10000) / 100 : 0,
+          cpc: gClicks > 0 ? Math.round((gSpend / gClicks) * 100) / 100 : 0,
         },
         ads: [],
       });
@@ -192,18 +186,20 @@ export async function GET(req: NextRequest) {
       const gid = r.adGroup?.id;
       if (!gid) continue;
       if (!adsByGroup.has(gid)) adsByGroup.set(gid, []);
+      const aImpr = Number(r.metrics?.impressions || 0);
+      const aClicks = Number(r.metrics?.clicks || 0);
+      const aSpend = micros(r.metrics?.costMicros);
       adsByGroup.get(gid)!.push({
         id: r.adGroupAd?.ad?.id,
         name: r.adGroupAd?.ad?.name || `Annonce ${r.adGroupAd?.ad?.id}`,
         status: statusMap[r.adGroupAd?.status] || "PAUSED",
-        finalUrl: r.adGroupAd?.ad?.finalUrls?.[0] || "",
         insights: {
-          impressions: Number(r.metrics?.impressions || 0),
-          clicks: Number(r.metrics?.clicks || 0),
-          spend: micros(r.metrics?.costMicros),
+          impressions: aImpr,
+          clicks: aClicks,
+          spend: aSpend,
           conversions: Number(r.metrics?.conversions || 0),
-          ctr: Math.round((Number(r.metrics?.ctr || 0) * 100) * 100) / 100,
-          cpc: micros(r.metrics?.averageCpc),
+          ctr: aImpr > 0 ? Math.round((aClicks / aImpr) * 10000) / 100 : 0,
+          cpc: aClicks > 0 ? Math.round((aSpend / aClicks) * 100) / 100 : 0,
         },
       });
     }
@@ -232,9 +228,12 @@ export async function GET(req: NextRequest) {
           clicks: Number(r.metrics?.clicks || 0),
           spend: micros(r.metrics?.costMicros),
           conversions: Number(r.metrics?.conversions || 0),
-          ctr: Math.round((Number(r.metrics?.ctr || 0) * 100) * 100) / 100,
-          cpc: micros(r.metrics?.averageCpc),
-          costPerConversion: micros(r.metrics?.costPerConversion),
+          ctr: Number(r.metrics?.impressions || 0) > 0
+            ? Math.round((Number(r.metrics?.clicks || 0) / Number(r.metrics?.impressions)) * 10000) / 100
+            : 0,
+          cpc: Number(r.metrics?.clicks || 0) > 0
+            ? Math.round((micros(r.metrics?.costMicros) / Number(r.metrics?.clicks)) * 100) / 100
+            : 0,
         },
         adsets: groups,
       };
