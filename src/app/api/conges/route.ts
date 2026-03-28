@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculerJoursOuvres } from "@/data/conges-config";
+import { sendEmail } from "@/lib/resend";
+
+const MICHELLE_EMAIL = "michelle.perrot@dimexoi.fr";
+const MICHELLE_ID = "1825c25e-45ed-49b6-9ce9-9ed62d085ab5";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -133,25 +137,42 @@ export async function POST(req: NextRequest) {
   if (statut === "en_attente" && createdConges.length > 0) {
     const demandeur = await prisma.user.findUnique({
       where: { id: userId },
-      select: { prenom: true, nom: true },
+      select: { prenom: true, nom: true, email: true },
     });
     const nomDemandeur = demandeur ? `${demandeur.prenom} ${demandeur.nom}` : "Un collaborateur";
     const premierConge = createdConges[0];
+    const totalJours = createdConges.reduce((s, c) => s + c.nbJours, 0);
     const dateDebutFR = new Date(premierConge.dateDebut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    const dateFinFR = new Date(createdConges[createdConges.length - 1].dateFin).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
-    // Michelle Perrot — responsable validation congés
-    const MICHELLE_ID = "1825c25e-45ed-49b6-9ce9-9ed62d085ab5";
+    // Tâche pour Michelle
     try {
       await prisma.task.create({
         data: {
           titre: `Valider congé — ${nomDemandeur}`,
-          description: `${nomDemandeur} a demandé un congé à partir du ${dateDebutFR} (${createdConges.reduce((s, c) => s + c.nbJours, 0)}j). À valider dans Congés & Absences.`,
+          description: `${nomDemandeur} a demandé un congé à partir du ${dateDebutFR} (${totalJours}j). À valider dans Congés & Absences.`,
           assigneAId: MICHELLE_ID,
           createdById: user.id,
-          echeance: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 jours
+          echeance: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
         },
       });
     } catch { /* silencieux si Michelle n'existe pas */ }
+
+    // Email à Michelle
+    await sendEmail({
+      to: MICHELLE_EMAIL,
+      subject: `Demande de congé — ${nomDemandeur}`,
+      html: `
+        <p>Bonjour Michelle,</p>
+        <p><strong>${nomDemandeur}</strong> a soumis une demande de congé :</p>
+        <ul>
+          <li><strong>Du :</strong> ${dateDebutFR}</li>
+          <li><strong>Au :</strong> ${dateFinFR}</li>
+          <li><strong>Durée :</strong> ${totalJours} jour${totalJours > 1 ? "s" : ""}</li>
+        </ul>
+        <p>À valider dans <a href="https://kokpit.dimexoi.fr/conges">Congés &amp; Absences</a>.</p>
+      `,
+    });
   }
 
   return NextResponse.json({ conges: createdConges }, { status: 201 });

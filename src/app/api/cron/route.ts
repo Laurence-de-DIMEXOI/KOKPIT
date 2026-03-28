@@ -12,6 +12,7 @@ import {
   syncClubEmails,
   syncClubBrevo,
 } from "@/lib/club-sync";
+import { sendEmail } from "@/lib/resend";
 
 const cronSchema = z.object({
   job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club"]),
@@ -108,7 +109,7 @@ async function slaCheck() {
       include: {
         contact: true,
         showroom: true,
-        commercial: true,
+        commercial: { select: { id: true, prenom: true, nom: true, email: true } },
       },
     });
 
@@ -160,9 +161,22 @@ async function slaCheck() {
               description: `SLA dépassé de ${heuresRetard}h — demande sans réponse. Contacter le client en priorité.`,
               assigneAId: lead.commercial.id,
               createdById: lead.commercial.id,
-              echeance: new Date(), // aujourd'hui
+              echeance: new Date(),
             },
           });
+
+          // Email au commercial — une seule fois (guard = pas de tâche existante)
+          if (lead.commercial.email) {
+            await sendEmail({
+              to: lead.commercial.email,
+              subject: `Relance SLA — ${clientNom}`,
+              html: `
+                <p>Bonjour ${lead.commercial.prenom},</p>
+                <p>La demande de <strong>${clientNom}</strong> n'a reçu aucune réponse depuis <strong>${heuresRetard}h</strong> (SLA dépassé).</p>
+                <p>Une tâche de relance a été créée dans <a href="https://kokpit.dimexoi.fr/leads">KOKPIT</a>.</p>
+              `,
+            });
+          }
         }
       }
     }

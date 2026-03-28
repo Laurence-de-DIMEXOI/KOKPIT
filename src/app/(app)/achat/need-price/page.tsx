@@ -91,6 +91,12 @@ function NeedPriceDrawer({
   const [prixInput, setPrixInput] = useState(item.prixFournisseur?.toString() || "");
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  const isValidUrl = (url: string | null) => {
+    if (!url) return false;
+    try { new URL(url); return true; } catch { return false; }
+  };
   const badge = STATUT_BADGE[item.statut] || STATUT_BADGE.DEMANDE;
 
   const handlePrixRecu = async () => {
@@ -203,13 +209,20 @@ function NeedPriceDrawer({
           </div>
 
           {/* Photo */}
-          {item.photoUrl && (
+          {item.photoUrl && isValidUrl(item.photoUrl) && !imgError && (
             <div className="rounded-lg overflow-hidden border border-cockpit">
               <img
                 src={item.photoUrl}
                 alt={item.denomination}
-                className="w-full h-48 object-cover"
+                className="w-full h-48 object-contain bg-gray-50"
+                onError={() => setImgError(true)}
               />
+            </div>
+          )}
+          {item.photoUrl && (!isValidUrl(item.photoUrl) || imgError) && (
+            <div className="rounded-lg border border-cockpit bg-gray-50 h-24 flex items-center justify-center gap-2 text-cockpit-secondary text-sm">
+              <ImageIcon className="w-4 h-4" />
+              <span>Photo non disponible</span>
             </div>
           )}
 

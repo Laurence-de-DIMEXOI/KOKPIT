@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/resend";
 
 export async function PATCH(
   req: NextRequest,
@@ -34,7 +35,10 @@ export async function PATCH(
     );
   }
 
-  const conge = await prisma.conge.findUnique({ where: { id } });
+  const conge = await prisma.conge.findUnique({
+    where: { id },
+    include: { user: { select: { prenom: true, nom: true, email: true } } },
+  });
   if (!conge) {
     return NextResponse.json({ error: "Conge introuvable." }, { status: 404 });
   }
@@ -48,6 +52,24 @@ export async function PATCH(
       approuveLe: new Date(),
     },
   });
+
+  // Email au demandeur
+  if (conge.user?.email) {
+    const statutLabel = statut === "approuve" ? "approuvée ✅" : statut === "refuse" ? "refusée ❌" : "modifiée 🔄";
+    const dateDebutFR = new Date(conge.dateDebut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    const dateFinFR = new Date(conge.dateFin).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+
+    await sendEmail({
+      to: conge.user.email,
+      subject: `Votre demande de congé a été ${statut === "approuve" ? "approuvée" : statut === "refuse" ? "refusée" : "modifiée"}`,
+      html: `
+        <p>Bonjour ${conge.user.prenom},</p>
+        <p>Votre demande de congé du <strong>${dateDebutFR}</strong> au <strong>${dateFinFR}</strong> a été <strong>${statutLabel}</strong>.</p>
+        ${commentaire ? `<p><strong>Commentaire :</strong> ${commentaire}</p>` : ""}
+        <p>Consultez le détail dans <a href="https://kokpit.dimexoi.fr/conges">Congés &amp; Absences</a>.</p>
+      `,
+    });
+  }
 
   return NextResponse.json({ conge: updated });
 }

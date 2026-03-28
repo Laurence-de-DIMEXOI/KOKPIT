@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
         denomination,
         dimensions,
         finitions: finitions || undefined,
-        photoUrl: photoPublicUrl || photoName || undefined,
+        photoUrl: photoPublicUrl || undefined,
         notes: notes || undefined,
         createdById: session.user.id,
       },
