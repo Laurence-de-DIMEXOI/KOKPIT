@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import {
   BarChart3,
@@ -164,8 +165,10 @@ function parseCachedCampaign(c: any): MetaCampaign {
 
 // ===== MAIN COMPONENT =====
 
-export default function CampagnesPage() {
-  const [platform, setPlatform] = useState<"META" | "GOOGLE">("META");
+function CampagnesContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") === "GOOGLE" ? "GOOGLE" : "META";
+  const [platform, setPlatform] = useState<"META" | "GOOGLE">(initialTab);
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [googleCampaigns, setGoogleCampaigns] = useState<MetaCampaign[]>([]);
   const [loading, setLoading] = useState(false);
@@ -859,5 +862,13 @@ function MobileCard({ campaign, expanded, toggle, expandedAdSets, toggleAdSet }:
         </div>
       ))}
     </div>
+  );
+}
+
+export default function CampagnesPage() {
+  return (
+    <Suspense fallback={null}>
+      <CampagnesContent />
+    </Suspense>
   );
 }
