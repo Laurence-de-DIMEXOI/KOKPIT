@@ -19,6 +19,8 @@ interface EstimateRow {
     total_raw_excl_tax?: string;
   };
   pdf_link?: string;
+  owner?: { id: number; type: string };
+  assigned_staff_id?: number;
 }
 
 function formatCurrency(amount: number): string {
@@ -46,7 +48,7 @@ function getDaysUntilExpiry(expiryDate: string): number {
   return Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function ExpiringQuotes({ estimates }: { estimates: EstimateRow[] }) {
+export function ExpiringQuotes({ estimates, staffMap = new Map() }: { estimates: EstimateRow[]; staffMap?: Map<number, string> }) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
@@ -119,6 +121,15 @@ export function ExpiringQuotes({ estimates }: { estimates: EstimateRow[] }) {
                   <p className="text-xs text-cockpit-secondary truncate">
                     {est.company_name || "—"}
                   </p>
+                  {(() => {
+                    const ownerId = est.owner?.id || est.assigned_staff_id;
+                    const ownerName = ownerId ? staffMap.get(ownerId) : undefined;
+                    return ownerName ? (
+                      <p className="text-[10px] text-cockpit-info mt-0.5">
+                        À relancer par {ownerName}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
                 <div className="flex items-center gap-3 ml-3">
                   <span className="text-sm font-semibold text-cockpit-heading whitespace-nowrap">

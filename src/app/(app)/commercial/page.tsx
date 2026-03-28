@@ -567,7 +567,7 @@ export default function CommercialDashboardPage() {
       </div>
 
       {/* Alertes devis expirants */}
-      <ExpiringQuotes estimates={allEstimates} />
+      <ExpiringQuotes estimates={allEstimates} staffMap={staffMap} />
 
       {/* Graphiques évolution Devis & Commandes sur l'année */}
       <EvolutionCharts data={monthlyEvolution} loading={evolutionLoading} />
