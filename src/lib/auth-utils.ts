@@ -37,7 +37,8 @@ export type Module =
   | "permissions"
   | "catalogue-abc"
   | "alertes-stock"
-  | "parametres-achat";
+  | "parametres-achat"
+  | "tarifs-catalogue";
 
 /**
  * Permissions par rôle — DIMEXOI
@@ -84,6 +85,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "catalogue-abc",
     "alertes-stock",
     "parametres-achat",
+    "tarifs-catalogue",
     "permissions",
   ],
   MARKETING: [
@@ -181,6 +183,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "catalogue-abc",
     "alertes-stock",
     "parametres-achat",
+    "tarifs-catalogue",
     "permissions",
   ],
   ACHAT: [

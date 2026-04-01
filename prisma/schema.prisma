@@ -181,6 +181,8 @@ model User {
   reactionsMessages    ReactionMessage[] @relation("ReactionsUser")
   needPrices           NeedPrice[]    @relation("NeedPriceCreator")
   seuilStockUpdates    SeuilStockAchat[] @relation("SeuilStockUpdatedBy")
+  prixBackups          PrixBackup[]   @relation("PrixBackupCreator")
+  sessionsTarif        SessionTarif[] @relation("SessionTarifCreator")
 
   @@index([showroomId])
 }
@@ -1180,4 +1182,36 @@ model ConfigCalculateur {
   coeffMarge    Float    @default(2.5)
   updatedAt     DateTime @updatedAt
   updatedById   String?
+}
+
+// ============================================================================
+// TARIFS CATALOGUE SELLSY
+// ============================================================================
+
+model PrixBackup {
+  id            String   @id @default(cuid())
+  sessionId     String
+  sellsyItemId  Int
+  reference     String
+  designation   String
+  prixAvant     Float
+  prixApres     Float?
+  applique      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  createdById   String
+  createdBy     User     @relation("PrixBackupCreator", fields: [createdById], references: [id])
+
+  @@index([sessionId])
+}
+
+model SessionTarif {
+  id              String    @id @default(cuid())
+  coefficient     Float
+  nbReferences    Int
+  statut          String    @default("SIMULE")
+  appliqueLeAt    DateTime?
+  annuleLeAt      DateTime?
+  createdAt       DateTime  @default(now())
+  createdById     String
+  createdBy       User      @relation("SessionTarifCreator", fields: [createdById], references: [id])
 }
