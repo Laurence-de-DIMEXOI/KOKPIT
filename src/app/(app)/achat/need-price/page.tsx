@@ -89,6 +89,7 @@ function NeedPriceDrawer({
   const isAchat = session?.user?.role === "ACHAT";
   const { addToast } = useToast();
   const [prixInput, setPrixInput] = useState(item.prixFournisseur?.toString() || "");
+  const [noteInput, setNoteInput] = useState(item.notes || "");
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -109,6 +110,7 @@ function NeedPriceDrawer({
         body: JSON.stringify({
           statut: "PRIX_RECU",
           prixFournisseur: Number(prixInput),
+          ...(noteInput.trim() ? { notes: noteInput.trim() } : {}),
         }),
       });
       if (res.ok) {
@@ -338,6 +340,18 @@ function NeedPriceDrawer({
                   placeholder="Base fournisseur en IDR"
                   min="0"
                   className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
+                  Note interne <span className="font-normal opacity-60">(optionnel)</span>
+                </label>
+                <textarea
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  placeholder="Ex : minimum à commander 2 · Attention trop risqué · Délai 150 jours..."
+                  rows={2}
+                  className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40 resize-none"
                 />
               </div>
               <button
