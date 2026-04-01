@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { searchItems, invalidateSellsyCache } from "@/lib/sellsy";
+import { listAllItems, invalidateSellsyCache } from "@/lib/sellsy";
 
 const ROLES_AUTORISES = ["ADMIN", "DIRECTION"];
 
@@ -35,27 +35,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Récupérer tous les produits du catalogue Sellsy (pagination)
+    // Récupérer TOUS les produits et services du catalogue Sellsy
+    // listAllItems : filtre type product+service, non archivés, dédupliqué par ID
+    // → inclut bien les déclinaisons (finitions, couleurs) car chaque variante
+    //   est un item distinct avec sa propre référence et son propre prix dans Sellsy
     invalidateSellsyCache();
-    const allItems: Array<{
-      id: number;
-      reference: string;
-      name: string | null;
-      reference_price_taxes_exc: string;
-    }> = [];
-
-    let offset: number | string = 0;
-    let hasMore = true;
-    while (hasMore) {
-      const res = await searchItems({
-        filters: { is_archived: false },
-        limit: 100,
-        offset,
-      });
-      allItems.push(...res.data);
-      hasMore = res.data.length === 100;
-      offset = (typeof offset === "number" ? offset : 0) + res.data.length;
-    }
+    const allItems = await listAllItems();
 
     // Calculer les nouveaux prix
     const userId = (session.user as any).id as string;
