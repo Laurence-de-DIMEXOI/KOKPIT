@@ -287,28 +287,53 @@ async function sendRecapEmail(html: string, dateDebut: Date, dateFin: Date) {
   return true;
 }
 
-// GET — Preview du récap (sans envoyer)
-// POST — Envoyer le récap par email
+// GET — Vercel Cron handler (envoie le récap)
+//        ou preview JSON si appelé avec session utilisateur
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  const authHeader = req.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET || process.env.CRON_API_SECRET;
+
+  const isCronCall = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+  // Si pas un appel cron → vérifier la session utilisateur
+  if (!isCronCall) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
   }
 
-  // Semaine dernière : lundi à dimanche
+  // Fenêtre : 7 derniers jours
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0=dim, 1=lun
-  const mondayThisWeek = new Date(now);
-  mondayThisWeek.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
-  mondayThisWeek.setHours(0, 0, 0, 0);
+  const il7jours = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const dateDebut = il7jours;
+  const dateFin = now;
 
-  const dateDebut = new Date(mondayThisWeek);
-  dateDebut.setDate(dateDebut.getDate() - 7);
-  const dateFin = new Date(mondayThisWeek);
+  // Si appel utilisateur (preview) → retourner JSON uniquement
+  if (!isCronCall) {
+    const { demandes, kpis } = await getRecapData(dateDebut, dateFin);
+    return NextResponse.json({ dateDebut, dateFin, kpis, demandes });
+  }
 
-  const { demandes, kpis } = await getRecapData(dateDebut, dateFin);
+  // Appel cron → envoyer le mail
+  try {
+    const { demandes, kpis } = await getRecapData(dateDebut, dateFin);
+    const html = buildRecapEmail(demandes, dateDebut, dateFin, kpis);
+    await sendRecapEmail(html, dateDebut, dateFin);
 
-  return NextResponse.json({ dateDebut, dateFin, kpis, demandes });
+    return NextResponse.json({
+      success: true,
+      message: `Récap envoyé à ${DESTINATAIRES.map((d) => d.email).join(", ")}`,
+      kpis,
+      demandes: demandes.length,
+    });
+  } catch (error: any) {
+    console.error("Recap hebdo GET (cron) error:", error);
+    return NextResponse.json(
+      { error: error.message || "Erreur envoi récap" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
