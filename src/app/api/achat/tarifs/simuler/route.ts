@@ -43,19 +43,37 @@ export async function POST(req: NextRequest) {
     const allItems = await listAllItems();
 
     // Calculer les nouveaux prix
+    // Règle : l'arrondi à 9 s'applique sur le prix TTC (affiché au client)
+    // → on applique le coefficient sur le TTC, on arrondit le TTC à 9,
+    //   puis on re-calcule le HT correspondant (stocké pour Sellsy)
     const userId = (session.user as any).id as string;
     const lignes = allItems
       .filter((item) => parseFloat(item.reference_price_taxes_exc || "0") > 0)
       .map((item) => {
-        const prixAvant = parseFloat(item.reference_price_taxes_exc);
-        const prixApres = roundToNine(prixAvant * coefficient);
+        const htAvant = parseFloat(item.reference_price_taxes_exc);
+        const ttcAvant = parseFloat(item.reference_price_taxes_inc || "0");
+
+        // Taux TVA réel de l'article (TVA Réunion 8,5% en général)
+        const taxRate = htAvant > 0 && ttcAvant > htAvant
+          ? ttcAvant / htAvant - 1
+          : 0.085;
+
+        // Nouveau TTC brut → arrondi TTC à 9
+        const ttcBrut = ttcAvant > 0 ? ttcAvant * coefficient : htAvant * coefficient * (1 + taxRate);
+        const ttcApres = roundToNine(ttcBrut);
+
+        // HT correspondant à stocker + envoyer à Sellsy
+        const htApres = ttcApres / (1 + taxRate);
+
         return {
           sellsyItemId: item.id,
           reference: item.reference || String(item.id),
           designation: item.name || item.reference || String(item.id),
-          prixAvant,
-          prixApres,
-          diff: prixApres - prixAvant,
+          prixAvant: htAvant,   // HT avant (pour rollback Sellsy)
+          prixApres: htApres,   // HT après (pour apply Sellsy)
+          ttcAvant: ttcAvant > 0 ? ttcAvant : htAvant * (1 + taxRate),
+          ttcApres,             // TTC arrondi à 9 (affiché)
+          diff: ttcApres - (ttcAvant > 0 ? ttcAvant : htAvant * (1 + taxRate)),
         };
       });
 
@@ -82,8 +100,9 @@ export async function POST(req: NextRequest) {
       })),
     });
 
-    const totalAvant = lignes.reduce((s, l) => s + l.prixAvant, 0);
-    const totalApres = lignes.reduce((s, l) => s + l.prixApres, 0);
+    // Totaux affichés en TTC
+    const totalAvant = lignes.reduce((s, l) => s + l.ttcAvant, 0);
+    const totalApres = lignes.reduce((s, l) => s + l.ttcApres, 0);
 
     return NextResponse.json({
       sessionId: sessionTarif.id,

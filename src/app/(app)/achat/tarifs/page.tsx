@@ -12,17 +12,19 @@ interface LigneTarif {
   sellsyItemId: number;
   reference: string;
   designation: string;
-  prixAvant: number;
-  prixApres: number;
-  diff: number;
+  prixAvant: number;    // HT avant
+  prixApres: number;    // HT après (pour Sellsy)
+  ttcAvant: number;     // TTC avant
+  ttcApres: number;     // TTC après arrondi à 9
+  diff: number;         // diff TTC
 }
 
 interface SimulationResult {
   sessionId: string;
   coefficient: number;
   nbReferences: number;
-  totalAvant: number;
-  totalApres: number;
+  totalAvant: number;   // total TTC avant
+  totalApres: number;   // total TTC après
   lignes: LigneTarif[];
 }
 
@@ -311,7 +313,7 @@ export default function TarifsCataloguePage() {
                   Résultat simulation — {simulation.nbReferences} références
                 </h3>
                 <p className="text-sm text-cockpit-secondary mt-1">
-                  Total catalogue :{" "}
+                  Total catalogue TTC :{" "}
                   <span className="font-medium text-cockpit-primary">{fmtEuro(simulation.totalAvant)}</span>
                   {" → "}
                   <span className="font-medium text-green-600">{fmtEuro(simulation.totalApres)}</span>
@@ -352,9 +354,9 @@ export default function TarifsCataloguePage() {
                     [
                       { key: "reference", label: "Référence" },
                       { key: "designation", label: "Désignation" },
-                      { key: "prixAvant", label: "Prix avant (HT)" },
-                      { key: "prixApres", label: "Prix après (HT)" },
-                      { key: "diff", label: "Différence" },
+                      { key: "ttcAvant", label: "Prix avant TTC" },
+                      { key: "ttcApres", label: "Prix après TTC" },
+                      { key: "diff", label: "Diff TTC" },
                     ] as { key: keyof LigneTarif; label: string }[]
                   ).map(({ key, label }) => (
                     <th
@@ -379,8 +381,8 @@ export default function TarifsCataloguePage() {
                   <tr key={ligne.sellsyItemId} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
                     <td className="px-4 py-2 font-mono text-xs text-cockpit-secondary">{ligne.reference}</td>
                     <td className="px-4 py-2 text-cockpit-primary max-w-[280px] truncate">{ligne.designation}</td>
-                    <td className="px-4 py-2 text-right font-medium">{fmtEuro(ligne.prixAvant)}</td>
-                    <td className="px-4 py-2 text-right font-medium text-green-700">{fmtEuro(ligne.prixApres)}</td>
+                    <td className="px-4 py-2 text-right font-medium">{fmtEuro(ligne.ttcAvant)}</td>
+                    <td className="px-4 py-2 text-right font-medium text-green-700">{fmtEuro(ligne.ttcApres)}</td>
                     <td className="px-4 py-2 text-right">
                       <span
                         className={`font-medium ${
