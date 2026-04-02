@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
           select: { montant: true, dateVente: true, createdAt: true },
         },
         leads: {
-          select: { dateDemande: true, createdAt: true },
+          select: { createdAt: true },
         },
       },
     });
