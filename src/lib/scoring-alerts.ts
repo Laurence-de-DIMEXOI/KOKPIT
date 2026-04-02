@@ -112,7 +112,7 @@ export async function checkAndNotifyScoring(contactId: string): Promise<void> {
           select: { montant: true, dateVente: true, createdAt: true },
         },
         leads: {
-          select: { dateDemande: true, createdAt: true },
+          select: { createdAt: true },
         },
       },
     });
@@ -133,7 +133,6 @@ export async function checkAndNotifyScoring(contactId: string): Promise<void> {
         createdAt: v.createdAt.toISOString(),
       })),
       contact.leads.map((l) => ({
-        dateDemande: l.dateDemande?.toISOString() ?? null,
         createdAt: l.createdAt.toISOString(),
       }))
     );

@@ -35,7 +35,7 @@ interface VenteInfo {
 }
 
 interface DemandeInfo {
-  dateDemande: string | null;
+  dateDemande?: string | null;
   createdAt: string;
 }
 
