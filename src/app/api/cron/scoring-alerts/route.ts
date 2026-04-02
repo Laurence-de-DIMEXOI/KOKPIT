@@ -141,7 +141,6 @@ export async function GET(request: NextRequest) {
           createdAt: v.createdAt.toISOString(),
         })),
         contact.leads.map((l) => ({
-          dateDemande: l.dateDemande?.toISOString() ?? null,
           createdAt: l.createdAt.toISOString(),
         }))
       );
