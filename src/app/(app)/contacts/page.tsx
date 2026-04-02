@@ -60,6 +60,34 @@ export default function ContactsPage() {
     totalVentes: 0,
   });
 
+  // Modal nouveau contact
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({ nom: "", prenom: "", email: "", telephone: "" });
+  const [createError, setCreateError] = useState("");
+  const [createLoading, setCreateLoading] = useState(false);
+
+  async function handleCreateContact(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateError("");
+    setCreateLoading(true);
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...createForm, lifecycleStage: "PROSPECT" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur création");
+      setShowCreateModal(false);
+      setCreateForm({ nom: "", prenom: "", email: "", telephone: "" });
+      fetchContacts(true);
+    } catch (err: any) {
+      setCreateError(err.message);
+    } finally {
+      setCreateLoading(false);
+    }
+  }
+
   // Sellsy sync modal
   const [showSellsyModal, setShowSellsyModal] = useState(false);
   const [sellsySyncing, setSellsySyncing] = useState(false);
@@ -248,7 +276,7 @@ export default function ContactsPage() {
             className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50">
             {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
           </button>
-          <button className="text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 text-sm" style={{ backgroundColor: 'var(--color-active)' }}>
+          <button onClick={() => { setCreateForm({ nom: "", prenom: "", email: "", telephone: "" }); setCreateError(""); setShowCreateModal(true); }} className="text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 text-sm" style={{ backgroundColor: 'var(--color-active)' }}>
             + Nouveau
           </button>
         </div>
@@ -468,6 +496,63 @@ export default function ContactsPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Nouveau Contact */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-cockpit-card border border-cockpit rounded-2xl shadow-cockpit-lg w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-cockpit">
+              <h2 className="text-lg font-bold text-cockpit-heading">Nouveau contact</h2>
+              <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-cockpit-dark rounded-lg transition-colors">
+                <X className="w-5 h-5 text-cockpit-secondary" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateContact} className="px-6 py-5 flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-cockpit-secondary mb-1">Prénom</label>
+                  <input value={createForm.prenom} onChange={(e) => setCreateForm((f) => ({ ...f, prenom: e.target.value }))}
+                    className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                    placeholder="Ex : Jean" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-cockpit-secondary mb-1">Nom <span className="text-red-400">*</span></label>
+                  <input required value={createForm.nom} onChange={(e) => setCreateForm((f) => ({ ...f, nom: e.target.value }))}
+                    className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                    placeholder="Ex : Dupont" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-cockpit-secondary mb-1">Email <span className="text-red-400">*</span></label>
+                <input required type="email" value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                  className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                  placeholder="jean.dupont@email.com" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-cockpit-secondary mb-1">Téléphone</label>
+                <input type="tel" value={createForm.telephone} onChange={(e) => setCreateForm((f) => ({ ...f, telephone: e.target.value }))}
+                  className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                  placeholder="0692 00 00 00" />
+              </div>
+              {createError && (
+                <p className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{createError}</p>
+              )}
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-cockpit text-cockpit-secondary hover:bg-cockpit-dark transition-colors">
+                  Annuler
+                </button>
+                <button type="submit" disabled={createLoading}
+                  className="px-5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60 flex items-center gap-2 transition-opacity"
+                  style={{ backgroundColor: "var(--color-active)" }}>
+                  {createLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Créer le contact
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Sync Sellsy */}
       {showSellsyModal && (

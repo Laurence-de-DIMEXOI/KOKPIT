@@ -111,7 +111,6 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "pipeline",
     "catalogue",
     "commandes",
-    "bois-dorient",
     // Administration (congés + pointage perso, pas pointage-equipe/collaborateurs/parametres)
     "dashboard-admin",
     "messagerie",
@@ -130,7 +129,6 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "taches",
     "leads",
     "contacts",
-    "bois-dorient",
     "sav",
     // Général
     "docs",

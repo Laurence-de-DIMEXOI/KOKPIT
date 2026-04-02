@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       prisma.dossierSAV.findMany({
         where,
         include: {
-          assigne: { select: { nom: true, prenom: true } },
+          assigne: { select: { id: true, nom: true, prenom: true } },
           creeParUser: { select: { nom: true, prenom: true } },
           _count: { select: { documents: true, commentaires: true } },
         },

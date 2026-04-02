@@ -231,6 +231,7 @@ model Contact {
   frequence           Int?
   montant             Float?
   notes               String?
+  lastScoringLevel    String?   // "cold" | "warm" | "hot" | "burning" — mis à jour par le cron scoring-alerts
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -1020,6 +1021,7 @@ model DossierSAV {
   statut          String           @default("A_TRAITER")
   sellsyBdcId     String?
   sellsyBdcRef    String?
+  sellsyStatut    String?   // Statut brut de l'ordre Sellsy (ex: "confirmed", "invoiced")
   sellsyContactId String?
   contactNom      String?
   contactId       String?

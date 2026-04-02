@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { checkAndNotifyScoring } from "@/lib/scoring-alerts";
 import crypto from "crypto";
 
 // Validate Sellsy webhook signature
@@ -160,6 +161,9 @@ async function handleQuoteEvent(data: any) {
       });
     }
 
+    // Vérifier le scoring du contact (fire-and-forget)
+    checkAndNotifyScoring(contact.id).catch(() => {});
+
     console.log(`Devis Sellsy ${quoteId} traité`);
   } catch (error) {
     console.error("Erreur lors du traitement du devis Sellsy:", error);
@@ -246,6 +250,9 @@ async function handleInvoiceEvent(data: any) {
         },
       },
     });
+
+    // Vérifier le scoring du contact (fire-and-forget)
+    checkAndNotifyScoring(contact.id).catch(() => {});
 
     console.log(`Vente Sellsy ${invoiceId} créée: ${amount}€`);
   } catch (error) {

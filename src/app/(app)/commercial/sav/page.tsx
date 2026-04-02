@@ -13,6 +13,8 @@ import {
   ChevronRight,
   X,
   FolderOpen,
+  RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 import clsx from "clsx";
 import { useToast } from "@/components/ui/toast";
@@ -30,6 +32,8 @@ interface SAVDossier {
   titre: string;
   contactNom: string | null;
   sellsyBdcRef: string | null;
+  sellsyBdcId: string | null;
+  sellsyStatut: string | null;
   type: string;
   statut: string;
   description: string | null;
@@ -91,6 +95,37 @@ export default function SAVPage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [voirClotures, setVoirClotures] = useState(false);
   const [page, setPage] = useState(1);
+
+  // Sellsy sync
+  const [syncing, setSyncing] = useState(false);
+  const [syncInfo, setSyncInfo] = useState<{ created: number; updated: number } | null>(null);
+
+  const syncSellsy = useCallback(async (silent = false) => {
+    const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+    const lastSync = localStorage.getItem("sav_last_sync");
+    if (silent && lastSync && Date.now() - parseInt(lastSync) < COOLDOWN_MS) return;
+
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/sav/sync-sellsy", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem("sav_last_sync", String(Date.now()));
+        if (data.created > 0 || data.updated > 0) {
+          setSyncInfo({ created: data.created, updated: data.updated });
+          fetchDossiers();
+        }
+      }
+    } catch { /* silencieux */ } finally {
+      setSyncing(false);
+    }
+  }, [fetchDossiers]);
+
+  // Auto-sync au chargement (max 1 fois toutes les 5 minutes)
+  useEffect(() => {
+    syncSellsy(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Drawer
   const [selectedDossierId, setSelectedDossierId] = useState<string | null>(null);
@@ -239,17 +274,28 @@ export default function SAVPage() {
             Suivi des dossiers clients
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center justify-center gap-2 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all"
-          style={{
-            background: "linear-gradient(135deg, var(--color-active), #FEEB9C)",
-            boxShadow: "0 4px 14px var(--color-active-border)",
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          Nouveau dossier
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => syncSellsy(false)}
+            disabled={syncing}
+            title="Synchroniser avec Sellsy"
+            className="flex items-center gap-1.5 bg-cockpit-card border border-cockpit px-3 py-2.5 rounded-lg text-xs font-medium hover:bg-cockpit-dark transition-colors disabled:opacity-50"
+          >
+            {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            {syncing ? "Sync..." : "Sync Sellsy"}
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center justify-center gap-2 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all"
+            style={{
+              background: "linear-gradient(135deg, var(--color-active), #FEEB9C)",
+              boxShadow: "0 4px 14px var(--color-active-border)",
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Nouveau dossier
+          </button>
+        </div>
       </div>
 
       {/* ── KPI Cards ───────────────────────────────────────────── */}
@@ -344,7 +390,7 @@ export default function SAVPage() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-cockpit">
-              {["#Numero", "Client", "BDC", "Type", "Statut", "Assigne", "Derniere action", "Docs"].map(
+              {["#Numero", "Client", "BDC Sellsy", "Type", "Statut KOKPIT", "Statut Sellsy", "Assigne", "Derniere action", "Docs"].map(
                 (col) => (
                   <th
                     key={col}
@@ -395,6 +441,15 @@ export default function SAVPage() {
                       <span className={clsx("w-1.5 h-1.5 rounded-full", statut.dot)} />
                       {statut.label}
                     </span>
+                  </td>
+                  <td className="p-4">
+                    {d.sellsyStatut ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-blue-500/10 text-blue-400">
+                        {d.sellsyStatut}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-cockpit-secondary">—</span>
+                    )}
                   </td>
                   <td className="p-4">
                     <p className="text-sm text-cockpit-secondary">
@@ -468,11 +523,16 @@ export default function SAVPage() {
               </div>
 
               <div className="flex items-center justify-between text-xs text-cockpit-secondary">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <span>{d.contactNom || "—"}</span>
                   <span className="bg-cockpit-dark px-1.5 py-0.5 rounded text-cockpit-primary">
                     {getTypeLabel(d.type)}
                   </span>
+                  {d.sellsyStatut && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium">
+                      {d.sellsyStatut}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1">

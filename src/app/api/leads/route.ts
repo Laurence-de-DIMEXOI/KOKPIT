@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { leadSchema, contactSchema } from "@/lib/validators";
 import { calculateSlaDeadline } from "@/lib/sla";
 import { parseUtmParams, parseMetaClickId, parseGclid } from "@/lib/utm";
+import { checkAndNotifyScoring } from "@/lib/scoring-alerts";
 import { z } from "zod";
 
 // Validation schemas
@@ -294,9 +295,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Trigger nurturing workflow (async)
-    // In production, queue this as a job
-    // await triggerNurturingWorkflow(lead.id);
+    // Vérifier le scoring du contact (fire-and-forget)
+    checkAndNotifyScoring(lead.contactId).catch(() => {});
 
     return NextResponse.json(lead, { status: 201 });
   } catch (error) {
