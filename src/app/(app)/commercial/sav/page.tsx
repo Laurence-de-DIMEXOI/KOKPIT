@@ -100,33 +100,6 @@ export default function SAVPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncInfo, setSyncInfo] = useState<{ created: number; updated: number } | null>(null);
 
-  const syncSellsy = useCallback(async (silent = false) => {
-    const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
-    const lastSync = localStorage.getItem("sav_last_sync");
-    if (silent && lastSync && Date.now() - parseInt(lastSync) < COOLDOWN_MS) return;
-
-    setSyncing(true);
-    try {
-      const res = await fetch("/api/sav/sync-sellsy", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        localStorage.setItem("sav_last_sync", String(Date.now()));
-        if (data.created > 0 || data.updated > 0) {
-          setSyncInfo({ created: data.created, updated: data.updated });
-          fetchDossiers();
-        }
-      }
-    } catch { /* silencieux */ } finally {
-      setSyncing(false);
-    }
-  }, [fetchDossiers]);
-
-  // Auto-sync au chargement (max 1 fois toutes les 5 minutes)
-  useEffect(() => {
-    syncSellsy(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Drawer
   const [selectedDossierId, setSelectedDossierId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -163,6 +136,33 @@ export default function SAVPage() {
   useEffect(() => {
     fetchDossiers();
   }, [fetchDossiers]);
+
+  const syncSellsy = useCallback(async (silent = false) => {
+    const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+    const lastSync = localStorage.getItem("sav_last_sync");
+    if (silent && lastSync && Date.now() - parseInt(lastSync) < COOLDOWN_MS) return;
+
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/sav/sync-sellsy", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem("sav_last_sync", String(Date.now()));
+        if (data.created > 0 || data.updated > 0) {
+          setSyncInfo({ created: data.created, updated: data.updated });
+          fetchDossiers();
+        }
+      }
+    } catch { /* silencieux */ } finally {
+      setSyncing(false);
+    }
+  }, [fetchDossiers]);
+
+  // Auto-sync au chargement (max 1 fois toutes les 5 minutes)
+  useEffect(() => {
+    syncSellsy(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounced search
   const [searchInput, setSearchInput] = useState("");
