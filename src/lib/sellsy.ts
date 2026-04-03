@@ -294,6 +294,74 @@ export async function listDeclinations(
   );
 }
 
+// ===== API V1 (Stock via apifeed) =====
+
+const SELLSY_V1_URL = "https://apifeed.sellsy.com/0/";
+
+async function sellsyV1<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  const token = await getAccessToken();
+  const payload = JSON.stringify({ method, params });
+
+  const formData = new FormData();
+  formData.append("request", payload);
+  formData.append("io_mode", "json");
+  formData.append("do_in", payload);
+
+  const response = await fetch(SELLSY_V1_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Sellsy V1 error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (data.status === "error") {
+    throw new Error(`Sellsy V1: ${data.error?.message || data.error || "Unknown error"}`);
+  }
+  return data.response as T;
+}
+
+// Stock par entrepôt pour un item
+export interface StockWarehouse {
+  id: string;
+  itemid: string;
+  declid: string;
+  whid: string;
+  qt: string;
+  bookedqt: string;
+  availableqt: string;
+  status: string;
+}
+
+export interface Warehouse {
+  id: string;
+  label: string;
+  status: string;
+  isdefault: string;
+}
+
+// Cache entrepôts (change rarement)
+let warehousesCache: Record<string, Warehouse> | null = null;
+
+export async function getWarehouses(): Promise<Record<string, Warehouse>> {
+  if (warehousesCache) return warehousesCache;
+  warehousesCache = await sellsyV1<Record<string, Warehouse>>("Stock.getWarehouses");
+  return warehousesCache;
+}
+
+export async function getStockForItem(itemId: number): Promise<Record<string, StockWarehouse>> {
+  const res = await sellsyV1<Record<string, StockWarehouse> | never[]>(
+    "Stock.getForItem",
+    { itemid: itemId }
+  );
+  // V1 retourne [] si pas de stock, sinon un objet
+  if (Array.isArray(res)) return {};
+  return res;
+}
+
 export async function searchItems(params: {
   filters: {
     name?: string;

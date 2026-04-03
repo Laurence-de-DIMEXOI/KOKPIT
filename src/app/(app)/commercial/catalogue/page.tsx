@@ -33,6 +33,20 @@ interface Declination {
   purchase_amount: string | null;
 }
 
+interface StockEntry {
+  warehouseId: string;
+  warehouseLabel: string;
+  quantity: number;
+  booked: number;
+  available: number;
+  isDefault: boolean;
+}
+
+interface ItemStock {
+  stock: StockEntry[];
+  totalAvailable: number;
+}
+
 interface SellsyItem {
   id: number;
   type: "product" | "service";
@@ -90,6 +104,8 @@ export default function CataloguePage() {
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
+  const [stockData, setStockData] = useState<Record<number, ItemStock>>({});
+  const [loadingStock, setLoadingStock] = useState<Set<number>>(new Set());
 
   // Search debounce
   useEffect(() => {
@@ -144,6 +160,30 @@ export default function CataloguePage() {
       });
     }
   };
+
+  // Lazy-load stock for a single item (on hover)
+  const fetchStock = useCallback(async (itemId: number) => {
+    if (stockData[itemId] || loadingStock.has(itemId)) return;
+    setLoadingStock((prev) => new Set(prev).add(itemId));
+    try {
+      const res = await fetch(`/api/sellsy/stock/${itemId}`);
+      const data = await res.json();
+      if (data.success) {
+        setStockData((prev) => ({
+          ...prev,
+          [itemId]: { stock: data.stock, totalAvailable: data.totalAvailable },
+        }));
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingStock((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  }, [stockData, loadingStock]);
 
   useEffect(() => { fetchItems(); }, []);
 
@@ -535,7 +575,7 @@ ${pages.join("\n")}
                   <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
                 </th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">
-                  SELLSY
+                  STOCK
                 </th>
                 {canSeePurchase && (
                   <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
@@ -618,18 +658,49 @@ ${pages.join("\n")}
                             {formatEuro(priceTTC)}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-center">
-                          <a
-                            href={`${SELLSY_ITEM_URL}/${item.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-[10px] font-medium text-cockpit-info hover:underline"
-                            title="Voir sur Sellsy"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            Fiche
-                          </a>
+                        <td
+                          className="px-3 py-3 text-center"
+                          onMouseEnter={() => item.type === "product" && fetchStock(item.id)}
+                        >
+                          {item.type !== "product" ? (
+                            <span className="text-[10px] text-cockpit-secondary">—</span>
+                          ) : loadingStock.has(item.id) ? (
+                            <Loader2 className="w-3 h-3 animate-spin mx-auto text-cockpit-secondary" />
+                          ) : stockData[item.id] ? (
+                            <a
+                              href={`${SELLSY_ITEM_URL}/${item.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex flex-col items-center gap-0.5 group"
+                              title={stockData[item.id].stock.map((s) => `${s.warehouseLabel}: ${s.available}`).join("\n")}
+                            >
+                              {stockData[item.id].totalAvailable > 0 ? (
+                                <span className="text-[10px] font-bold text-cockpit-success bg-cockpit-success/10 px-2 py-0.5 rounded group-hover:underline">
+                                  {stockData[item.id].totalAvailable}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded group-hover:underline">
+                                  0
+                                </span>
+                              )}
+                              {stockData[item.id].stock.length > 1 && (
+                                <span className="text-[8px] text-cockpit-secondary leading-tight">
+                                  {stockData[item.id].stock.filter((s) => s.available > 0).map((s) => {
+                                    const short = s.warehouseLabel.replace(/DIMEXOI\s*/i, "").replace(/Bois d'Orient\s*/i, "BDO ");
+                                    return `${short}: ${s.available}`;
+                                  }).join(" · ")}
+                                </span>
+                              )}
+                            </a>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); fetchStock(item.id); }}
+                              className="text-[10px] text-cockpit-secondary hover:text-cockpit-info transition-colors"
+                            >
+                              Voir stock
+                            </button>
+                          )}
                         </td>
                         {canSeePurchase && (
                           <td className="px-3 py-3 text-right hidden lg:table-cell">
@@ -769,15 +840,28 @@ ${pages.join("\n")}
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
                         <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
-                        <a
-                          href={`${SELLSY_ITEM_URL}/${item.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-0.5 mt-1 text-[9px] text-cockpit-info hover:underline"
-                        >
-                          <ExternalLink className="w-2.5 h-2.5" /> Sellsy
-                        </a>
+                        {item.type === "product" && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); fetchStock(item.id); }}
+                            className="mt-1"
+                          >
+                            {stockData[item.id] ? (
+                              stockData[item.id].totalAvailable > 0 ? (
+                                <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded">
+                                  Stock: {stockData[item.id].totalAvailable}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">
+                                  Stock: 0
+                                </span>
+                              )
+                            ) : loadingStock.has(item.id) ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-cockpit-secondary" />
+                            ) : (
+                              <span className="text-[9px] text-cockpit-secondary">Voir stock</span>
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
