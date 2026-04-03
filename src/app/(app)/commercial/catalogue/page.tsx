@@ -261,36 +261,6 @@ export default function CataloguePage() {
       }).format(num);
     };
 
-    const labelsHtml = checkedItems
-      .map(
-        (item) => `
-        <div class="label">
-          <div class="brand">DIMEXOI</div>
-          <div class="name">${(item.name || item.reference || "").replace(/"/g, "&quot;")}</div>
-          <div class="ref">Réf : ${item.reference || "—"}</div>
-          <div class="price-ttc">Prix TTC : ${fmtEuro(item.reference_price_taxes_inc)}</div>
-          <div class="price-ht">${fmtEuro(item.reference_price_taxes_exc)} HT</div>
-          <div class="barcode-container" id="bc-${item.id}"></div>
-        </div>`
-      )
-      .join("\n");
-
-    const barcodeScripts = checkedItems
-      .map(
-        (item) => `
-        try {
-          var svg${item.id} = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-          document.getElementById("bc-${item.id}").appendChild(svg${item.id});
-          JsBarcode(svg${item.id}, "${(item.reference || "").replace(/"/g, '\\"')}", {
-            format: "CODE128", width: 1.5, height: 30, displayValue: true,
-            fontSize: 9, margin: 2, background: "transparent", lineColor: "#1F2937",
-          });
-        } catch(e) {
-          document.getElementById("bc-${item.id}").textContent = "${(item.reference || "").replace(/"/g, '\\"')}";
-        }`
-      )
-      .join("\n");
-
     // Avery / Apli Agipa 119011 — 70 x 36 mm — 3 colonnes x 8 lignes = 24 étiquettes/page A4
     const COLS = 3;
     const ROWS = 8;
