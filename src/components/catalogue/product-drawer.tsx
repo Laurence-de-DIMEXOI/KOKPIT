@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { X, Package, Tag, Euro, Hash, Calendar, ExternalLink, Barcode, Warehouse, Layers } from "lucide-react";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 import { BarcodeLabel } from "./barcode-label";
@@ -75,14 +76,14 @@ export function ProductDrawer({ item, onClose, declinations = [], stock, canSeeP
 
   const sellsyUrl = getSellsyUrl('product', item.id);
 
-  return (
+  const content = (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 z-[9998]" onClick={onClose} />
 
       {/* Drawer */}
       <div
-        className="fixed right-0 top-0 h-full w-full sm:w-[480px] bg-white z-50 flex flex-col shadow-2xl"
+        className="fixed right-0 top-0 h-full w-full sm:w-[480px] bg-white z-[9999] flex flex-col shadow-2xl"
         style={{ animation: "slideIn 0.25s ease-out" }}
       >
         {/* Header */}
@@ -333,4 +334,9 @@ export function ProductDrawer({ item, onClose, declinations = [], stock, canSeeP
       </div>
     </>
   );
+
+  if (typeof document !== "undefined") {
+    return createPortal(content, document.body);
+  }
+  return content;
 }

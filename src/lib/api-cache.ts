@@ -67,3 +67,6 @@ export const itemsCache = new ApiCache(60 * 60 * 1000);
 
 /** Funnel — 10 minutes */
 export const funnelCache = new ApiCache(10 * 60 * 1000);
+
+/** Stock (tous les produits) — 30 minutes */
+export const stockCache = new ApiCache(30 * 60 * 1000);

@@ -64,7 +64,7 @@ interface SellsyItem {
   updated: string;
 }
 
-type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type";
+type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type" | "stock";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 50;
@@ -104,9 +104,11 @@ export default function CataloguePage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedItem, setSelectedItem] = useState<SellsyItem | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [checkedDeclIds, setCheckedDeclIds] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
   const [stockData, setStockData] = useState<Record<number, ItemStock>>({});
-  const [loadingStock, setLoadingStock] = useState<Set<number>>(new Set());
+  const [stockLoaded, setStockLoaded] = useState(false);
+  const [loadingAllStock, setLoadingAllStock] = useState(false);
 
   // Search debounce
   useEffect(() => {
@@ -161,31 +163,36 @@ export default function CataloguePage() {
     }
   };
 
-  // Lazy-load stock for a single item (on hover)
-  const fetchStock = useCallback(async (itemId: number) => {
-    if (stockData[itemId] || loadingStock.has(itemId)) return;
-    setLoadingStock((prev) => new Set(prev).add(itemId));
+  // Charger le stock de tous les produits (cache serveur 30 min)
+  const fetchAllStock = useCallback(async () => {
+    if (stockLoaded || loadingAllStock) return;
+    setLoadingAllStock(true);
     try {
-      const res = await fetch(`/api/sellsy/stock/${itemId}`);
+      const res = await fetch("/api/sellsy/stock/all");
       const data = await res.json();
-      if (data.success) {
-        setStockData((prev) => ({
-          ...prev,
-          [itemId]: { stock: data.stock, totalAvailable: data.totalAvailable },
-        }));
+      if (data.success && data.stockMap) {
+        const mapped: Record<number, ItemStock> = {};
+        for (const [id, val] of Object.entries(data.stockMap)) {
+          mapped[Number(id)] = val as ItemStock;
+        }
+        setStockData(mapped);
+        setStockLoaded(true);
       }
-    } catch {
-      // silently ignore
+    } catch (error) {
+      console.error("Erreur chargement stock:", error);
     } finally {
-      setLoadingStock((prev) => {
-        const next = new Set(prev);
-        next.delete(itemId);
-        return next;
-      });
+      setLoadingAllStock(false);
     }
-  }, [stockData, loadingStock]);
+  }, [stockLoaded, loadingAllStock]);
 
   useEffect(() => { fetchItems(); }, []);
+
+  // Auto-charger le stock après le chargement des items
+  useEffect(() => {
+    if (items.length > 0 && !stockLoaded && !loadingAllStock) {
+      fetchAllStock();
+    }
+  }, [items.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter & sort
   const filtered = useMemo(() => {
@@ -260,6 +267,9 @@ export default function CataloguePage() {
         case "type":
           cmp = (a.type || "").localeCompare(b.type || "");
           break;
+        case "stock":
+          cmp = (stockData[a.id]?.totalAvailable ?? -1) - (stockData[b.id]?.totalAvailable ?? -1);
+          break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -319,31 +329,85 @@ export default function CataloguePage() {
     });
   };
 
-  const allPageChecked = paginated.length > 0 && paginated.every((i) => checkedIds.has(i.id));
+  const toggleCheckDecl = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCheckedDeclIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allPageChecked = paginated.length > 0 && paginated.every((i) => {
+    const decls = declinations[i.id];
+    if (i.is_declined && decls && decls.length > 0) {
+      return decls.every((d) => checkedDeclIds.has(d.id));
+    }
+    return checkedIds.has(i.id);
+  });
+
   const toggleAll = () => {
     if (allPageChecked) {
-      const pageIds = new Set(paginated.map((i) => i.id));
       setCheckedIds((prev) => {
         const next = new Set(prev);
-        pageIds.forEach((id) => next.delete(id));
+        paginated.forEach((i) => {
+          if (!i.is_declined || !declinations[i.id]?.length) next.delete(i.id);
+        });
+        return next;
+      });
+      setCheckedDeclIds((prev) => {
+        const next = new Set(prev);
+        paginated.forEach((i) => {
+          (declinations[i.id] || []).forEach((d) => next.delete(d.id));
+        });
         return next;
       });
     } else {
-      setCheckedIds((prev) => {
-        const next = new Set(prev);
-        paginated.forEach((i) => next.add(i.id));
-        return next;
+      paginated.forEach((i) => {
+        const decls = declinations[i.id];
+        if (i.is_declined && decls && decls.length > 0) {
+          setCheckedDeclIds((prev) => {
+            const next = new Set(prev);
+            decls.forEach((d) => next.add(d.id));
+            return next;
+          });
+        } else {
+          setCheckedIds((prev) => new Set(prev).add(i.id));
+        }
       });
     }
   };
 
-  const checkedItems = useMemo(
-    () => items.filter((i) => checkedIds.has(i.id)),
-    [items, checkedIds]
-  );
+  const totalChecked = checkedIds.size + checkedDeclIds.size;
+
+  const printableLabels = useMemo(() => {
+    const labels: Array<{ reference: string; name: string; priceTTC: string }> = [];
+    for (const item of items) {
+      if (checkedIds.has(item.id)) {
+        labels.push({
+          reference: item.reference || "",
+          name: item.name || item.reference || `#${item.id}`,
+          priceTTC: item.reference_price_taxes_inc || "0",
+        });
+      }
+    }
+    for (const decls of Object.values(declinations)) {
+      for (const decl of decls) {
+        if (checkedDeclIds.has(decl.id)) {
+          labels.push({
+            reference: decl.reference || "",
+            name: decl.name || decl.reference || "",
+            priceTTC: decl.reference_price_taxes_exc || "0",
+          });
+        }
+      }
+    }
+    return labels;
+  }, [items, declinations, checkedIds, checkedDeclIds]);
 
   const handlePrintMulti = useCallback(() => {
-    if (checkedItems.length === 0) return;
+    if (printableLabels.length === 0) return;
 
     const fmtEuro = (val: string | number) => {
       const num = typeof val === "string" ? parseFloat(val) : val;
@@ -366,18 +430,18 @@ export default function CataloguePage() {
     const LABEL_H = 37;
 
     const pages: string[] = [];
-    for (let p = 0; p < Math.ceil(checkedItems.length / PER_PAGE); p++) {
-      const pageItems = checkedItems.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
+    for (let p = 0; p < Math.ceil(printableLabels.length / PER_PAGE); p++) {
+      const pageLabels = printableLabels.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
       let gridCells = "";
       for (let i = 0; i < PER_PAGE; i++) {
-        const item = pageItems[i];
-        if (item) {
+        const label = pageLabels[i];
+        if (label) {
           gridCells += `
             <div class="label">
               <div class="brand">DIMEXOI</div>
-              <div class="name">${(item.name || item.reference || "").replace(/"/g, "&quot;")}</div>
-              <div class="ref">Réf : ${item.reference || "—"}</div>
-              <div class="price-ttc">${fmtEuro(item.reference_price_taxes_inc)}</div>
+              <div class="name">${(label.name).replace(/"/g, "&quot;")}</div>
+              <div class="ref">Réf : ${label.reference || "—"}</div>
+              <div class="price-ttc">${fmtEuro(label.priceTTC)}</div>
               <div class="barcode-container" id="bc-${p}-${i}"></div>
             </div>`;
         } else {
@@ -387,21 +451,21 @@ export default function CataloguePage() {
       pages.push(`<div class="page"><div class="grid">${gridCells}</div></div>`);
     }
 
-    const barcodeScripts = checkedItems
-      .map((item, idx) => {
+    const barcodeScripts = printableLabels
+      .map((label, idx) => {
         const pageIdx = Math.floor(idx / PER_PAGE);
         const cellIdx = idx % PER_PAGE;
         return `
         try {
           var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
           document.getElementById("bc-${pageIdx}-${cellIdx}").appendChild(svg);
-          JsBarcode(svg, "${(item.reference || "").replace(/"/g, '\\"')}", {
+          JsBarcode(svg, "${(label.reference).replace(/"/g, '\\"')}", {
             format: "CODE128", width: 1.2, height: 18, displayValue: true,
             fontSize: 7, margin: 1, background: "transparent", lineColor: "#1F2937",
           });
         } catch(e) {
           var el = document.getElementById("bc-${pageIdx}-${cellIdx}");
-          if (el) el.textContent = "${(item.reference || "").replace(/"/g, '\\"')}";
+          if (el) el.textContent = "${(label.reference).replace(/"/g, '\\"')}";
         }`;
       })
       .join("\n");
@@ -410,7 +474,7 @@ export default function CataloguePage() {
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>Étiquettes DIMEXOI (${checkedItems.length})</title>
+<title>Étiquettes DIMEXOI (${printableLabels.length})</title>
 <style>
 @page { size: A4; margin: 0; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -434,7 +498,7 @@ ${pages.join("\n")}
 <script>${barcodeScripts}\nsetTimeout(function(){window.print();},500);<\/script>
 </body></html>`);
     printWindow.document.close();
-  }, [checkedItems]);
+  }, [printableLabels]);
 
   const SortIcon = ({ col }: { col: SortKey }) => {
     if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 text-cockpit-secondary" />;
@@ -489,6 +553,11 @@ ${pages.join("\n")}
           <p className="text-cockpit-secondary text-sm">
             {filtered.length} produit{filtered.length > 1 ? "s" : ""} sur {items.length}
             {totalDeclined > 0 && <span className="ml-1">({totalDeclined} avec déclinaisons)</span>}
+            {loadingAllStock && (
+              <span className="ml-2 inline-flex items-center gap-1 text-cockpit-info">
+                <Loader2 className="w-3 h-3 animate-spin" /> Chargement stock…
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -618,8 +687,8 @@ ${pages.join("\n")}
                 <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("price_ttc")}>
                   <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
                 </th>
-                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">
-                  STOCK
+                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("stock")}>
+                  <span className="flex items-center gap-1.5 justify-center">STOCK <SortIcon col="stock" /></span>
                 </th>
                 {canSeePurchase && (
                   <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
@@ -638,150 +707,154 @@ ${pages.join("\n")}
                   const decls = declinations[item.id] || [];
                   const hasDecls = item.is_declined;
                   const isDeclLoading = loadingDecl.has(item.id);
+                  const showParent = !hasDecls || decls.length === 0;
+
+                  const stockCell = (
+                    item.type !== "product" ? (
+                      <span className="text-[10px] text-cockpit-secondary">—</span>
+                    ) : loadingAllStock && !stockData[item.id] ? (
+                      <Loader2 className="w-3 h-3 animate-spin mx-auto text-cockpit-secondary" />
+                    ) : stockData[item.id] ? (
+                      <div className="inline-flex flex-col items-center gap-0.5" title={stockData[item.id].stock.map((s) => `${s.warehouseLabel}: ${s.available}`).join("\n")}>
+                        {stockData[item.id].totalAvailable > 0 ? (
+                          <span className="text-[10px] font-bold text-cockpit-success bg-cockpit-success/10 px-2 py-0.5 rounded">
+                            {stockData[item.id].totalAvailable}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded">
+                            0
+                          </span>
+                        )}
+                        {stockData[item.id].stock.length > 1 && (
+                          <span className="text-[8px] text-cockpit-secondary leading-tight">
+                            {stockData[item.id].stock.filter((s) => s.available > 0).map((s) => {
+                              const short = s.warehouseLabel.replace(/DIMEXOI\s*/i, "").replace(/Bois d'Orient\s*/i, "BDO ");
+                              return `${short}: ${s.available}`;
+                            }).join(" · ")}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-cockpit-secondary">—</span>
+                    )
+                  );
 
                   return (
                     <React.Fragment key={item.id}>
-                      <tr className={`hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
-                        <td className="pl-4 pr-1 py-3 w-8" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={checkedIds.has(item.id)}
-                            onChange={() => {}}
-                            onClick={(e) => toggleCheck(item.id, e)}
-                            className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
-                          />
-                        </td>
-                        <td className="px-4 lg:px-6 py-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-mono text-cockpit-info bg-cockpit-info/10 px-2 py-0.5 rounded">
-                              {item.reference || "—"}
-                            </span>
-                            {hasDecls && (
-                              isDeclLoading ? (
-                                <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
-                              ) : decls.length > 0 ? (
-                                <span className="text-[9px] font-semibold text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
-                                  {decls.length} décl.
-                                </span>
-                              ) : null
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 lg:px-6 py-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-cockpit-heading truncate max-w-[300px]">
-                              {item.name || item.reference || `#${item.id}`}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            item.type === "product"
-                              ? "bg-cockpit-info/10 text-cockpit-info"
-                              : "bg-cockpit-warning/10 text-cockpit-warning"
-                          }`}>
-                            {item.type === "product" ? "Produit" : "Service"}
-                          </span>
-                        </td>
-                        <td className="px-4 lg:px-6 py-3 text-right">
-                          <span className="text-sm font-semibold text-cockpit-heading">
-                            {formatEuro(priceHT)}
-                          </span>
-                        </td>
-                        <td className="px-4 lg:px-6 py-3 text-right">
-                          <span className="text-sm text-cockpit-primary">
-                            {formatEuro(priceTTC)}
-                          </span>
-                        </td>
-                        <td
-                          className="px-3 py-3 text-center"
-                          onMouseEnter={() => item.type === "product" && fetchStock(item.id)}
-                        >
-                          {item.type !== "product" ? (
-                            <span className="text-[10px] text-cockpit-secondary">—</span>
-                          ) : loadingStock.has(item.id) ? (
-                            <Loader2 className="w-3 h-3 animate-spin mx-auto text-cockpit-secondary" />
-                          ) : stockData[item.id] ? (
-                            <a
-                              href={`${SELLSY_ITEM_URL}/${item.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex flex-col items-center gap-0.5 group"
-                              title={stockData[item.id].stock.map((s) => `${s.warehouseLabel}: ${s.available}`).join("\n")}
-                            >
-                              {stockData[item.id].totalAvailable > 0 ? (
-                                <span className="text-[10px] font-bold text-cockpit-success bg-cockpit-success/10 px-2 py-0.5 rounded group-hover:underline">
-                                  {stockData[item.id].totalAvailable}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded group-hover:underline">
-                                  0
-                                </span>
-                              )}
-                              {stockData[item.id].stock.length > 1 && (
-                                <span className="text-[8px] text-cockpit-secondary leading-tight">
-                                  {stockData[item.id].stock.filter((s) => s.available > 0).map((s) => {
-                                    const short = s.warehouseLabel.replace(/DIMEXOI\s*/i, "").replace(/Bois d'Orient\s*/i, "BDO ");
-                                    return `${short}: ${s.available}`;
-                                  }).join(" · ")}
-                                </span>
-                              )}
-                            </a>
-                          ) : (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); fetchStock(item.id); }}
-                              className="text-[10px] text-cockpit-secondary hover:text-cockpit-info transition-colors"
-                            >
-                              Voir stock
-                            </button>
-                          )}
-                        </td>
-                        {canSeePurchase && (
-                          <td className="px-3 py-3 text-right hidden lg:table-cell">
-                            <div>
-                              <span className="text-xs text-cockpit-secondary">
-                                {purchasePrice > 0 ? formatEuro(purchasePrice) : "—"}
+                      {/* Parent row — hidden when declinations are loaded */}
+                      {showParent && (
+                        <tr className={`hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
+                          <td className="pl-4 pr-1 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={checkedIds.has(item.id)}
+                              onChange={() => {}}
+                              onClick={(e) => toggleCheck(item.id, e)}
+                              className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-4 lg:px-6 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-mono text-cockpit-info bg-cockpit-info/10 px-2 py-0.5 rounded">
+                                {item.reference || "—"}
                               </span>
-                              {margin !== null && margin > 0 && (
-                                <p className={`text-[10px] ${margin > 30 ? "text-cockpit-success" : margin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
-                                  Marge {margin.toFixed(0)}%
-                                </p>
+                              {hasDecls && isDeclLoading && (
+                                <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
                               )}
                             </div>
                           </td>
-                        )}
-                      </tr>
-                      {/* Declinations — always visible */}
-                      {hasDecls && decls.map((decl) => {
+                          <td className="px-4 lg:px-6 py-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-cockpit-heading truncate max-w-[300px]">
+                                {item.name || item.reference || `#${item.id}`}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              item.type === "product"
+                                ? "bg-cockpit-info/10 text-cockpit-info"
+                                : "bg-cockpit-warning/10 text-cockpit-warning"
+                            }`}>
+                              {item.type === "product" ? "Produit" : "Service"}
+                            </span>
+                          </td>
+                          <td className="px-4 lg:px-6 py-3 text-right">
+                            <span className="text-sm font-semibold text-cockpit-heading">
+                              {formatEuro(priceHT)}
+                            </span>
+                          </td>
+                          <td className="px-4 lg:px-6 py-3 text-right">
+                            <span className="text-sm text-cockpit-primary">
+                              {formatEuro(priceTTC)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {stockCell}
+                          </td>
+                          {canSeePurchase && (
+                            <td className="px-3 py-3 text-right hidden lg:table-cell">
+                              <div>
+                                <span className="text-xs text-cockpit-secondary">
+                                  {purchasePrice > 0 ? formatEuro(purchasePrice) : "—"}
+                                </span>
+                                {margin !== null && margin > 0 && (
+                                  <p className={`text-[10px] ${margin > 30 ? "text-cockpit-success" : margin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
+                                    Marge {margin.toFixed(0)}%
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      )}
+                      {/* Declination rows — each with its own checkbox */}
+                      {hasDecls && decls.map((decl, dIdx) => {
                         const dHT = parseFloat(decl.reference_price_taxes_exc || "0");
                         const dPurch = parseFloat(decl.purchase_amount || "0");
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
                         return (
-                          <tr key={`decl-${decl.id}`} className="bg-cockpit-dark/30 hover:bg-cockpit-dark/50 transition-colors cursor-pointer" onClick={() => setSelectedItem(item)}>
-                            <td className="pl-4 pr-1 py-2 w-8" />
+                          <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
+                            <td className="pl-4 pr-1 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={checkedDeclIds.has(decl.id)}
+                                onChange={() => {}}
+                                onClick={(e) => toggleCheckDecl(decl.id, e)}
+                                className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
+                              />
+                            </td>
                             <td className="px-4 lg:px-6 py-2">
                               <span className="text-xs font-mono text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded">
                                 {decl.reference || "—"}
                               </span>
                             </td>
                             <td className="px-4 lg:px-6 py-2">
-                              <p className="text-xs text-cockpit-primary truncate max-w-[300px]">
-                                {decl.name || decl.reference}
-                              </p>
+                              <div className="min-w-0">
+                                <p className="text-xs text-cockpit-primary truncate max-w-[300px]">
+                                  {decl.name || decl.reference}
+                                </p>
+                                {dIdx === 0 && (
+                                  <p className="text-[9px] text-cockpit-secondary mt-0.5">
+                                    {item.name || item.reference}
+                                  </p>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2">
-                              <span className="text-[9px] text-purple-400 font-medium">Déclinaison</span>
+                              <span className="text-[9px] text-purple-400 font-medium bg-purple-400/10 px-1.5 py-0.5 rounded">Déclinaison</span>
                             </td>
                             <td className="px-4 lg:px-6 py-2 text-right">
                               <span className="text-xs font-semibold text-cockpit-heading">
-                                {dHT > 0 ? formatEuro(dHT) : "—"}
+                                {dHT > 0 ? formatEuro(dHT) : formatEuro(priceHT)}
                               </span>
                             </td>
                             <td className="px-4 lg:px-6 py-2 text-right">
                               <span className="text-xs text-cockpit-secondary">—</span>
                             </td>
-                            <td className="px-3 py-2 text-center" />
+                            <td className="px-3 py-2 text-center">
+                              {dIdx === 0 ? stockCell : null}
+                            </td>
                             {canSeePurchase && (
                               <td className="px-3 py-2 text-right hidden lg:table-cell">
                                 <div>
@@ -822,94 +895,115 @@ ${pages.join("\n")}
               const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
               const decls = declinations[item.id] || [];
               const hasDecls = item.is_declined;
+              const showParent = !hasDecls || decls.length === 0;
 
               return (
                 <div key={item.id}>
-                  <div className={`p-4 hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-shrink-0 pt-0.5 flex items-center gap-1.5">
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={checkedIds.has(item.id)}
-                            onChange={() => {}}
-                            onClick={(e) => toggleCheck(item.id, e)}
-                            className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-[10px] font-mono text-cockpit-info bg-cockpit-info/10 px-1.5 py-0.5 rounded">
-                            {item.reference || "—"}
-                          </span>
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                            item.type === "product"
-                              ? "bg-cockpit-info/10 text-cockpit-info"
-                              : "bg-cockpit-warning/10 text-cockpit-warning"
-                          }`}>
-                            {item.type === "product" ? "Produit" : "Service"}
-                          </span>
-                          {hasDecls && decls.length > 0 && (
-                            <span className="text-[9px] font-semibold text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
-                              {decls.length} décl.
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm font-medium text-cockpit-heading truncate">
-                          {item.name || item.reference || `#${item.id}`}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
-                        <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
-                        {item.type === "product" && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); fetchStock(item.id); }}
-                            className="mt-1"
-                          >
-                            {stockData[item.id] ? (
-                              stockData[item.id].totalAvailable > 0 ? (
-                                <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded">
-                                  Stock: {stockData[item.id].totalAvailable}
-                                </span>
-                              ) : (
-                                <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">
-                                  Stock: 0
-                                </span>
-                              )
-                            ) : loadingStock.has(item.id) ? (
-                              <Loader2 className="w-3 h-3 animate-spin text-cockpit-secondary" />
-                            ) : (
-                              <span className="text-[9px] text-cockpit-secondary">Voir stock</span>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Mobile declinations — always visible */}
-                  {hasDecls && decls.length > 0 && (
-                    <div className="bg-cockpit-dark/30 divide-y divide-cockpit/50">
-                      {decls.map((decl) => (
-                        <div key={decl.id} className="px-4 py-2.5 pl-12">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
-                                {decl.reference}
-                              </span>
-                              <p className="text-xs text-cockpit-primary truncate mt-0.5">
-                                {decl.name || decl.reference}
-                              </p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className="text-xs font-semibold text-cockpit-heading">
-                                {formatEuro(decl.reference_price_taxes_exc)}
-                              </p>
-                            </div>
+                  {/* Parent — hidden when declinations loaded */}
+                  {showParent && (
+                    <div className={`p-4 hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-shrink-0 pt-0.5 flex items-center gap-1.5">
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={checkedIds.has(item.id)}
+                              onChange={() => {}}
+                              onClick={(e) => toggleCheck(item.id, e)}
+                              className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
+                            />
                           </div>
                         </div>
-                      ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-[10px] font-mono text-cockpit-info bg-cockpit-info/10 px-1.5 py-0.5 rounded">
+                              {item.reference || "—"}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                              item.type === "product"
+                                ? "bg-cockpit-info/10 text-cockpit-info"
+                                : "bg-cockpit-warning/10 text-cockpit-warning"
+                            }`}>
+                              {item.type === "product" ? "Produit" : "Service"}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-cockpit-heading truncate">
+                            {item.name || item.reference || `#${item.id}`}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
+                          <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
+                          {item.type === "product" && stockData[item.id] && (
+                            stockData[item.id].totalAvailable > 0 ? (
+                              <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                Stock: {stockData[item.id].totalAvailable}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                Stock: 0
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Declination rows with checkboxes */}
+                  {hasDecls && decls.length > 0 && (
+                    <div className="divide-y divide-cockpit/50">
+                      {decls.map((decl, dIdx) => {
+                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0");
+                        return (
+                          <div
+                            key={decl.id}
+                            className={`p-4 hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`}
+                            onClick={() => setSelectedItem(item)}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={checkedDeclIds.has(decl.id)}
+                                  onChange={() => {}}
+                                  onClick={(e) => toggleCheckDecl(decl.id, e)}
+                                  className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
+                                    {decl.reference}
+                                  </span>
+                                  <span className="text-[9px] text-purple-400 font-medium bg-purple-400/10 px-1.5 py-0.5 rounded">Déclinaison</span>
+                                </div>
+                                <p className="text-xs text-cockpit-primary truncate">
+                                  {decl.name || decl.reference}
+                                </p>
+                                {dIdx === 0 && (
+                                  <p className="text-[9px] text-cockpit-secondary mt-0.5">{item.name || item.reference}</p>
+                                )}
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-xs font-semibold text-cockpit-heading">
+                                  {dHT > 0 ? formatEuro(dHT) : formatEuro(priceHT)}
+                                </p>
+                                {dIdx === 0 && item.type === "product" && stockData[item.id] && (
+                                  stockData[item.id].totalAvailable > 0 ? (
+                                    <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                      Stock: {stockData[item.id].totalAvailable}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                      Stock: 0
+                                    </span>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -998,7 +1092,7 @@ ${pages.join("\n")}
       </div>
 
       {/* Floating Print Button */}
-      {checkedIds.size > 0 && (
+      {totalChecked > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 animate-in slide-in-from-bottom-4 duration-200">
           <button
             onClick={handlePrintMulti}
@@ -1006,7 +1100,7 @@ ${pages.join("\n")}
             style={{ backgroundColor: "var(--color-active, #4C9DB0)", color: "white" }}
           >
             <Printer className="w-4 h-4" />
-            Imprimer {checkedIds.size} étiquette{checkedIds.size > 1 ? "s" : ""}
+            Imprimer {totalChecked} étiquette{totalChecked > 1 ? "s" : ""}
           </button>
         </div>
       )}
