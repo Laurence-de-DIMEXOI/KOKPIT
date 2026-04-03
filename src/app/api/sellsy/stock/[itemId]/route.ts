@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStockForItem, getWarehouses } from "@/lib/sellsy";
+import { stockCache } from "@/lib/api-cache";
 
 // GET /api/sellsy/stock/[itemId]
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ itemId: string }> }
 ) {
   try {
@@ -13,12 +14,19 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Invalid itemId" }, { status: 400 });
     }
 
+    const fresh = request.nextUrl.searchParams.get("fresh") === "true";
+    const cacheKey = `item_${id}`;
+
+    if (!fresh) {
+      const cached = stockCache.get(cacheKey);
+      if (cached) return NextResponse.json({ ...cached, _fromCache: true });
+    }
+
     const [stockData, warehouses] = await Promise.all([
       getStockForItem(id),
       getWarehouses(),
     ]);
 
-    // Enrichir avec le nom de l'entrepôt
     const stock = Object.values(stockData).map((s) => ({
       warehouseId: s.whid,
       warehouseLabel: warehouses[s.whid]?.label || `Entrepôt #${s.whid}`,
@@ -29,12 +37,11 @@ export async function GET(
     }));
 
     const totalAvailable = stock.reduce((sum, s) => sum + s.available, 0);
+    const responseData = { success: true, stock, totalAvailable };
 
-    return NextResponse.json({
-      success: true,
-      stock,
-      totalAvailable,
-    });
+    stockCache.set(cacheKey, responseData);
+
+    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error("Erreur Sellsy stock:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
