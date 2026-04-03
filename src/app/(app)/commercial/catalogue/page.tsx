@@ -11,16 +11,15 @@ import {
   ArrowUp,
   ArrowDown,
   Tag,
-  Filter,
   Printer,
   ScanBarcode,
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   Layers,
   ExternalLink,
-  CheckCircle2,
-  XCircle,
   Info,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import { KPICard } from "@/components/dashboard/kpi-card";
@@ -30,9 +29,8 @@ interface Declination {
   id: number;
   reference: string;
   name: string | null;
-  reference_price_taxes_exc: string;
-  reference_price_taxes_inc: string;
-  purchase_amount: string;
+  reference_price_taxes_exc: string | null;
+  purchase_amount: string | null;
 }
 
 interface SellsyItem {
@@ -56,9 +54,12 @@ interface SellsyItem {
 type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type";
 type SortDir = "asc" | "desc";
 
-const formatEuro = (val: string | number) => {
+const PAGE_SIZE = 50;
+
+const formatEuro = (val: string | number | null | undefined) => {
+  if (val === null || val === undefined) return "—";
   const num = typeof val === "string" ? parseFloat(val) : val;
-  if (!num && num !== 0) return "—";
+  if (isNaN(num)) return "—";
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
@@ -68,6 +69,7 @@ const formatEuro = (val: string | number) => {
 };
 
 const SELLSY_ITEM_URL = "https://app.sellsy.com/items";
+const LABEL_BUY_URL = "https://www.bureau-vallee.re/fr_RE/2400-etiquettes-multi-usages-70x37-agipa-51267.html";
 
 export default function CataloguePage() {
   const { data: session } = useSession();
@@ -87,12 +89,19 @@ export default function CataloguePage() {
   const [selectedItem, setSelectedItem] = useState<SellsyItem | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
 
   // Search debounce
   useEffect(() => {
-    const timer = setTimeout(() => setSearch(searchInput), 300);
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1); // reset page on search
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1); }, [typeFilter]);
 
   // Fetch items only (fast — no declinations)
   const fetchItems = async (fresh = false) => {
@@ -117,7 +126,7 @@ export default function CataloguePage() {
 
   // Lazy-load declinations for a single item
   const fetchDeclinations = async (itemId: number) => {
-    if (declinations[itemId]) return; // already loaded
+    if (declinations[itemId]) return;
     setLoadingDecl((prev) => new Set(prev).add(itemId));
     try {
       const res = await fetch(`/api/sellsy/items/${itemId}/declinations`);
@@ -136,9 +145,7 @@ export default function CataloguePage() {
     }
   };
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
+  useEffect(() => { fetchItems(); }, []);
 
   const toggleExpand = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -148,7 +155,7 @@ export default function CataloguePage() {
         next.delete(id);
       } else {
         next.add(id);
-        fetchDeclinations(id); // lazy load
+        fetchDeclinations(id);
       }
       return next;
     });
@@ -158,7 +165,6 @@ export default function CataloguePage() {
   const filtered = useMemo(() => {
     let result = items;
 
-    // Search — also match declinations
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((item) => {
@@ -167,7 +173,6 @@ export default function CataloguePage() {
           (item.reference || "").toLowerCase().includes(q) ||
           (item.description || "").toLowerCase().includes(q);
         if (itemMatch) return true;
-        // Check declinations too
         const decls = declinations[item.id];
         if (decls) {
           return decls.some(
@@ -180,12 +185,10 @@ export default function CataloguePage() {
       });
     }
 
-    // Type filter
     if (typeFilter !== "ALL") {
       result = result.filter((item) => item.type === typeFilter);
     }
 
-    // Sort
     result = [...result].sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
@@ -211,15 +214,15 @@ export default function CataloguePage() {
     return result;
   }, [items, declinations, search, typeFilter, sortKey, sortDir]);
 
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
+
   // KPIs
-  const totalDecl = useMemo(
-    () => Object.values(declinations).reduce((sum, d) => sum + d.length, 0),
-    [declinations]
-  );
-  const totalDeclined = useMemo(
-    () => items.filter((i) => i.is_declined).length,
-    [items]
-  );
+  const totalDeclined = useMemo(() => items.filter((i) => i.is_declined).length, [items]);
   const kpis = useMemo(() => {
     const products = items.filter((i) => i.type === "product");
     const services = items.filter((i) => i.type === "service");
@@ -227,18 +230,15 @@ export default function CataloguePage() {
       items.length > 0
         ? items.reduce((sum, i) => sum + parseFloat(i.reference_price_taxes_exc || "0"), 0) / items.length
         : 0;
-    const inStock = items.filter((i) => parseFloat(i.standard_quantity || "0") > 0).length;
     return {
       total: items.length,
       products: products.length,
       services: services.length,
       avgPriceHT,
       declined: totalDeclined,
-      inStock,
     };
   }, [items, totalDeclined]);
 
-  // Sort handler
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -246,6 +246,7 @@ export default function CataloguePage() {
       setSortKey(key);
       setSortDir("asc");
     }
+    setPage(1);
   };
 
   // ── Sélection multi-étiquettes ──
@@ -259,12 +260,21 @@ export default function CataloguePage() {
     });
   };
 
-  const allFilteredChecked = filtered.length > 0 && filtered.every((i) => checkedIds.has(i.id));
+  const allPageChecked = paginated.length > 0 && paginated.every((i) => checkedIds.has(i.id));
   const toggleAll = () => {
-    if (allFilteredChecked) {
-      setCheckedIds(new Set());
+    if (allPageChecked) {
+      const pageIds = new Set(paginated.map((i) => i.id));
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        pageIds.forEach((id) => next.delete(id));
+        return next;
+      });
     } else {
-      setCheckedIds(new Set(filtered.map((i) => i.id)));
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        paginated.forEach((i) => next.add(i.id));
+        return next;
+      });
     }
   };
 
@@ -273,15 +283,14 @@ export default function CataloguePage() {
     [items, checkedIds]
   );
 
-  // Expand/collapse all
+  // Expand/collapse all (on current page)
   const expandAll = () => {
-    const withDecl = filtered.filter((i) => i.is_declined);
+    const withDecl = paginated.filter((i) => i.is_declined);
     setExpandedIds(new Set(withDecl.map((i) => i.id)));
-    // Lazy-load missing declinations
     withDecl.forEach((i) => fetchDeclinations(i.id));
   };
   const collapseAll = () => setExpandedIds(new Set());
-  const hasAnyDecl = filtered.some((i) => i.is_declined);
+  const hasAnyDecl = paginated.some((i) => i.is_declined);
 
   const handlePrintMulti = useCallback(() => {
     if (checkedItems.length === 0) return;
@@ -297,17 +306,15 @@ export default function CataloguePage() {
       }).format(num);
     };
 
-    // Avery / Apli Agipa 119011 — 70 x 36 mm — 3 colonnes x 8 lignes = 24 étiquettes/page A4
+    // Apli Agipa 119011 — 70 x 37 mm — 3 colonnes x 8 lignes = 24/page A4
     const COLS = 3;
     const ROWS = 8;
     const PER_PAGE = COLS * ROWS;
-    // Margins en mm (standard Avery 70x36)
     const PAGE_MARGIN_TOP = 8.5;
     const PAGE_MARGIN_LEFT = 0;
     const LABEL_W = 70;
-    const LABEL_H = 36;
+    const LABEL_H = 37;
 
-    // Build grid pages
     const pages: string[] = [];
     for (let p = 0; p < Math.ceil(checkedItems.length / PER_PAGE); p++) {
       const pageItems = checkedItems.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
@@ -351,104 +358,31 @@ export default function CataloguePage() {
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-
     printWindow.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Étiquettes DIMEXOI (${checkedItems.length}) — Apli Agipa 70x36mm</title>
-  <style>
-    @page {
-      size: A4;
-      margin: 0;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f5f6f7;
-    }
-    .page {
-      width: 210mm;
-      height: 297mm;
-      padding: ${PAGE_MARGIN_TOP}mm 0 0 ${PAGE_MARGIN_LEFT}mm;
-      page-break-after: always;
-      background: white;
-    }
-    .page:last-child { page-break-after: auto; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(${COLS}, ${LABEL_W}mm);
-      grid-template-rows: repeat(${ROWS}, ${LABEL_H}mm);
-      justify-content: center;
-    }
-    .label {
-      width: ${LABEL_W}mm;
-      height: ${LABEL_H}mm;
-      padding: 1.5mm 2mm;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-    .label.empty { visibility: hidden; }
-    .brand {
-      font-size: 5pt;
-      color: #8592A3;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      margin-bottom: 0.5mm;
-    }
-    .name {
-      font-size: 7pt;
-      font-weight: bold;
-      color: #1F2937;
-      line-height: 1.2;
-      max-height: 2.4em;
-      overflow: hidden;
-      margin-bottom: 0.5mm;
-      padding: 0 1mm;
-    }
-    .ref {
-      font-family: monospace;
-      font-size: 6pt;
-      color: #03C3EC;
-      margin-bottom: 0.5mm;
-    }
-    .price-ttc {
-      font-size: 10pt;
-      font-weight: bold;
-      color: #1F2937;
-      margin-bottom: 0.5mm;
-    }
-    .barcode-container {
-      width: 100%;
-    }
-    .barcode-container svg {
-      width: 80%;
-      height: auto;
-      max-height: 10mm;
-    }
-    @media print {
-      body { background: white; }
-    }
-    @media screen {
-      body { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
-      .page { border: 1px solid #ccc; border-radius: 4px; flex-shrink: 0; }
-      .label:not(.empty) { outline: 1px dashed #e5e7eb; }
-    }
-  </style>
-</head>
-<body>
-  ${pages.join("\n")}
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3/dist/JsBarcode.all.min.js"><\/script>
-  <script>
-    ${barcodeScripts}
-    setTimeout(function() { window.print(); }, 500);
-  <\/script>
-</body>
-</html>`);
+<html><head><meta charset="utf-8">
+<title>Étiquettes DIMEXOI (${checkedItems.length})</title>
+<style>
+@page { size: A4; margin: 0; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f6f7; }
+.page { width: 210mm; height: 297mm; padding: ${PAGE_MARGIN_TOP}mm 0 0 ${PAGE_MARGIN_LEFT}mm; page-break-after: always; background: white; }
+.page:last-child { page-break-after: auto; }
+.grid { display: grid; grid-template-columns: repeat(${COLS}, ${LABEL_W}mm); grid-template-rows: repeat(${ROWS}, ${LABEL_H}mm); justify-content: center; }
+.label { width: ${LABEL_W}mm; height: ${LABEL_H}mm; padding: 1.5mm 2mm; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+.label.empty { visibility: hidden; }
+.brand { font-size: 5pt; color: #8592A3; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5mm; }
+.name { font-size: 7pt; font-weight: bold; color: #1F2937; line-height: 1.2; max-height: 2.4em; overflow: hidden; margin-bottom: 0.5mm; padding: 0 1mm; }
+.ref { font-family: monospace; font-size: 6pt; color: #03C3EC; margin-bottom: 0.5mm; }
+.price-ttc { font-size: 10pt; font-weight: bold; color: #1F2937; margin-bottom: 0.5mm; }
+.barcode-container { width: 100%; }
+.barcode-container svg { width: 80%; height: auto; max-height: 10mm; }
+@media print { body { background: white; } }
+@media screen { body { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; } .page { border: 1px solid #ccc; border-radius: 4px; } .label:not(.empty) { outline: 1px dashed #e5e7eb; } }
+</style></head><body>
+${pages.join("\n")}
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3/dist/JsBarcode.all.min.js"><\/script>
+<script>${barcodeScripts}\nsetTimeout(function(){window.print();},500);<\/script>
+</body></html>`);
     printWindow.document.close();
   }, [checkedItems]);
 
@@ -471,8 +405,8 @@ export default function CataloguePage() {
           </div>
           <div className="h-10 w-28 bg-cockpit-dark rounded-lg animate-pulse" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-24 bg-cockpit-card rounded-card border border-cockpit animate-pulse p-4">
               <div className="h-3 w-20 bg-cockpit-dark rounded mb-3" />
               <div className="h-6 w-16 bg-cockpit-dark rounded" />
@@ -503,40 +437,35 @@ export default function CataloguePage() {
             Catalogue Produits
           </h1>
           <p className="text-cockpit-secondary text-sm">
-            {filtered.length} produit{filtered.length > 1 ? "s" : ""} affichés sur {items.length}
+            {filtered.length} produit{filtered.length > 1 ? "s" : ""} sur {items.length}
             {totalDeclined > 0 && <span className="ml-1">({totalDeclined} avec déclinaisons)</span>}
           </p>
         </div>
         <div className="flex gap-2">
-        <Link
-          href="/commercial/catalogue/scan"
-          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white text-sm min-h-[44px]"
-          style={{ background: `linear-gradient(135deg, var(--color-active), #FEEB9C)` }}
-        >
-          <ScanBarcode className="w-4 h-4" />
-          Scanner
-        </Link>
-        <button
-          onClick={() => fetchItems(true)}
-          disabled={refreshing}
-          className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
-        >
-          {refreshing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4" />
-          )}
-          Rafraîchir
-        </button>
+          <Link
+            href="/commercial/catalogue/scan"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white text-sm min-h-[44px]"
+            style={{ background: `linear-gradient(135deg, var(--color-active), #FEEB9C)` }}
+          >
+            <ScanBarcode className="w-4 h-4" />
+            Scanner
+          </Link>
+          <button
+            onClick={() => fetchItems(true)}
+            disabled={refreshing}
+            className="flex items-center justify-center gap-2 bg-cockpit-card border border-cockpit px-4 py-2.5 rounded-lg font-semibold hover:bg-cockpit-dark transition-colors disabled:opacity-50 text-sm"
+          >
+            {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Rafraîchir
+          </button>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KPICard title="Total articles" value={kpis.total} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
         <KPICard title="Produits" value={kpis.products} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-info" />
         <KPICard title="Services" value={kpis.services} icon={<Tag className="w-7 h-7" />} bgColor="bg-cockpit-success" />
-        <KPICard title="En stock" value={kpis.inStock} icon={<CheckCircle2 className="w-7 h-7" />} bgColor="bg-cockpit-success" />
         <KPICard title="Avec déclinaisons" value={kpis.declined} icon={<Layers className="w-7 h-7" />} bgColor="bg-purple-500" />
       </div>
 
@@ -584,44 +513,29 @@ export default function CataloguePage() {
                 <th className="pl-4 pr-1 py-3 w-8">
                   <input
                     type="checkbox"
-                    checked={allFilteredChecked}
+                    checked={allPageChecked}
                     onChange={toggleAll}
                     className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
                   />
                 </th>
                 <th className="w-8 py-3" />
-                <th
-                  className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
-                  onClick={() => handleSort("reference")}
-                >
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("reference")}>
                   <span className="flex items-center gap-1.5">RÉF. <SortIcon col="reference" /></span>
                 </th>
-                <th
-                  className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
-                  onClick={() => handleSort("name")}
-                >
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("name")}>
                   <span className="flex items-center gap-1.5">NOM <SortIcon col="name" /></span>
                 </th>
-                <th
-                  className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
-                  onClick={() => handleSort("type")}
-                >
+                <th className="px-3 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("type")}>
                   <span className="flex items-center gap-1.5">TYPE <SortIcon col="type" /></span>
                 </th>
-                <th
-                  className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
-                  onClick={() => handleSort("price_ht")}
-                >
+                <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("price_ht")}>
                   <span className="flex items-center gap-1.5 justify-end">PRIX HT <SortIcon col="price_ht" /></span>
                 </th>
-                <th
-                  className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors"
-                  onClick={() => handleSort("price_ttc")}
-                >
+                <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("price_ttc")}>
                   <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
                 </th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">
-                  STOCK
+                  SELLSY
                 </th>
                 {canSeePurchase && (
                   <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
@@ -631,8 +545,8 @@ export default function CataloguePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-cockpit">
-              {filtered.length > 0 ? (
-                filtered.map((item) => {
+              {paginated.length > 0 ? (
+                paginated.map((item) => {
                   const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
                   const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
                   const purchasePrice = parseFloat(item.purchase_amount || "0");
@@ -643,8 +557,8 @@ export default function CataloguePage() {
                   const isDeclLoading = loadingDecl.has(item.id);
 
                   return (
-                    <>
-                      <tr key={item.id} className={`hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
+                    <tbody key={item.id}>
+                      <tr className={`hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
                         <td className="pl-4 pr-1 py-3 w-8" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
@@ -666,7 +580,7 @@ export default function CataloguePage() {
                             <span className="text-xs font-mono text-cockpit-info bg-cockpit-info/10 px-2 py-0.5 rounded">
                               {item.reference || "—"}
                             </span>
-                            {hasDecls && (
+                            {hasDecls && decls.length > 0 && (
                               <span className="text-[9px] font-semibold text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
                                 {decls.length} décl.
                               </span>
@@ -705,33 +619,17 @@ export default function CataloguePage() {
                           </span>
                         </td>
                         <td className="px-3 py-3 text-center">
-                          {(() => {
-                            const qty = parseFloat(item.standard_quantity || "0");
-                            const inStock = qty > 0;
-                            return (
-                              <a
-                                href={`${SELLSY_ITEM_URL}/${item.id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 group"
-                                title={inStock ? `${qty} en stock — Voir sur Sellsy` : "Pas de stock — Voir sur Sellsy"}
-                              >
-                                {inStock ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-cockpit-success bg-cockpit-success/10 px-2 py-0.5 rounded group-hover:underline">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    En stock
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-400 bg-red-400/10 px-2 py-0.5 rounded group-hover:underline">
-                                    <XCircle className="w-3 h-3" />
-                                    Indispo
-                                  </span>
-                                )}
-                                <ExternalLink className="w-2.5 h-2.5 text-cockpit-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </a>
-                            );
-                          })()}
+                          <a
+                            href={`${SELLSY_ITEM_URL}/${item.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-cockpit-info hover:underline"
+                            title="Voir sur Sellsy"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Fiche
+                          </a>
                         </td>
                         {canSeePurchase && (
                           <td className="px-3 py-3 text-right hidden lg:table-cell">
@@ -751,7 +649,6 @@ export default function CataloguePage() {
                       {/* Declinations sub-rows */}
                       {hasDecls && isExpanded && decls.map((decl) => {
                         const dHT = parseFloat(decl.reference_price_taxes_exc || "0");
-                        const dTTC = parseFloat(decl.reference_price_taxes_inc || "0");
                         const dPurch = parseFloat(decl.purchase_amount || "0");
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
                         return (
@@ -779,9 +676,7 @@ export default function CataloguePage() {
                               </span>
                             </td>
                             <td className="px-4 lg:px-6 py-2 text-right">
-                              <span className="text-xs text-cockpit-primary">
-                                {formatEuro(dTTC)}
-                              </span>
+                              <span className="text-xs text-cockpit-secondary">—</span>
                             </td>
                             <td className="px-3 py-2 text-center" />
                             {canSeePurchase && (
@@ -801,7 +696,7 @@ export default function CataloguePage() {
                           </tr>
                         );
                       })}
-                    </>
+                    </tbody>
                   );
                 })
               ) : (
@@ -818,8 +713,8 @@ export default function CataloguePage() {
 
         {/* Mobile */}
         <div className="md:hidden divide-y divide-cockpit">
-          {filtered.length > 0 ? (
-            filtered.map((item) => {
+          {paginated.length > 0 ? (
+            paginated.map((item) => {
               const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
               const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
               const decls = declinations[item.id] || [];
@@ -850,7 +745,7 @@ export default function CataloguePage() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-[10px] font-mono text-cockpit-info bg-cockpit-info/10 px-1.5 py-0.5 rounded">
                             {item.reference || "—"}
                           </span>
@@ -861,7 +756,7 @@ export default function CataloguePage() {
                           }`}>
                             {item.type === "product" ? "Produit" : "Service"}
                           </span>
-                          {hasDecls && (
+                          {hasDecls && decls.length > 0 && (
                             <span className="text-[9px] font-semibold text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
                               {decls.length} décl.
                             </span>
@@ -874,28 +769,15 @@ export default function CataloguePage() {
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
                         <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
-                        {(() => {
-                          const qty = parseFloat(item.standard_quantity || "0");
-                          return (
-                            <a
-                              href={`${SELLSY_ITEM_URL}/${item.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-0.5 mt-1"
-                            >
-                              {qty > 0 ? (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded">
-                                  <CheckCircle2 className="w-2.5 h-2.5" /> Stock
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">
-                                  <XCircle className="w-2.5 h-2.5" /> Indispo
-                                </span>
-                              )}
-                            </a>
-                          );
-                        })()}
+                        <a
+                          href={`${SELLSY_ITEM_URL}/${item.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-0.5 mt-1 text-[9px] text-cockpit-info hover:underline"
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" /> Sellsy
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -917,9 +799,6 @@ export default function CataloguePage() {
                               <p className="text-xs font-semibold text-cockpit-heading">
                                 {formatEuro(decl.reference_price_taxes_exc)}
                               </p>
-                              <p className="text-[10px] text-cockpit-secondary">
-                                TTC: {formatEuro(decl.reference_price_taxes_inc)}
-                              </p>
                             </div>
                           </div>
                         </div>
@@ -936,25 +815,79 @@ export default function CataloguePage() {
           )}
         </div>
 
-        {/* Footer count */}
-        <div className="px-4 lg:px-6 py-3 border-t border-cockpit">
+        {/* Pagination + Footer */}
+        <div className="px-4 lg:px-6 py-3 border-t border-cockpit flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-cockpit-secondary">
-            {filtered.length} article{filtered.length > 1 ? "s" : ""} affichés
-            {filtered.length !== items.length && ` (sur ${items.length} total)`}
-            {totalDeclined > 0 && ` — ${totalDeclined} déclinés`}
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} sur {filtered.length} article{filtered.length > 1 ? "s" : ""}
+            {filtered.length !== items.length && ` (${items.length} total)`}
           </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg border border-cockpit hover:bg-cockpit-dark disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 7) {
+                  pageNum = i + 1;
+                } else if (page <= 4) {
+                  pageNum = i + 1;
+                } else if (page >= totalPages - 3) {
+                  pageNum = totalPages - 6 + i;
+                } else {
+                  pageNum = page - 3 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum)}
+                    className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${
+                      page === pageNum
+                        ? "text-white"
+                        : "text-cockpit-secondary hover:bg-cockpit-dark border border-cockpit"
+                    }`}
+                    style={page === pageNum ? { backgroundColor: "var(--color-active, #4C9DB0)" } : undefined}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg border border-cockpit hover:bg-cockpit-dark disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
       {/* Mémo étiquettes */}
       <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4 flex items-start gap-3">
         <Info className="w-5 h-5 text-cockpit-info flex-shrink-0 mt-0.5" />
-        <div>
+        <div className="flex-1">
           <p className="text-xs font-semibold text-cockpit-heading">Étiquettes compatibles</p>
           <p className="text-[11px] text-cockpit-secondary mt-0.5">
-            Apli Agipa — 2400 étiquettes blanches multi-usages — <strong>70 x 36 mm</strong> — coins droits — réf <strong>119011</strong>
+            Apli Agipa — 2400 étiquettes blanches multi-usages — <strong>70 x 37 mm</strong> — coins droits — réf <strong>119011</strong>
             <br />Format A4, 24 étiquettes/page (3 colonnes x 8 lignes). Jet d&apos;encre / Laser / Copieur.
           </p>
         </div>
+        <a
+          href={LABEL_BUY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white flex-shrink-0"
+          style={{ backgroundColor: "var(--color-active, #4C9DB0)" }}
+        >
+          <ShoppingCart className="w-3.5 h-3.5" />
+          Commander
+        </a>
       </div>
 
       {/* Floating Print Button */}

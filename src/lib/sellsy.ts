@@ -277,12 +277,13 @@ export interface SellsyDeclination {
   item_id: number;
   reference: string;
   name: string | null;
-  reference_price_taxes_exc: string;
-  reference_price_taxes_inc: string;
-  purchase_amount: string;
-  is_archived: boolean;
-  created: string;
-  updated: string;
+  description: string;
+  reference_price_taxes_exc: string | null;
+  purchase_amount: string | null;
+  tax_id: number;
+  currency: string;
+  is_name_included_in_description: boolean;
+  is_einvoicing_compliant: boolean;
 }
 
 export async function listDeclinations(

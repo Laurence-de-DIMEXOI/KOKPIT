@@ -19,7 +19,6 @@ export async function GET(
       reference: d.reference,
       name: d.name,
       reference_price_taxes_exc: d.reference_price_taxes_exc,
-      reference_price_taxes_inc: d.reference_price_taxes_inc,
       purchase_amount: d.purchase_amount,
     }));
 
