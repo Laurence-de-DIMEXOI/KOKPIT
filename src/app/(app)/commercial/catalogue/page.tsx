@@ -69,7 +69,7 @@ const formatEuro = (val: string | number | null | undefined) => {
 };
 
 const SELLSY_ITEM_URL = "https://app.sellsy.com/items";
-const LABEL_BUY_URL = "https://www.bureau-vallee.re/fr_RE/2400-etiquettes-multi-usages-70x37-agipa-51267.html";
+const LABEL_BUY_URL = "https://www.bureau-vallee.re/fr_RE/2400-etiquettes-multi-usages-35x70-agipa-51259.html";
 
 export default function CataloguePage() {
   const { data: session } = useSession();
@@ -383,85 +383,88 @@ export default function CataloguePage() {
   const handlePrintMulti = useCallback(() => {
     if (printableLabels.length === 0) return;
 
-    const dateStr = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const fmtEuro = (val: string | number) => {
+      const num = typeof val === "string" ? parseFloat(val) : val;
+      if (!num && num !== 0) return "—";
+      return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+    };
 
-    let rows = "";
-    const barcodeScripts: string[] = [];
+    // Agipa 51259 — 70 x 35 mm — 3 colonnes x 8 lignes = 24/page A4
+    const COLS = 3;
+    const ROWS = 8;
+    const PER_PAGE = COLS * ROWS;
+    const PAGE_MARGIN_TOP = 8.5;
+    const PAGE_MARGIN_LEFT = 0;
+    const LABEL_W = 70;
+    const LABEL_H = 35;
 
-    printableLabels.forEach((label, idx) => {
-      rows += `
-      <tr>
-        <td class="num">${idx + 1}</td>
-        <td class="ref">${label.reference || "—"}</td>
-        <td class="name">${(label.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
-        <td class="bc"><svg id="bc-${idx}"></svg></td>
-        <td class="qty"></td>
-      </tr>`;
-      if (label.reference) {
-        barcodeScripts.push(`
+    const pages: string[] = [];
+    for (let p = 0; p < Math.ceil(printableLabels.length / PER_PAGE); p++) {
+      const pageLabels = printableLabels.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
+      let gridCells = "";
+      for (let i = 0; i < PER_PAGE; i++) {
+        const label = pageLabels[i];
+        if (label) {
+          gridCells += `
+            <div class="label">
+              <div class="brand">DIMEXOI</div>
+              <div class="name">${(label.name).replace(/"/g, "&quot;")}</div>
+              <div class="ref">Réf : ${label.reference || "—"}</div>
+              <div class="price-ttc">${fmtEuro(label.priceTTC)}</div>
+              <div class="barcode-container" id="bc-${p}-${i}"></div>
+            </div>`;
+        } else {
+          gridCells += `<div class="label empty"></div>`;
+        }
+      }
+      pages.push(`<div class="page"><div class="grid">${gridCells}</div></div>`);
+    }
+
+    const barcodeScripts = printableLabels
+      .map((label, idx) => {
+        const pageIdx = Math.floor(idx / PER_PAGE);
+        const cellIdx = idx % PER_PAGE;
+        return `
         try {
-          JsBarcode(document.getElementById("bc-${idx}"), "${label.reference.replace(/"/g, '\\"')}", {
-            format: "CODE128", width: 1.2, height: 28, displayValue: true,
-            fontSize: 8, margin: 1, background: "transparent", lineColor: "#111",
+          var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          document.getElementById("bc-${pageIdx}-${cellIdx}").appendChild(svg);
+          JsBarcode(svg, "${(label.reference).replace(/"/g, '\\"')}", {
+            format: "CODE128", width: 1.2, height: 16, displayValue: true,
+            fontSize: 7, margin: 1, background: "transparent", lineColor: "#1F2937",
           });
         } catch(e) {
-          document.getElementById("bc-${idx}").outerHTML = '<span>${label.reference.replace(/"/g, '\\"')}</span>';
-        }`);
-      }
-    });
+          var el = document.getElementById("bc-${pageIdx}-${cellIdx}");
+          if (el) el.textContent = "${(label.reference).replace(/"/g, '\\"')}";
+        }`;
+      })
+      .join("\n");
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>Fiche de prélèvement — ${printableLabels.length} article${printableLabels.length > 1 ? "s" : ""}</title>
+<title>Étiquettes DIMEXOI (${printableLabels.length})</title>
 <style>
-@page { size: A4; margin: 15mm 12mm; }
+@page { size: A4; margin: 0; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 10pt; color: #111; }
-.header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8mm; border-bottom: 2px solid #111; padding-bottom: 3mm; }
-.header h1 { font-size: 16pt; font-weight: bold; letter-spacing: -0.5px; }
-.header .sub { font-size: 8pt; color: #555; }
-.header .date { font-size: 8pt; color: #555; text-align: right; }
-table { width: 100%; border-collapse: collapse; }
-thead tr { background: #111; color: white; }
-thead th { padding: 2.5mm 3mm; text-align: left; font-size: 8pt; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
-thead th.num { width: 8mm; text-align: center; }
-thead th.ref { width: 32mm; }
-thead th.name { }
-thead th.bc { width: 50mm; }
-thead th.qty { width: 18mm; text-align: center; }
-tbody tr { border-bottom: 1px solid #e5e7eb; }
-tbody tr:nth-child(even) { background: #f9fafb; }
-tbody td { padding: 2mm 3mm; vertical-align: middle; }
-td.num { text-align: center; font-size: 8pt; color: #888; }
-td.ref { font-family: monospace; font-size: 8pt; font-weight: bold; color: #03A3C5; }
-td.name { font-size: 9pt; line-height: 1.3; }
-td.bc svg { height: 12mm; width: auto; max-width: 48mm; display: block; }
-td.qty { border: 1.5px solid #d1d5db; border-radius: 3px; height: 9mm; min-width: 14mm; }
-.footer { margin-top: 6mm; font-size: 8pt; color: #888; text-align: right; }
-@media screen { body { padding: 20px; max-width: 210mm; margin: 0 auto; } table { border: 1px solid #e5e7eb; } }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f6f7; }
+.page { width: 210mm; height: 297mm; padding: ${PAGE_MARGIN_TOP}mm 0 0 ${PAGE_MARGIN_LEFT}mm; page-break-after: always; background: white; }
+.page:last-child { page-break-after: auto; }
+.grid { display: grid; grid-template-columns: repeat(${COLS}, ${LABEL_W}mm); grid-template-rows: repeat(${ROWS}, ${LABEL_H}mm); justify-content: center; }
+.label { width: ${LABEL_W}mm; height: ${LABEL_H}mm; padding: 1mm 2mm; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+.label.empty { visibility: hidden; }
+.brand { font-size: 5pt; color: #8592A3; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5mm; }
+.name { font-size: 6.5pt; font-weight: bold; color: #1F2937; line-height: 1.2; max-height: 2.4em; overflow: hidden; margin-bottom: 0.5mm; padding: 0 1mm; }
+.ref { font-family: monospace; font-size: 6pt; color: #03C3EC; margin-bottom: 0.5mm; }
+.price-ttc { font-size: 9pt; font-weight: bold; color: #1F2937; margin-bottom: 0.5mm; }
+.barcode-container { width: 100%; }
+.barcode-container svg { width: 80%; height: auto; max-height: 9mm; }
+@media print { body { background: white; } }
+@media screen { body { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; } .page { border: 1px solid #ccc; border-radius: 4px; } .label:not(.empty) { outline: 1px dashed #e5e7eb; } }
 </style></head><body>
-<div class="header">
-  <div>
-    <h1>Fiche de prélèvement</h1>
-    <div class="sub">${printableLabels.length} article${printableLabels.length > 1 ? "s" : ""} sélectionné${printableLabels.length > 1 ? "s" : ""}</div>
-  </div>
-  <div class="date">DIMEXOI<br>${dateStr}</div>
-</div>
-<table>
-  <thead><tr>
-    <th class="num">#</th>
-    <th class="ref">Référence</th>
-    <th class="name">Désignation</th>
-    <th class="bc">Code-barre</th>
-    <th class="qty">Qté</th>
-  </tr></thead>
-  <tbody>${rows}</tbody>
-</table>
-<div class="footer">Imprimé le ${dateStr} — KÒKPIT</div>
+${pages.join("\n")}
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3/dist/JsBarcode.all.min.js"><\/script>
-<script>${barcodeScripts.join("\n")}\nsetTimeout(function(){window.print();},500);<\/script>
+<script>${barcodeScripts}\nsetTimeout(function(){window.print();},500);<\/script>
 </body></html>`);
     printWindow.document.close();
   }, [printableLabels]);
@@ -547,7 +550,7 @@ td.qty { border: 1.5px solid #d1d5db; border-radius: 3px; height: 9mm; min-width
         <div className="flex-1">
           <p className="text-xs font-semibold text-cockpit-heading">Étiquettes compatibles</p>
           <p className="text-[11px] text-cockpit-secondary mt-0.5">
-            Apli Agipa — 2400 étiquettes blanches multi-usages — <strong>70 x 37 mm</strong> — coins droits — réf <strong>119011</strong>
+            Agipa — 2400 étiquettes blanches multi-usages — <strong>70 x 35 mm</strong> — coins droits — réf <strong>51259</strong>
             <br />Format A4, 24 étiquettes/page (3 colonnes x 8 lignes). Jet d&apos;encre / Laser / Copieur.
           </p>
         </div>
@@ -996,7 +999,7 @@ td.qty { border: 1.5px solid #d1d5db; border-radius: 3px; height: 9mm; min-width
             style={{ backgroundColor: "var(--color-active, #4C9DB0)", color: "white" }}
           >
             <Printer className="w-4 h-4" />
-            Imprimer {totalChecked} article{totalChecked > 1 ? "s" : ""}
+            Imprimer {totalChecked} étiquette{totalChecked > 1 ? "s" : ""}
           </button>
         </div>
       )}
