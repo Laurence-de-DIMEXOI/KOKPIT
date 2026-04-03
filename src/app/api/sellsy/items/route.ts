@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchItems, listAllItems, invalidateSellsyCache } from "@/lib/sellsy";
+import { searchItems, listAllItems, listDeclinations, invalidateSellsyCache } from "@/lib/sellsy";
 import { itemsCache } from "@/lib/api-cache";
 
 // GET /api/sellsy/items - Liste des produits (exclut shipping/packaging et archivés)
 // Cache 1h — les produits ne changent quasiment jamais
 // Param fresh=true pour forcer le refresh
+// Param withDeclinations=true pour inclure les déclinaisons
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -13,8 +14,11 @@ export async function GET(request: NextRequest) {
     const offset = searchParams.get("offset") || "0";
     const search = searchParams.get("search") || "";
     const all = searchParams.get("all") === "true";
+    const withDecl = searchParams.get("withDeclinations") === "true";
 
-    const cacheKey = all ? "items_all" : `items_${limit}_${offset}_${search}`;
+    const cacheKey = all
+      ? withDecl ? "items_all_decl" : "items_all"
+      : `items_${limit}_${offset}_${search}`;
 
     // Vérifier le cache (1h TTL — produits stables)
     if (!fresh) {
@@ -29,9 +33,52 @@ export async function GET(request: NextRequest) {
 
     if (all) {
       const items = await listAllItems();
+
+      // Si demandé, récupérer les déclinaisons pour les items déclinés
+      let declinations: Record<number, Array<{
+        id: number;
+        reference: string;
+        name: string | null;
+        reference_price_taxes_exc: string;
+        reference_price_taxes_inc: string;
+        purchase_amount: string;
+      }>> = {};
+
+      if (withDecl) {
+        const declinedItems = items.filter((i) => i.is_declined);
+        // Batch par 5 pour ne pas surcharger l'API
+        const BATCH = 5;
+        for (let i = 0; i < declinedItems.length; i += BATCH) {
+          const batch = declinedItems.slice(i, i + BATCH);
+          const results = await Promise.all(
+            batch.map(async (item) => {
+              try {
+                const res = await listDeclinations(item.id);
+                return { itemId: item.id, data: res.data };
+              } catch {
+                return { itemId: item.id, data: [] };
+              }
+            })
+          );
+          for (const r of results) {
+            if (r.data.length > 0) {
+              declinations[r.itemId] = r.data.map((d) => ({
+                id: d.id,
+                reference: d.reference,
+                name: d.name,
+                reference_price_taxes_exc: d.reference_price_taxes_exc,
+                reference_price_taxes_inc: d.reference_price_taxes_inc,
+                purchase_amount: d.purchase_amount,
+              }));
+            }
+          }
+        }
+      }
+
       const responseData = {
         success: true,
         items,
+        declinations: withDecl ? declinations : undefined,
         pagination: { total: items.length, count: items.length, limit: items.length, offset: 0 },
         _cache: { generatedAt: new Date().toISOString() },
       };

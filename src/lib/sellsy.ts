@@ -272,6 +272,27 @@ export async function getItem(id: number): Promise<{ data: SellsyItem }> {
   return sellsyFetch<{ data: SellsyItem }>(`/items/${id}`);
 }
 
+export interface SellsyDeclination {
+  id: number;
+  item_id: number;
+  reference: string;
+  name: string | null;
+  reference_price_taxes_exc: string;
+  reference_price_taxes_inc: string;
+  purchase_amount: string;
+  is_archived: boolean;
+  created: string;
+  updated: string;
+}
+
+export async function listDeclinations(
+  itemId: number
+): Promise<SellsyListResponse<SellsyDeclination>> {
+  return sellsyFetch<SellsyListResponse<SellsyDeclination>>(
+    `/items/${itemId}/declinations?limit=100`
+  );
+}
+
 export async function searchItems(params: {
   filters: {
     name?: string;
