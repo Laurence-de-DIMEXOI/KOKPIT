@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Package,
@@ -640,7 +640,7 @@ ${pages.join("\n")}
                   const isDeclLoading = loadingDecl.has(item.id);
 
                   return (
-                    <tbody key={item.id}>
+                    <React.Fragment key={item.id}>
                       <tr className={`hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
                         <td className="pl-4 pr-1 py-3 w-8" onClick={(e) => e.stopPropagation()}>
                           <input
@@ -758,7 +758,7 @@ ${pages.join("\n")}
                         const dPurch = parseFloat(decl.purchase_amount || "0");
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
                         return (
-                          <tr key={`decl-${decl.id}`} className="bg-cockpit-dark/30 hover:bg-cockpit-dark/50 transition-colors">
+                          <tr key={`decl-${decl.id}`} className="bg-cockpit-dark/30 hover:bg-cockpit-dark/50 transition-colors cursor-pointer" onClick={() => setSelectedItem(item)}>
                             <td className="pl-4 pr-1 py-2 w-8" />
                             <td className="px-4 lg:px-6 py-2">
                               <span className="text-xs font-mono text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded">
@@ -799,7 +799,7 @@ ${pages.join("\n")}
                           </tr>
                         );
                       })}
-                    </tbody>
+                    </React.Fragment>
                   );
                 })
               ) : (
@@ -1012,7 +1012,13 @@ ${pages.join("\n")}
       )}
 
       {/* Product Drawer */}
-      <ProductDrawer item={selectedItem} onClose={() => setSelectedItem(null)} />
+      <ProductDrawer
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+        declinations={selectedItem ? declinations[selectedItem.id] || [] : []}
+        stock={selectedItem ? stockData[selectedItem.id] || null : null}
+        canSeePurchase={canSeePurchase}
+      />
     </div>
   );
 }

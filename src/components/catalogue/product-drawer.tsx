@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Package, Tag, Euro, Hash, Calendar, Info, ExternalLink, Barcode } from "lucide-react";
+import { X, Package, Tag, Euro, Hash, Calendar, ExternalLink, Barcode, Warehouse, Layers } from "lucide-react";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 import { BarcodeLabel } from "./barcode-label";
 
@@ -17,16 +17,43 @@ interface SellsyItem {
   standard_quantity: string;
   category_id: number;
   is_archived: boolean;
+  is_declined: boolean;
   created: string;
   updated: string;
+}
+
+interface Declination {
+  id: number;
+  reference: string;
+  name: string | null;
+  reference_price_taxes_exc: string | null;
+  purchase_amount: string | null;
+}
+
+interface StockEntry {
+  warehouseId: string;
+  warehouseLabel: string;
+  quantity: number;
+  booked: number;
+  available: number;
+  isDefault: boolean;
+}
+
+interface ItemStock {
+  stock: StockEntry[];
+  totalAvailable: number;
 }
 
 interface ProductDrawerProps {
   item: SellsyItem | null;
   onClose: () => void;
+  declinations?: Declination[];
+  stock?: ItemStock | null;
+  canSeePurchase?: boolean;
 }
 
-const formatEuro = (val: string | number) => {
+const formatEuro = (val: string | number | null | undefined) => {
+  if (val === null || val === undefined) return "—";
   const num = typeof val === "string" ? parseFloat(val) : val;
   if (!num && num !== 0) return "—";
   return new Intl.NumberFormat("fr-FR", {
@@ -37,7 +64,7 @@ const formatEuro = (val: string | number) => {
   }).format(num);
 };
 
-export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
+export function ProductDrawer({ item, onClose, declinations = [], stock, canSeePurchase = false }: ProductDrawerProps) {
   if (!item) return null;
 
   const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
@@ -51,10 +78,7 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/40 z-40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
 
       {/* Drawer */}
       <div
@@ -75,19 +99,23 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
               <h2 className="text-lg font-bold text-[#1F2937] truncate">
                 {item.name || item.reference || `#${item.id}`}
               </h2>
-              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
-                item.type === "product"
-                  ? "bg-[#03C3EC]/10 text-[#03C3EC]"
-                  : "bg-[#FFAB00]/10 text-[#FFAB00]"
-              }`}>
-                {item.type === "product" ? "Produit" : "Service"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                  item.type === "product"
+                    ? "bg-[#03C3EC]/10 text-[#03C3EC]"
+                    : "bg-[#FFAB00]/10 text-[#FFAB00]"
+                }`}>
+                  {item.type === "product" ? "Produit" : "Service"}
+                </span>
+                {item.is_declined && declinations.length > 0 && (
+                  <span className="text-[9px] font-semibold text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded">
+                    {declinations.length} déclinaison{declinations.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white transition-colors text-[#8592A3]"
-          >
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white transition-colors text-[#8592A3]">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -114,12 +142,8 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
           </div>
 
           {/* Description */}
-          {item.description && (
+          {item.description && item.description.trim() && (
             <div className="px-6 py-4 border-b border-[#E8EAED]">
-              <h3 className="text-xs font-semibold text-[#8592A3] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5" />
-                Description
-              </h3>
               <p className="text-sm text-[#32475C] bg-[#F5F6F7] p-3 rounded-lg whitespace-pre-wrap border border-[#E8EAED]">
                 {item.description}
               </p>
@@ -147,8 +171,76 @@ export function ProductDrawer({ item, onClose }: ProductDrawerProps) {
             </div>
           </div>
 
-          {/* Achat & Marge */}
-          {purchasePrice > 0 && (
+          {/* Stock par entrepôt */}
+          {stock && (
+            <div className="px-6 py-4 border-b border-[#E8EAED]">
+              <h3 className="text-xs font-semibold text-[#8592A3] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Warehouse className="w-3.5 h-3.5" />
+                Stock — {stock.totalAvailable} disponible{stock.totalAvailable !== 1 ? "s" : ""}
+              </h3>
+              <div className="space-y-2">
+                {stock.stock.map((s) => (
+                  <div key={s.warehouseId} className="flex items-center justify-between bg-[#F5F6F7] border border-[#E8EAED] px-4 py-2.5 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      {s.isDefault && <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-semibold">Défaut</span>}
+                      <span className="text-xs text-[#32475C]">{s.warehouseLabel}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className={`font-bold ${s.available > 0 ? "text-[#71DD37]" : "text-[#FF3E1D]"}`}>
+                        {s.available}
+                      </span>
+                      {s.booked > 0 && (
+                        <span className="text-[#FFAB00] text-[10px]">({s.booked} rés.)</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {stock.stock.length === 0 && (
+                  <p className="text-xs text-[#8592A3] text-center py-2">Aucun entrepôt</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Déclinaisons */}
+          {declinations.length > 0 && (
+            <div className="px-6 py-4 border-b border-[#E8EAED]">
+              <h3 className="text-xs font-semibold text-[#8592A3] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5" />
+                Déclinaisons ({declinations.length})
+              </h3>
+              <div className="space-y-1.5">
+                {declinations.map((d) => {
+                  const dHT = parseFloat(d.reference_price_taxes_exc || "0");
+                  const dPurch = parseFloat(d.purchase_amount || "0");
+                  const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
+                  return (
+                    <div key={d.id} className="flex items-center justify-between bg-[#F5F6F7] border border-[#E8EAED] px-4 py-2.5 rounded-lg">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] font-mono text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded">
+                          {d.reference}
+                        </span>
+                        {d.name && d.name !== d.reference && (
+                          <p className="text-xs text-[#32475C] mt-0.5 truncate">{d.name}</p>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-3">
+                        <p className="text-xs font-semibold text-[#1F2937]">{dHT > 0 ? formatEuro(dHT) : "—"}</p>
+                        {canSeePurchase && dMargin !== null && dMargin > 0 && (
+                          <p className={`text-[9px] ${dMargin > 30 ? "text-[#71DD37]" : dMargin > 15 ? "text-[#FFAB00]" : "text-[#FF3E1D]"}`}>
+                            Marge {dMargin.toFixed(0)}%
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Achat & Marge — uniquement pour les rôles autorisés */}
+          {canSeePurchase && purchasePrice > 0 && (
             <div className="px-6 py-4 border-b border-[#E8EAED]">
               <h3 className="text-xs font-semibold text-[#8592A3] uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5" />
