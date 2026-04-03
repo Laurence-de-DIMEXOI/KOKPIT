@@ -76,6 +76,7 @@ export default function CataloguePage() {
 
   const [items, setItems] = useState<SellsyItem[]>([]);
   const [declinations, setDeclinations] = useState<Record<number, Declination[]>>({});
+  const [loadingDecl, setLoadingDecl] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchInput, setSearchInput] = useState("");
@@ -93,20 +94,45 @@ export default function CataloguePage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  // Fetch items only (fast — no declinations)
   const fetchItems = async (fresh = false) => {
     setRefreshing(true);
     try {
-      const res = await fetch(`/api/sellsy/items?all=true&withDeclinations=true${fresh ? "&fresh=true" : ""}`);
+      const res = await fetch(`/api/sellsy/items?all=true${fresh ? "&fresh=true" : ""}`);
       const data = await res.json();
       if (data.success) {
         setItems(data.items || []);
-        setDeclinations(data.declinations || {});
+        if (fresh) {
+          setDeclinations({});
+          setExpandedIds(new Set());
+        }
       }
     } catch (error) {
       console.error("Erreur chargement catalogue:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  // Lazy-load declinations for a single item
+  const fetchDeclinations = async (itemId: number) => {
+    if (declinations[itemId]) return; // already loaded
+    setLoadingDecl((prev) => new Set(prev).add(itemId));
+    try {
+      const res = await fetch(`/api/sellsy/items/${itemId}/declinations`);
+      const data = await res.json();
+      if (data.success) {
+        setDeclinations((prev) => ({ ...prev, [itemId]: data.declinations || [] }));
+      }
+    } catch (error) {
+      console.error(`Erreur déclinaisons item ${itemId}:`, error);
+    } finally {
+      setLoadingDecl((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
     }
   };
 
@@ -118,8 +144,12 @@ export default function CataloguePage() {
     e.stopPropagation();
     setExpandedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        fetchDeclinations(id); // lazy load
+      }
       return next;
     });
   };
@@ -186,6 +216,10 @@ export default function CataloguePage() {
     () => Object.values(declinations).reduce((sum, d) => sum + d.length, 0),
     [declinations]
   );
+  const totalDeclined = useMemo(
+    () => items.filter((i) => i.is_declined).length,
+    [items]
+  );
   const kpis = useMemo(() => {
     const products = items.filter((i) => i.type === "product");
     const services = items.filter((i) => i.type === "service");
@@ -199,10 +233,10 @@ export default function CataloguePage() {
       products: products.length,
       services: services.length,
       avgPriceHT,
-      declinations: totalDecl,
+      declined: totalDeclined,
       inStock,
     };
-  }, [items, totalDecl]);
+  }, [items, totalDeclined]);
 
   // Sort handler
   const handleSort = (key: SortKey) => {
@@ -241,11 +275,13 @@ export default function CataloguePage() {
 
   // Expand/collapse all
   const expandAll = () => {
-    const withDecl = filtered.filter((i) => declinations[i.id]?.length);
+    const withDecl = filtered.filter((i) => i.is_declined);
     setExpandedIds(new Set(withDecl.map((i) => i.id)));
+    // Lazy-load missing declinations
+    withDecl.forEach((i) => fetchDeclinations(i.id));
   };
   const collapseAll = () => setExpandedIds(new Set());
-  const hasAnyDecl = filtered.some((i) => declinations[i.id]?.length);
+  const hasAnyDecl = filtered.some((i) => i.is_declined);
 
   const handlePrintMulti = useCallback(() => {
     if (checkedItems.length === 0) return;
@@ -468,7 +504,7 @@ export default function CataloguePage() {
           </h1>
           <p className="text-cockpit-secondary text-sm">
             {filtered.length} produit{filtered.length > 1 ? "s" : ""} affichés sur {items.length}
-            {totalDecl > 0 && <span className="ml-1">({totalDecl} déclinaisons)</span>}
+            {totalDeclined > 0 && <span className="ml-1">({totalDeclined} avec déclinaisons)</span>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -501,7 +537,7 @@ export default function CataloguePage() {
         <KPICard title="Produits" value={kpis.products} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-info" />
         <KPICard title="Services" value={kpis.services} icon={<Tag className="w-7 h-7" />} bgColor="bg-cockpit-success" />
         <KPICard title="En stock" value={kpis.inStock} icon={<CheckCircle2 className="w-7 h-7" />} bgColor="bg-cockpit-success" />
-        <KPICard title="Déclinaisons" value={kpis.declinations} icon={<Layers className="w-7 h-7" />} bgColor="bg-purple-500" />
+        <KPICard title="Avec déclinaisons" value={kpis.declined} icon={<Layers className="w-7 h-7" />} bgColor="bg-purple-500" />
       </div>
 
       {/* Search + Filters */}
@@ -602,8 +638,9 @@ export default function CataloguePage() {
                   const purchasePrice = parseFloat(item.purchase_amount || "0");
                   const margin = priceHT > 0 && purchasePrice > 0 ? ((priceHT - purchasePrice) / priceHT * 100) : null;
                   const decls = declinations[item.id] || [];
-                  const hasDecls = decls.length > 0;
+                  const hasDecls = item.is_declined;
                   const isExpanded = expandedIds.has(item.id);
+                  const isDeclLoading = loadingDecl.has(item.id);
 
                   return (
                     <>
@@ -620,7 +657,7 @@ export default function CataloguePage() {
                         <td className="w-8 py-3 text-center" onClick={(e) => hasDecls && toggleExpand(item.id, e)}>
                           {hasDecls ? (
                             <button className="p-0.5 rounded hover:bg-cockpit-dark/50 text-cockpit-secondary hover:text-cockpit-info transition-colors">
-                              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                              {isDeclLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                             </button>
                           ) : null}
                         </td>
@@ -786,7 +823,7 @@ export default function CataloguePage() {
               const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
               const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
               const decls = declinations[item.id] || [];
-              const hasDecls = decls.length > 0;
+              const hasDecls = item.is_declined;
               const isExpanded = expandedIds.has(item.id);
 
               return (
@@ -904,7 +941,7 @@ export default function CataloguePage() {
           <p className="text-xs text-cockpit-secondary">
             {filtered.length} article{filtered.length > 1 ? "s" : ""} affichés
             {filtered.length !== items.length && ` (sur ${items.length} total)`}
-            {totalDecl > 0 && ` — ${totalDecl} déclinaisons`}
+            {totalDeclined > 0 && ` — ${totalDeclined} déclinés`}
           </p>
         </div>
       </div>
