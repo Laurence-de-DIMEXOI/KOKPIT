@@ -14,7 +14,6 @@ import {
   Printer,
   ScanBarcode,
   ChevronRight,
-  ChevronDown,
   ChevronLeft,
   Layers,
   ExternalLink,
@@ -102,7 +101,6 @@ export default function CataloguePage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedItem, setSelectedItem] = useState<SellsyItem | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
   const [stockData, setStockData] = useState<Record<number, ItemStock>>({});
   const [loadingStock, setLoadingStock] = useState<Set<number>>(new Set());
@@ -129,7 +127,6 @@ export default function CataloguePage() {
         setItems(data.items || []);
         if (fresh) {
           setDeclinations({});
-          setExpandedIds(new Set());
         }
       }
     } catch (error) {
@@ -186,20 +183,6 @@ export default function CataloguePage() {
   }, [stockData, loadingStock]);
 
   useEffect(() => { fetchItems(); }, []);
-
-  const toggleExpand = (id: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-        fetchDeclinations(id);
-      }
-      return next;
-    });
-  };
 
   // Filter & sort
   const filtered = useMemo(() => {
@@ -260,6 +243,12 @@ export default function CataloguePage() {
     () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filtered, page]
   );
+
+  // Auto-fetch declinations for declined items on current page
+  useEffect(() => {
+    const declined = paginated.filter((i) => i.is_declined && !declinations[i.id] && !loadingDecl.has(i.id));
+    declined.forEach((i) => fetchDeclinations(i.id));
+  }, [paginated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // KPIs
   const totalDeclined = useMemo(() => items.filter((i) => i.is_declined).length, [items]);
@@ -322,15 +311,6 @@ export default function CataloguePage() {
     () => items.filter((i) => checkedIds.has(i.id)),
     [items, checkedIds]
   );
-
-  // Expand/collapse all (on current page)
-  const expandAll = () => {
-    const withDecl = paginated.filter((i) => i.is_declined);
-    setExpandedIds(new Set(withDecl.map((i) => i.id)));
-    withDecl.forEach((i) => fetchDeclinations(i.id));
-  };
-  const collapseAll = () => setExpandedIds(new Set());
-  const hasAnyDecl = paginated.some((i) => i.is_declined);
 
   const handlePrintMulti = useCallback(() => {
     if (checkedItems.length === 0) return;
@@ -531,15 +511,6 @@ ${pages.join("\n")}
             <option value="product">Produits</option>
             <option value="service">Services</option>
           </select>
-          {hasAnyDecl && (
-            <button
-              onClick={expandedIds.size > 0 ? collapseAll : expandAll}
-              className="flex items-center gap-1.5 bg-cockpit-input border border-cockpit-input px-3 py-2.5 rounded-input text-xs text-cockpit-primary hover:bg-cockpit-dark transition-colors"
-            >
-              <Layers className="w-3.5 h-3.5" />
-              {expandedIds.size > 0 ? "Replier tout" : "Déplier tout"}
-            </button>
-          )}
         </div>
       </div>
 
@@ -558,7 +529,6 @@ ${pages.join("\n")}
                     className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
                   />
                 </th>
-                <th className="w-8 py-3" />
                 <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("reference")}>
                   <span className="flex items-center gap-1.5">RÉF. <SortIcon col="reference" /></span>
                 </th>
@@ -593,7 +563,6 @@ ${pages.join("\n")}
                   const margin = priceHT > 0 && purchasePrice > 0 ? ((priceHT - purchasePrice) / priceHT * 100) : null;
                   const decls = declinations[item.id] || [];
                   const hasDecls = item.is_declined;
-                  const isExpanded = expandedIds.has(item.id);
                   const isDeclLoading = loadingDecl.has(item.id);
 
                   return (
@@ -608,22 +577,19 @@ ${pages.join("\n")}
                             className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
                           />
                         </td>
-                        <td className="w-8 py-3 text-center" onClick={(e) => hasDecls && toggleExpand(item.id, e)}>
-                          {hasDecls ? (
-                            <button className="p-0.5 rounded hover:bg-cockpit-dark/50 text-cockpit-secondary hover:text-cockpit-info transition-colors">
-                              {isDeclLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                            </button>
-                          ) : null}
-                        </td>
                         <td className="px-4 lg:px-6 py-3">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-mono text-cockpit-info bg-cockpit-info/10 px-2 py-0.5 rounded">
                               {item.reference || "—"}
                             </span>
-                            {hasDecls && decls.length > 0 && (
-                              <span className="text-[9px] font-semibold text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
-                                {decls.length} décl.
-                              </span>
+                            {hasDecls && (
+                              isDeclLoading ? (
+                                <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                              ) : decls.length > 0 ? (
+                                <span className="text-[9px] font-semibold text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
+                                  {decls.length} décl.
+                                </span>
+                              ) : null
                             )}
                           </div>
                         </td>
@@ -632,11 +598,6 @@ ${pages.join("\n")}
                             <p className="text-sm font-medium text-cockpit-heading truncate max-w-[300px]">
                               {item.name || item.reference || `#${item.id}`}
                             </p>
-                            {item.description && item.description !== item.name && (
-                              <p className="text-[10px] text-cockpit-secondary truncate max-w-[300px] mt-0.5">
-                                {item.description}
-                              </p>
-                            )}
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -717,17 +678,14 @@ ${pages.join("\n")}
                           </td>
                         )}
                       </tr>
-                      {/* Declinations sub-rows */}
-                      {hasDecls && isExpanded && decls.map((decl) => {
+                      {/* Declinations — always visible */}
+                      {hasDecls && decls.map((decl) => {
                         const dHT = parseFloat(decl.reference_price_taxes_exc || "0");
                         const dPurch = parseFloat(decl.purchase_amount || "0");
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
                         return (
                           <tr key={`decl-${decl.id}`} className="bg-cockpit-dark/30 hover:bg-cockpit-dark/50 transition-colors">
                             <td className="pl-4 pr-1 py-2 w-8" />
-                            <td className="w-8 py-2 text-center">
-                              <div className="w-4 h-px bg-cockpit-secondary/30 ml-auto mr-1" />
-                            </td>
                             <td className="px-4 lg:px-6 py-2">
                               <span className="text-xs font-mono text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded">
                                 {decl.reference || "—"}
@@ -743,7 +701,7 @@ ${pages.join("\n")}
                             </td>
                             <td className="px-4 lg:px-6 py-2 text-right">
                               <span className="text-xs font-semibold text-cockpit-heading">
-                                {formatEuro(dHT)}
+                                {dHT > 0 ? formatEuro(dHT) : "—"}
                               </span>
                             </td>
                             <td className="px-4 lg:px-6 py-2 text-right">
@@ -790,7 +748,6 @@ ${pages.join("\n")}
               const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
               const decls = declinations[item.id] || [];
               const hasDecls = item.is_declined;
-              const isExpanded = expandedIds.has(item.id);
 
               return (
                 <div key={item.id}>
@@ -806,14 +763,6 @@ ${pages.join("\n")}
                             className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
                           />
                         </div>
-                        {hasDecls && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleExpand(item.id, e); }}
-                            className="p-0.5 text-cockpit-secondary"
-                          >
-                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                          </button>
-                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -865,8 +814,8 @@ ${pages.join("\n")}
                       </div>
                     </div>
                   </div>
-                  {/* Mobile declinations */}
-                  {hasDecls && isExpanded && (
+                  {/* Mobile declinations — always visible */}
+                  {hasDecls && decls.length > 0 && (
                     <div className="bg-cockpit-dark/30 divide-y divide-cockpit/50">
                       {decls.map((decl) => (
                         <div key={decl.id} className="px-4 py-2.5 pl-12">
