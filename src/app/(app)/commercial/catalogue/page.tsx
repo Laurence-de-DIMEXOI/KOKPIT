@@ -107,6 +107,7 @@ export default function CataloguePage() {
   const [checkedDeclIds, setCheckedDeclIds] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
   const [stockData, setStockData] = useState<Record<number, ItemStock>>({});
+  const [loadingStock, setLoadingStock] = useState<Set<number>>(new Set());
   const [stockLoaded, setStockLoaded] = useState(false);
   const [loadingAllStock, setLoadingAllStock] = useState(false);
 
@@ -163,7 +164,56 @@ export default function CataloguePage() {
     }
   };
 
-  // Charger le stock de tous les produits (cache serveur 30 min)
+  // Stock individuel pour un item
+  const fetchStock = useCallback(async (itemId: number) => {
+    if (stockData[itemId] !== undefined || loadingStock.has(itemId)) return;
+    setLoadingStock((prev) => new Set(prev).add(itemId));
+    try {
+      const res = await fetch(`/api/sellsy/stock/${itemId}`);
+      const data = await res.json();
+      if (data.success) {
+        setStockData((prev) => ({
+          ...prev,
+          [itemId]: { stock: data.stock || [], totalAvailable: data.totalAvailable ?? 0 },
+        }));
+      }
+    } catch {
+      // ignore silently
+    } finally {
+      setLoadingStock((prev) => { const n = new Set(prev); n.delete(itemId); return n; });
+    }
+  }, [stockData, loadingStock]);
+
+  // Charger le stock des items de la page courante (rapide, fiable)
+  const fetchStockForPage = useCallback(async (pageItems: SellsyItem[]) => {
+    const toFetch = pageItems.filter(
+      (i) => i.type === "product" && stockData[i.id] === undefined && !loadingStock.has(i.id)
+    );
+    if (toFetch.length === 0) return;
+    toFetch.forEach((i) => {
+      setLoadingStock((prev) => new Set(prev).add(i.id));
+    });
+    await Promise.allSettled(
+      toFetch.map(async (item) => {
+        try {
+          const res = await fetch(`/api/sellsy/stock/${item.id}`);
+          const data = await res.json();
+          if (data.success) {
+            setStockData((prev) => ({
+              ...prev,
+              [item.id]: { stock: data.stock || [], totalAvailable: data.totalAvailable ?? 0 },
+            }));
+          }
+        } catch {
+          // ignore
+        } finally {
+          setLoadingStock((prev) => { const n = new Set(prev); n.delete(item.id); return n; });
+        }
+      })
+    );
+  }, [stockData, loadingStock]);
+
+  // Charger le stock de tous les produits (cache serveur 30 min) — pour tri/filtre
   const fetchAllStock = useCallback(async () => {
     if (stockLoaded || loadingAllStock) return;
     setLoadingAllStock(true);
@@ -284,10 +334,12 @@ export default function CataloguePage() {
     [filtered, page]
   );
 
-  // Auto-fetch declinations for declined items on current page
+  // Auto-fetch declinations + stock for items on current page
   useEffect(() => {
     const declined = paginated.filter((i) => i.is_declined && !declinations[i.id] && !loadingDecl.has(i.id));
     declined.forEach((i) => fetchDeclinations(i.id));
+    // Charger le stock des items visibles immédiatement
+    fetchStockForPage(paginated);
   }, [paginated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // KPIs
@@ -712,7 +764,7 @@ ${pages.join("\n")}
                   const stockCell = (
                     item.type !== "product" ? (
                       <span className="text-[10px] text-cockpit-secondary">—</span>
-                    ) : loadingAllStock && !stockData[item.id] ? (
+                    ) : (loadingStock.has(item.id) || (loadingAllStock && stockData[item.id] === undefined)) ? (
                       <Loader2 className="w-3 h-3 animate-spin mx-auto text-cockpit-secondary" />
                     ) : stockData[item.id] ? (
                       <div className="inline-flex flex-col items-center gap-0.5" title={stockData[item.id].stock.map((s) => `${s.warehouseLabel}: ${s.available}`).join("\n")}>
@@ -810,8 +862,13 @@ ${pages.join("\n")}
                       )}
                       {/* Declination rows — each with its own checkbox */}
                       {hasDecls && decls.map((decl, dIdx) => {
-                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0");
-                        const dPurch = parseFloat(decl.purchase_amount || "0");
+                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                        // TTC calculé depuis le taux TVA du parent
+                        const tvaMultiplier = priceHT > 0 && priceTTC > 0 ? priceTTC / priceHT : 1;
+                        const dTTC = dHT * tvaMultiplier;
+                        // Achat: déclinaison en priorité, sinon hérite du parent
+                        const dPurchRaw = parseFloat(decl.purchase_amount || "0");
+                        const dPurch = dPurchRaw > 0 ? dPurchRaw : purchasePrice;
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
                         return (
                           <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
@@ -846,11 +903,13 @@ ${pages.join("\n")}
                             </td>
                             <td className="px-4 lg:px-6 py-2 text-right">
                               <span className="text-xs font-semibold text-cockpit-heading">
-                                {dHT > 0 ? formatEuro(dHT) : formatEuro(priceHT)}
+                                {formatEuro(dHT)}
                               </span>
                             </td>
                             <td className="px-4 lg:px-6 py-2 text-right">
-                              <span className="text-xs text-cockpit-secondary">—</span>
+                              <span className="text-xs text-cockpit-primary">
+                                {formatEuro(dTTC)}
+                              </span>
                             </td>
                             <td className="px-3 py-2 text-center">
                               {dIdx === 0 ? stockCell : null}
@@ -859,7 +918,7 @@ ${pages.join("\n")}
                               <td className="px-3 py-2 text-right hidden lg:table-cell">
                                 <div>
                                   <span className="text-[10px] text-cockpit-secondary">
-                                    {dPurch > 0 ? formatEuro(dPurch) : "—"}
+                                    {formatEuro(dPurch)}
                                   </span>
                                   {dMargin !== null && dMargin > 0 && (
                                     <p className={`text-[9px] ${dMargin > 30 ? "text-cockpit-success" : dMargin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
@@ -953,7 +1012,9 @@ ${pages.join("\n")}
                   {hasDecls && decls.length > 0 && (
                     <div className="divide-y divide-cockpit/50">
                       {decls.map((decl, dIdx) => {
-                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0");
+                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                        const tvaMultiplier = priceHT > 0 && priceTTC > 0 ? priceTTC / priceHT : 1;
+                        const dTTC = dHT * tvaMultiplier;
                         return (
                           <div
                             key={decl.id}
@@ -985,19 +1046,22 @@ ${pages.join("\n")}
                                 )}
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <p className="text-xs font-semibold text-cockpit-heading">
-                                  {dHT > 0 ? formatEuro(dHT) : formatEuro(priceHT)}
-                                </p>
-                                {dIdx === 0 && item.type === "product" && stockData[item.id] && (
-                                  stockData[item.id].totalAvailable > 0 ? (
-                                    <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                                      Stock: {stockData[item.id].totalAvailable}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                                      Stock: 0
-                                    </span>
-                                  )
+                                <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dHT)}</p>
+                                <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(dTTC)}</p>
+                                {dIdx === 0 && item.type === "product" && (
+                                  loadingStock.has(item.id) ? (
+                                    <Loader2 className="w-3 h-3 animate-spin text-cockpit-secondary mt-1" />
+                                  ) : stockData[item.id] ? (
+                                    stockData[item.id].totalAvailable > 0 ? (
+                                      <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                        Stock: {stockData[item.id].totalAvailable}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                        Stock: 0
+                                      </span>
+                                    )
+                                  ) : null
                                 )}
                               </div>
                             </div>
