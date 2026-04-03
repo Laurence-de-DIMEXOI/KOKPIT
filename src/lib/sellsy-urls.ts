@@ -18,3 +18,8 @@ export function getSellsyUrl(type: SellsyDocType, id: string | number): string {
   const cfg = TYPE_CONFIG[type];
   return `${SELLSY_BASE}/?_f=${cfg._f}&id=${id}${cfg.extra || ''}`;
 }
+
+// URL Sellsy d'une déclinaison : ?_f=catalogueitem&id=PARENT_ID&type=item&declid=DECL_ID
+export function getSellsyDeclUrl(parentItemId: number, declId: number): string {
+  return `${SELLSY_BASE}/?_f=catalogueitem&id=${parentItemId}&type=item&declid=${declId}`;
+}

@@ -51,6 +51,7 @@ interface ProductDrawerProps {
   declinations?: Declination[];
   stock?: ItemStock | null;
   canSeePurchase?: boolean;
+  sellsyUrlOverride?: string;
 }
 
 const formatEuro = (val: string | number | null | undefined) => {
@@ -65,16 +66,16 @@ const formatEuro = (val: string | number | null | undefined) => {
   }).format(num);
 };
 
-export function ProductDrawer({ item, onClose, declinations = [], stock, canSeePurchase = false }: ProductDrawerProps) {
+export function ProductDrawer({ item, onClose, declinations = [], stock, canSeePurchase = false, sellsyUrlOverride }: ProductDrawerProps) {
   if (!item) return null;
 
   const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
   const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
   const purchasePrice = parseFloat(item.purchase_amount || "0");
   const margin = priceHT > 0 && purchasePrice > 0 ? ((priceHT - purchasePrice) / priceHT * 100) : null;
-  const tvaRate = priceHT > 0 ? ((priceTTC - priceHT) / priceHT * 100) : null;
+  const tvaRate = priceHT > 0 && priceTTC > priceHT ? ((priceTTC - priceHT) / priceHT * 100) : 8.5;
 
-  const sellsyUrl = getSellsyUrl('product', item.id);
+  const sellsyUrl = sellsyUrlOverride || getSellsyUrl('product', item.id);
 
   const content = (
     <>

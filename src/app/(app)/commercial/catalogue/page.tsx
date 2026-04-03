@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { ProductDrawer } from "@/components/catalogue/product-drawer";
+import { getSellsyDeclUrl } from "@/lib/sellsy-urls";
 
 interface Declination {
   id: number;
@@ -103,6 +104,7 @@ export default function CataloguePage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedItem, setSelectedItem] = useState<SellsyItem | null>(null);
+  const [drawerDeclUrl, setDrawerDeclUrl] = useState<string | undefined>(undefined);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [checkedDeclIds, setCheckedDeclIds] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
@@ -208,6 +210,29 @@ export default function CataloguePage() {
           // ignore
         } finally {
           setLoadingStock((prev) => { const n = new Set(prev); n.delete(item.id); return n; });
+        }
+      })
+    );
+  }, [stockData, loadingStock]);
+
+  // Charger le stock pour chaque déclinaison (stock stocké par declId dans Sellsy)
+  const fetchStockForDeclinations = useCallback(async (decls: Array<{ id: number }>) => {
+    const toFetch = decls.filter((d) => stockData[d.id] === undefined && !loadingStock.has(d.id));
+    if (toFetch.length === 0) return;
+    toFetch.forEach((d) => setLoadingStock((prev) => new Set(prev).add(d.id)));
+    await Promise.allSettled(
+      toFetch.map(async (decl) => {
+        try {
+          const res = await fetch(`/api/sellsy/stock/${decl.id}`);
+          const data = await res.json();
+          if (data.success) {
+            setStockData((prev) => ({
+              ...prev,
+              [decl.id]: { stock: data.stock || [], totalAvailable: data.totalAvailable ?? 0 },
+            }));
+          }
+        } catch { /* ignore */ } finally {
+          setLoadingStock((prev) => { const n = new Set(prev); n.delete(decl.id); return n; });
         }
       })
     );
@@ -338,9 +363,14 @@ export default function CataloguePage() {
   useEffect(() => {
     const declined = paginated.filter((i) => i.is_declined && !declinations[i.id] && !loadingDecl.has(i.id));
     declined.forEach((i) => fetchDeclinations(i.id));
-    // Charger le stock des items visibles immédiatement
     fetchStockForPage(paginated);
   }, [paginated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Quand les déclinaisons d'une page sont chargées, fetcher leur stock
+  useEffect(() => {
+    const allDecls = paginated.flatMap((i) => declinations[i.id] || []);
+    if (allDecls.length > 0) fetchStockForDeclinations(allDecls);
+  }, [declinations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // KPIs
   const totalDeclined = useMemo(() => items.filter((i) => i.is_declined).length, [items]);
@@ -359,6 +389,64 @@ export default function CataloguePage() {
       declined: totalDeclined,
     };
   }, [items, totalDeclined]);
+
+  // Ouvrir le drawer d'une déclinaison spécifique (virtual SellsyItem)
+  const openDeclDrawer = (decl: Declination, parentItem: SellsyItem) => {
+    const parentHT = parseFloat(parentItem.reference_price_taxes_exc || "0");
+    const parentTTC = parseFloat(parentItem.reference_price_taxes_inc || "0");
+    const tvaMultiplier = parentHT > 0 && parentTTC > parentHT ? parentTTC / parentHT : 1.085;
+    const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || parentHT;
+    const dTTC = dHT * tvaMultiplier;
+    const dPurch = parseFloat(decl.purchase_amount || "0") || parseFloat(parentItem.purchase_amount || "0");
+    const virtualItem: SellsyItem = {
+      id: decl.id,
+      type: parentItem.type,
+      name: decl.name || parentItem.name || null,
+      reference: decl.reference,
+      description: parentItem.description || "",
+      reference_price_taxes_exc: String(dHT),
+      reference_price_taxes_inc: String(dTTC),
+      purchase_amount: String(dPurch),
+      currency: parentItem.currency,
+      standard_quantity: parentItem.standard_quantity,
+      category_id: parentItem.category_id,
+      is_archived: parentItem.is_archived,
+      is_declined: false,
+      created: parentItem.created,
+      updated: parentItem.updated,
+    };
+    setSelectedItem(virtualItem);
+    setDrawerDeclUrl(getSellsyDeclUrl(parentItem.id, decl.id));
+  };
+
+  // Stock agrégé pour le drawer d'un item parent décliné
+  const drawerStock = useMemo(() => {
+    if (!selectedItem) return null;
+    // Si le drawer est pour une déclinaison (via openDeclDrawer), utiliser son stockData direct
+    if (drawerDeclUrl) return stockData[selectedItem.id] || null;
+    // Si item non décliné, stock direct
+    if (!selectedItem.is_declined) return stockData[selectedItem.id] || null;
+    // Item décliné : agréger le stock de toutes ses déclinaisons
+    const decls = declinations[selectedItem.id] || [];
+    if (decls.length === 0) return stockData[selectedItem.id] || null;
+    const warehouseMap: Record<string, { warehouseId: string; warehouseLabel: string; quantity: number; booked: number; available: number; isDefault: boolean }> = {};
+    for (const decl of decls) {
+      const ds = stockData[decl.id];
+      if (!ds) continue;
+      for (const e of ds.stock) {
+        if (warehouseMap[e.warehouseId]) {
+          warehouseMap[e.warehouseId].available += e.available;
+          warehouseMap[e.warehouseId].quantity += e.quantity;
+          warehouseMap[e.warehouseId].booked += e.booked;
+        } else {
+          warehouseMap[e.warehouseId] = { ...e };
+        }
+      }
+    }
+    const stock = Object.values(warehouseMap);
+    if (stock.length === 0) return null;
+    return { stock, totalAvailable: stock.reduce((s, e) => s + e.available, 0) };
+  }, [selectedItem, drawerDeclUrl, stockData, declinations]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -860,18 +948,28 @@ ${pages.join("\n")}
                           )}
                         </tr>
                       )}
-                      {/* Declination rows — each with its own checkbox */}
+                      {/* Declination rows — each with its own checkbox + drawer */}
                       {hasDecls && decls.map((decl, dIdx) => {
                         const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
-                        // TTC calculé depuis le taux TVA du parent
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
                         const dTTC = dHT * tvaMultiplier;
-                        // Achat: déclinaison en priorité, sinon hérite du parent
                         const dPurchRaw = parseFloat(decl.purchase_amount || "0");
                         const dPurch = dPurchRaw > 0 ? dPurchRaw : purchasePrice;
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
+                        const dStock = stockData[decl.id];
+                        const dStockCell = loadingStock.has(decl.id) ? (
+                          <Loader2 className="w-3 h-3 animate-spin mx-auto text-cockpit-secondary" />
+                        ) : dStock ? (
+                          dStock.totalAvailable > 0 ? (
+                            <span className="text-[10px] font-bold text-cockpit-success bg-cockpit-success/10 px-2 py-0.5 rounded" title={dStock.stock.map((s) => `${s.warehouseLabel}: ${s.available}`).join("\n")}>
+                              {dStock.totalAvailable}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded">0</span>
+                          )
+                        ) : <span className="text-[10px] text-cockpit-secondary">—</span>;
                         return (
-                          <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
+                          <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => openDeclDrawer(decl, item)}>
                             <td className="pl-4 pr-1 py-2 w-8" onClick={(e) => e.stopPropagation()}>
                               <input
                                 type="checkbox"
@@ -912,7 +1010,7 @@ ${pages.join("\n")}
                               </span>
                             </td>
                             <td className="px-3 py-2 text-center">
-                              {dIdx === 0 ? stockCell : null}
+                              {dStockCell}
                             </td>
                             {canSeePurchase && (
                               <td className="px-3 py-2 text-right hidden lg:table-cell">
@@ -1015,11 +1113,12 @@ ${pages.join("\n")}
                         const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
                         const dTTC = dHT * tvaMultiplier;
+                        const dStock = stockData[decl.id];
                         return (
                           <div
                             key={decl.id}
                             className={`p-4 hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`}
-                            onClick={() => setSelectedItem(item)}
+                            onClick={() => openDeclDrawer(decl, item)}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
@@ -1049,12 +1148,12 @@ ${pages.join("\n")}
                                 <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dHT)}</p>
                                 <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(dTTC)}</p>
                                 {dIdx === 0 && item.type === "product" && (
-                                  loadingStock.has(item.id) ? (
+                                  loadingStock.has(decl.id) ? (
                                     <Loader2 className="w-3 h-3 animate-spin text-cockpit-secondary mt-1" />
-                                  ) : stockData[item.id] ? (
-                                    stockData[item.id].totalAvailable > 0 ? (
+                                  ) : dStock ? (
+                                    dStock.totalAvailable > 0 ? (
                                       <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                                        Stock: {stockData[item.id].totalAvailable}
+                                        Stock: {dStock.totalAvailable}
                                       </span>
                                     ) : (
                                       <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
@@ -1172,10 +1271,11 @@ ${pages.join("\n")}
       {/* Product Drawer */}
       <ProductDrawer
         item={selectedItem}
-        onClose={() => setSelectedItem(null)}
-        declinations={selectedItem ? declinations[selectedItem.id] || [] : []}
-        stock={selectedItem ? stockData[selectedItem.id] || null : null}
+        onClose={() => { setSelectedItem(null); setDrawerDeclUrl(undefined); }}
+        declinations={selectedItem && !drawerDeclUrl ? declinations[selectedItem.id] || [] : []}
+        stock={drawerStock}
         canSeePurchase={canSeePurchase}
+        sellsyUrlOverride={drawerDeclUrl}
       />
     </div>
   );
