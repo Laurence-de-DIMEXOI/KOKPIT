@@ -97,6 +97,9 @@ export default function CataloguePage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  const [declFilter, setDeclFilter] = useState<string>("ALL"); // ALL | with | without
+  const [priceFilter, setPriceFilter] = useState<string>("ALL"); // ALL | <100 | 100-500 | 500-1000 | >1000
+  const [stockFilter, setStockFilter] = useState<string>("ALL"); // ALL | instock | outstock
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedItem, setSelectedItem] = useState<SellsyItem | null>(null);
@@ -115,7 +118,7 @@ export default function CataloguePage() {
   }, [searchInput]);
 
   // Reset page on filter change
-  useEffect(() => { setPage(1); }, [typeFilter]);
+  useEffect(() => { setPage(1); }, [typeFilter, declFilter, priceFilter, stockFilter]);
 
   // Fetch items only (fast — no declinations)
   const fetchItems = async (fresh = false) => {
@@ -212,6 +215,33 @@ export default function CataloguePage() {
       result = result.filter((item) => item.type === typeFilter);
     }
 
+    if (declFilter === "with") {
+      result = result.filter((item) => item.is_declined);
+    } else if (declFilter === "without") {
+      result = result.filter((item) => !item.is_declined);
+    }
+
+    if (priceFilter !== "ALL") {
+      result = result.filter((item) => {
+        const ht = parseFloat(item.reference_price_taxes_exc || "0");
+        switch (priceFilter) {
+          case "<100": return ht < 100;
+          case "100-500": return ht >= 100 && ht < 500;
+          case "500-1000": return ht >= 500 && ht < 1000;
+          case ">1000": return ht >= 1000;
+          default: return true;
+        }
+      });
+    }
+
+    if (stockFilter !== "ALL") {
+      result = result.filter((item) => {
+        const st = stockData[item.id];
+        if (!st) return stockFilter === "unknown";
+        return stockFilter === "instock" ? st.totalAvailable > 0 : st.totalAvailable <= 0;
+      });
+    }
+
     result = [...result].sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
@@ -235,7 +265,7 @@ export default function CataloguePage() {
     });
 
     return result;
-  }, [items, declinations, search, typeFilter, sortKey, sortDir]);
+  }, [items, declinations, search, typeFilter, declFilter, priceFilter, stockFilter, stockData, sortKey, sortDir]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -490,27 +520,71 @@ ${pages.join("\n")}
       </div>
 
       {/* Search + Filters */}
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4">
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4 space-y-3">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
             <input
               type="text"
-              placeholder="Rechercher par nom, référence ou description..."
+              placeholder="Rechercher par nom, référence..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary text-sm"
             />
           </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {/* Type */}
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="bg-cockpit-input border border-cockpit-input px-3 py-2.5 rounded-input text-xs text-cockpit-primary"
+            className="bg-cockpit-input border border-cockpit-input px-3 py-1.5 rounded-lg text-xs text-cockpit-primary"
           >
             <option value="ALL">Tous les types</option>
             <option value="product">Produits</option>
             <option value="service">Services</option>
           </select>
+          {/* Déclinaisons */}
+          <select
+            value={declFilter}
+            onChange={(e) => setDeclFilter(e.target.value)}
+            className="bg-cockpit-input border border-cockpit-input px-3 py-1.5 rounded-lg text-xs text-cockpit-primary"
+          >
+            <option value="ALL">Déclinaisons : Tous</option>
+            <option value="with">Avec déclinaisons</option>
+            <option value="without">Sans déclinaison</option>
+          </select>
+          {/* Prix HT */}
+          <select
+            value={priceFilter}
+            onChange={(e) => setPriceFilter(e.target.value)}
+            className="bg-cockpit-input border border-cockpit-input px-3 py-1.5 rounded-lg text-xs text-cockpit-primary"
+          >
+            <option value="ALL">Prix : Tous</option>
+            <option value="<100">&lt; 100 &euro;</option>
+            <option value="100-500">100 - 500 &euro;</option>
+            <option value="500-1000">500 - 1 000 &euro;</option>
+            <option value=">1000">&gt; 1 000 &euro;</option>
+          </select>
+          {/* Stock */}
+          <select
+            value={stockFilter}
+            onChange={(e) => setStockFilter(e.target.value)}
+            className="bg-cockpit-input border border-cockpit-input px-3 py-1.5 rounded-lg text-xs text-cockpit-primary"
+          >
+            <option value="ALL">Stock : Tous</option>
+            <option value="instock">En stock</option>
+            <option value="outstock">Rupture</option>
+          </select>
+          {/* Reset */}
+          {(typeFilter !== "ALL" || declFilter !== "ALL" || priceFilter !== "ALL" || stockFilter !== "ALL" || search) && (
+            <button
+              onClick={() => { setTypeFilter("ALL"); setDeclFilter("ALL"); setPriceFilter("ALL"); setStockFilter("ALL"); setSearchInput(""); setSearch(""); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+            >
+              Effacer filtres
+            </button>
+          )}
         </div>
       </div>
 
