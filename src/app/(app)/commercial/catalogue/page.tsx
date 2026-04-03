@@ -720,6 +720,28 @@ ${pages.join("\n")}
         </div>
       </div>
 
+      {/* Mémo étiquettes */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4 flex items-start gap-3">
+        <Info className="w-5 h-5 text-cockpit-info flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <p className="text-xs font-semibold text-cockpit-heading">Étiquettes compatibles</p>
+          <p className="text-[11px] text-cockpit-secondary mt-0.5">
+            Apli Agipa — 2400 étiquettes blanches multi-usages — <strong>70 x 37 mm</strong> — coins droits — réf <strong>119011</strong>
+            <br />Format A4, 24 étiquettes/page (3 colonnes x 8 lignes). Jet d&apos;encre / Laser / Copieur.
+          </p>
+        </div>
+        <a
+          href={LABEL_BUY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white flex-shrink-0"
+          style={{ backgroundColor: "var(--color-active, #4C9DB0)" }}
+        >
+          <ShoppingCart className="w-3.5 h-3.5" />
+          Commander
+        </a>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KPICard title="Total articles" value={kpis.total} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
@@ -1230,28 +1252,6 @@ ${pages.join("\n")}
             </div>
           )}
         </div>
-      </div>
-
-      {/* Mémo étiquettes */}
-      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4 flex items-start gap-3">
-        <Info className="w-5 h-5 text-cockpit-info flex-shrink-0 mt-0.5" />
-        <div className="flex-1">
-          <p className="text-xs font-semibold text-cockpit-heading">Étiquettes compatibles</p>
-          <p className="text-[11px] text-cockpit-secondary mt-0.5">
-            Apli Agipa — 2400 étiquettes blanches multi-usages — <strong>70 x 37 mm</strong> — coins droits — réf <strong>119011</strong>
-            <br />Format A4, 24 étiquettes/page (3 colonnes x 8 lignes). Jet d&apos;encre / Laser / Copieur.
-          </p>
-        </div>
-        <a
-          href={LABEL_BUY_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white flex-shrink-0"
-          style={{ backgroundColor: "var(--color-active, #4C9DB0)" }}
-        >
-          <ShoppingCart className="w-3.5 h-3.5" />
-          Commander
-        </a>
       </div>
 
       {/* Floating Print Button */}
