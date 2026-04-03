@@ -1,15 +1,26 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Package, Search, RefreshCw, Loader2, AlertTriangle, Check, ExternalLink } from "lucide-react";
+import { Package, Search, RefreshCw, Loader2, AlertTriangle, Check, ExternalLink, Warehouse } from "lucide-react";
+
+interface StockEntrepot {
+  warehouseId: string;
+  warehouseLabel: string;
+  quantity: number;
+  booked: number;
+  available: number;
+  isDefault: boolean;
+}
 
 interface RefClassee {
   sellsyRefId: string;
+  sellsyItemId: number | null;
   designation: string;
   reference: string;
   caAnnuel: number;
   nbCommandes: number;
   stockActuel: number | null;
+  stockDetail: StockEntrepot[] | null;
   classe: "A" | "B" | "C";
   caPourcentage: number;
   caCumule: number;
@@ -55,6 +66,7 @@ export default function CatalogueABCPage() {
   const [seuilValue, setSeuilValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [expandedStock, setExpandedStock] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -233,6 +245,7 @@ export default function CatalogueABCPage() {
                       <th className="text-right px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">CA 12 mois</th>
                       <th className="text-right px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase hidden sm:table-cell">% CA</th>
                       <th className="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase hidden lg:table-cell">Cmd</th>
+                      <th className="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">Stock</th>
                       <th className="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">Seuil</th>
                       <th className="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase w-10"></th>
                     </tr>
@@ -240,7 +253,7 @@ export default function CatalogueABCPage() {
                   <tbody className="divide-y divide-gray-50">
                     {filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-12 text-center text-cockpit-secondary text-sm">Aucune référence trouvée</td>
+                        <td colSpan={9} className="px-4 py-12 text-center text-cockpit-secondary text-sm">Aucune référence trouvée</td>
                       </tr>
                     ) : (
                       filtered.map((ref) => {
@@ -266,6 +279,48 @@ export default function CatalogueABCPage() {
                             </td>
                             <td className="px-4 py-3 text-center hidden lg:table-cell">
                               <span className="text-xs text-cockpit-secondary">{ref.nbCommandes}</span>
+                            </td>
+                            {/* Stock par entrepôt */}
+                            <td className="px-4 py-3 text-center">
+                              {ref.stockActuel !== null ? (
+                                <div className="relative">
+                                  <button
+                                    onClick={() => {
+                                      const next = new Set(expandedStock);
+                                      next.has(ref.sellsyRefId) ? next.delete(ref.sellsyRefId) : next.add(ref.sellsyRefId);
+                                      setExpandedStock(next);
+                                    }}
+                                    className={`text-xs font-semibold px-2 py-0.5 rounded inline-flex items-center gap-1 ${
+                                      ref.stockActuel <= 0
+                                        ? "bg-red-50 text-red-600"
+                                        : ref.sousSeuilAlerte
+                                        ? "bg-orange-50 text-orange-600"
+                                        : "bg-green-50 text-green-700"
+                                    }`}
+                                  >
+                                    <Warehouse className="w-3 h-3" />
+                                    {ref.stockActuel}
+                                  </button>
+                                  {expandedStock.has(ref.sellsyRefId) && ref.stockDetail && (
+                                    <div className="absolute z-20 top-full mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[200px] text-left">
+                                      {ref.stockDetail.map((s) => (
+                                        <div key={s.warehouseId} className="flex items-center justify-between gap-3 py-1 text-[11px]">
+                                          <span className="text-cockpit-secondary truncate">
+                                            {s.isDefault && <span className="text-[9px] bg-blue-50 text-blue-600 px-1 rounded mr-1">Défaut</span>}
+                                            {s.warehouseLabel}
+                                          </span>
+                                          <span className={`font-semibold whitespace-nowrap ${s.available <= 0 ? "text-red-500" : "text-green-600"}`}>
+                                            {s.available}
+                                            {s.booked > 0 && <span className="text-orange-400 ml-1">({s.booked} rés.)</span>}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-gray-300">—</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-center">
                               {editingSeuil === ref.sellsyRefId ? (

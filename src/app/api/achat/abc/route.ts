@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { listItems, sellsyFetch, searchOrders } from "@/lib/sellsy";
-import { calculerClassificationABC, type RefABC } from "@/lib/calcul-abc";
+import { listItems, sellsyFetch, searchOrders, getStockForItem, getWarehouses } from "@/lib/sellsy";
+import { calculerClassificationABC, type RefABC, type StockEntrepot } from "@/lib/calcul-abc";
 
 export const maxDuration = 300; // 5 min pour le POST (recalcul)
 
@@ -69,6 +69,12 @@ async function computeABC(seuilA: number, seuilB: number) {
   } while (itemOffset < itemTotal);
   console.log(`[ABC] ${items.length} items catalogue`);
 
+  // Map référence → itemId pour pouvoir récupérer le stock
+  const refToItemId = new Map<string, number>();
+  for (const item of items) {
+    if (item.reference) refToItemId.set(item.reference.trim(), item.id);
+  }
+
   // 2. Commandes 12 mois
   const dateDebut = new Date();
   dateDebut.setFullYear(dateDebut.getFullYear() - 1);
@@ -92,8 +98,8 @@ async function computeABC(seuilA: number, seuilB: number) {
         existing.quantiteVendue = (existing.quantiteVendue || 0) + qty;
       } else {
         refMap.set(ref, {
-          sellsyRefId: ref, reference: ref, designation: desc,
-          caAnnuel: totalRow, nbCommandes: 1, quantiteVendue: qty, stockActuel: null,
+          sellsyRefId: ref, sellsyItemId: refToItemId.get(ref) || null, reference: ref, designation: desc,
+          caAnnuel: totalRow, nbCommandes: 1, quantiteVendue: qty, stockActuel: null, stockDetail: null,
         });
       }
     }
@@ -105,6 +111,44 @@ async function computeABC(seuilA: number, seuilB: number) {
     Array.from(refMap.values()).filter((r) => r.caAnnuel > 0),
     seuilA, seuilB
   );
+
+  // 4b. Récupérer le stock réel par entrepôt (V1 API)
+  const warehouses = await getWarehouses();
+  const itemsWithId = classees.filter((r) => r.sellsyItemId !== null);
+  console.log(`[ABC] Récupération stock pour ${itemsWithId.length} items...`);
+
+  const STOCK_BATCH = 10;
+  for (let i = 0; i < itemsWithId.length; i += STOCK_BATCH) {
+    const batch = itemsWithId.slice(i, i + STOCK_BATCH);
+    const results = await Promise.allSettled(
+      batch.map(async (ref) => {
+        const stockData = await getStockForItem(ref.sellsyItemId!);
+        const detail: StockEntrepot[] = Object.values(stockData).map((s) => ({
+          warehouseId: s.whid,
+          warehouseLabel: warehouses[s.whid]?.label || `Entrepôt #${s.whid}`,
+          quantity: parseFloat(s.qt || "0"),
+          booked: parseFloat(s.bookedqt || "0"),
+          available: parseFloat(s.availableqt || "0"),
+          isDefault: warehouses[s.whid]?.isdefault === "Y",
+        }));
+        const totalAvailable = detail.reduce((sum, s) => sum + s.available, 0);
+        return { ref: ref.sellsyRefId, detail, totalAvailable };
+      })
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        const item = classees.find((c) => c.sellsyRefId === r.value.ref);
+        if (item) {
+          item.stockActuel = r.value.totalAvailable;
+          item.stockDetail = r.value.detail;
+        }
+      }
+    }
+    if ((i + STOCK_BATCH) % 50 === 0 || i + STOCK_BATCH >= itemsWithId.length) {
+      console.log(`[ABC] Stock: ${Math.min(i + STOCK_BATCH, itemsWithId.length)}/${itemsWithId.length}`);
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
 
   // 5. Enrichir avec seuils
   const seuils = await prisma.seuilStockAchat.findMany();
@@ -118,6 +162,8 @@ async function computeABC(seuilA: number, seuilB: number) {
       seuilAlerte: seuil?.seuilAlerte ?? null,
       sousSeuilAlerte: seuil ? (ref.stockActuel !== null && ref.stockActuel < seuil.seuilAlerte) : false,
       noteSeuil: seuil?.note ?? null,
+      stockActuel: ref.stockActuel,
+      stockDetail: ref.stockDetail,
     };
   });
 

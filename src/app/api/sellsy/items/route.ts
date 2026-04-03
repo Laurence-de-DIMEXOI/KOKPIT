@@ -39,9 +39,8 @@ export async function GET(request: NextRequest) {
         id: number;
         reference: string;
         name: string | null;
-        reference_price_taxes_exc: string;
-        reference_price_taxes_inc: string;
-        purchase_amount: string;
+        reference_price_taxes_exc: string | null;
+        purchase_amount: string | null;
       }>> = {};
 
       if (withDecl) {

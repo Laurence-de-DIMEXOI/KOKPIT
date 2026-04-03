@@ -5,14 +5,25 @@
  * Calcul à la volée, jamais stocké.
  */
 
+export interface StockEntrepot {
+  warehouseId: string;
+  warehouseLabel: string;
+  quantity: number;
+  booked: number;
+  available: number;
+  isDefault: boolean;
+}
+
 export interface RefABC {
   sellsyRefId: string;
+  sellsyItemId: number | null;
   designation: string;
   reference: string;
   caAnnuel: number;
   nbCommandes: number;
   quantiteVendue: number;
   stockActuel: number | null;
+  stockDetail: StockEntrepot[] | null;
 }
 
 export type ClasseABC = "A" | "B" | "C";
@@ -73,7 +84,7 @@ export function agregerParReference(
 ): RefABC[] {
   const map = new Map<
     string,
-    { designation: string; ca: number; cmds: Set<number>; qty: number }
+    { designation: string; ca: number; cmds: Set<number>; qty: number; itemId: number | null }
   >();
 
   for (const row of rows) {
@@ -97,17 +108,20 @@ export function agregerParReference(
         ca: montant,
         cmds: new Set([row.orderId]),
         qty,
+        itemId: null,
       });
     }
   }
 
   return Array.from(map.entries()).map(([reference, data]) => ({
     sellsyRefId: reference,
+    sellsyItemId: data.itemId,
     reference,
     designation: data.designation,
     caAnnuel: Math.round(data.ca * 100) / 100,
     nbCommandes: data.cmds.size,
     quantiteVendue: Math.round(data.qty),
     stockActuel: null,
+    stockDetail: null,
   }));
 }
