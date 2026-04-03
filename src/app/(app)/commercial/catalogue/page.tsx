@@ -864,7 +864,7 @@ ${pages.join("\n")}
                       {hasDecls && decls.map((decl, dIdx) => {
                         const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
                         // TTC calculé depuis le taux TVA du parent
-                        const tvaMultiplier = priceHT > 0 && priceTTC > 0 ? priceTTC / priceHT : 1;
+                        const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
                         const dTTC = dHT * tvaMultiplier;
                         // Achat: déclinaison en priorité, sinon hérite du parent
                         const dPurchRaw = parseFloat(decl.purchase_amount || "0");
@@ -1013,7 +1013,7 @@ ${pages.join("\n")}
                     <div className="divide-y divide-cockpit/50">
                       {decls.map((decl, dIdx) => {
                         const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
-                        const tvaMultiplier = priceHT > 0 && priceTTC > 0 ? priceTTC / priceHT : 1;
+                        const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
                         const dTTC = dHT * tvaMultiplier;
                         return (
                           <div
