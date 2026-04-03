@@ -324,9 +324,50 @@ export async function getWarehouses(): Promise<Record<string, Warehouse>> {
 }
 
 export async function getStockForItem(itemId: number): Promise<Record<string, StockWarehouse>> {
-  const res = await sellsyV1Call("Stock.getForItem", { itemid: itemId });
-  if (Array.isArray(res)) return {};
-  return res as Record<string, StockWarehouse>;
+  let res: unknown;
+  try {
+    res = await sellsyV1Call("Stock.getForItem", { itemid: itemId });
+  } catch (err: any) {
+    // Certains articles déclinés renvoient une erreur V1 quand on appelle avec l'ID parent
+    // On logue et on retourne vide plutôt que de propager l'erreur
+    console.warn(`[getStockForItem] id=${itemId} V1 error: ${err?.message || err}`);
+    return {};
+  }
+
+  if (!res) return {};
+
+  // Cas 1 : tableau de StockWarehouse (articles avec déclinaisons)
+  if (Array.isArray(res)) {
+    if (res.length === 0) return {};
+    const result: Record<string, StockWarehouse> = {};
+    (res as StockWarehouse[]).forEach((entry, i) => { result[String(i)] = entry; });
+    return result;
+  }
+
+  if (typeof res !== "object") return {};
+  const obj = res as Record<string, unknown>;
+
+  // Cas 2 : objet dont les valeurs ont directement whid → { "key": StockWarehouse }
+  const firstVal = Object.values(obj)[0];
+  if (firstVal && typeof firstVal === "object" && "whid" in (firstVal as object)) {
+    return obj as Record<string, StockWarehouse>;
+  }
+
+  // Cas 3 : objet imbriqué { declid: { whid: StockWarehouse } }
+  const result: Record<string, StockWarehouse> = {};
+  for (const [declKey, declVal] of Object.entries(obj)) {
+    if (declVal && typeof declVal === "object" && !Array.isArray(declVal)) {
+      for (const [whKey, whVal] of Object.entries(declVal as Record<string, unknown>)) {
+        if (whVal && typeof whVal === "object" && "whid" in (whVal as object)) {
+          result[`${declKey}_${whKey}`] = whVal as StockWarehouse;
+        }
+      }
+    }
+  }
+  if (Object.keys(result).length > 0) return result;
+
+  // Fallback : retourner tel quel
+  return obj as Record<string, StockWarehouse>;
 }
 
 export async function searchItems(params: {

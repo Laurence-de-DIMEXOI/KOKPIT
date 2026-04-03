@@ -33,20 +33,6 @@ interface Declination {
   purchase_amount: string | null;
 }
 
-interface StockEntry {
-  warehouseId: string;
-  warehouseLabel: string;
-  quantity: number;
-  booked: number;
-  available: number;
-  isDefault: boolean;
-}
-
-interface ItemStock {
-  stock: StockEntry[];
-  totalAvailable: number;
-}
-
 interface SellsyItem {
   id: number;
   type: "product" | "service";
@@ -65,7 +51,7 @@ interface SellsyItem {
   updated: string;
 }
 
-type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type" | "stock";
+type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 50;
@@ -100,7 +86,6 @@ export default function CataloguePage() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [declFilter, setDeclFilter] = useState<string>("ALL"); // ALL | with | without
   const [priceFilter, setPriceFilter] = useState<string>("ALL"); // ALL | <100 | 100-500 | 500-1000 | >1000
-  const [stockFilter, setStockFilter] = useState<string>("ALL"); // ALL | instock | outstock
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedItem, setSelectedItem] = useState<SellsyItem | null>(null);
@@ -108,10 +93,6 @@ export default function CataloguePage() {
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [checkedDeclIds, setCheckedDeclIds] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
-  const [stockData, setStockData] = useState<Record<number, ItemStock>>({});
-  const [loadingStock, setLoadingStock] = useState<Set<number>>(new Set());
-  const [stockLoaded, setStockLoaded] = useState(false);
-  const [loadingAllStock, setLoadingAllStock] = useState(false);
 
   // Search debounce
   useEffect(() => {
@@ -123,7 +104,7 @@ export default function CataloguePage() {
   }, [searchInput]);
 
   // Reset page on filter change
-  useEffect(() => { setPage(1); }, [typeFilter, declFilter, priceFilter, stockFilter]);
+  useEffect(() => { setPage(1); }, [typeFilter, declFilter, priceFilter]);
 
   // Fetch items only (fast — no declinations)
   const fetchItems = async (fresh = false) => {
@@ -166,108 +147,7 @@ export default function CataloguePage() {
     }
   };
 
-  // Stock individuel pour un item
-  const fetchStock = useCallback(async (itemId: number) => {
-    if (stockData[itemId] !== undefined || loadingStock.has(itemId)) return;
-    setLoadingStock((prev) => new Set(prev).add(itemId));
-    try {
-      const res = await fetch(`/api/sellsy/stock/${itemId}`);
-      const data = await res.json();
-      if (data.success) {
-        setStockData((prev) => ({
-          ...prev,
-          [itemId]: { stock: data.stock || [], totalAvailable: data.totalAvailable ?? 0 },
-        }));
-      }
-    } catch {
-      // ignore silently
-    } finally {
-      setLoadingStock((prev) => { const n = new Set(prev); n.delete(itemId); return n; });
-    }
-  }, [stockData, loadingStock]);
-
-  // Charger le stock des items de la page courante (rapide, fiable)
-  const fetchStockForPage = useCallback(async (pageItems: SellsyItem[]) => {
-    const toFetch = pageItems.filter(
-      (i) => i.type === "product" && stockData[i.id] === undefined && !loadingStock.has(i.id)
-    );
-    if (toFetch.length === 0) return;
-    toFetch.forEach((i) => {
-      setLoadingStock((prev) => new Set(prev).add(i.id));
-    });
-    await Promise.allSettled(
-      toFetch.map(async (item) => {
-        try {
-          const res = await fetch(`/api/sellsy/stock/${item.id}`);
-          const data = await res.json();
-          if (data.success) {
-            setStockData((prev) => ({
-              ...prev,
-              [item.id]: { stock: data.stock || [], totalAvailable: data.totalAvailable ?? 0 },
-            }));
-          }
-        } catch {
-          // ignore
-        } finally {
-          setLoadingStock((prev) => { const n = new Set(prev); n.delete(item.id); return n; });
-        }
-      })
-    );
-  }, [stockData, loadingStock]);
-
-  // Charger le stock pour chaque déclinaison (stock stocké par declId dans Sellsy)
-  const fetchStockForDeclinations = useCallback(async (decls: Array<{ id: number }>) => {
-    const toFetch = decls.filter((d) => stockData[d.id] === undefined && !loadingStock.has(d.id));
-    if (toFetch.length === 0) return;
-    toFetch.forEach((d) => setLoadingStock((prev) => new Set(prev).add(d.id)));
-    await Promise.allSettled(
-      toFetch.map(async (decl) => {
-        try {
-          const res = await fetch(`/api/sellsy/stock/${decl.id}`);
-          const data = await res.json();
-          if (data.success) {
-            setStockData((prev) => ({
-              ...prev,
-              [decl.id]: { stock: data.stock || [], totalAvailable: data.totalAvailable ?? 0 },
-            }));
-          }
-        } catch { /* ignore */ } finally {
-          setLoadingStock((prev) => { const n = new Set(prev); n.delete(decl.id); return n; });
-        }
-      })
-    );
-  }, [stockData, loadingStock]);
-
-  // Charger le stock de tous les produits (cache serveur 30 min) — pour tri/filtre
-  const fetchAllStock = useCallback(async () => {
-    if (stockLoaded || loadingAllStock) return;
-    setLoadingAllStock(true);
-    try {
-      const res = await fetch("/api/sellsy/stock/all");
-      const data = await res.json();
-      if (data.success && data.stockMap) {
-        const mapped: Record<number, ItemStock> = {};
-        for (const [id, val] of Object.entries(data.stockMap)) {
-          mapped[Number(id)] = val as ItemStock;
-        }
-        setStockData(mapped);
-        setStockLoaded(true);
-      }
-    } catch (error) {
-      console.error("Erreur chargement stock:", error);
-    } finally {
-      setLoadingAllStock(false);
-    }
-  }, [stockLoaded, loadingAllStock]);
-
   useEffect(() => { fetchItems(); }, []);
-
-  // Auto-charger le stock après le chargement des items
-  useEffect(() => {
-    if (items.length > 0 && !stockLoaded && !loadingAllStock) {
-      fetchAllStock();
-    }
-  }, [items.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter & sort
   const filtered = useMemo(() => {
@@ -316,14 +196,6 @@ export default function CataloguePage() {
       });
     }
 
-    if (stockFilter !== "ALL") {
-      result = result.filter((item) => {
-        const st = stockData[item.id];
-        if (!st) return stockFilter === "unknown";
-        return stockFilter === "instock" ? st.totalAvailable > 0 : st.totalAvailable <= 0;
-      });
-    }
-
     result = [...result].sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
@@ -342,15 +214,12 @@ export default function CataloguePage() {
         case "type":
           cmp = (a.type || "").localeCompare(b.type || "");
           break;
-        case "stock":
-          cmp = (stockData[a.id]?.totalAvailable ?? -1) - (stockData[b.id]?.totalAvailable ?? -1);
-          break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
 
     return result;
-  }, [items, declinations, search, typeFilter, declFilter, priceFilter, stockFilter, stockData, sortKey, sortDir]);
+  }, [items, declinations, search, typeFilter, declFilter, priceFilter, sortKey, sortDir]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -359,18 +228,12 @@ export default function CataloguePage() {
     [filtered, page]
   );
 
-  // Auto-fetch declinations + stock for items on current page
+  // Auto-fetch declinations for items on current page
   useEffect(() => {
     const declined = paginated.filter((i) => i.is_declined && !declinations[i.id] && !loadingDecl.has(i.id));
     declined.forEach((i) => fetchDeclinations(i.id));
-    fetchStockForPage(paginated);
   }, [paginated]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Quand les déclinaisons d'une page sont chargées, fetcher leur stock
-  useEffect(() => {
-    const allDecls = paginated.flatMap((i) => declinations[i.id] || []);
-    if (allDecls.length > 0) fetchStockForDeclinations(allDecls);
-  }, [declinations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // KPIs
   const totalDeclined = useMemo(() => items.filter((i) => i.is_declined).length, [items]);
@@ -399,7 +262,7 @@ export default function CataloguePage() {
     const dTTC = dHT * tvaMultiplier;
     const dPurch = parseFloat(decl.purchase_amount || "0") || parseFloat(parentItem.purchase_amount || "0");
     const virtualItem: SellsyItem = {
-      id: decl.id,
+      id: parentItem.id,
       type: parentItem.type,
       name: decl.name || parentItem.name || null,
       reference: decl.reference,
@@ -418,35 +281,6 @@ export default function CataloguePage() {
     setSelectedItem(virtualItem);
     setDrawerDeclUrl(getSellsyDeclUrl(parentItem.id, decl.id));
   };
-
-  // Stock agrégé pour le drawer d'un item parent décliné
-  const drawerStock = useMemo(() => {
-    if (!selectedItem) return null;
-    // Si le drawer est pour une déclinaison (via openDeclDrawer), utiliser son stockData direct
-    if (drawerDeclUrl) return stockData[selectedItem.id] || null;
-    // Si item non décliné, stock direct
-    if (!selectedItem.is_declined) return stockData[selectedItem.id] || null;
-    // Item décliné : agréger le stock de toutes ses déclinaisons
-    const decls = declinations[selectedItem.id] || [];
-    if (decls.length === 0) return stockData[selectedItem.id] || null;
-    const warehouseMap: Record<string, { warehouseId: string; warehouseLabel: string; quantity: number; booked: number; available: number; isDefault: boolean }> = {};
-    for (const decl of decls) {
-      const ds = stockData[decl.id];
-      if (!ds) continue;
-      for (const e of ds.stock) {
-        if (warehouseMap[e.warehouseId]) {
-          warehouseMap[e.warehouseId].available += e.available;
-          warehouseMap[e.warehouseId].quantity += e.quantity;
-          warehouseMap[e.warehouseId].booked += e.booked;
-        } else {
-          warehouseMap[e.warehouseId] = { ...e };
-        }
-      }
-    }
-    const stock = Object.values(warehouseMap);
-    if (stock.length === 0) return null;
-    return { stock, totalAvailable: stock.reduce((s, e) => s + e.available, 0) };
-  }, [selectedItem, drawerDeclUrl, stockData, declinations]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -549,93 +383,85 @@ export default function CataloguePage() {
   const handlePrintMulti = useCallback(() => {
     if (printableLabels.length === 0) return;
 
-    const fmtEuro = (val: string | number) => {
-      const num = typeof val === "string" ? parseFloat(val) : val;
-      if (!num && num !== 0) return "—";
-      return new Intl.NumberFormat("fr-FR", {
-        style: "currency",
-        currency: "EUR",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(num);
-    };
+    const dateStr = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-    // Apli Agipa 119011 — 70 x 37 mm — 3 colonnes x 8 lignes = 24/page A4
-    const COLS = 3;
-    const ROWS = 8;
-    const PER_PAGE = COLS * ROWS;
-    const PAGE_MARGIN_TOP = 8.5;
-    const PAGE_MARGIN_LEFT = 0;
-    const LABEL_W = 70;
-    const LABEL_H = 37;
+    let rows = "";
+    const barcodeScripts: string[] = [];
 
-    const pages: string[] = [];
-    for (let p = 0; p < Math.ceil(printableLabels.length / PER_PAGE); p++) {
-      const pageLabels = printableLabels.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
-      let gridCells = "";
-      for (let i = 0; i < PER_PAGE; i++) {
-        const label = pageLabels[i];
-        if (label) {
-          gridCells += `
-            <div class="label">
-              <div class="brand">DIMEXOI</div>
-              <div class="name">${(label.name).replace(/"/g, "&quot;")}</div>
-              <div class="ref">Réf : ${label.reference || "—"}</div>
-              <div class="price-ttc">${fmtEuro(label.priceTTC)}</div>
-              <div class="barcode-container" id="bc-${p}-${i}"></div>
-            </div>`;
-        } else {
-          gridCells += `<div class="label empty"></div>`;
-        }
-      }
-      pages.push(`<div class="page"><div class="grid">${gridCells}</div></div>`);
-    }
-
-    const barcodeScripts = printableLabels
-      .map((label, idx) => {
-        const pageIdx = Math.floor(idx / PER_PAGE);
-        const cellIdx = idx % PER_PAGE;
-        return `
+    printableLabels.forEach((label, idx) => {
+      rows += `
+      <tr>
+        <td class="num">${idx + 1}</td>
+        <td class="ref">${label.reference || "—"}</td>
+        <td class="name">${(label.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+        <td class="bc"><svg id="bc-${idx}"></svg></td>
+        <td class="qty"></td>
+      </tr>`;
+      if (label.reference) {
+        barcodeScripts.push(`
         try {
-          var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-          document.getElementById("bc-${pageIdx}-${cellIdx}").appendChild(svg);
-          JsBarcode(svg, "${(label.reference).replace(/"/g, '\\"')}", {
-            format: "CODE128", width: 1.2, height: 18, displayValue: true,
-            fontSize: 7, margin: 1, background: "transparent", lineColor: "#1F2937",
+          JsBarcode(document.getElementById("bc-${idx}"), "${label.reference.replace(/"/g, '\\"')}", {
+            format: "CODE128", width: 1.2, height: 28, displayValue: true,
+            fontSize: 8, margin: 1, background: "transparent", lineColor: "#111",
           });
         } catch(e) {
-          var el = document.getElementById("bc-${pageIdx}-${cellIdx}");
-          if (el) el.textContent = "${(label.reference).replace(/"/g, '\\"')}";
-        }`;
-      })
-      .join("\n");
+          document.getElementById("bc-${idx}").outerHTML = '<span>${label.reference.replace(/"/g, '\\"')}</span>';
+        }`);
+      }
+    });
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>Étiquettes DIMEXOI (${printableLabels.length})</title>
+<title>Fiche de prélèvement — ${printableLabels.length} article${printableLabels.length > 1 ? "s" : ""}</title>
 <style>
-@page { size: A4; margin: 0; }
+@page { size: A4; margin: 15mm 12mm; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f6f7; }
-.page { width: 210mm; height: 297mm; padding: ${PAGE_MARGIN_TOP}mm 0 0 ${PAGE_MARGIN_LEFT}mm; page-break-after: always; background: white; }
-.page:last-child { page-break-after: auto; }
-.grid { display: grid; grid-template-columns: repeat(${COLS}, ${LABEL_W}mm); grid-template-rows: repeat(${ROWS}, ${LABEL_H}mm); justify-content: center; }
-.label { width: ${LABEL_W}mm; height: ${LABEL_H}mm; padding: 1.5mm 2mm; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
-.label.empty { visibility: hidden; }
-.brand { font-size: 5pt; color: #8592A3; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5mm; }
-.name { font-size: 7pt; font-weight: bold; color: #1F2937; line-height: 1.2; max-height: 2.4em; overflow: hidden; margin-bottom: 0.5mm; padding: 0 1mm; }
-.ref { font-family: monospace; font-size: 6pt; color: #03C3EC; margin-bottom: 0.5mm; }
-.price-ttc { font-size: 10pt; font-weight: bold; color: #1F2937; margin-bottom: 0.5mm; }
-.barcode-container { width: 100%; }
-.barcode-container svg { width: 80%; height: auto; max-height: 10mm; }
-@media print { body { background: white; } }
-@media screen { body { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; } .page { border: 1px solid #ccc; border-radius: 4px; } .label:not(.empty) { outline: 1px dashed #e5e7eb; } }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 10pt; color: #111; }
+.header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8mm; border-bottom: 2px solid #111; padding-bottom: 3mm; }
+.header h1 { font-size: 16pt; font-weight: bold; letter-spacing: -0.5px; }
+.header .sub { font-size: 8pt; color: #555; }
+.header .date { font-size: 8pt; color: #555; text-align: right; }
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: #111; color: white; }
+thead th { padding: 2.5mm 3mm; text-align: left; font-size: 8pt; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+thead th.num { width: 8mm; text-align: center; }
+thead th.ref { width: 32mm; }
+thead th.name { }
+thead th.bc { width: 50mm; }
+thead th.qty { width: 18mm; text-align: center; }
+tbody tr { border-bottom: 1px solid #e5e7eb; }
+tbody tr:nth-child(even) { background: #f9fafb; }
+tbody td { padding: 2mm 3mm; vertical-align: middle; }
+td.num { text-align: center; font-size: 8pt; color: #888; }
+td.ref { font-family: monospace; font-size: 8pt; font-weight: bold; color: #03A3C5; }
+td.name { font-size: 9pt; line-height: 1.3; }
+td.bc svg { height: 12mm; width: auto; max-width: 48mm; display: block; }
+td.qty { border: 1.5px solid #d1d5db; border-radius: 3px; height: 9mm; min-width: 14mm; }
+.footer { margin-top: 6mm; font-size: 8pt; color: #888; text-align: right; }
+@media screen { body { padding: 20px; max-width: 210mm; margin: 0 auto; } table { border: 1px solid #e5e7eb; } }
 </style></head><body>
-${pages.join("\n")}
+<div class="header">
+  <div>
+    <h1>Fiche de prélèvement</h1>
+    <div class="sub">${printableLabels.length} article${printableLabels.length > 1 ? "s" : ""} sélectionné${printableLabels.length > 1 ? "s" : ""}</div>
+  </div>
+  <div class="date">DIMEXOI<br>${dateStr}</div>
+</div>
+<table>
+  <thead><tr>
+    <th class="num">#</th>
+    <th class="ref">Référence</th>
+    <th class="name">Désignation</th>
+    <th class="bc">Code-barre</th>
+    <th class="qty">Qté</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">Imprimé le ${dateStr} — KÒKPIT</div>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3/dist/JsBarcode.all.min.js"><\/script>
-<script>${barcodeScripts}\nsetTimeout(function(){window.print();},500);<\/script>
+<script>${barcodeScripts.join("\n")}\nsetTimeout(function(){window.print();},500);<\/script>
 </body></html>`);
     printWindow.document.close();
   }, [printableLabels]);
@@ -693,11 +519,6 @@ ${pages.join("\n")}
           <p className="text-cockpit-secondary text-sm">
             {filtered.length} produit{filtered.length > 1 ? "s" : ""} sur {items.length}
             {totalDeclined > 0 && <span className="ml-1">({totalDeclined} avec déclinaisons)</span>}
-            {loadingAllStock && (
-              <span className="ml-2 inline-flex items-center gap-1 text-cockpit-info">
-                <Loader2 className="w-3 h-3 animate-spin" /> Chargement stock…
-              </span>
-            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -797,20 +618,10 @@ ${pages.join("\n")}
             <option value="500-1000">500 - 1 000 &euro;</option>
             <option value=">1000">&gt; 1 000 &euro;</option>
           </select>
-          {/* Stock */}
-          <select
-            value={stockFilter}
-            onChange={(e) => setStockFilter(e.target.value)}
-            className="bg-cockpit-input border border-cockpit-input px-3 py-1.5 rounded-lg text-xs text-cockpit-primary"
-          >
-            <option value="ALL">Stock : Tous</option>
-            <option value="instock">En stock</option>
-            <option value="outstock">Rupture</option>
-          </select>
           {/* Reset */}
-          {(typeFilter !== "ALL" || declFilter !== "ALL" || priceFilter !== "ALL" || stockFilter !== "ALL" || search) && (
+          {(typeFilter !== "ALL" || declFilter !== "ALL" || priceFilter !== "ALL" || search) && (
             <button
-              onClick={() => { setTypeFilter("ALL"); setDeclFilter("ALL"); setPriceFilter("ALL"); setStockFilter("ALL"); setSearchInput(""); setSearch(""); }}
+              onClick={() => { setTypeFilter("ALL"); setDeclFilter("ALL"); setPriceFilter("ALL"); setSearchInput(""); setSearch(""); }}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
             >
               Effacer filtres
@@ -849,9 +660,6 @@ ${pages.join("\n")}
                 <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("price_ttc")}>
                   <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
                 </th>
-                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("stock")}>
-                  <span className="flex items-center gap-1.5 justify-center">STOCK <SortIcon col="stock" /></span>
-                </th>
                 {canSeePurchase && (
                   <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
                     ACHAT / MARGE
@@ -870,36 +678,6 @@ ${pages.join("\n")}
                   const hasDecls = item.is_declined;
                   const isDeclLoading = loadingDecl.has(item.id);
                   const showParent = !hasDecls || decls.length === 0;
-
-                  const stockCell = (
-                    item.type !== "product" ? (
-                      <span className="text-[10px] text-cockpit-secondary">—</span>
-                    ) : (loadingStock.has(item.id) || (loadingAllStock && stockData[item.id] === undefined)) ? (
-                      <Loader2 className="w-3 h-3 animate-spin mx-auto text-cockpit-secondary" />
-                    ) : stockData[item.id] ? (
-                      <div className="inline-flex flex-col items-center gap-0.5" title={stockData[item.id].stock.map((s) => `${s.warehouseLabel}: ${s.available}`).join("\n")}>
-                        {stockData[item.id].totalAvailable > 0 ? (
-                          <span className="text-[10px] font-bold text-cockpit-success bg-cockpit-success/10 px-2 py-0.5 rounded">
-                            {stockData[item.id].totalAvailable}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded">
-                            0
-                          </span>
-                        )}
-                        {stockData[item.id].stock.length > 1 && (
-                          <span className="text-[8px] text-cockpit-secondary leading-tight">
-                            {stockData[item.id].stock.filter((s) => s.available > 0).map((s) => {
-                              const short = s.warehouseLabel.replace(/DIMEXOI\s*/i, "").replace(/Bois d'Orient\s*/i, "BDO ");
-                              return `${short}: ${s.available}`;
-                            }).join(" · ")}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-cockpit-secondary">—</span>
-                    )
-                  );
 
                   return (
                     <React.Fragment key={item.id}>
@@ -951,9 +729,6 @@ ${pages.join("\n")}
                               {formatEuro(priceTTC)}
                             </span>
                           </td>
-                          <td className="px-3 py-3 text-center">
-                            {stockCell}
-                          </td>
                           {canSeePurchase && (
                             <td className="px-3 py-3 text-right hidden lg:table-cell">
                               <div>
@@ -978,18 +753,6 @@ ${pages.join("\n")}
                         const dPurchRaw = parseFloat(decl.purchase_amount || "0");
                         const dPurch = dPurchRaw > 0 ? dPurchRaw : purchasePrice;
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
-                        const dStock = stockData[decl.id];
-                        const dStockCell = loadingStock.has(decl.id) ? (
-                          <Loader2 className="w-3 h-3 animate-spin mx-auto text-cockpit-secondary" />
-                        ) : dStock ? (
-                          dStock.totalAvailable > 0 ? (
-                            <span className="text-[10px] font-bold text-cockpit-success bg-cockpit-success/10 px-2 py-0.5 rounded" title={dStock.stock.map((s) => `${s.warehouseLabel}: ${s.available}`).join("\n")}>
-                              {dStock.totalAvailable}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded">0</span>
-                          )
-                        ) : <span className="text-[10px] text-cockpit-secondary">—</span>;
                         return (
                           <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => openDeclDrawer(decl, item)}>
                             <td className="pl-4 pr-1 py-2 w-8" onClick={(e) => e.stopPropagation()}>
@@ -1031,9 +794,6 @@ ${pages.join("\n")}
                                 {formatEuro(dTTC)}
                               </span>
                             </td>
-                            <td className="px-3 py-2 text-center">
-                              {dStockCell}
-                            </td>
                             {canSeePurchase && (
                               <td className="px-3 py-2 text-right hidden lg:table-cell">
                                 <div>
@@ -1056,7 +816,7 @@ ${pages.join("\n")}
                 })
               ) : (
                 <tr>
-                  <td colSpan={canSeePurchase ? 9 : 8} className="px-4 py-12 text-center text-cockpit-secondary">
+                  <td colSpan={canSeePurchase ? 8 : 7} className="px-4 py-12 text-center text-cockpit-secondary">
                     <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p>Aucun produit trouvé</p>
                   </td>
@@ -1113,17 +873,6 @@ ${pages.join("\n")}
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
                           <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
-                          {item.type === "product" && stockData[item.id] && (
-                            stockData[item.id].totalAvailable > 0 ? (
-                              <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                                Stock: {stockData[item.id].totalAvailable}
-                              </span>
-                            ) : (
-                              <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                                Stock: 0
-                              </span>
-                            )
-                          )}
                         </div>
                       </div>
                     </div>
@@ -1135,7 +884,6 @@ ${pages.join("\n")}
                         const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
                         const dTTC = dHT * tvaMultiplier;
-                        const dStock = stockData[decl.id];
                         return (
                           <div
                             key={decl.id}
@@ -1169,21 +917,6 @@ ${pages.join("\n")}
                               <div className="text-right flex-shrink-0">
                                 <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dHT)}</p>
                                 <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(dTTC)}</p>
-                                {dIdx === 0 && item.type === "product" && (
-                                  loadingStock.has(decl.id) ? (
-                                    <Loader2 className="w-3 h-3 animate-spin text-cockpit-secondary mt-1" />
-                                  ) : dStock ? (
-                                    dStock.totalAvailable > 0 ? (
-                                      <span className="text-[9px] font-bold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                                        Stock: {dStock.totalAvailable}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                                        Stock: 0
-                                      </span>
-                                    )
-                                  ) : null
-                                )}
                               </div>
                             </div>
                           </div>
@@ -1263,7 +996,7 @@ ${pages.join("\n")}
             style={{ backgroundColor: "var(--color-active, #4C9DB0)", color: "white" }}
           >
             <Printer className="w-4 h-4" />
-            Imprimer {totalChecked} étiquette{totalChecked > 1 ? "s" : ""}
+            Imprimer {totalChecked} article{totalChecked > 1 ? "s" : ""}
           </button>
         </div>
       )}
@@ -1273,7 +1006,6 @@ ${pages.join("\n")}
         item={selectedItem}
         onClose={() => { setSelectedItem(null); setDrawerDeclUrl(undefined); }}
         declinations={selectedItem && !drawerDeclUrl ? declinations[selectedItem.id] || [] : []}
-        stock={drawerStock}
         canSeePurchase={canSeePurchase}
         sellsyUrlOverride={drawerDeclUrl}
       />

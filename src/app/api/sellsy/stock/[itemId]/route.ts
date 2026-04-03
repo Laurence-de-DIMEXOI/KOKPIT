@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStockForItem, getWarehouses } from "@/lib/sellsy";
-import { stockCache } from "@/lib/api-cache";
+import { dbStockCache } from "@/lib/db-cache";
 
 // GET /api/sellsy/stock/[itemId]
 export async function GET(
@@ -18,12 +18,25 @@ export async function GET(
     const cacheKey = `item_${id}`;
 
     if (!fresh) {
-      const cached = stockCache.get(cacheKey);
-      if (cached) return NextResponse.json({ ...cached, _fromCache: true });
+      const cached = await dbStockCache.get(cacheKey);
+      if (cached) return NextResponse.json({ ...(cached as any), _fromCache: true });
     }
 
+    // Retry une fois si rate limit Sellsy V1 (429)
+    const getStockWithRetry = async () => {
+      try {
+        return await getStockForItem(id);
+      } catch (err: any) {
+        if (err?.message?.includes("429") || err?.message?.includes("E_LIMIT")) {
+          await new Promise((r) => setTimeout(r, 2500));
+          return await getStockForItem(id);
+        }
+        throw err;
+      }
+    };
+
     const [stockData, warehouses] = await Promise.all([
-      getStockForItem(id),
+      getStockWithRetry(),
       getWarehouses(),
     ]);
 
@@ -39,7 +52,7 @@ export async function GET(
     const totalAvailable = stock.reduce((sum, s) => sum + s.available, 0);
     const responseData = { success: true, stock, totalAvailable };
 
-    stockCache.set(cacheKey, responseData);
+    await dbStockCache.set(cacheKey, responseData);
 
     return NextResponse.json(responseData);
   } catch (error: any) {

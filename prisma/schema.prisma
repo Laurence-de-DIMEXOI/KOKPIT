@@ -1217,3 +1217,17 @@ model SessionTarif {
   createdById     String
   createdBy       User      @relation("SessionTarifCreator", fields: [createdById], references: [id])
 }
+
+// ============================================================================
+// CACHE STOCK SELLSY (partagé entre toutes les instances Vercel)
+// ============================================================================
+
+model StockCache {
+  key       String   @id
+  data      Json
+  cachedAt  DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("stock_cache")
+}
