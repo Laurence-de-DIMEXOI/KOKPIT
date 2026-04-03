@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import {
   Package,
   RefreshCw,
@@ -16,6 +17,10 @@ import {
   ChevronRight,
   ChevronDown,
   Layers,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { KPICard } from "@/components/dashboard/kpi-card";
@@ -62,7 +67,13 @@ const formatEuro = (val: string | number) => {
   }).format(num);
 };
 
+const SELLSY_ITEM_URL = "https://app.sellsy.com/items";
+
 export default function CataloguePage() {
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role as string | undefined;
+  const canSeePurchase = userRole === "ADMIN" || userRole === "DIRECTION" || userRole === "ACHAT";
+
   const [items, setItems] = useState<SellsyItem[]>([]);
   const [declinations, setDeclinations] = useState<Record<number, Declination[]>>({});
   const [loading, setLoading] = useState(true);
@@ -182,12 +193,14 @@ export default function CataloguePage() {
       items.length > 0
         ? items.reduce((sum, i) => sum + parseFloat(i.reference_price_taxes_exc || "0"), 0) / items.length
         : 0;
+    const inStock = items.filter((i) => parseFloat(i.standard_quantity || "0") > 0).length;
     return {
       total: items.length,
       products: products.length,
       services: services.length,
       avgPriceHT,
       declinations: totalDecl,
+      inStock,
     };
   }, [items, totalDecl]);
 
@@ -278,6 +291,58 @@ export default function CataloguePage() {
       )
       .join("\n");
 
+    // Avery / Apli Agipa 119011 — 70 x 36 mm — 3 colonnes x 8 lignes = 24 étiquettes/page A4
+    const COLS = 3;
+    const ROWS = 8;
+    const PER_PAGE = COLS * ROWS;
+    // Margins en mm (standard Avery 70x36)
+    const PAGE_MARGIN_TOP = 8.5;
+    const PAGE_MARGIN_LEFT = 0;
+    const LABEL_W = 70;
+    const LABEL_H = 36;
+
+    // Build grid pages
+    const pages: string[] = [];
+    for (let p = 0; p < Math.ceil(checkedItems.length / PER_PAGE); p++) {
+      const pageItems = checkedItems.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
+      let gridCells = "";
+      for (let i = 0; i < PER_PAGE; i++) {
+        const item = pageItems[i];
+        if (item) {
+          gridCells += `
+            <div class="label">
+              <div class="brand">DIMEXOI</div>
+              <div class="name">${(item.name || item.reference || "").replace(/"/g, "&quot;")}</div>
+              <div class="ref">Réf : ${item.reference || "—"}</div>
+              <div class="price-ttc">${fmtEuro(item.reference_price_taxes_inc)}</div>
+              <div class="barcode-container" id="bc-${p}-${i}"></div>
+            </div>`;
+        } else {
+          gridCells += `<div class="label empty"></div>`;
+        }
+      }
+      pages.push(`<div class="page"><div class="grid">${gridCells}</div></div>`);
+    }
+
+    const barcodeScripts = checkedItems
+      .map((item, idx) => {
+        const pageIdx = Math.floor(idx / PER_PAGE);
+        const cellIdx = idx % PER_PAGE;
+        return `
+        try {
+          var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          document.getElementById("bc-${pageIdx}-${cellIdx}").appendChild(svg);
+          JsBarcode(svg, "${(item.reference || "").replace(/"/g, '\\"')}", {
+            format: "CODE128", width: 1.2, height: 18, displayValue: true,
+            fontSize: 7, margin: 1, background: "transparent", lineColor: "#1F2937",
+          });
+        } catch(e) {
+          var el = document.getElementById("bc-${pageIdx}-${cellIdx}");
+          if (el) el.textContent = "${(item.reference || "").replace(/"/g, '\\"')}";
+        }`;
+      })
+      .join("\n");
+
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
@@ -285,10 +350,10 @@ export default function CataloguePage() {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Étiquettes DIMEXOI (${checkedItems.length})</title>
+  <title>Étiquettes DIMEXOI (${checkedItems.length}) — Apli Agipa 70x36mm</title>
   <style>
     @page {
-      size: 62mm 100mm;
+      size: A4;
       margin: 0;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -296,78 +361,81 @@ export default function CataloguePage() {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #f5f6f7;
     }
+    .page {
+      width: 210mm;
+      height: 297mm;
+      padding: ${PAGE_MARGIN_TOP}mm 0 0 ${PAGE_MARGIN_LEFT}mm;
+      page-break-after: always;
+      background: white;
+    }
+    .page:last-child { page-break-after: auto; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(${COLS}, ${LABEL_W}mm);
+      grid-template-rows: repeat(${ROWS}, ${LABEL_H}mm);
+      justify-content: center;
+    }
     .label {
-      width: 62mm;
-      height: 100mm;
-      padding: 4mm 3mm;
+      width: ${LABEL_W}mm;
+      height: ${LABEL_H}mm;
+      padding: 1.5mm 2mm;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      page-break-after: always;
-      background: white;
+      overflow: hidden;
     }
-    .label:last-child {
-      page-break-after: auto;
-    }
+    .label.empty { visibility: hidden; }
     .brand {
-      font-size: 7pt;
+      font-size: 5pt;
       color: #8592A3;
       text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-bottom: 3mm;
+      letter-spacing: 1.5px;
+      margin-bottom: 0.5mm;
     }
     .name {
-      font-size: 10pt;
+      font-size: 7pt;
       font-weight: bold;
       color: #1F2937;
-      line-height: 1.3;
-      max-height: 3.9em;
+      line-height: 1.2;
+      max-height: 2.4em;
       overflow: hidden;
-      margin-bottom: 2mm;
-      padding: 0 2mm;
+      margin-bottom: 0.5mm;
+      padding: 0 1mm;
     }
     .ref {
       font-family: monospace;
-      font-size: 8pt;
+      font-size: 6pt;
       color: #03C3EC;
-      background: #f0f9ff;
-      display: inline-block;
-      padding: 1mm 3mm;
-      border-radius: 1mm;
-      margin-bottom: 3mm;
+      margin-bottom: 0.5mm;
     }
     .price-ttc {
-      font-size: 16pt;
+      font-size: 10pt;
       font-weight: bold;
       color: #1F2937;
-      margin-bottom: 1mm;
-    }
-    .price-ht {
-      font-size: 8pt;
-      color: #8592A3;
-      margin-bottom: 3mm;
+      margin-bottom: 0.5mm;
     }
     .barcode-container {
       width: 100%;
     }
     .barcode-container svg {
-      width: 90%;
+      width: 80%;
       height: auto;
-      max-height: 20mm;
+      max-height: 10mm;
     }
     @media print {
       body { background: white; }
     }
     @media screen {
-      body { padding: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-      .label { border: 1px solid #ccc; border-radius: 4px; flex-shrink: 0; }
+      body { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+      .page { border: 1px solid #ccc; border-radius: 4px; flex-shrink: 0; }
+      .label:not(.empty) { outline: 1px dashed #e5e7eb; }
     }
   </style>
 </head>
 <body>
-  ${labelsHtml}
+  ${pages.join("\n")}
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3/dist/JsBarcode.all.min.js"><\/script>
   <script>
     ${barcodeScripts}
@@ -458,12 +526,12 @@ export default function CataloguePage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <KPICard title="Total articles" value={kpis.total} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
         <KPICard title="Produits" value={kpis.products} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-info" />
         <KPICard title="Services" value={kpis.services} icon={<Tag className="w-7 h-7" />} bgColor="bg-cockpit-success" />
+        <KPICard title="En stock" value={kpis.inStock} icon={<CheckCircle2 className="w-7 h-7" />} bgColor="bg-cockpit-success" />
         <KPICard title="Déclinaisons" value={kpis.declinations} icon={<Layers className="w-7 h-7" />} bgColor="bg-purple-500" />
-        <KPICard title="Prix moy. HT" value={formatEuro(kpis.avgPriceHT)} icon={<Tag className="w-7 h-7" />} bgColor="bg-cockpit-warning" />
       </div>
 
       {/* Search + Filters */}
@@ -546,9 +614,14 @@ export default function CataloguePage() {
                 >
                   <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
                 </th>
-                <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
-                  ACHAT / MARGE
+                <th className="px-3 py-3 text-center text-xs font-semibold text-cockpit-heading">
+                  STOCK
                 </th>
+                {canSeePurchase && (
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
+                    ACHAT / MARGE
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-cockpit">
@@ -624,18 +697,49 @@ export default function CataloguePage() {
                             {formatEuro(priceTTC)}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-right hidden lg:table-cell">
-                          <div>
-                            <span className="text-xs text-cockpit-secondary">
-                              {purchasePrice > 0 ? formatEuro(purchasePrice) : "—"}
-                            </span>
-                            {margin !== null && margin > 0 && (
-                              <p className={`text-[10px] ${margin > 30 ? "text-cockpit-success" : margin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
-                                Marge {margin.toFixed(0)}%
-                              </p>
-                            )}
-                          </div>
+                        <td className="px-3 py-3 text-center">
+                          {(() => {
+                            const qty = parseFloat(item.standard_quantity || "0");
+                            const inStock = qty > 0;
+                            return (
+                              <a
+                                href={`${SELLSY_ITEM_URL}/${item.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 group"
+                                title={inStock ? `${qty} en stock — Voir sur Sellsy` : "Pas de stock — Voir sur Sellsy"}
+                              >
+                                {inStock ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-cockpit-success bg-cockpit-success/10 px-2 py-0.5 rounded group-hover:underline">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    En stock
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-400 bg-red-400/10 px-2 py-0.5 rounded group-hover:underline">
+                                    <XCircle className="w-3 h-3" />
+                                    Indispo
+                                  </span>
+                                )}
+                                <ExternalLink className="w-2.5 h-2.5 text-cockpit-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </a>
+                            );
+                          })()}
                         </td>
+                        {canSeePurchase && (
+                          <td className="px-3 py-3 text-right hidden lg:table-cell">
+                            <div>
+                              <span className="text-xs text-cockpit-secondary">
+                                {purchasePrice > 0 ? formatEuro(purchasePrice) : "—"}
+                              </span>
+                              {margin !== null && margin > 0 && (
+                                <p className={`text-[10px] ${margin > 30 ? "text-cockpit-success" : margin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
+                                  Marge {margin.toFixed(0)}%
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                       {/* Declinations sub-rows */}
                       {hasDecls && isExpanded && decls.map((decl) => {
@@ -672,18 +776,21 @@ export default function CataloguePage() {
                                 {formatEuro(dTTC)}
                               </span>
                             </td>
-                            <td className="px-3 py-2 text-right hidden lg:table-cell">
-                              <div>
-                                <span className="text-[10px] text-cockpit-secondary">
-                                  {dPurch > 0 ? formatEuro(dPurch) : "—"}
-                                </span>
-                                {dMargin !== null && dMargin > 0 && (
-                                  <p className={`text-[9px] ${dMargin > 30 ? "text-cockpit-success" : dMargin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
-                                    Marge {dMargin.toFixed(0)}%
-                                  </p>
-                                )}
-                              </div>
-                            </td>
+                            <td className="px-3 py-2 text-center" />
+                            {canSeePurchase && (
+                              <td className="px-3 py-2 text-right hidden lg:table-cell">
+                                <div>
+                                  <span className="text-[10px] text-cockpit-secondary">
+                                    {dPurch > 0 ? formatEuro(dPurch) : "—"}
+                                  </span>
+                                  {dMargin !== null && dMargin > 0 && (
+                                    <p className={`text-[9px] ${dMargin > 30 ? "text-cockpit-success" : dMargin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
+                                      Marge {dMargin.toFixed(0)}%
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
@@ -692,7 +799,7 @@ export default function CataloguePage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-cockpit-secondary">
+                  <td colSpan={canSeePurchase ? 9 : 8} className="px-4 py-12 text-center text-cockpit-secondary">
                     <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p>Aucun produit trouvé</p>
                   </td>
@@ -760,6 +867,28 @@ export default function CataloguePage() {
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
                         <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
+                        {(() => {
+                          const qty = parseFloat(item.standard_quantity || "0");
+                          return (
+                            <a
+                              href={`${SELLSY_ITEM_URL}/${item.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-0.5 mt-1"
+                            >
+                              {qty > 0 ? (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-cockpit-success bg-cockpit-success/10 px-1.5 py-0.5 rounded">
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> Stock
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">
+                                  <XCircle className="w-2.5 h-2.5" /> Indispo
+                                </span>
+                              )}
+                            </a>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -809,6 +938,18 @@ export default function CataloguePage() {
           </p>
         </div>
       </div>
+      {/* Mémo étiquettes */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-3 sm:p-4 flex items-start gap-3">
+        <Info className="w-5 h-5 text-cockpit-info flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-xs font-semibold text-cockpit-heading">Étiquettes compatibles</p>
+          <p className="text-[11px] text-cockpit-secondary mt-0.5">
+            Apli Agipa — 2400 étiquettes blanches multi-usages — <strong>70 x 36 mm</strong> — coins droits — réf <strong>119011</strong>
+            <br />Format A4, 24 étiquettes/page (3 colonnes x 8 lignes). Jet d&apos;encre / Laser / Copieur.
+          </p>
+        </div>
+      </div>
+
       {/* Floating Print Button */}
       {checkedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 animate-in slide-in-from-bottom-4 duration-200">
