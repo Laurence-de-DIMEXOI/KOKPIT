@@ -38,6 +38,8 @@ export type Module =
   | "catalogue-abc"
   | "alertes-stock"
   | "parametres-achat"
+  | "previsionnel-achat"
+  | "previsionnel"
 ;
 
 /**
@@ -85,6 +87,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "catalogue-abc",
     "alertes-stock",
     "parametres-achat",
+    "previsionnel-achat",
+    "previsionnel",
 
     "permissions",
   ],
@@ -119,6 +123,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "catalogue-abc",
     "alertes-stock",
     "parametres-achat",
+    "previsionnel",
   ],
   COMMERCIAL: [
     // Section commerciale
@@ -144,6 +149,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "catalogue-abc",
     "alertes-stock",
     "parametres-achat",
+    "previsionnel",
   ],
   DIRECTION: [
     // Tout accès (comme ADMIN)
@@ -181,6 +187,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "catalogue-abc",
     "alertes-stock",
     "parametres-achat",
+    "previsionnel-achat",
+    "previsionnel",
 
     "permissions",
   ],
@@ -207,6 +215,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "catalogue-abc",
     "alertes-stock",
     "parametres-achat",
+    "previsionnel-achat",
+    "previsionnel",
   ],
 };
 

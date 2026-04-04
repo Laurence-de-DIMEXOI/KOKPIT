@@ -92,6 +92,7 @@ export default function CataloguePage() {
   const [drawerDeclUrl, setDrawerDeclUrl] = useState<string | undefined>(undefined);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [checkedDeclIds, setCheckedDeclIds] = useState<Set<number>>(new Set());
+  const [labelStartPos, setLabelStartPos] = useState(0);
   const [page, setPage] = useState(1);
 
   // Search debounce
@@ -398,12 +399,19 @@ export default function CataloguePage() {
     const LABEL_W = 70;
     const LABEL_H = 35;
 
+    // Prepend empty slots for the chosen start position
+    const allSlots: (typeof printableLabels[0] | null)[] = [
+      ...Array(labelStartPos).fill(null),
+      ...printableLabels,
+    ];
+
     const pages: string[] = [];
-    for (let p = 0; p < Math.ceil(printableLabels.length / PER_PAGE); p++) {
-      const pageLabels = printableLabels.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
+    for (let p = 0; p < Math.ceil(allSlots.length / PER_PAGE); p++) {
+      const pageSlots = allSlots.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
       let gridCells = "";
       for (let i = 0; i < PER_PAGE; i++) {
-        const label = pageLabels[i];
+        const label = pageSlots[i];
+        const globalIdx = p * PER_PAGE + i;
         if (label) {
           gridCells += `
             <div class="label">
@@ -411,7 +419,7 @@ export default function CataloguePage() {
               <div class="name">${(label.name).replace(/"/g, "&quot;")}</div>
               <div class="ref">Réf : ${label.reference || "—"}</div>
               <div class="price-ttc">${fmtEuro(label.priceTTC)}</div>
-              <div class="barcode-container" id="bc-${p}-${i}"></div>
+              <div class="barcode-container" id="bc-${globalIdx}"></div>
             </div>`;
         } else {
           gridCells += `<div class="label empty"></div>`;
@@ -422,18 +430,17 @@ export default function CataloguePage() {
 
     const barcodeScripts = printableLabels
       .map((label, idx) => {
-        const pageIdx = Math.floor(idx / PER_PAGE);
-        const cellIdx = idx % PER_PAGE;
+        const slotIdx = idx + labelStartPos;
         return `
         try {
           var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-          document.getElementById("bc-${pageIdx}-${cellIdx}").appendChild(svg);
+          document.getElementById("bc-${slotIdx}").appendChild(svg);
           JsBarcode(svg, "${(label.reference).replace(/"/g, '\\"')}", {
             format: "CODE128", width: 1.2, height: 16, displayValue: true,
             fontSize: 7, margin: 1, background: "transparent", lineColor: "#1F2937",
           });
         } catch(e) {
-          var el = document.getElementById("bc-${pageIdx}-${cellIdx}");
+          var el = document.getElementById("bc-${slotIdx}");
           if (el) el.textContent = "${(label.reference).replace(/"/g, '\\"')}";
         }`;
       })
@@ -467,7 +474,7 @@ ${pages.join("\n")}
 <script>${barcodeScripts}\nsetTimeout(function(){window.print();},500);<\/script>
 </body></html>`);
     printWindow.document.close();
-  }, [printableLabels]);
+  }, [printableLabels, labelStartPos]);
 
   const SortIcon = ({ col }: { col: SortKey }) => {
     if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 text-cockpit-secondary" />;
@@ -990,17 +997,61 @@ ${pages.join("\n")}
         </div>
       </div>
 
-      {/* Floating Print Button */}
+      {/* Floating Print Bar */}
       {totalChecked > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 animate-in slide-in-from-bottom-4 duration-200">
-          <button
-            onClick={handlePrintMulti}
-            className="flex items-center gap-2.5 px-6 py-3 rounded-full shadow-xl text-sm font-bold transition-all hover:scale-105 active:scale-95"
-            style={{ backgroundColor: "var(--color-active, #4C9DB0)", color: "white" }}
-          >
-            <Printer className="w-4 h-4" />
-            Imprimer {totalChecked} étiquette{totalChecked > 1 ? "s" : ""}
-          </button>
+          <div className="flex items-center gap-4 bg-white rounded-2xl shadow-2xl px-5 py-3 border border-gray-200">
+            {/* Mini grid: 3×8 = 24 positions */}
+            <div className="flex flex-col gap-1">
+              <p className="text-[10px] text-gray-400 leading-none">
+                Départ : position <span className="font-semibold text-gray-600">{labelStartPos + 1}</span>
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 14px)", gap: "2px" }}>
+                {Array.from({ length: 24 }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLabelStartPos(i)}
+                    title={`Commencer à la position ${i + 1}`}
+                    style={{
+                      width: 14,
+                      height: 10,
+                      borderRadius: 2,
+                      border: i === labelStartPos
+                        ? "1.5px solid var(--color-active, #4C9DB0)"
+                        : "1px solid #e5e7eb",
+                      backgroundColor: i < labelStartPos
+                        ? "#e5e7eb"
+                        : i === labelStartPos
+                          ? "var(--color-active, #4C9DB0)"
+                          : "white",
+                      cursor: "pointer",
+                      transition: "all 0.1s",
+                      flexShrink: 0,
+                    }}
+                  />
+                ))}
+              </div>
+              {labelStartPos > 0 && (
+                <button
+                  onClick={() => setLabelStartPos(0)}
+                  className="text-[9px] text-gray-400 hover:text-gray-600 underline leading-none mt-0.5 text-left"
+                >
+                  Réinitialiser
+                </button>
+              )}
+            </div>
+            {/* Divider */}
+            <div className="w-px self-stretch bg-gray-200" />
+            {/* Print button */}
+            <button
+              onClick={handlePrintMulti}
+              className="flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-105 active:scale-95"
+              style={{ backgroundColor: "var(--color-active, #4C9DB0)", color: "white" }}
+            >
+              <Printer className="w-4 h-4" />
+              Imprimer {totalChecked} étiquette{totalChecked > 1 ? "s" : ""}
+            </button>
+          </div>
         </div>
       )}
 

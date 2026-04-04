@@ -905,7 +905,7 @@ export default function PointageEquipePage() {
       {correctionTarget && (
         <CorrectionModal
           pointage={correctionTarget}
-          date={formatDateFR(selectedDate)}
+          date={toDateStr(selectedDate)}
           onClose={() => setCorrectionTarget(null)}
           onSuccess={fetchEquipeToday}
         />

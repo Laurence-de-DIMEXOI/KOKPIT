@@ -12,6 +12,7 @@ import {
   Search,
   CheckCircle2,
   Clock,
+  Ship,
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
@@ -179,6 +180,8 @@ export default function TracabilitePage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [matchingInfo, setMatchingInfo] = useState<MatchingInfo | null>(null);
   const [cacheDate, setCacheDate] = useState<string | null>(null);
+  // Map bdcReference → arrivage info
+  const [arrivageBdcMap, setArrivageBdcMap] = useState<Map<string, { reference: string; dateDepart: string | null; dateLivraisonEstimee: string | null; statut: string }>>(new Map());
 
   // Phase 1 : charger les stats depuis le cache (instantané)
   const fetchStats = useCallback(async () => {
@@ -253,6 +256,25 @@ export default function TracabilitePage() {
       await fetchFullData(false);
     })();
   }, [fetchStats, fetchFullData]);
+
+  // ── Arrivages : charger une fois les arrivages actifs et construire la map BDC → arrivage ──
+  useEffect(() => {
+    fetch("/api/commercial/previsionnel")
+      .then((r) => r.json())
+      .then((arrivages: any[]) => {
+        if (!Array.isArray(arrivages)) return;
+        const map = new Map<string, { reference: string; dateDepart: string | null; dateLivraisonEstimee: string | null; statut: string }>();
+        for (const a of arrivages) {
+          if (Array.isArray(a.bdcLies)) {
+            for (const bdc of a.bdcLies) {
+              map.set(bdc.bdcReference, { reference: a.reference, dateDepart: a.dateDepart, dateLivraisonEstimee: a.dateLivraisonEstimee, statut: a.statut });
+            }
+          }
+        }
+        setArrivageBdcMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   // Period-filtered data
   const sq = searchQuery.toLowerCase();
@@ -570,18 +592,21 @@ export default function TracabilitePage() {
                   <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">MONTANT HT</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">DATE</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading">STATUT</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-cockpit-heading hidden lg:table-cell">ARRIVAGE</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-cockpit-heading">SELLSY</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-cockpit">
                 {filteredDirectes.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
+                    <td colSpan={7} className="px-4 py-8 text-center text-cockpit-secondary text-sm">
                       Toutes les commandes sont liées à un devis.
                     </td>
                   </tr>
                 ) : (
-                  filteredDirectes.map((order) => (
+                  filteredDirectes.map((order) => {
+                    const arrivageInfo = order.number ? arrivageBdcMap.get(order.number) : undefined;
+                    return (
                     <tr key={order.id} className="hover:bg-cockpit-dark/50 transition-colors">
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
@@ -607,6 +632,23 @@ export default function TracabilitePage() {
                           {traduireStatut(order.status)}
                         </span>
                       </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {arrivageInfo ? (
+                          <div className="flex items-center gap-1.5">
+                            <Ship className="w-3.5 h-3.5 text-[#CBA1D4] flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-[#CBA1D4]">{arrivageInfo.reference}</p>
+                              {arrivageInfo.dateDepart && (
+                                <p className="text-[10px] text-cockpit-secondary">
+                                  Départ {new Date(arrivageInfo.dateDepart).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-cockpit-secondary text-xs">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-center">
                         <a
                           href={getSellsyUrl('order', order.id)}
@@ -619,7 +661,8 @@ export default function TracabilitePage() {
                         </a>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
