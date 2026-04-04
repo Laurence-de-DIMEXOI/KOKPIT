@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 26 mars 2026 (v18 — Menu unique sidebar + DA harmonisée + Messagerie + Pointage + SAV + Need Price + Calculateur + Suivi Trello + Permissions Supabase + Reset password + Tâches collab + RFM + ROI + 1429 emails Club Tectona)
-**Mis à jour par** : Session Claude Code (Sprint 24-26 mars)
+**Dernière mise à jour** : 4 avril 2026 (v20 — Passerelle dimexoi.fr ↔ KOKPIT : lead magnet guide SDB + webhook Meta Ads + envoi PDF Brevo)
+**Mis à jour par** : Session Claude Code (Sprint 4 avril — Passerelle)
 
 ---
 
@@ -59,6 +59,9 @@
 - `src/lib/contact-priority.ts` — scoring 4 niveaux (Intention + Historique + Fraîcheur) calculé à la volée
 - `src/app/api/demandes/sync-sellsy/route.ts` — pré-lier contacts + micro-refresh devis/BDC 14j + check statuts Prisma ✅ réécrit 5d0727e
 - `src/app/api/demandes/relance/route.ts` — envoi email relance commercial via Brevo (fallback Resend) ✅ f5911fc
+
+- `src/lib/guide-brevo.ts` — `sendGuidePdfEmail()` — envoi guide PDF par email Brevo transactionnel (template ID 19, désactivé sans env var)
+- `src/app/api/webhooks/guide-download/route.ts` — webhook dimexoi.fr → KOKPIT : crée Contact + Lead + Evenement + stocke showroom + envoie email guide
 
 **⚠️ Règle critique API Sellsy V2** : Les filtres `third_ids`, `contact_id`, `individual_ids` sont cassés — ils retournent TOUS les documents au lieu de filtrer. Solution : utiliser `findDocumentsByRelated()` — récupérer les N derniers documents et filtrer côté serveur par `related[].id`. Ne jamais utiliser ces filtres V2 directement.
 
@@ -298,6 +301,11 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | SOLDE-H | Solde heures cumulé pointage | Accumulation automatique heures supp/manque. Seuil récup = 4h (ConfigPointage). Route /api/pointage/recup pour consommer. Correction manager ajuste le solde |
 | METEO | Météo temps réel pointage | Open-Meteo API (gratuit, pas de clé). Coordonnées Saint-Pierre La Réunion (-21.34, 55.48). Affichée à côté de l'horloge |
 | TACHES-COLLAB | Tâches avec collaboration | Champ "En collaboration avec" + statut invitation (INVITE/ACCEPTE/REFUSE). Le collaborateur peut accepter ou refuser |
+| CATALOGUE-V2 | Catalogue déclinaisons complètes | Chaque déclinaison a sa propre ligne, checkbox, drawer, étiquette. Prix TTC calculé depuis TVA parent (ratio TTC/HT Sellsy, fallback 8,5%). Prix achat hérité du parent si absent sur la déclinaison. Drawer déclinaison via `openDeclDrawer` → virtual SellsyItem avec id=parentItem.id + `sellsyUrlOverride` vers `getSellsyDeclUrl(parentId, declId)`. Mémo étiquettes déplacé au-dessus des KPIs |
+| CATALOGUE-PRINT | Fiche de prélèvement | Remplacement impression étiquettes → fiche A4 tableau (# / Référence / Désignation / Code-barre CODE128 / Qté vide). Workflow : rechercher → cocher → changer recherche → cocher → imprimer. La sélection persiste à travers les recherches (checkedIds + checkedDeclIds en état React). Commit `1d503db` |
+| CATALOGUE-STOCK | Suppression affichage stock catalogue | Sellsy V1 `Stock.getForItem` rate-limité (429) dès que plus de ~8 appels/min. `fetchAllStock` auto = 125+ appels → throttle total. Solution : colonne STOCK supprimée, filtre stock supprimé, chargement stock supprimé. `getStockForItem` rendu robuste (gère array, objet plat, objet imbriqué, catch 429). Commit `1d503db` |
+| STOCK-CACHE | Cache Supabase stock persistant | Table `stock_cache` (key, data JSONB, cached_at, expires_at). Modèle Prisma `StockCache` + `@@map("stock_cache")`. Classe `db-cache.ts` → `dbStockCache.get/set/getStale` async avec fallback mémoire si DB inaccessible. TTL 30 min. Partagé entre toutes les instances Vercel (vs in-memory qui est par instance). Endpoint `/api/sellsy/stock/[itemId]` : retry auto sur 429 (attente 2,5s). Endpoint `/api/sellsy/stock/all` : batch de 5 avec 1,2s de délai. Commit `1d503db` |
+| PASSERELLE | Passerelle dimexoi.fr ↔ KOKPIT | Webhook `/api/webhooks/guide-download` reçoit leads guide SDB depuis dimexoi.fr → crée Contact (avec showroomId SUD/NORD) + Lead + Evenement. Envoi PDF par email Brevo (template ID 19, désactivé sans `BREVO_GUIDE_SDB_TEMPLATE_ID`). Compteur téléchargements dans dashboard ROI. Segment Brevo "Guide SDB teck". Côté dimexoi.fr : formulaire avec showroom préféré, tracking Meta Pixel Lead + GTM + Google Ads conversion, webhook Meta Ads `/api/webhooks/meta-leads` pour formulaires natifs Facebook |
 | X9-RFM | Segmentation RFM | 5 segments (Champions, Loyaux, À risque, Perdus, Nouveaux) calculés à la volée. Export vers listes Brevo |
 | X8-ROI | ROI Marketing | Page /marketing/roi — dépenses multi-canal (Meta, Google, Salon, Agence) + CA + ROI% + CAC réel |
 | X6-NOTIF | Notifications topbar | 5 types : token Meta expirant, devis expirant, SLA 72h, congé à valider, tâche assignée. Cloche avec badge |
@@ -384,8 +392,19 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Comptes utilisateurs | Système première connexion : token 64 chars + expiry 24h + page /set-password. Mot de passe hashé bcrypt. admin@kokpit.re = compte dev séparé | Pas de mot de passe en clair par email |
 | AUD-BREVO | Stats campagnes à 0 dans l'API = limitation plan Starter Brevo. L'API `/v3/smtp/statistics/aggregatedReport` fonctionne (stats transactionnelles). Export webhook nécessite plan Professional+ | Pas de fix possible côté KOKPIT |
 | Section Achat | Temporairement commentée dans nav-config.ts. À réactiver pour ACH1 | En attente de développement |
+| Catalogue — Stock | Colonne STOCK supprimée. Sellsy V1 rate-limit 429 incompatible avec chargement masse (2500+ items). Seule la fiche de prélèvement (print) est utile | 1d503db |
+| Catalogue — TVA | TVA calculée depuis ratio TTC/HT Sellsy. Fallback 8,5% (TVA La Réunion) | 1d503db |
+| Catalogue — Déclinaisons | ID parent (`item.id` V2) utilisé pour toutes les opérations stock et drawer. V2 decl IDs ≠ V1 declids — ne jamais passer un V2 decl ID à l'API V1 | 1d503db |
+| Cache stock | `db-cache.ts` → `dbStockCache` Supabase avec fallback in-memory. Toujours préférer le cache DB pour partager entre instances Vercel | 1d503db |
+| `getSellsyDeclUrl` | Nouvelle fonction dans `sellsy-urls.ts` : `getSellsyDeclUrl(parentItemId, declId)` → URL Sellsy avec `&declid=` | 1d503db |
 | Horaires La Réunion | Repos dimanche + lundi (pas samedi + dimanche). Showroom SUD : Mar-Sam 9h-17h. Showroom NORD : Mar-Sam 10h-13h & 14h-18h | Spécifique DOM |
 | Email Laurent Batisse | laurent@dimexoi.fr (pas laurent.batisse@dimexoi.fr) | Corrigé en base |
+| Lead magnet guide SDB | PDF hébergé sur dimexoi.fr `/public/guides/`, lien envoyé via Brevo transactionnel (template ID 19) | Simplicité, pas de Supabase |
+| Showroom préféré | Stocké via `showroomId` existant sur Contact (showroom_sud / showroom_nord), pas de nouveau champ | Réutilise le modèle Showroom existant |
+| Pas de distribution commerciale guide | Le showroom est stocké comme info mais pas d'assignation automatique de commercial sur les leads guide | Décision Laurence 4 avril |
+| Webhook Meta Ads | Endpoint sur dimexoi.fr `/api/webhooks/meta-leads` qui forward vers KOKPIT `/api/webhooks/guide-download` au même format | Même flux que formulaire site |
+| Template Brevo guide | ID 19, désactivé par défaut. Activé via `BREVO_GUIDE_SDB_TEMPLATE_ID=19` en env var Vercel | Sécurité : pas d'envoi sans config explicite |
+| Showrooms DIMEXOI | SUD : 8 rue Benjamin Hoareau, ZI n°3, 97410 Saint-Pierre, 0262 35 06 79, contact@dimexoi.fr. NORD : 43 rue Tourette, 97400 Saint-Denis, 0262 20 30 30, bernard@dimexoi.fr | Coordonnées officielles avril 2026 |
 
 ---
 
@@ -439,6 +458,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **Tache** — tâches avec collaboration (assigneAId, collaborateurId, collaborationStatut INVITE/ACCEPTE/REFUSE) ✅
 - **ConfigApp** — paramètres globaux (SLA heures, etc.) ✅
 - **PasswordResetToken** — tokens de réinitialisation mot de passe (24h) ✅
+- **StockCache** — cache persistant stock Sellsy (key TEXT PK, data JSONB, cached_at, expires_at). TTL 30 min. `@@map("stock_cache")` ✅
 
 **À créer (prochains sprints) :**
 - `PlanTechnique` — dépôt plans PDF + transfert OneDrive (Module 3 Achat)
@@ -469,6 +489,9 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | `ANTHROPIC_API_KEY` | ✅ Vercel | Chatbot M4C |
 | `NEXTAUTH_SECRET` | ✅ Vercel | Auth |
 | `NEXTAUTH_URL` | ✅ Vercel | Auth |
+
+| `BREVO_GUIDE_SDB_TEMPLATE_ID` | ⚠️ À ajouter Vercel | ID template Brevo envoi guide SDB (19). Désactivé sans cette var |
+| `META_WEBHOOK_VERIFY_TOKEN` | ⚠️ À ajouter dimexoi-site Vercel | Token vérification webhook Meta Ads |
 
 **Action requise** : activer scope "API V1" dans Sellsy > Paramètres > Portail développeur > API V2 pour que C3bis fonctionne en prod.
 
