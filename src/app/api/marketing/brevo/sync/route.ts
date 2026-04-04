@@ -30,6 +30,12 @@ const SEGMENTS = [
     description: "Contacts sans aucune commande",
     filter: { noVentes: true },
   },
+  {
+    id: "guide-sdb",
+    nom: "Guide SDB teck — téléchargements",
+    description: "Contacts ayant téléchargé le guide salle de bain en teck",
+    filter: { tag: "GUIDE_SDB" },
+  },
 ];
 
 async function brevoFetch(path: string, options?: RequestInit) {
@@ -112,6 +118,19 @@ async function getContactsForSegment(segmentId: string) {
         where: {
           email: { not: "" },
           ventes: { none: {} },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true },
+      });
+
+    case "guide-sdb":
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          evenements: {
+            some: {
+              description: { contains: "Téléchargement guide PDF" },
+            },
+          },
         },
         select: { email: true, nom: true, prenom: true, ville: true },
       });
