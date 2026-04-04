@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendGuidePdfEmail } from "@/lib/guide-brevo";
 
 /**
  * POST /api/webhooks/guide-download
@@ -51,7 +52,17 @@ export async function POST(request: NextRequest) {
     const piece = metadata.piece || null;
     const guide = metadata.guide || "amenager-salle-de-bain-en-teck";
 
-    const noteEntry = `[GUIDE_SDB] Téléchargement guide "${guide}" — source: ${source}${piece ? ` — pièce: ${piece}` : ""}`;
+    // Mapper showroom préféré vers ID Supabase
+    const showroomMap: Record<string, string> = {
+      SUD: "showroom_sud",
+      NORD: "showroom_nord",
+    };
+    const showroomPrefere = metadata.showroom
+      ? showroomMap[metadata.showroom] || null
+      : null;
+
+    const showroomLabel = metadata.showroom === "SUD" ? "Saint-Pierre" : metadata.showroom === "NORD" ? "Saint-Denis" : null;
+    const noteEntry = `[GUIDE_SDB] Téléchargement guide "${guide}" — source: ${source}${piece ? ` — pièce: ${piece}` : ""}${showroomLabel ? ` — showroom: ${showroomLabel}` : ""}`;
 
     // Chercher contact existant
     const existing = await prisma.contact.findUnique({ where: { email } });
@@ -68,6 +79,8 @@ export async function POST(request: NextRequest) {
         data: {
           ...(telephone ? { telephone } : {}),
           ...(prenom ? { prenom } : {}),
+          // Ne remplacer le showroom que si pas déjà renseigné et qu'on en a un nouveau
+          ...(showroomPrefere && !existing.showroomId ? { showroomId: showroomPrefere } : {}),
           notes: updatedNotes,
           rgpdEmailConsent: true,
           rgpdConsentDate: new Date(),
@@ -81,6 +94,7 @@ export async function POST(request: NextRequest) {
           nom: prenom,
           prenom,
           telephone: telephone || null,
+          ...(showroomPrefere ? { showroomId: showroomPrefere } : {}),
           sourcePremiere: "SITE_WEB",
           rgpdEmailConsent: true,
           rgpdConsentDate: new Date(),
@@ -102,6 +116,7 @@ export async function POST(request: NextRequest) {
           guide,
           source,
           piece: piece || null,
+          showroom: metadata.showroom || null,
           downloadedAt: new Date().toISOString(),
           ip: request.headers.get("x-forwarded-for") || null,
         },
@@ -124,11 +139,12 @@ export async function POST(request: NextRequest) {
       const lead = await prisma.lead.create({
         data: {
           contactId: contact.id,
+          ...(showroomPrefere ? { showroomId: showroomPrefere } : {}),
           source: "FORMULAIRE",
           statut: "NOUVEAU",
           priorite: "BASSE",
           slaDeadline,
-          notes: `[GUIDE_SDB] Téléchargement guide salle de bain en teck${piece ? ` — intéressé(e) par : ${piece}` : ""} — source: ${source}`,
+          notes: `[GUIDE_SDB] Téléchargement guide salle de bain en teck${piece ? ` — intéressé(e) par : ${piece}` : ""}${showroomLabel ? ` — showroom: ${showroomLabel}` : ""} — source: ${source}`,
           utmSource: source,
           utmMedium: "guide_pdf",
           utmCampaign: "guide_sdb_avril26",
@@ -137,10 +153,19 @@ export async function POST(request: NextRequest) {
       leadId = lead.id;
     }
 
+    // Envoi du guide par email (désactivé si pas de template Brevo configuré)
+    const emailSent = await sendGuidePdfEmail({
+      email,
+      prenom,
+      piece,
+      showroom: showroomLabel,
+    });
+
     return NextResponse.json({
       success: true,
       contactId: contact.id,
       leadId,
+      emailSent,
       message: "Contact enregistré avec tag GUIDE_SDB",
     }, { status: 200, headers: corsHeaders });
 
