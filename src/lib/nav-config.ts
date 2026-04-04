@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Building2,
   CalendarDays,
+  Calendar,
   UserCircle,
   Link2,
   GitCompareArrows,
@@ -25,6 +26,7 @@ import {
   MessageSquare,
   Calculator,
   Truck,
+  Ship,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -58,7 +60,9 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { label: "Bois d'Orient", href: "/commercial/bois-dorient", icon: TreePine, module: "bois-dorient" },
       { label: "Pipeline Devis", href: "/commercial/pipeline", icon: FileText, module: "pipeline" },
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
+      { label: "Rendez-vous", href: "/commercial/rendez-vous", icon: Calendar, module: "commandes" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
+      { label: "Arrivages", href: "/commercial/previsionnel", icon: Ship, module: "previsionnel" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
     ],
@@ -87,6 +91,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { label: "Need Price", href: "/achat/need-price", icon: FileText, module: "need-price" },
       { label: "Calculateur", href: "/achat/calculateur", icon: Calculator, module: "calculateur" },
       { label: "Suivi commandes", href: "/achat/suivi-commandes", icon: Truck, module: "suivi-commandes" },
+      { label: "Prévisionnel", href: "/achat/previsionnel", icon: Ship, module: "previsionnel-achat" },
     ],
   },
   {

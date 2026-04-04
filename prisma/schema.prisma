@@ -81,6 +81,8 @@ enum EvenementType {
   RELANCE
   CHANGEMENT_STATUT
   VISITE_WEB
+  RDV_PRIS
+  RDV_ANNULE
 }
 
 enum TaskStatut {
@@ -180,6 +182,8 @@ model User {
   messagesSent         MessageChat[]  @relation("MessageChatExpediteur")
   reactionsMessages    ReactionMessage[] @relation("ReactionsUser")
   needPrices           NeedPrice[]    @relation("NeedPriceCreator")
+  arrivagesCrees       Arrivage[]     @relation("ArrivageCreateur")
+  bdcArrivagesLies     BdcArrivage[]  @relation("BdcArrivageLiePar")
   seuilStockUpdates    SeuilStockAchat[] @relation("SeuilStockUpdatedBy")
   prixBackups          PrixBackup[]   @relation("PrixBackupCreator")
   sessionsTarif        SessionTarif[] @relation("SessionTarifCreator")
@@ -248,6 +252,7 @@ model Contact {
   demandesPrix        DemandePrix[]
   tasks               Task[]
   dossiersSav         DossierSAV[]
+  rendezVous          RendezVous[]
 
   @@index([telephone])
   @@index([sellsyContactId])
@@ -1219,6 +1224,64 @@ model SessionTarif {
 }
 
 // ============================================================================
+// PRÉVISIONNEL ARRIVAGES (conteneurs)
+// ============================================================================
+
+model Arrivage {
+  id                   String    @id @default(cuid())
+  reference            String    @unique  // ex: "C04/2026"
+  dateDepart           DateTime?
+  dateLivraisonEstimee DateTime?
+  statut               String    @default("PREVU")
+  // "PREVU" | "EN_TRANSIT" | "ARRIVE" | "ANNULE"
+  notes                String?
+
+  lignes               LigneArrivage[]
+  bdcLies              BdcArrivage[]
+
+  createdById          String
+  createdBy            User      @relation("ArrivageCreateur", fields: [createdById], references: [id])
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([statut])
+  @@index([dateDepart])
+}
+
+model LigneArrivage {
+  id            String   @id @default(cuid())
+  arrivageId    String
+  arrivage      Arrivage @relation(fields: [arrivageId], references: [id], onDelete: Cascade)
+
+  sellsyRefId   String?
+  reference     String
+  designation   String
+  quantite      Int
+  notes         String?
+
+  @@index([arrivageId])
+}
+
+model BdcArrivage {
+  id            String   @id @default(cuid())
+  arrivageId    String
+  arrivage      Arrivage @relation(fields: [arrivageId], references: [id], onDelete: Cascade)
+
+  bdcSellsyId   String
+  bdcReference  String   // ex: "BCDI-05676"
+  clientNom     String?
+  notes         String?
+
+  liePar        String
+  lieParUser    User     @relation("BdcArrivageLiePar", fields: [liePar], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@unique([arrivageId, bdcSellsyId])
+  @@index([bdcReference])
+  @@index([arrivageId])
+}
+
+// ============================================================================
 // CACHE STOCK SELLSY (partagé entre toutes les instances Vercel)
 // ============================================================================
 
@@ -1230,4 +1293,29 @@ model StockCache {
 
   @@index([expiresAt])
   @@map("stock_cache")
+}
+
+// ============================================================================
+// RENDEZ-VOUS (Calendly)
+// ============================================================================
+
+model RendezVous {
+  id              String    @id @default(cuid())
+  contactId       String
+  contact         Contact   @relation(fields: [contactId], references: [id])
+  calendlyEventId String?   @unique   // URI Calendly pour dédoublonnage
+  dateDebut       DateTime            // Date et heure du RDV
+  dateFin         DateTime            // Fin du créneau
+  statut          String    @default("CONFIRME")  // CONFIRME | HONORE | ANNULE
+  source          String    @default("calendly")  // calendly_contact | calendly_fiche_produit | calendly_vente_privee | calendly_guide_sdb
+  productSlug     String?             // Slug produit si RDV pris depuis fiche produit
+  utm             String?             // JSON stringifié des UTM
+  notes           String?             // Notes libres du commercial
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([contactId])
+  @@index([statut])
+  @@index([dateDebut])
+  @@index([source])
 }
