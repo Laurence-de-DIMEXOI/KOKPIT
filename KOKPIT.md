@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 4 avril 2026 (v20 — Passerelle dimexoi.fr ↔ KOKPIT : lead magnet guide SDB + webhook Meta Ads + envoi PDF Brevo)
-**Mis à jour par** : Session Claude Code (Sprint 4 avril — Passerelle)
+**Dernière mise à jour** : 4 avril 2026 (v21 — Passerelle complète : guide SDB + Meta Ads + Calendly RDV showroom)
+**Mis à jour par** : Session Claude Code (Sprint 4 avril — Passerelle + Calendly)
 
 ---
 
@@ -306,6 +306,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | CATALOGUE-STOCK | Suppression affichage stock catalogue | Sellsy V1 `Stock.getForItem` rate-limité (429) dès que plus de ~8 appels/min. `fetchAllStock` auto = 125+ appels → throttle total. Solution : colonne STOCK supprimée, filtre stock supprimé, chargement stock supprimé. `getStockForItem` rendu robuste (gère array, objet plat, objet imbriqué, catch 429). Commit `1d503db` |
 | STOCK-CACHE | Cache Supabase stock persistant | Table `stock_cache` (key, data JSONB, cached_at, expires_at). Modèle Prisma `StockCache` + `@@map("stock_cache")`. Classe `db-cache.ts` → `dbStockCache.get/set/getStale` async avec fallback mémoire si DB inaccessible. TTL 30 min. Partagé entre toutes les instances Vercel (vs in-memory qui est par instance). Endpoint `/api/sellsy/stock/[itemId]` : retry auto sur 429 (attente 2,5s). Endpoint `/api/sellsy/stock/all` : batch de 5 avec 1,2s de délai. Commit `1d503db` |
 | PASSERELLE | Passerelle dimexoi.fr ↔ KOKPIT | Webhook `/api/webhooks/guide-download` reçoit leads guide SDB depuis dimexoi.fr → crée Contact (avec showroomId SUD/NORD) + Lead + Evenement. Envoi PDF par email Brevo (template ID 19, désactivé sans `BREVO_GUIDE_SDB_TEMPLATE_ID`). Compteur téléchargements dans dashboard ROI. Segment Brevo "Guide SDB teck". Côté dimexoi.fr : formulaire avec showroom préféré, tracking Meta Pixel Lead + GTM + Google Ads conversion, webhook Meta Ads `/api/webhooks/meta-leads` pour formulaires natifs Facebook |
+| CALENDLY | Module Rendez-vous Calendly complet | Widget CalendlyWidget.tsx (inline + popup) intégré sur 3 pages dimexoi.fr (contact inline, fiches produit popup, guide popup post-submit). Webhook Calendly → dimexoi.fr → KOKPIT `/api/webhooks/calendly-rdv`. Modèle RendezVous (statuts CONFIRME/HONORE/ANNULE). Page `/commercial/rendez-vous` avec 4 KPIs + tableau filtrable + actions statut. API routes GET liste + GET stats + PATCH statut. EvenementType RDV_PRIS + RDV_ANNULE. Ajouté dans sidebar Commercial |
 | X9-RFM | Segmentation RFM | 5 segments (Champions, Loyaux, À risque, Perdus, Nouveaux) calculés à la volée. Export vers listes Brevo |
 | X8-ROI | ROI Marketing | Page /marketing/roi — dépenses multi-canal (Meta, Google, Salon, Agence) + CA + ROI% + CAC réel |
 | X6-NOTIF | Notifications topbar | 5 types : token Meta expirant, devis expirant, SLA 72h, congé à valider, tâche assignée. Cloche avec badge |
@@ -405,6 +406,11 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Webhook Meta Ads | Endpoint sur dimexoi.fr `/api/webhooks/meta-leads` qui forward vers KOKPIT `/api/webhooks/guide-download` au même format | Même flux que formulaire site |
 | Template Brevo guide | ID 19, désactivé par défaut. Activé via `BREVO_GUIDE_SDB_TEMPLATE_ID=19` en env var Vercel | Sécurité : pas d'envoi sans config explicite |
 | Showrooms DIMEXOI | SUD : 8 rue Benjamin Hoareau, ZI n°3, 97410 Saint-Pierre, 0262 35 06 79, contact@dimexoi.fr. NORD : 43 rue Tourette, 97400 Saint-Denis, 0262 20 30 30, bernard@dimexoi.fr | Coordonnées officielles avril 2026 |
+| Calendly URL | `https://calendly.com/dimexoi/60min` — ne jamais modifier | URL unique DIMEXOI |
+| Calendly widget | Script chargé dynamiquement dans CalendlyWidget.tsx uniquement (pas en global) | Performance |
+| Calendly UTM | Params a1 (pageSource) + a2 (productSlug) passés dans URL Calendly → renvoyés dans webhook | Attribution page source → RDV |
+| Calendly statuts | CONFIRME→HONORE (manuel commercial) ou CONFIRME→ANNULE (webhook ou manuel). Pas de retour. | Le commercial sait si le client est venu |
+| RDV taux conversion | Basé sur ventes (BDC) créées après la date du RDV, pas sur les devis (toujours créés) | Vrai indicateur commercial |
 
 ---
 
@@ -456,6 +462,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **Message** — messages messagerie interne (canaux + DM) ✅
 - **Channel** — canaux de messagerie (#général, #commercial, #marketing, #urgences) ✅
 - **Tache** — tâches avec collaboration (assigneAId, collaborateurId, collaborationStatut INVITE/ACCEPTE/REFUSE) ✅
+- **RendezVous** — RDV Calendly (dateDebut/dateFin, statut CONFIRME/HONORE/ANNULE, source page calendly_*, productSlug, calendlyEventId unique, lien Contact) ✅
 - **ConfigApp** — paramètres globaux (SLA heures, etc.) ✅
 - **PasswordResetToken** — tokens de réinitialisation mot de passe (24h) ✅
 - **StockCache** — cache persistant stock Sellsy (key TEXT PK, data JSONB, cached_at, expires_at). TTL 30 min. `@@map("stock_cache")` ✅
@@ -492,6 +499,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 
 | `BREVO_GUIDE_SDB_TEMPLATE_ID` | ⚠️ À ajouter Vercel | ID template Brevo envoi guide SDB (19). Désactivé sans cette var |
 | `META_WEBHOOK_VERIFY_TOKEN` | ⚠️ À ajouter dimexoi-site Vercel | Token vérification webhook Meta Ads |
+| `CALENDLY_WEBHOOK_SIGNING_KEY` | ⚠️ À ajouter dimexoi-site Vercel | Signing key depuis Calendly > Webhooks |
 
 **Action requise** : activer scope "API V1" dans Sellsy > Paramètres > Portail développeur > API V2 pour que C3bis fonctionne en prod.
 
