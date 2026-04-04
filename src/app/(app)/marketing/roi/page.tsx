@@ -13,6 +13,7 @@ import {
   X,
   Loader2,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/components/ui/toast";
@@ -27,6 +28,7 @@ interface KPIs {
   roiAnnuel: number;
   cac: number;
   nbVentes: number;
+  guideDownloads: number;
 }
 
 interface MoisData {
@@ -453,6 +455,43 @@ export default function ROIMarketingPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* LEAD MAGNETS                                                    */}
+      {/* ================================================================ */}
+      {!loading && data && (
+        <div>
+          <h2 className="text-sm font-semibold text-cockpit-primary mb-3 flex items-center gap-2">
+            <Download className="w-4 h-4" style={{ color: MKT_GRADIENT.from }} />
+            Guides PDF
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div
+              className="rounded-xl p-4 flex items-center gap-3"
+              style={{
+                background: "var(--color-cockpit-card)",
+                border: "1px solid var(--color-cockpit-border)",
+              }}
+            >
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: `linear-gradient(135deg, ${MKT_GRADIENT.from}, ${MKT_GRADIENT.to})`,
+                }}
+              >
+                <Download className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-cockpit-secondary font-medium">Guide SDB teck</p>
+                <p className="text-2xl font-bold text-cockpit-primary">
+                  {data.kpis.guideDownloads}
+                </p>
+                <p className="text-[10px] text-cockpit-secondary">téléchargements {annee}</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

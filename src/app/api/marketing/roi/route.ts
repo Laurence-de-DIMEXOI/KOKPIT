@@ -70,6 +70,18 @@ export async function GET(req: NextRequest) {
   const roiAnnuel = totalDepenses > 0 ? Math.round(((totalCA - totalDepenses) / totalDepenses) * 100) : 0;
   const cac = ventes.length > 0 && totalDepenses > 0 ? Math.round(totalDepenses / ventes.length) : 0;
 
+  // Compter les téléchargements du guide GUIDE_SDB sur l'année
+  const guideDownloads = await prisma.evenement.count({
+    where: {
+      type: "NOTE",
+      description: { contains: "Téléchargement guide PDF" },
+      createdAt: {
+        gte: new Date(`${annee}-01-01`),
+        lt: new Date(`${parseInt(annee) + 1}-01-01`),
+      },
+    },
+  });
+
   return NextResponse.json({
     annee,
     kpis: {
@@ -78,6 +90,7 @@ export async function GET(req: NextRequest) {
       roiAnnuel,
       cac,
       nbVentes: ventes.length,
+      guideDownloads,
     },
     mois,
     depensesParType: TYPES_COUT.map((t) => ({

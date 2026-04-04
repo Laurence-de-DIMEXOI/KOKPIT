@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
  * POST /api/webhooks/guide-download
  *
  * Webhook pour recevoir les téléchargements du guide PDF depuis dimexoi.fr.
- * Crée ou met à jour un contact, crée un lead [GUIDE_SDB] et un événement de traçabilité.
+ * Crée ou met à jour un contact, crée un événement de traçabilité.
  *
  * JSON ATTENDU :
  * {
@@ -51,29 +51,45 @@ export async function POST(request: NextRequest) {
     const piece = metadata.piece || null;
     const guide = metadata.guide || "amenager-salle-de-bain-en-teck";
 
-    // Upsert contact
-    const contact = await prisma.contact.upsert({
-      where: { email },
-      create: {
-        email,
-        nom: prenom,
-        prenom,
-        telephone: telephone || null,
-        sourcePremiere: "SITE_WEB",
-        rgpdEmailConsent: true,
-        rgpdConsentDate: new Date(),
-        rgpdConsentSource: "guide-pdf",
-        lifecycleStage: "PROSPECT",
-        notes: `[GUIDE_SDB] Téléchargement guide "${guide}" — source: ${source}${piece ? ` — pièce: ${piece}` : ""}`,
-      },
-      update: {
-        ...(telephone ? { telephone } : {}),
-        ...(prenom ? { prenom } : {}),
-        rgpdEmailConsent: true,
-        rgpdConsentDate: new Date(),
-        rgpdConsentSource: "guide-pdf",
-      },
-    });
+    const noteEntry = `[GUIDE_SDB] Téléchargement guide "${guide}" — source: ${source}${piece ? ` — pièce: ${piece}` : ""}`;
+
+    // Chercher contact existant
+    const existing = await prisma.contact.findUnique({ where: { email } });
+
+    let contact;
+    if (existing) {
+      // Appendre la note aux notes existantes
+      const updatedNotes = existing.notes
+        ? `${existing.notes}\n${noteEntry}`
+        : noteEntry;
+
+      contact = await prisma.contact.update({
+        where: { email },
+        data: {
+          ...(telephone ? { telephone } : {}),
+          ...(prenom ? { prenom } : {}),
+          notes: updatedNotes,
+          rgpdEmailConsent: true,
+          rgpdConsentDate: new Date(),
+          rgpdConsentSource: "guide-pdf",
+        },
+      });
+    } else {
+      contact = await prisma.contact.create({
+        data: {
+          email,
+          nom: prenom,
+          prenom,
+          telephone: telephone || null,
+          sourcePremiere: "SITE_WEB",
+          rgpdEmailConsent: true,
+          rgpdConsentDate: new Date(),
+          rgpdConsentSource: "guide-pdf",
+          lifecycleStage: "PROSPECT",
+          notes: noteEntry,
+        },
+      });
+    }
 
     // Événement de traçabilité
     await prisma.evenement.create({
