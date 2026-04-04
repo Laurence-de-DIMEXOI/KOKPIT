@@ -139,7 +139,7 @@ async function handleRdvCreation(body: {
       source: "FORMULAIRE",
       statut: "NOUVEAU",
       slaDeadline: dateDebut,
-      notes: `[RDV] Rendez-vous showroom le ${rdvDateStr}${
+      notes: `[RDV] Rendez-vous dessinateur 3D le ${rdvDateStr}${
         body.productSlug ? ` — produit : ${body.productSlug}` : ""
       } — via ${source}`,
       utmSource: body.utm?.utm_source || source,
@@ -153,7 +153,7 @@ async function handleRdvCreation(body: {
       contactId: contact.id,
       leadId: lead.id,
       type: "RDV_PRIS",
-      description: `RDV showroom pris via Calendly — ${rdvDateStr}`,
+      description: `RDV dessinateur 3D pris via Calendly — ${rdvDateStr}`,
       metadata: {
         rendezVousId: rdv.id,
         source,
@@ -217,7 +217,7 @@ async function handleRdvAnnulation(body: {
       data: {
         contactId: rdv.contactId,
         type: "RDV_ANNULE",
-        description: "RDV showroom annulé par le client via Calendly",
+        description: "RDV dessinateur 3D annulé par le client via Calendly",
         metadata: { rendezVousId: rdv.id },
       },
     });
