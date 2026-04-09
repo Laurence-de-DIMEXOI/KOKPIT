@@ -14,6 +14,9 @@ import {
   Loader2,
   ChevronDown,
   Download,
+  Mail,
+  Phone,
+  User,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/components/ui/toast";
@@ -294,6 +297,132 @@ function AjouterDepenseModal({
 }
 
 // ============================================================================
+// MODAL — Téléchargements guide
+// ============================================================================
+
+interface DownloadEvent {
+  id: string;
+  createdAt: string;
+  description: string;
+  contact: { email: string; prenom: string | null; nom: string | null; telephone: string | null } | null;
+}
+
+function DownloadsModal({ annee, total, onClose }: { annee: string; total: number; onClose: () => void }) {
+  const [events, setEvents] = useState<DownloadEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/marketing/roi/downloads?annee=${annee}`)
+      .then((r) => r.json())
+      .then((data) => { setEvents(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [annee]);
+
+  const filtered = events.filter((e) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      e.contact?.email?.toLowerCase().includes(q) ||
+      e.contact?.nom?.toLowerCase().includes(q) ||
+      e.contact?.prenom?.toLowerCase().includes(q)
+    );
+  });
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-cockpit-card border border-cockpit rounded-xl shadow-cockpit-lg overflow-hidden flex flex-col max-h-[80vh]">
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+          style={{ background: `linear-gradient(135deg, ${MKT_GRADIENT.from}, ${MKT_GRADIENT.to})` }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
+              <Download className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Téléchargements guide SDB</h3>
+              <p className="text-xs text-white/70">{total} téléchargement{total > 1 ? "s" : ""} en {annee}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20 text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-3 border-b border-cockpit flex-shrink-0">
+          <input
+            type="text"
+            placeholder="Rechercher par email ou nom…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-cockpit-input border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[#E36887]/30"
+          />
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-cockpit-secondary" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-sm text-cockpit-secondary py-10">Aucun résultat</p>
+          ) : (
+            <div className="divide-y divide-cockpit">
+              {filtered.map((e) => (
+                <div key={e.id} className="px-4 py-3 flex items-center gap-3 hover:bg-cockpit-dark transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-[#E36887]/10 flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-[#E36887]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {e.contact ? (
+                      <>
+                        <p className="text-sm font-medium text-cockpit-primary truncate">
+                          {[e.contact.prenom, e.contact.nom].filter(Boolean).join(" ") || "—"}
+                        </p>
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                          <span className="flex items-center gap-1 text-xs text-cockpit-secondary">
+                            <Mail className="w-3 h-3" />
+                            {e.contact.email}
+                          </span>
+                          {e.contact.telephone && (
+                            <span className="flex items-center gap-1 text-xs text-cockpit-secondary">
+                              <Phone className="w-3 h-3" />
+                              {e.contact.telephone}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-cockpit-secondary italic">Contact non associé</p>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-cockpit-secondary flex-shrink-0">
+                    {new Date(e.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {!loading && filtered.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-cockpit bg-cockpit-dark flex-shrink-0">
+            <p className="text-xs text-cockpit-secondary">{filtered.length} contact{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""}</p>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ============================================================================
 // PAGE
 // ============================================================================
 
@@ -307,6 +436,7 @@ export default function ROIMarketingPage() {
   const [data, setData] = useState<ROIData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showDownloads, setShowDownloads] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -485,10 +615,14 @@ export default function ROIMarketingPage() {
               </div>
               <div>
                 <p className="text-xs text-cockpit-secondary font-medium">Guide SDB teck</p>
-                <p className="text-2xl font-bold text-cockpit-primary">
+                <button
+                  onClick={() => setShowDownloads(true)}
+                  className="text-2xl font-bold text-cockpit-primary hover:underline cursor-pointer transition-opacity hover:opacity-80"
+                  title="Voir les contacts"
+                >
                   {data.kpis.guideDownloads}
-                </p>
-                <p className="text-[10px] text-cockpit-secondary">téléchargements {annee}</p>
+                </button>
+                <p className="text-[10px] text-cockpit-secondary">téléchargements {annee} — <span className="underline cursor-pointer" onClick={() => setShowDownloads(true)}>voir les emails</span></p>
               </div>
             </div>
           </div>
@@ -787,6 +921,14 @@ export default function ROIMarketingPage() {
           typesCout={data.typesCout}
           onClose={() => setShowModal(false)}
           onSuccess={() => fetchData()}
+        />
+      )}
+
+      {showDownloads && data && (
+        <DownloadsModal
+          annee={String(annee)}
+          total={data.kpis.guideDownloads}
+          onClose={() => setShowDownloads(false)}
         />
       )}
     </div>

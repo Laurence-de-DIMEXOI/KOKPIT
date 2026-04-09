@@ -80,28 +80,63 @@ interface SyncLog {
 }
 
 const SEGMENTS = [
+  // ── Acquisition & relance ──────────────────────────────────────────────────
   {
-    id: "tous-contacts",
-    nom: "Tous les contacts actifs",
-    description: "Tous les contacts KOKPIT non archivés",
-    icon: Users,
-  },
-  {
-    id: "clients-90j",
-    nom: "Clients récents (90 jours)",
-    description: "Contacts ayant une commande récente",
-    icon: CheckCircle2,
-  },
-  {
-    id: "prospects-devis",
-    nom: "Prospects — devis sans commande",
-    description: "Contacts avec devis mais sans BDC",
+    id: "devis-sans-suite",
+    categorie: "Acquisition & relance",
+    nom: "Devis sans suite (> 30j)",
+    description: "Devis non converti, créé il y a plus de 30 jours",
     icon: AlertTriangle,
   },
   {
-    id: "contacts-sans-achat",
-    nom: "Contacts sans achat",
-    description: "Contacts sans aucune commande",
+    id: "devis-expirant",
+    categorie: "Acquisition & relance",
+    nom: "Devis expirant bientôt",
+    description: "Expire dans les 7 prochains jours, sans commande",
+    icon: AlertCircle,
+  },
+  {
+    id: "demande-sans-devis",
+    categorie: "Acquisition & relance",
+    nom: "Demande sans devis",
+    description: "Lead reçu, aucun devis créé",
+    icon: Mail,
+  },
+  // ── Cycle de vie client ────────────────────────────────────────────────────
+  {
+    id: "acheteurs-recents",
+    categorie: "Cycle de vie client",
+    nom: "Acheteurs récents (< 60j)",
+    description: "Commande dans les 60 derniers jours",
+    icon: CheckCircle2,
+  },
+  {
+    id: "clients-inactifs",
+    categorie: "Cycle de vie client",
+    nom: "Clients inactifs (> 12 mois)",
+    description: "Dernière commande il y a plus de 12 mois",
+    icon: Users,
+  },
+  {
+    id: "multi-commandes",
+    categorie: "Cycle de vie client",
+    nom: "Acheteurs multi-commandes",
+    description: "Au moins 2 commandes passées",
+    icon: CheckCircle2,
+  },
+  {
+    id: "gros-panier-unique",
+    categorie: "Cycle de vie client",
+    nom: "Gros panier unique (> 5 000€)",
+    description: "1 commande > 5 000 €, pas de 2e achat",
+    icon: AlertTriangle,
+  },
+  // ── Téléchargements ────────────────────────────────────────────────────────
+  {
+    id: "guide-sdb",
+    categorie: "Téléchargements",
+    nom: "Guide SDB teck",
+    description: "Contacts ayant téléchargé le guide",
     icon: Mail,
   },
 ];
@@ -404,9 +439,15 @@ export default function EmailingPage() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             {c.destinataires === 0 ? (
-                              <span className="text-xs text-amber-400 font-medium" title="Aucun destinataire — liste vide au moment de l'envoi">
-                                liste vide
-                              </span>
+                              <a
+                                href={`https://app.brevo.com/campaign/email/${c.id}/report`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-cockpit-secondary hover:text-[var(--color-active)] flex items-center gap-0.5 justify-end"
+                                title="Stats indisponibles via API — voir dans Brevo"
+                              >
+                                Voir Brevo <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
                             ) : (
                               <span className="text-sm font-semibold text-cockpit-heading">
                                 {c.destinataires.toLocaleString("fr-FR")}
@@ -618,11 +659,11 @@ export default function EmailingPage() {
         </div>
       )}
 
-      {/* Section Sync Sellsy → Brevo */}
+      {/* Section Sync KÒKPIT → Brevo */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-cockpit-heading">
-            Segments Sellsy → Brevo
+            Segments KÒKPIT → Brevo
           </h2>
           <button
             onClick={syncAll}
@@ -639,24 +680,30 @@ export default function EmailingPage() {
         </div>
 
         <p className="text-xs text-cockpit-secondary mb-4">
-          Les contacts sont synchronisés depuis KÒKPIT vers les listes Brevo pour créer des campagnes ciblées.
+          Synchronise tes contacts vers des listes Brevo ciblées pour lancer des campagnes stratégiques.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {SEGMENTS.map((seg) => {
-            const result = syncResults[seg.id];
-            const Icon = seg.icon;
-            const isSyncing = syncingSegment === seg.id;
+        {/* Segments groupés par catégorie */}
+        {(() => {
+          const categories = [...new Set(SEGMENTS.map((s) => s.categorie))];
+          return categories.map((cat) => (
+            <div key={cat} className="mb-6">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-cockpit-secondary mb-2 px-1">
+                {cat}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {SEGMENTS.filter((s) => s.categorie === cat).map((seg) => {
+                  const result = syncResults[seg.id];
+                  const Icon = seg.icon;
+                  const isSyncing = syncingSegment === seg.id;
+                  const lastLog = syncLogs.find((l) => l.segmentNom === seg.nom);
 
-            // Find last sync log for this segment
-            const lastLog = syncLogs.find((l) => l.segmentNom === seg.nom);
-
-            return (
-              <div
-                key={seg.id}
-                className="bg-cockpit-card rounded-xl border border-cockpit p-4 flex flex-col gap-3"
-              >
-                <div className="flex items-start gap-3">
+                  return (
+                    <div
+                      key={seg.id}
+                      className="bg-cockpit-card rounded-xl border border-cockpit p-4 flex flex-col gap-3"
+                    >
+                      <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-lg bg-[var(--color-active)]/10 flex items-center justify-center flex-shrink-0">
                     <Icon className="w-4 h-4 text-[var(--color-active)]" />
                   </div>
@@ -733,7 +780,10 @@ export default function EmailingPage() {
               </div>
             );
           })}
-        </div>
+              </div>
+            </div>
+          ));
+        })()}
       </div>
 
       {/* Historique sync */}

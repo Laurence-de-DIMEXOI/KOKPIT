@@ -6,35 +6,56 @@ import { prisma } from "@/lib/prisma";
 const BREVO_API = "https://api.brevo.com/v3";
 
 const SEGMENTS = [
+  // ── Acquisition & relance ──────────────────────────────────────────────────
   {
-    id: "tous-contacts",
-    nom: "Tous les contacts actifs",
-    description: "Tous les contacts KOKPIT non archivés",
-    filter: {},
+    id: "devis-sans-suite",
+    categorie: "Acquisition & relance",
+    nom: "Devis sans suite (> 30j)",
+    description: "Devis créé il y a plus de 30 jours, non converti",
   },
   {
-    id: "clients-90j",
-    nom: "Clients récents (90 jours)",
-    description: "Contacts ayant une commande dans les 90 derniers jours",
-    filter: { lifecycleStage: "CLIENT", recentDays: 90 },
+    id: "devis-expirant",
+    categorie: "Acquisition & relance",
+    nom: "Devis expirant bientôt (7j)",
+    description: "Devis créé il y a 23–30 jours (expire dans 7 jours), sans commande",
   },
   {
-    id: "prospects-devis",
-    nom: "Prospects — devis sans commande",
-    description: "Contacts avec devis mais sans commande enregistrée",
-    filter: { hasDevis: true, noVentes: true },
+    id: "demande-sans-devis",
+    categorie: "Acquisition & relance",
+    nom: "Demande sans devis",
+    description: "Lead reçu, aucun devis associé",
+  },
+  // ── Cycle de vie client ────────────────────────────────────────────────────
+  {
+    id: "acheteurs-recents",
+    categorie: "Cycle de vie client",
+    nom: "Acheteurs récents (< 60j)",
+    description: "Contacts avec une commande dans les 60 derniers jours",
   },
   {
-    id: "contacts-sans-achat",
-    nom: "Contacts sans achat",
-    description: "Contacts sans aucune commande",
-    filter: { noVentes: true },
+    id: "clients-inactifs",
+    categorie: "Cycle de vie client",
+    nom: "Clients inactifs (> 12 mois)",
+    description: "Dernière commande il y a plus de 12 mois",
   },
+  {
+    id: "multi-commandes",
+    categorie: "Cycle de vie client",
+    nom: "Acheteurs multi-commandes",
+    description: "Contacts avec au moins 2 commandes",
+  },
+  {
+    id: "gros-panier-unique",
+    categorie: "Cycle de vie client",
+    nom: "Gros panier unique (> 5 000€)",
+    description: "1 commande > 5 000 €, pas de 2e achat",
+  },
+  // ── Téléchargements ────────────────────────────────────────────────────────
   {
     id: "guide-sdb",
+    categorie: "Téléchargements",
     nom: "Guide SDB teck — téléchargements",
     description: "Contacts ayant téléchargé le guide salle de bain en teck",
-    filter: { tag: "GUIDE_SDB" },
   },
 ];
 
@@ -83,53 +104,113 @@ async function getOrCreateBrevoList(name: string): Promise<number> {
 
 // Récupérer les contacts selon le segment
 async function getContactsForSegment(segmentId: string) {
-  const ninetyDaysAgo = new Date();
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  const now = new Date();
+
+  const daysAgo = (n: number) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - n);
+    return d;
+  };
 
   switch (segmentId) {
-    case "tous-contacts":
-      return prisma.contact.findMany({
-        where: { email: { not: "" } },
-        select: { email: true, nom: true, prenom: true, ville: true },
-      });
 
-    case "clients-90j":
+    // ── Acquisition & relance ──────────────────────────────────────────────
+    case "devis-sans-suite":
+      // Devis créé il y a > 30j, pas encore converti en vente
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
-          lifecycleStage: "CLIENT",
-          ventes: { some: { createdAt: { gte: ninetyDaysAgo } } },
+          devis: {
+            some: {
+              createdAt: { lt: daysAgo(30) },
+              statut: { in: ["EN_ATTENTE", "ENVOYE"] },
+              vente: null,
+            },
+          },
         },
         select: { email: true, nom: true, prenom: true, ville: true },
       });
 
-    case "prospects-devis":
+    case "devis-expirant":
+      // Devis créé il y a 23–30j (expire dans 7j, validité 30j par défaut)
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
-          devis: { some: {} },
-          ventes: { none: {} },
+          devis: {
+            some: {
+              createdAt: { gte: daysAgo(30), lt: daysAgo(23) },
+              statut: { in: ["EN_ATTENTE", "ENVOYE"] },
+              vente: null,
+            },
+          },
         },
         select: { email: true, nom: true, prenom: true, ville: true },
       });
 
-    case "contacts-sans-achat":
+    case "demande-sans-devis":
+      // Contact avec lead(s) mais sans aucun devis
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
-          ventes: { none: {} },
+          leads: { some: {} },
+          devis: { none: {} },
         },
         select: { email: true, nom: true, prenom: true, ville: true },
       });
 
+    // ── Cycle de vie client ────────────────────────────────────────────────
+    case "acheteurs-recents":
+      // Au moins 1 vente dans les 60 derniers jours
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          ventes: { some: { createdAt: { gte: daysAgo(60) } } },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true },
+      });
+
+    case "clients-inactifs":
+      // Ont acheté, mais dernière vente il y a plus de 12 mois
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          ventes: {
+            some: {},
+            every: { createdAt: { lt: daysAgo(365) } },
+          },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true },
+      });
+
+    case "multi-commandes":
+      // Au moins 2 ventes
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          ventes: { some: {} },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true, ventes: { select: { id: true } } },
+      }).then((contacts) => contacts.filter((c) => c.ventes.length >= 2));
+
+    case "gros-panier-unique":
+      // Exactement 1 vente avec montant > 5 000€
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          ventes: { some: { montant: { gt: 5000 } } },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true, ventes: { select: { id: true, montant: true } } },
+      }).then((contacts) =>
+        contacts.filter((c) => c.ventes.length === 1 && c.ventes[0].montant > 5000)
+      );
+
+    // ── Téléchargements ────────────────────────────────────────────────────
     case "guide-sdb":
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
           evenements: {
-            some: {
-              description: { contains: "Téléchargement guide PDF" },
-            },
+            some: { description: { contains: "Téléchargement guide PDF" } },
           },
         },
         select: { email: true, nom: true, prenom: true, ville: true },

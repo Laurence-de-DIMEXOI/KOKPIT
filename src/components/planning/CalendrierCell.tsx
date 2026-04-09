@@ -22,10 +22,14 @@ interface CalendrierCellProps {
   onCardClick: (post: Post) => void;
 }
 
+const DONE_STATUTS = new Set(["PRET_A_POSTER", "POSTE"]);
+
 function PostPill({ post, onClick }: { post: Post; onClick: () => void }) {
   const label = post.labels[0];
   const cfg = label ? LABEL_CONFIG[label] : null;
   const icon = label ? ICONS[label] : null;
+  const done = DONE_STATUTS.has(post.statut);
+  const checkColor = post.statut === "POSTE" ? "#22C55E" : "#10B981";
 
   return (
     <button
@@ -43,7 +47,10 @@ function PostPill({ post, onClick }: { post: Post; onClick: () => void }) {
           {icon} {cfg.name}
         </span>
       )}
-      <p className="text-[11px] text-gray-700 truncate mt-0.5 group-hover:text-gray-900">
+      <p className="text-[11px] text-gray-700 truncate mt-0.5 group-hover:text-gray-900 flex items-center gap-1">
+        {done && (
+          <span style={{ color: checkColor }} className="flex-shrink-0 font-bold text-[10px]">✓</span>
+        )}
         {post.title.length > 30 ? `${post.title.slice(0, 30)}…` : post.title}
       </p>
     </button>
