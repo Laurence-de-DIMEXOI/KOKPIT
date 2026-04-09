@@ -73,6 +73,57 @@ export default function PostModal({
     return () => document.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
+  // Compression image via Canvas (réduit à max 1920px, qualité 0.82, max 4MB)
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const MAX_PX = 1920;
+      const MAX_BYTES = 4 * 1024 * 1024;
+      const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
+
+      // GIF : pas de compression canvas (on laisse passer tel quel)
+      if (file.type === "image/gif") return resolve(file);
+
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+
+        // Réduire si trop grand
+        if (width > MAX_PX || height > MAX_PX) {
+          const ratio = Math.min(MAX_PX / width, MAX_PX / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Qualité progressive si toujours trop lourd
+        const tryQuality = (q: number) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) return resolve(file);
+              if (blob.size <= MAX_BYTES || q <= 0.4) {
+                resolve(new File([blob], `upload.${outputType === "image/png" ? "png" : "jpg"}`, { type: outputType }));
+              } else {
+                tryQuality(Math.round((q - 0.1) * 10) / 10);
+              }
+            },
+            outputType,
+            q
+          );
+        };
+        tryQuality(0.82);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -81,13 +132,11 @@ export default function PostModal({
     setUploading(true);
 
     try {
-      // Sanitize le nom de fichier pour éviter les erreurs WebKit avec les
-      // caractères spéciaux (espaces, accents, parenthèses) dans le multipart
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const safeFile = new File([file], `upload.${ext}`, { type: file.type });
+      // Compression client-side avant upload
+      const compressed = await compressImage(file);
 
       const formData = new FormData();
-      formData.append("file", safeFile);
+      formData.append("file", compressed);
 
       const res = await fetch("/api/planning/upload", {
         method: "POST",
@@ -106,7 +155,6 @@ export default function PostModal({
     }
 
     setUploading(false);
-    // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -236,7 +284,7 @@ export default function PostModal({
                       <>
                         <Upload className="w-8 h-8" />
                         <span className="text-sm font-medium">Cliquez pour choisir une image</span>
-                        <span className="text-xs">JPG, PNG, WebP ou GIF — 5 Mo max</span>
+                        <span className="text-xs">JPG, PNG, WebP — compressé automatiquement</span>
                       </>
                     )}
                   </button>

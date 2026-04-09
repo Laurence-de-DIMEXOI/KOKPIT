@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier la taille (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
+    // Vérifier la taille (10MB max côté serveur — la compression client vise < 4MB)
+    if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
-        { success: false, error: "Fichier trop volumineux (5 Mo max)" },
+        { success: false, error: "Fichier trop volumineux (10 Mo max)" },
         { status: 400 }
       );
     }
