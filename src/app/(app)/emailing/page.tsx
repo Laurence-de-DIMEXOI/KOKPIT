@@ -12,9 +12,11 @@ import {
   ExternalLink,
   Clock,
   AlertCircle,
-  Upload,
   CheckCircle2,
   AlertTriangle,
+  Upload,
+  Calendar,
+  FileEdit,
 } from "lucide-react";
 
 interface Campaign {
@@ -28,9 +30,18 @@ interface Campaign {
   bounces: number;
 }
 
+interface CampagneEnCours {
+  id: number;
+  nom: string;
+  status: string;
+  dateCreation: string;
+  scheduledAt?: string;
+}
+
 interface BrevoStats {
   contacts: { total: number };
   dernieresCampagnes: Campaign[];
+  campagnesEnCours?: CampagneEnCours[];
   moyennes: {
     tauxOuvertureMoyen: number;
     tauxClicMoyen: number;
@@ -280,11 +291,12 @@ export default function EmailingPage() {
       {avertissement && (
         <div className="flex items-start gap-3 p-4 rounded-lg border bg-amber-500/10 border-amber-500/30">
           <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-amber-400 mb-1 text-sm">Statistiques indisponibles</h3>
+          <div className="flex-1">
+            <h3 className="font-semibold text-amber-400 mb-1 text-sm">Campagnes sans statistiques</h3>
             <p className="text-xs text-cockpit-secondary">{avertissement}</p>
             <p className="text-xs text-cockpit-secondary mt-1">
-              Vérifiez que vos listes de contacts Brevo contiennent des abonnés avant d&apos;envoyer.
+              Ces campagnes ont probablement été envoyées à des listes vides (avant synchronisation).
+              Synchronisez vos contacts puis créez une nouvelle campagne dans Brevo.
             </p>
           </div>
         </div>
@@ -326,7 +338,7 @@ export default function EmailingPage() {
         />
       </div>
 
-      {/* Tableau des 5 dernières campagnes */}
+      {/* Tableau des campagnes */}
       <div>
         <h2 className="text-lg font-bold text-cockpit-heading mb-3">
           Dernières campagnes envoyées
@@ -343,89 +355,123 @@ export default function EmailingPage() {
           <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
             {/* Desktop */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-cockpit-dark border-b border-cockpit">
-                  <tr>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">
-                      CAMPAGNE
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">
-                      ENVOYÉS
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">
-                      OUVERTURE
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">
-                      CLIC
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
-                      BOUNCES
-                    </th>
-                    <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">
-                      DATE
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cockpit">
-                  {campagnes.map((c) => (
-                    <tr
-                      key={c.id}
-                      className="hover:bg-cockpit-dark/50 transition-colors"
-                    >
-                      <td className="px-4 lg:px-6 py-3">
-                        <p className="text-sm font-medium text-cockpit-primary truncate max-w-[280px]">
-                          {c.nom}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-semibold text-cockpit-heading">
-                          {c.destinataires.toLocaleString("fr-FR")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-[var(--color-active)] rounded-full"
-                              style={{
-                                width: `${Math.min(c.tauxOuverture, 100)}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-sm font-medium text-[var(--color-active)] w-12 text-right">
-                            {c.tauxOuverture}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-[var(--color-active)]/60 rounded-full"
-                              style={{
-                                width: `${Math.min(c.tauxClic * 3, 100)}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-sm font-medium text-[var(--color-active)]/60 w-12 text-right">
-                            {c.tauxClic}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right hidden lg:table-cell">
-                        <span className="text-xs text-cockpit-secondary">
-                          {c.bounces}
-                        </span>
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 text-right">
-                        <span className="text-xs text-cockpit-secondary">
-                          {new Date(c.dateEnvoi).toLocaleDateString("fr-FR")}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {(() => {
+                const maxOuverture = Math.max(...campagnes.map((c) => c.tauxOuverture), 1);
+                const maxClic = Math.max(...campagnes.map((c) => c.tauxClic), 1);
+                return (
+                  <table className="w-full">
+                    <thead className="bg-cockpit-dark border-b border-cockpit">
+                      <tr>
+                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-cockpit-heading">
+                          CAMPAGNE
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">
+                          ENVOYÉS
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">
+                          OUVERTURE
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading">
+                          CLIC
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
+                          DÉSABO.
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
+                          BOUNCES
+                        </th>
+                        <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading">
+                          DATE
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-cockpit">
+                      {campagnes.map((c) => (
+                        <tr
+                          key={c.id}
+                          className="hover:bg-cockpit-dark/50 transition-colors"
+                        >
+                          <td className="px-4 lg:px-6 py-3">
+                            <a
+                              href={`https://app.brevo.com/campaign/email/${c.id}/report`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-cockpit-primary hover:text-[var(--color-active)] truncate max-w-[260px] block transition-colors"
+                              title={c.nom}
+                            >
+                              {c.nom}
+                            </a>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {c.destinataires === 0 ? (
+                              <span className="text-xs text-amber-400 font-medium" title="Aucun destinataire — liste vide au moment de l'envoi">
+                                liste vide
+                              </span>
+                            ) : (
+                              <span className="text-sm font-semibold text-cockpit-heading">
+                                {c.destinataires.toLocaleString("fr-FR")}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {c.destinataires === 0 ? (
+                              <span className="text-xs text-cockpit-secondary">—</span>
+                            ) : (
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-[var(--color-active)] rounded-full"
+                                    style={{
+                                      width: `${(c.tauxOuverture / maxOuverture) * 100}%`,
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-sm font-medium text-[var(--color-active)] w-12 text-right">
+                                  {c.tauxOuverture}%
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {c.destinataires === 0 ? (
+                              <span className="text-xs text-cockpit-secondary">—</span>
+                            ) : (
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-[var(--color-active)]/60 rounded-full"
+                                    style={{
+                                      width: `${(c.tauxClic / maxClic) * 100}%`,
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-sm font-medium text-[var(--color-active)]/60 w-12 text-right">
+                                  {c.tauxClic}%
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right hidden lg:table-cell">
+                            <span className={`text-xs font-medium ${c.desabonnements > 0 ? "text-amber-400" : "text-cockpit-secondary"}`}>
+                              {c.desabonnements > 0 ? `−${c.desabonnements}` : "0"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right hidden lg:table-cell">
+                            <span className={`text-xs font-medium ${c.bounces > 0 ? "text-red-400" : "text-cockpit-secondary"}`}>
+                              {c.bounces > 0 ? c.bounces : "0"}
+                            </span>
+                          </td>
+                          <td className="px-4 lg:px-6 py-3 text-right">
+                            <span className="text-xs text-cockpit-secondary whitespace-nowrap">
+                              {new Date(c.dateEnvoi).toLocaleDateString("fr-FR")}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              })()}
             </div>
 
             {/* Mobile */}
@@ -437,9 +483,14 @@ export default function EmailingPage() {
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-cockpit-primary text-sm truncate">
+                      <a
+                        href={`https://app.brevo.com/campaign/email/${c.id}/report`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-cockpit-primary text-sm truncate block hover:text-[var(--color-active)]"
+                      >
                         {c.nom}
-                      </p>
+                      </a>
                       <p className="text-cockpit-secondary text-xs mt-0.5">
                         {new Date(c.dateEnvoi).toLocaleDateString("fr-FR")} •{" "}
                         {c.destinataires.toLocaleString("fr-FR")} envoyés
@@ -448,16 +499,12 @@ export default function EmailingPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-[10px] text-cockpit-secondary mb-1">
-                        Ouverture
-                      </p>
+                      <p className="text-[10px] text-cockpit-secondary mb-1">Ouverture</p>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                           <div
                             className="h-full bg-[var(--color-active)] rounded-full"
-                            style={{
-                              width: `${Math.min(c.tauxOuverture, 100)}%`,
-                            }}
+                            style={{ width: `${Math.min(c.tauxOuverture * 2, 100)}%` }}
                           />
                         </div>
                         <span className="text-xs font-semibold text-[var(--color-active)]">
@@ -466,16 +513,12 @@ export default function EmailingPage() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] text-cockpit-secondary mb-1">
-                        Clic
-                      </p>
+                      <p className="text-[10px] text-cockpit-secondary mb-1">Clic</p>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                           <div
                             className="h-full bg-[var(--color-active)]/60 rounded-full"
-                            style={{
-                              width: `${Math.min(c.tauxClic * 3, 100)}%`,
-                            }}
+                            style={{ width: `${Math.min(c.tauxClic * 5, 100)}%` }}
                           />
                         </div>
                         <span className="text-xs font-semibold text-[var(--color-active)]/60">
@@ -483,6 +526,20 @@ export default function EmailingPage() {
                         </span>
                       </div>
                     </div>
+                    {(c.desabonnements > 0 || c.bounces > 0) && (
+                      <div className="col-span-2 flex items-center gap-4 pt-1">
+                        {c.desabonnements > 0 && (
+                          <span className="text-[10px] text-amber-400">
+                            −{c.desabonnements} désabo.
+                          </span>
+                        )}
+                        {c.bounces > 0 && (
+                          <span className="text-[10px] text-red-400">
+                            {c.bounces} bounce{c.bounces > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -491,16 +548,98 @@ export default function EmailingPage() {
         )}
       </div>
 
+      {/* Campagnes en cours (draft / programmées) */}
+      {(data?.campagnesEnCours ?? []).length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-cockpit-heading mb-3">
+            Campagnes en préparation
+          </h2>
+          <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
+            <div className="divide-y divide-cockpit">
+              {(data?.campagnesEnCours ?? []).map((c) => {
+                const statusLabel =
+                  c.status === "draft"
+                    ? "Brouillon"
+                    : c.status === "scheduled"
+                    ? "Programmée"
+                    : "En file";
+                const statusColor =
+                  c.status === "scheduled"
+                    ? "bg-blue-500/10 text-blue-400"
+                    : c.status === "queued"
+                    ? "bg-amber-500/10 text-amber-400"
+                    : "bg-cockpit-dark text-cockpit-secondary";
+                const StatusIcon =
+                  c.status === "scheduled" ? Calendar : FileEdit;
+
+                return (
+                  <div
+                    key={c.id}
+                    className="px-4 py-3 flex items-center gap-3 hover:bg-cockpit-dark/50 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-cockpit-dark flex items-center justify-center flex-shrink-0">
+                      <StatusIcon className="w-4 h-4 text-cockpit-secondary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-cockpit-primary truncate">
+                        {c.nom}
+                      </p>
+                      {c.scheduledAt && (
+                        <p className="text-[10px] text-cockpit-secondary mt-0.5">
+                          Envoi prévu :{" "}
+                          {new Date(c.scheduledAt).toLocaleDateString("fr-FR", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColor}`}
+                    >
+                      {statusLabel}
+                    </span>
+                    <a
+                      href={`https://app.brevo.com/campaign/email/${c.id}/edit`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-[var(--color-active)] hover:underline flex items-center gap-0.5"
+                    >
+                      Éditer <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Section Sync Sellsy → Brevo */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-cockpit-heading">
             Segments Sellsy → Brevo
           </h2>
+          <button
+            onClick={syncAll}
+            disabled={syncAllRunning || !!syncingSegment}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-cockpit hover:bg-cockpit-dark transition-colors disabled:opacity-50"
+          >
+            {syncAllRunning ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Upload className="w-3.5 h-3.5" />
+            )}
+            Tout synchroniser
+          </button>
         </div>
 
         <p className="text-xs text-cockpit-secondary mb-4">
-          Les contacts sont synchronisés en lecture seule depuis Sellsy vers les listes Brevo.
+          Les contacts sont synchronisés depuis KÒKPIT vers les listes Brevo pour créer des campagnes ciblées.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -519,7 +658,7 @@ export default function EmailingPage() {
               >
                 <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-lg bg-[var(--color-active)]/10 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-4.5 h-4.5 text-[var(--color-active)]" />
+                    <Icon className="w-4 h-4 text-[var(--color-active)]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-cockpit-heading">
@@ -529,18 +668,29 @@ export default function EmailingPage() {
                       {seg.description}
                     </p>
                   </div>
+                  <button
+                    onClick={() => syncSegment(seg.id)}
+                    disabled={isSyncing || syncAllRunning}
+                    className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[var(--color-active)]/10 text-[var(--color-active)] hover:bg-[var(--color-active)]/20 transition-colors disabled:opacity-50 flex-shrink-0"
+                  >
+                    {isSyncing ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Upload className="w-3 h-3" />
+                    )}
+                    Sync
+                  </button>
                 </div>
 
                 {/* Last sync info */}
-                {lastLog && (
+                {lastLog && !result && (
                   <div className="flex items-center gap-2 text-[10px] text-cockpit-secondary">
-                    <Clock className="w-3 h-3" />
+                    <Clock className="w-3 h-3 flex-shrink-0" />
                     <span>
-                      Dernière synchro : {timeAgo(lastLog.createdAt)} ·{" "}
-                      {lastLog.nbContacts} contacts
+                      {timeAgo(lastLog.createdAt)} · {lastLog.nbContacts} contacts
                     </span>
                     {lastLog.statut === "error" && (
-                      <span className="text-red-400">(erreur)</span>
+                      <span className="text-red-400 font-medium">(erreur)</span>
                     )}
                   </div>
                 )}
@@ -548,31 +698,37 @@ export default function EmailingPage() {
                 {/* Result */}
                 {result && (
                   <div
-                    className={`text-xs px-2 py-1 rounded ${
+                    className={`text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 ${
                       result.success
                         ? "bg-[var(--color-active)]/10 text-[var(--color-active)]"
                         : "bg-red-500/10 text-red-400"
                     }`}
                   >
-                    {result.success
-                      ? `${result.nbContacts} contacts synchronisés`
-                      : result.error || "Erreur"}
+                    {result.success ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                        {result.nbContacts} contacts synchronisés
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        {result.error || "Erreur"}
+                      </>
+                    )}
                   </div>
                 )}
 
                 {/* Lien Brevo */}
                 {result?.listeBrevoId && (
-                  <div className="flex items-center">
-                    <a
-                      href={`https://app.brevo.com/contact/list/id/${result.listeBrevoId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-[var(--color-active)] hover:underline"
-                    >
-                      Voir dans Brevo
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
+                  <a
+                    href={`https://app.brevo.com/contact/list/id/${result.listeBrevoId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-[var(--color-active)] hover:underline w-fit"
+                  >
+                    Voir dans Brevo
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 )}
               </div>
             );

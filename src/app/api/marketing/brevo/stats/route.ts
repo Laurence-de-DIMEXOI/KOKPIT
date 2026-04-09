@@ -12,6 +12,7 @@ async function brevoFetch(path: string) {
   if (!apiKey) throw new Error("BREVO_API_KEY manquante");
 
   const res = await fetch(`${BREVO_API}${path}`, {
+    cache: "no-store",
     headers: {
       "api-key": apiKey,
       "Content-Type": "application/json",
@@ -36,10 +37,13 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const fresh = searchParams.get("fresh") === "true";
 
-  // Return cache if valid
+  // Return cache if valid (fresh=true force-bypasse le cache)
   if (!fresh && cache && Date.now() - cache.timestamp < CACHE_TTL) {
     return NextResponse.json(cache.data);
   }
+
+  // Force-reset le cache si demandé
+  if (fresh) cache = null;
 
   try {
     const debugMode = searchParams.get("debug") === "1";
@@ -79,40 +83,91 @@ export async function GET(request: Request) {
         id: c.id, name: c.name, status: c.status,
       }));
       if (campagnesRes.campaigns?.length > 0) {
+        const first = campagnesRes.campaigns[0];
         debugInfo.sampleCampaign = {
-          id: campagnesRes.campaigns[0].id,
-          name: campagnesRes.campaigns[0].name,
-          status: campagnesRes.campaigns[0].status,
-          sentDate: campagnesRes.campaigns[0].sentDate,
-          hasStats: !!campagnesRes.campaigns[0].statistics,
-          rawStats: campagnesRes.campaigns[0].statistics,
+          id: first.id,
+          name: first.name,
+          status: first.status,
+          sentDate: first.sentDate,
+          hasStats: !!first.statistics,
+          globalStats: first.statistics?.globalStats,
+          campaignStatsCount: (first.statistics?.campaignStats || []).length,
+          campaignStats: first.statistics?.campaignStats,
+          rawStatisticsKeys: first.statistics ? Object.keys(first.statistics) : [],
         };
+        // Aussi fetcher le détail du premier pour comparer
+        try {
+          const detail = await brevoFetch(`/emailCampaigns/${first.id}`);
+          debugInfo.sampleCampaignDetail = {
+            globalStats: detail.statistics?.globalStats,
+            campaignStatsCount: (detail.statistics?.campaignStats || []).length,
+            rawStatisticsKeys: detail.statistics ? Object.keys(detail.statistics) : [],
+          };
+        } catch (e: any) {
+          debugInfo.sampleCampaignDetailError = e.message;
+        }
       }
     }
 
-    // Fetch individual campaign stats when globalStats returns 0
-    // L'API Brevo ne retourne pas toujours les stats dans le listing
+    // Extraire les stats depuis un objet campaign Brevo
+    // Brevo peut retourner les stats dans globalStats ou dans campaignStats (tableau par liste)
+    function extractStats(c: any) {
+      let gs = c.statistics?.globalStats || {};
+
+      // Si globalStats est vide ou sent=0, agréger depuis campaignStats (par liste)
+      const campStats: any[] = c.statistics?.campaignStats || [];
+      if (campStats.length > 0) {
+        const agg = campStats.reduce(
+          (acc: any, s: any) => ({
+            sent: (acc.sent || 0) + (s.sent || 0),
+            delivered: (acc.delivered || 0) + (s.delivered || 0),
+            uniqueViews: (acc.uniqueViews || 0) + (s.uniqueViews || 0),
+            uniqueClicks: (acc.uniqueClicks || 0) + (s.uniqueClicks || 0),
+            unsubscriptions: (acc.unsubscriptions || 0) + (s.unsubscriptions || 0),
+            hardBounces: (acc.hardBounces || 0) + (s.hardBounces || 0),
+            softBounces: (acc.softBounces || 0) + (s.softBounces || 0),
+          }),
+          {}
+        );
+        // Utiliser l'agrégation si elle a plus de données
+        if ((agg.sent || 0) > (gs.sent || gs.delivered || 0)) {
+          gs = agg;
+        }
+      }
+
+      const destinataires = gs.sent || gs.delivered || gs.messagesSent || 0;
+      const ouvertures = gs.uniqueViews || gs.uniqueOpens || gs.opens || 0;
+      const clics = gs.uniqueClicks || gs.clicked || gs.clickers || 0;
+      const desabonnements = gs.unsubscriptions || 0;
+      const bounces = (gs.hardBounces || 0) + (gs.softBounces || 0);
+
+      return { destinataires, ouvertures, clics, desabonnements, bounces };
+    }
+
+    // Pour chaque campagne envoyée : toujours fetcher les stats individuelles
+    // Le listing Brevo ne retourne pas toujours les statistics complètes
     const rawCampaigns = campagnesRes.campaigns || [];
     const campagnes = await Promise.all(
       rawCampaigns.map(async (c: any) => {
-        let stats = c.statistics?.globalStats || {};
-        let destinataires = stats.sent || stats.delivered || 0;
+        // Partir des stats du listing (souvent vides)
+        let { destinataires, ouvertures, clics, desabonnements, bounces } = extractStats(c);
 
-        // Si 0 dans le listing, tenter un appel individuel
-        if (destinataires === 0 && c.status === "sent") {
+        // Pour les campagnes envoyées : forcer un appel individuel
+        // ?excludeHtmlContent=true = pas de HTML dans la réponse (perf)
+        if (c.status === "sent") {
           try {
-            const detail = await brevoFetch(`/emailCampaigns/${c.id}`);
-            stats = detail.statistics?.globalStats || stats;
-            destinataires = stats.sent || stats.delivered || 0;
+            const detail = await brevoFetch(
+              `/emailCampaigns/${c.id}?excludeHtmlContent=true`
+            );
+            const extracted = extractStats(detail);
+            // Utiliser les stats individuelles si elles ont plus de données
+            if (extracted.destinataires >= destinataires) {
+              ({ destinataires, ouvertures, clics, desabonnements, bounces } = extracted);
+            }
           } catch {
             // Silently fallback to listing data
           }
         }
-
-        const ouvertures = stats.uniqueViews || stats.uniqueOpens || 0;
-        const clics = stats.uniqueClicks || 0;
-        const desabonnements = stats.unsubscriptions || 0;
-        const bounces = (stats.hardBounces || 0) + (stats.softBounces || 0);
 
         return {
           id: c.id,
