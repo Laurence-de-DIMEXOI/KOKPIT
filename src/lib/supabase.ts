@@ -27,8 +27,14 @@ export async function uploadToStorage(
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Upload failed: ${res.status} - ${err}`);
+    const rawText = await res.text();
+    let detail = rawText;
+    try {
+      const json = JSON.parse(rawText);
+      detail = json.message || json.error || rawText;
+    } catch { /* raw text */ }
+    console.error(`[Supabase Storage] Upload error ${res.status}:`, rawText);
+    throw new Error(`[${res.status}] ${detail}`);
   }
 
   // Retourne l'URL publique

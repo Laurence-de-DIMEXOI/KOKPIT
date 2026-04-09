@@ -81,8 +81,13 @@ export default function PostModal({
     setUploading(true);
 
     try {
+      // Sanitize le nom de fichier pour éviter les erreurs WebKit avec les
+      // caractères spéciaux (espaces, accents, parenthèses) dans le multipart
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const safeFile = new File([file], `upload.${ext}`, { type: file.type });
+
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", safeFile);
 
       const res = await fetch("/api/planning/upload", {
         method: "POST",
