@@ -110,12 +110,12 @@ export async function GET(request: Request) {
     }
 
     // Extraire les stats depuis un objet campaign Brevo
-    // Brevo peut retourner les stats dans globalStats ou dans campaignStats (tableau par liste)
+    // IMPORTANT : globalStats retourne toujours 0 (bug Brevo API)
+    // Les vraies données sont dans campaignStats (tableau par liste) → on les agrège
     function extractStats(c: any) {
-      let gs = c.statistics?.globalStats || {};
-
-      // Si globalStats est vide ou sent=0, agréger depuis campaignStats (par liste)
       const campStats: any[] = c.statistics?.campaignStats || [];
+
+      // Priorité : agréger campaignStats (données réelles)
       if (campStats.length > 0) {
         const agg = campStats.reduce(
           (acc: any, s: any) => ({
@@ -129,19 +129,24 @@ export async function GET(request: Request) {
           }),
           {}
         );
-        // Utiliser l'agrégation si elle a plus de données
-        if ((agg.sent || 0) > (gs.sent || gs.delivered || 0)) {
-          gs = agg;
-        }
+        return {
+          destinataires: agg.sent || agg.delivered || 0,
+          ouvertures: agg.uniqueViews || 0,
+          clics: agg.uniqueClicks || 0,
+          desabonnements: agg.unsubscriptions || 0,
+          bounces: (agg.hardBounces || 0) + (agg.softBounces || 0),
+        };
       }
 
-      const destinataires = gs.sent || gs.delivered || gs.messagesSent || 0;
-      const ouvertures = gs.uniqueViews || gs.uniqueOpens || gs.opens || 0;
-      const clics = gs.uniqueClicks || gs.clicked || gs.clickers || 0;
-      const desabonnements = gs.unsubscriptions || 0;
-      const bounces = (gs.hardBounces || 0) + (gs.softBounces || 0);
-
-      return { destinataires, ouvertures, clics, desabonnements, bounces };
+      // Fallback : globalStats (souvent 0 côté Brevo, mais on essaie)
+      const gs = c.statistics?.globalStats || {};
+      return {
+        destinataires: gs.sent || gs.delivered || 0,
+        ouvertures: gs.uniqueViews || 0,
+        clics: gs.uniqueClicks || 0,
+        desabonnements: gs.unsubscriptions || 0,
+        bounces: (gs.hardBounces || 0) + (gs.softBounces || 0),
+      };
     }
 
     // Pour chaque campagne envoyée : toujours fetcher les stats individuelles
