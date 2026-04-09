@@ -24,7 +24,20 @@ async function brevoFetch(path: string) {
   return res.json();
 }
 
-// GET /api/marketing/brevo/debug — dump brut des campagnes pour diagnostic
+function aggregateObject(obj: Record<string, any>) {
+  const values = Object.values(obj) as any[];
+  if (values.length === 0) return null;
+  return values.reduce((acc: any, s: any) => ({
+    sent: (acc.sent || 0) + (s.sent || 0),
+    delivered: (acc.delivered || 0) + (s.delivered || 0),
+    uniqueViews: (acc.uniqueViews || 0) + (s.uniqueViews || 0),
+    uniqueClicks: (acc.uniqueClicks || 0) + (s.uniqueClicks || 0),
+    unsubscriptions: (acc.unsubscriptions || 0) + (s.unsubscriptions || 0),
+    hardBounces: (acc.hardBounces || 0) + (s.hardBounces || 0),
+    softBounces: (acc.softBounces || 0) + (s.softBounces || 0),
+  }), {});
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -32,13 +45,11 @@ export async function GET() {
   }
 
   try {
-    // Listing des campagnes envoyées
     const listRes = await brevoFetch("/emailCampaigns?status=sent&limit=5&sort=desc&type=classic");
     const campaigns = listRes.campaigns || [];
 
     const results = await Promise.all(
       campaigns.map(async (c: any) => {
-        // Détail individuel sans HTML
         let detail: any = null;
         let detailError: string | null = null;
         try {
@@ -47,21 +58,27 @@ export async function GET() {
           detailError = e.message;
         }
 
+        const stats = detail?.statistics || {};
+
         return {
           id: c.id,
           name: c.name,
-          status: c.status,
-          sentDate: c.sentDate,
-          // Stats dans le listing
-          listingStatisticsKeys: c.statistics ? Object.keys(c.statistics) : null,
-          listingGlobalStats: c.statistics?.globalStats ?? "ABSENT",
-          listingCampaignStats: c.statistics?.campaignStats ?? "ABSENT",
-          // Stats dans le détail individuel
           detailError,
-          detailStatisticsKeys: detail?.statistics ? Object.keys(detail.statistics) : null,
-          detailGlobalStats: detail?.statistics?.globalStats ?? "ABSENT",
-          detailCampaignStatsLength: detail?.statistics?.campaignStats?.length ?? "ABSENT",
-          detailCampaignStatsFirst: detail?.statistics?.campaignStats?.[0] ?? "ABSENT",
+          globalStats: stats.globalStats ?? null,
+          campaignStatsCount: (stats.campaignStats || []).length,
+          campaignStatsAggregate: (stats.campaignStats || []).length > 0
+            ? (stats.campaignStats as any[]).reduce((acc: any, s: any) => ({
+                sent: (acc.sent||0)+(s.sent||0),
+                uniqueViews: (acc.uniqueViews||0)+(s.uniqueViews||0),
+                uniqueClicks: (acc.uniqueClicks||0)+(s.uniqueClicks||0),
+                unsubscriptions: (acc.unsubscriptions||0)+(s.unsubscriptions||0),
+              }), {})
+            : null,
+          statsByDomainCount: Object.keys(stats.statsByDomain || {}).length,
+          statsByDomainAggregate: aggregateObject(stats.statsByDomain || {}),
+          statsByDeviceCount: Object.keys(stats.statsByDevice || {}).length,
+          statsByDeviceAggregate: aggregateObject(stats.statsByDevice || {}),
+          remaining: stats.remaining ?? null,
         };
       })
     );
