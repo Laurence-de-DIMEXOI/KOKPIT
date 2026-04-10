@@ -37,6 +37,51 @@ function isOrderExcluded(order: Awaited<ReturnType<typeof listAllOrders>>[number
   return false;
 }
 
+// --- CA mensuel depuis Sellsy BDC ---
+async function fetchCaSellsy(annee: string): Promise<{ caMensuel: Record<string, number>; nbOrders: number }> {
+  try {
+    // Fetch tous les BDC depuis début d'année (le filtre until n'est pas fiable côté Sellsy)
+    const orders = await listAllOrders(`${annee}-01-01`);
+    const caMensuel: Record<string, number> = {};
+    let nbOrders = 0;
+
+    for (const order of orders) {
+      if (isOrderExcluded(order)) continue;
+
+      const dateStr = order.date || order.created || "";
+      if (!dateStr) continue;
+      const moisKey = dateStr.substring(0, 7); // "2026-03"
+      // Filtrer côté client pour l'année demandée
+      if (!moisKey.startsWith(annee)) continue;
+
+      const montant = order.amounts?.total_excl_tax ?? order.amounts?.total_raw_excl_tax ?? 0;
+      const value = typeof montant === "string" ? parseFloat(montant) : (montant || 0);
+      caMensuel[moisKey] = (caMensuel[moisKey] || 0) + value;
+      nbOrders++;
+    }
+
+    return { caMensuel, nbOrders };
+  } catch (err) {
+    console.error("[ROI] Sellsy orders error — fallback ventes DB:", err);
+    // Fallback : utiliser les ventes en base
+    const ventes = await prisma.vente.findMany({
+      where: {
+        createdAt: {
+          gte: new Date(`${annee}-01-01`),
+          lt: new Date(`${parseInt(annee) + 1}-01-01`),
+        },
+      },
+      select: { montant: true, createdAt: true },
+    });
+    const caMensuel: Record<string, number> = {};
+    for (const v of ventes) {
+      const mois = v.createdAt.toISOString().substring(0, 7);
+      caMensuel[mois] = (caMensuel[mois] || 0) + v.montant;
+    }
+    return { caMensuel, nbOrders: ventes.length };
+  }
+}
+
 // --- Meta Ads monthly spend ---
 async function fetchMetaMonthlySpend(annee: string): Promise<Record<string, number>> {
   const accessToken = process.env.META_ACCESS_TOKEN;
@@ -65,13 +110,13 @@ async function fetchMetaMonthlySpend(annee: string): Promise<Record<string, numb
 
       const res = await fetch(url);
       const data = await res.json();
-      for (const row of data.data || []) {
-        const monthKey = row.date_start.substring(0, 7);
+      for (const row of (data.data || [])) {
+        const monthKey = (row.date_start || "").substring(0, 7);
+        if (!monthKey) continue;
         monthly[monthKey] = (monthly[monthKey] || 0) + parseFloat(row.spend || "0");
       }
     }
 
-    // Arrondir
     for (const k in monthly) {
       monthly[k] = Math.round(monthly[k] * 100) / 100;
     }
@@ -94,7 +139,6 @@ async function fetchGoogleMonthlySpend(annee: string): Promise<Record<string, nu
   if (required.some((k) => !process.env[k])) return {};
 
   try {
-    // Obtenir le token OAuth
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -110,11 +154,8 @@ async function fetchGoogleMonthlySpend(annee: string): Promise<Record<string, nu
 
     const customerId = process.env.GOOGLE_ADS_CUSTOMER_ID!;
 
-    // Query GAQL : dépenses par mois sur l'année
     const query = `
-      SELECT
-        segments.month,
-        metrics.cost_micros
+      SELECT segments.month, metrics.cost_micros
       FROM campaign
       WHERE campaign.status != 'REMOVED'
         AND segments.date BETWEEN '${annee}-01-01' AND '${annee}-12-31'
@@ -139,8 +180,7 @@ async function fetchGoogleMonthlySpend(annee: string): Promise<Record<string, nu
     const data = await res.json();
     const monthly: Record<string, number> = {};
 
-    for (const row of data.results || []) {
-      // segments.month → "2026-01-01" (premier jour du mois)
+    for (const row of (data.results || [])) {
       const rawMonth: string = row.segments?.month || "";
       const monthKey = rawMonth.substring(0, 7); // "2026-01"
       if (!monthKey) continue;
@@ -157,143 +197,113 @@ async function fetchGoogleMonthlySpend(annee: string): Promise<Record<string, nu
 
 // GET /api/marketing/roi — Dashboard ROI avec CA Sellsy (BDC) + dépenses
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  }
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
 
-  const annee = req.nextUrl.searchParams.get("annee") || String(new Date().getFullYear());
+    const annee = req.nextUrl.searchParams.get("annee") || String(new Date().getFullYear());
 
-  // ── Fetch en parallèle ──────────────────────────────────────────────────────
-  const [couts, orders, metaMonthly, googleMonthly, guideDownloads] = await Promise.all([
-    // Coûts marketing manuels (hors meta_ads et google_ads, remplacés par les APIs)
-    prisma.coutMarketing.findMany({
-      where: { periode: { startsWith: annee } },
-      include: { createdBy: { select: { nom: true, prenom: true } } },
-      orderBy: { periode: "asc" },
-    }),
-    // Bons de commande Sellsy pour l'année
-    listAllOrders(`${annee}-01-01`, `${annee}-12-31`),
-    // Dépenses Meta depuis l'API Meta
-    fetchMetaMonthlySpend(annee),
-    // Dépenses Google Ads depuis l'API Google
-    fetchGoogleMonthlySpend(annee),
-    // Téléchargements guide
-    prisma.evenement.count({
-      where: {
-        type: "NOTE",
-        description: { contains: "Téléchargement guide PDF" },
-        createdAt: {
-          gte: new Date(`${annee}-01-01`),
-          lt: new Date(`${parseInt(annee) + 1}-01-01`),
+    // Fetch en parallèle
+    const [couts, { caMensuel, nbOrders }, metaMonthly, googleMonthly, guideDownloads] = await Promise.all([
+      prisma.coutMarketing.findMany({
+        where: { periode: { startsWith: annee } },
+        include: { createdBy: { select: { nom: true, prenom: true } } },
+        orderBy: { periode: "asc" },
+      }),
+      fetchCaSellsy(annee),
+      fetchMetaMonthlySpend(annee),
+      fetchGoogleMonthlySpend(annee),
+      prisma.evenement.count({
+        where: {
+          type: "NOTE",
+          description: { contains: "Téléchargement guide PDF" },
+          createdAt: {
+            gte: new Date(`${annee}-01-01`),
+            lt: new Date(`${parseInt(annee) + 1}-01-01`),
+          },
         },
-      },
-    }),
-  ]);
+      }),
+    ]);
 
-  // ── CA mensuel depuis les BDC Sellsy (filtrés) ─────────────────────────────
-  const caMensuel: Record<string, number> = {};
-  let nbOrders = 0;
+    const totalMetaSpend = Object.values(metaMonthly).reduce((s, v) => s + v, 0);
+    const totalGoogleSpend = Object.values(googleMonthly).reduce((s, v) => s + v, 0);
 
-  for (const order of orders) {
-    if (isOrderExcluded(order)) continue;
+    // Tableau mensuel
+    const mois = [];
+    for (let m = 1; m <= 12; m++) {
+      const periode = `${annee}-${String(m).padStart(2, "0")}`;
+      const ca = Math.round(caMensuel[periode] || 0);
 
-    // Utiliser order.date (date du BDC) pour grouper par mois
-    const dateStr = order.date || order.created || "";
-    if (!dateStr) continue;
-    const mois = dateStr.substring(0, 7); // "2026-03"
-    if (!mois.startsWith(annee)) continue;
+      // Dépenses manuelles ce mois (sans meta/google si APIs actives)
+      let depensesManuellesMois = 0;
+      for (const c of couts) {
+        if (c.periode !== periode) continue;
+        if (c.type === "meta_ads" && totalMetaSpend > 0) continue;
+        if (c.type === "google_ads" && totalGoogleSpend > 0) continue;
+        depensesManuellesMois += c.montant;
+      }
 
-    const montant = order.amounts?.total_excl_tax || order.amounts?.total_raw_excl_tax || 0;
-    const value = typeof montant === "string" ? parseFloat(montant) : montant;
-    caMensuel[mois] = (caMensuel[mois] || 0) + value;
-    nbOrders++;
-  }
+      const metaSpend = Math.round((metaMonthly[periode] || 0) * 100) / 100;
+      const googleSpend = Math.round((googleMonthly[periode] || 0) * 100) / 100;
+      const depenses = Math.round((depensesManuellesMois + metaSpend + googleSpend) * 100) / 100;
+      const roi = depenses > 0 ? Math.round(((ca - depenses) / depenses) * 100) : 0;
 
-  // ── Dépenses manuelles par mois (hors meta/google — ces types sont gérés par API) ──
-  const depensesManuelles: Record<string, number> = {};
-  const depensesParTypeManuel: Record<string, number> = {};
-  for (const c of couts) {
-    // On conserve les entrées manuelles meta/google si elles existent (rétrocompat)
-    // mais elles seront ignorées dans le total si les APIs retournent de la data
-    depensesManuelles[c.periode] = (depensesManuelles[c.periode] || 0) + c.montant;
-    depensesParTypeManuel[c.type] = (depensesParTypeManuel[c.type] || 0) + c.montant;
-  }
+      mois.push({ periode, ca, depenses, metaSpend, googleSpend, roi });
+    }
 
-  // ── Totaux Meta et Google sur l'année ──────────────────────────────────────
-  const totalMetaSpend = Object.values(metaMonthly).reduce((s, v) => s + v, 0);
-  const totalGoogleSpend = Object.values(googleMonthly).reduce((s, v) => s + v, 0);
+    // Totaux
+    const totalCA = Math.round(Object.values(caMensuel).reduce((s, v) => s + v, 0));
+    const totalDepensesManuellesHorsAds = couts
+      .filter((c) => {
+        if (c.type === "meta_ads" && totalMetaSpend > 0) return false;
+        if (c.type === "google_ads" && totalGoogleSpend > 0) return false;
+        return true;
+      })
+      .reduce((s, c) => s + c.montant, 0);
+    const totalDepenses = Math.round((totalDepensesManuellesHorsAds + totalMetaSpend + totalGoogleSpend) * 100) / 100;
+    const roiAnnuel = totalDepenses > 0 ? Math.round(((totalCA - totalDepenses) / totalDepenses) * 100) : 0;
+    const cac = nbOrders > 0 && totalDepenses > 0 ? Math.round(totalDepenses / nbOrders) : 0;
 
-  // Dépenses manuelles sans meta_ads/google_ads si les APIs ont retourné de la data
-  const totalDepensesManuellesHorsAds = couts
-    .filter((c) => {
-      if (c.type === "meta_ads" && totalMetaSpend > 0) return false;
-      if (c.type === "google_ads" && totalGoogleSpend > 0) return false;
-      return true;
-    })
-    .reduce((s, c) => s + c.montant, 0);
-
-  // ── Tableau mensuel ────────────────────────────────────────────────────────
-  const mois = [];
-  for (let m = 1; m <= 12; m++) {
-    const periode = `${annee}-${String(m).padStart(2, "0")}`;
-    const ca = Math.round(caMensuel[periode] || 0);
-
-    // Dépenses manuelles ce mois (sans meta/google si APIs actives)
-    let depensesManuellesMois = 0;
+    const depensesParTypeManuel: Record<string, number> = {};
     for (const c of couts) {
-      if (c.periode !== periode) continue;
-      if (c.type === "meta_ads" && totalMetaSpend > 0) continue;
-      if (c.type === "google_ads" && totalGoogleSpend > 0) continue;
-      depensesManuellesMois += c.montant;
+      depensesParTypeManuel[c.type] = (depensesParTypeManuel[c.type] || 0) + c.montant;
     }
 
-    const metaSpend = Math.round((metaMonthly[periode] || 0) * 100) / 100;
-    const googleSpend = Math.round((googleMonthly[periode] || 0) * 100) / 100;
-    const depenses = Math.round((depensesManuellesMois + metaSpend + googleSpend) * 100) / 100;
-    const roi = depenses > 0 ? Math.round(((ca - depenses) / depenses) * 100) : 0;
+    const depensesParType = TYPES_COUT.map((t) => {
+      let montant = 0;
+      if (t.value === "meta_ads") {
+        montant = totalMetaSpend > 0 ? totalMetaSpend : (depensesParTypeManuel["meta_ads"] || 0);
+      } else if (t.value === "google_ads") {
+        montant = totalGoogleSpend > 0 ? totalGoogleSpend : (depensesParTypeManuel["google_ads"] || 0);
+      } else {
+        montant = depensesParTypeManuel[t.value] || 0;
+      }
+      return { type: t.value, label: t.label, montant: Math.round(montant) };
+    });
 
-    mois.push({ periode, ca, depenses, metaSpend, googleSpend, roi });
+    return NextResponse.json({
+      annee,
+      kpis: {
+        totalCA,
+        totalDepenses,
+        roiAnnuel,
+        cac,
+        nbVentes: nbOrders,
+        guideDownloads,
+      },
+      mois,
+      depensesParType,
+      couts,
+      typesCout: TYPES_COUT,
+      meta: { available: totalMetaSpend > 0 },
+      google: { available: totalGoogleSpend > 0 },
+    });
+  } catch (error: any) {
+    console.error("Erreur GET ROI:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
-
-  // ── Totaux annuels ─────────────────────────────────────────────────────────
-  const totalCA = Math.round(Object.values(caMensuel).reduce((s, v) => s + v, 0));
-  const totalDepenses = Math.round(
-    (totalDepensesManuellesHorsAds + totalMetaSpend + totalGoogleSpend) * 100
-  ) / 100;
-  const roiAnnuel = totalDepenses > 0 ? Math.round(((totalCA - totalDepenses) / totalDepenses) * 100) : 0;
-  const cac = nbOrders > 0 && totalDepenses > 0 ? Math.round(totalDepenses / nbOrders) : 0;
-
-  // ── Répartition par type ───────────────────────────────────────────────────
-  const depensesParType = TYPES_COUT.map((t) => {
-    let montant = 0;
-    if (t.value === "meta_ads") {
-      montant = totalMetaSpend > 0 ? totalMetaSpend : (depensesParTypeManuel["meta_ads"] || 0);
-    } else if (t.value === "google_ads") {
-      montant = totalGoogleSpend > 0 ? totalGoogleSpend : (depensesParTypeManuel["google_ads"] || 0);
-    } else {
-      montant = depensesParTypeManuel[t.value] || 0;
-    }
-    return { type: t.value, label: t.label, montant: Math.round(montant) };
-  });
-
-  return NextResponse.json({
-    annee,
-    kpis: {
-      totalCA,
-      totalDepenses,
-      roiAnnuel,
-      cac,
-      nbVentes: nbOrders,
-      guideDownloads,
-    },
-    mois,
-    depensesParType,
-    couts,
-    typesCout: TYPES_COUT,
-    meta: { available: totalMetaSpend > 0 },
-    google: { available: totalGoogleSpend > 0 },
-  });
 }
 
 // POST /api/marketing/roi — Ajouter un coût marketing

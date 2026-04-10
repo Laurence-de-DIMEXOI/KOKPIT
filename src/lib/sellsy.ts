@@ -1197,14 +1197,10 @@ export async function listAllOrders(since?: string, until?: string): Promise<Sel
   const sinceDate = since || undefined;
 
   const filters: Record<string, any> = {};
-  if (sinceDate || until) {
-    filters.date = {};
-    if (sinceDate) filters.date.start = sinceDate;
-    if (until) filters.date.end = until;
-  }
+  if (sinceDate) filters.date = { start: sinceDate };
 
-  // Embed contact + company + custom_fields_values pour filtrage
-  const embed = ["contact", "company", "custom_fields_values"];
+  // Embed contact + company pour récupérer les noms
+  const embed = ["contact", "company"];
 
   // Page 1 — séquentielle pour connaître le total
   const page1 = await searchOrders({
