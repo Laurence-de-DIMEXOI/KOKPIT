@@ -38,6 +38,8 @@ interface MoisData {
   periode: string;
   ca: number;
   depenses: number;
+  metaSpend: number;
+  googleSpend: number;
   roi: number;
 }
 
@@ -68,6 +70,8 @@ interface ROIData {
   depensesParType: DepenseParType[];
   couts: Cout[];
   typesCout: TypeCout[];
+  meta?: { available: boolean };
+  google?: { available: boolean };
 }
 
 // ============================================================================
@@ -562,8 +566,8 @@ export default function ROIMarketingPage() {
             {
               icon: Target,
               label: "CAC",
-              value: `${formatEUR(data?.kpis.cac || 0)} / vente`,
-              sub: `${data?.kpis.nbVentes || 0} ventes`,
+              value: `${formatEUR(data?.kpis.cac || 0)} / BDC`,
+              sub: `${data?.kpis.nbVentes || 0} bons de commande`,
             },
           ].map((kpi, idx) => (
             <div
@@ -726,7 +730,13 @@ export default function ROIMarketingPage() {
               <thead>
                 <tr className="border-b border-cockpit text-cockpit-secondary text-xs">
                   <th className="text-left px-4 py-3 font-medium">Mois</th>
-                  <th className="text-right px-4 py-3 font-medium">CA (€)</th>
+                  <th className="text-right px-4 py-3 font-medium">CA BDC (€)</th>
+                  {data.meta?.available && (
+                    <th className="text-right px-4 py-3 font-medium">Meta (€)</th>
+                  )}
+                  {data.google?.available && (
+                    <th className="text-right px-4 py-3 font-medium">Google (€)</th>
+                  )}
                   <th className="text-right px-4 py-3 font-medium">Dépenses (€)</th>
                   <th className="text-right px-4 py-3 font-medium">ROI (%)</th>
                 </tr>
@@ -740,6 +750,16 @@ export default function ROIMarketingPage() {
                     <td className="px-4 py-3 text-right text-cockpit-primary">
                       {formatEUR(m.ca)}
                     </td>
+                    {data.meta?.available && (
+                      <td className="px-4 py-3 text-right text-cockpit-secondary text-xs">
+                        {m.metaSpend > 0 ? formatEUR(m.metaSpend) : "—"}
+                      </td>
+                    )}
+                    {data.google?.available && (
+                      <td className="px-4 py-3 text-right text-cockpit-secondary text-xs">
+                        {m.googleSpend > 0 ? formatEUR(m.googleSpend) : "—"}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right text-cockpit-primary">
                       {formatEUR(m.depenses)}
                     </td>
@@ -779,6 +799,16 @@ export default function ROIMarketingPage() {
                   <span>CA : {formatEUR(m.ca)}</span>
                   <span>Dép. : {formatEUR(m.depenses)}</span>
                 </div>
+                {(data.meta?.available || data.google?.available) && (
+                  <div className="flex items-center gap-3 mt-1 text-[10px] text-cockpit-secondary">
+                    {data.meta?.available && m.metaSpend > 0 && (
+                      <span>Meta : {formatEUR(m.metaSpend)}</span>
+                    )}
+                    {data.google?.available && m.googleSpend > 0 && (
+                      <span>Google : {formatEUR(m.googleSpend)}</span>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

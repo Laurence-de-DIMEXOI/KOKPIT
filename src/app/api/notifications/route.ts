@@ -7,7 +7,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 let cache: { data: unknown; timestamp: number } | null = null;
 
 interface NotificationItem {
-  type: "token_meta" | "devis_expirant" | "sync_brevo" | "tache_retard" | "sla_72h";
+  type: "token_meta" | "devis_expirant" | "sync_brevo" | "tache_retard" | "sla_72h" | "demande_non_traitee";
   message: string;
   severity: "danger" | "warning" | "info";
   href?: string;
@@ -127,7 +127,30 @@ export async function GET() {
       // Silently fail
     }
 
-    // 5. Vérifier la dernière sync Brevo
+    // 5. Demandes de prix non traitées (lead toujours NOUVEAU)
+    try {
+      const demandesNonTraitees = await prisma.demandePrix.count({
+        where: {
+          contact: {
+            leads: {
+              some: { statut: "NOUVEAU" },
+            },
+          },
+        },
+      });
+      if (demandesNonTraitees > 0) {
+        items.push({
+          type: "demande_non_traitee",
+          message: `${demandesNonTraitees} demande${demandesNonTraitees > 1 ? "s" : ""} de prix non traitée${demandesNonTraitees > 1 ? "s" : ""}`,
+          severity: "danger",
+          href: "/commercial/demandes",
+        });
+      }
+    } catch {
+      // Silently fail
+    }
+
+    // 7. Vérifier la dernière sync Brevo
     try {
       const lastSync = await prisma.brevoSyncLog.findFirst({
         where: { statut: "success" },

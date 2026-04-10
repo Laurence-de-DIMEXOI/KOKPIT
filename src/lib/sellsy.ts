@@ -233,10 +233,12 @@ export interface SellsyOrder {
   assigned_staff_id?: number;
   amounts?: SellsyAmounts;
   related?: SellsyRelated[];
+  custom_fields_values?: Array<{ cf_id: number; value: string | null }>;
   _embed?: {
     company?: { id: number; name: string };
     contact?: { id: number; first_name: string; last_name: string };
     owner?: SellsyOwnerEmbed;
+    custom_fields_values?: Array<{ cf_id: number; value: string | null }>;
   };
 }
 
@@ -1190,16 +1192,19 @@ export async function listAllEstimates(since?: string): Promise<SellsyEstimate[]
  * Récupère TOUS les bons de commande Sellsy (tout l'historique).
  * Page 1 en séquentiel pour connaître le total, puis pages 2-N en parallèle.
  */
-export async function listAllOrders(since?: string): Promise<SellsyOrder[]> {
+export async function listAllOrders(since?: string, until?: string): Promise<SellsyOrder[]> {
   const pageSize = 100;
-  // Pas de limite de date par défaut — tout l'historique Sellsy
   const sinceDate = since || undefined;
 
   const filters: Record<string, any> = {};
-  if (sinceDate) filters.date = { start: sinceDate };
+  if (sinceDate || until) {
+    filters.date = {};
+    if (sinceDate) filters.date.start = sinceDate;
+    if (until) filters.date.end = until;
+  }
 
-  // Embed contact + company pour récupérer les noms
-  const embed = ["contact", "company"];
+  // Embed contact + company + custom_fields_values pour filtrage
+  const embed = ["contact", "company", "custom_fields_values"];
 
   // Page 1 — séquentielle pour connaître le total
   const page1 = await searchOrders({
