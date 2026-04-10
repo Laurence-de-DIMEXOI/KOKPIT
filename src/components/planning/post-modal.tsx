@@ -73,11 +73,12 @@ export default function PostModal({
     return () => document.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
-  // Compression image via Canvas (réduit à max 1920px, qualité 0.82, max 4MB)
+  // Compression image via Canvas (réduit à max 1920px, qualité 0.82, max 3MB)
+  // Vercel limite les bodies serverless à 4.5MB — on vise 3MB pour avoir de la marge
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
       const MAX_PX = 1920;
-      const MAX_BYTES = 4 * 1024 * 1024;
+      const MAX_BYTES = 3 * 1024 * 1024;
       const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
 
       // GIF : pas de compression canvas (on laisse passer tel quel)
@@ -142,6 +143,16 @@ export default function PostModal({
         method: "POST",
         body: formData,
       });
+
+      // Vérifier le content-type avant de parser en JSON
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await res.text();
+        if (res.status === 413 || text.toLowerCase().includes("too large") || text.toLowerCase().includes("entity")) {
+          throw new Error("Image trop volumineuse même après compression. Essaie avec une image plus petite.");
+        }
+        throw new Error(`Erreur serveur (${res.status})`);
+      }
 
       const data = await res.json();
 

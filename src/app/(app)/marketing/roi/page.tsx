@@ -438,13 +438,16 @@ export default function ROIMarketingPage() {
   const [showModal, setShowModal] = useState(false);
   const [showDownloads, setShowDownloads] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [catalogueStats, setCatalogueStats] = useState<{ views: number; clicks: number; tauxClic: number; referrers: { domain: string; count: number }[]; sources: { source: string; count: number }[] } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/marketing/roi?annee=${annee}`);
-      if (res.ok) {
-        setData(await res.json());
-      }
+      const [roiRes, catRes] = await Promise.all([
+        fetch(`/api/marketing/roi?annee=${annee}`),
+        fetch(`/api/marketing/catalogue-stats?annee=${annee}`),
+      ]);
+      if (roiRes.ok) setData(await roiRes.json());
+      if (catRes.ok) setCatalogueStats(await catRes.json());
     } catch (err) {
       console.error("Erreur chargement ROI:", err);
     } finally {
@@ -626,6 +629,84 @@ export default function ROIMarketingPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* CATALOGUE POPUP STATS                                          */}
+      {/* ================================================================ */}
+      {!loading && catalogueStats && (
+        <div>
+          <h2 className="text-sm font-semibold text-cockpit-primary mb-3 flex items-center gap-2">
+            <Download className="w-4 h-4" style={{ color: MKT_GRADIENT.from }} />
+            Catalogue PDF — Popup dimexoi.fr
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+            {/* Vues */}
+            <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: "var(--color-cockpit-card)", border: "1px solid var(--color-cockpit-border)" }}>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${MKT_GRADIENT.from}, ${MKT_GRADIENT.to})` }}>
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-cockpit-secondary font-medium">Vues popup</p>
+                <p className="text-2xl font-bold text-cockpit-primary">{catalogueStats.views}</p>
+                <p className="text-[10px] text-cockpit-secondary">{annee}</p>
+              </div>
+            </div>
+            {/* Clics */}
+            <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: "var(--color-cockpit-card)", border: "1px solid var(--color-cockpit-border)" }}>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${MKT_GRADIENT.from}, ${MKT_GRADIENT.to})` }}>
+                <Download className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-cockpit-secondary font-medium">Clics catalogue PDF</p>
+                <p className="text-2xl font-bold text-cockpit-primary">{catalogueStats.clicks}</p>
+                <p className="text-[10px] text-cockpit-secondary">{annee}</p>
+              </div>
+            </div>
+            {/* Taux clic */}
+            <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: "var(--color-cockpit-card)", border: "1px solid var(--color-cockpit-border)" }}>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${MKT_GRADIENT.from}, ${MKT_GRADIENT.to})` }}>
+                <TrendingUp className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-cockpit-secondary font-medium">Taux de clic</p>
+                <p className="text-2xl font-bold text-cockpit-primary">{catalogueStats.tauxClic}%</p>
+                <p className="text-[10px] text-cockpit-secondary">clics / vues</p>
+              </div>
+            </div>
+          </div>
+          {/* Sources */}
+          {(catalogueStats.referrers.length > 0 || catalogueStats.sources.length > 0) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {catalogueStats.referrers.length > 0 && (
+                <div className="rounded-xl p-4" style={{ background: "var(--color-cockpit-card)", border: "1px solid var(--color-cockpit-border)" }}>
+                  <p className="text-xs font-semibold text-cockpit-secondary mb-2">Provenance (referrer)</p>
+                  <div className="space-y-1">
+                    {catalogueStats.referrers.map((r) => (
+                      <div key={r.domain} className="flex justify-between text-xs">
+                        <span className="text-cockpit-primary truncate max-w-[70%]">{r.domain || "Direct"}</span>
+                        <span className="text-cockpit-secondary font-medium">{r.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {catalogueStats.sources.length > 0 && (
+                <div className="rounded-xl p-4" style={{ background: "var(--color-cockpit-card)", border: "1px solid var(--color-cockpit-border)" }}>
+                  <p className="text-xs font-semibold text-cockpit-secondary mb-2">Sources UTM</p>
+                  <div className="space-y-1">
+                    {catalogueStats.sources.map((s) => (
+                      <div key={s.source} className="flex justify-between text-xs">
+                        <span className="text-cockpit-primary truncate max-w-[70%]">{s.source}</span>
+                        <span className="text-cockpit-secondary font-medium">{s.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

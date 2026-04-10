@@ -1319,3 +1319,22 @@ model RendezVous {
   @@index([dateDebut])
   @@index([source])
 }
+
+// ============================================================================
+// CATALOGUE STATS — Tracking vues & clics popup catalogue dimexoi.fr
+// ============================================================================
+
+model CatalogueStat {
+  id        String   @id @default(cuid())
+  type      String   // "view" | "click"
+  referrer  String?  // document.referrer
+  utmSource String?
+  utmMedium String?
+  utmCampaign String?
+  page      String?  // pathname de la page où le popup a été vu
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+  @@map("catalogue_stat")
+}
