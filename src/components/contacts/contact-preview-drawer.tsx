@@ -114,6 +114,8 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [doublonId, setDoublonId] = useState<string | null>(null);
+  const [doublonNom, setDoublonNom] = useState<string | null>(null);
   const [form, setForm] = useState({
     nom: "", prenom: "", email: "", telephone: "",
     lifecycleStage: "PROSPECT",
@@ -211,6 +213,8 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
     });
     setEditing(false);
     setSaveError(null);
+    setDoublonId(null);
+    setDoublonNom(null);
     // Load events + Sellsy history
     fetchEvents(contact.id);
     fetchSellsyHistory(contact.id);
@@ -232,6 +236,8 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
     if (!contact) return;
     setSaving(true);
     setSaveError(null);
+    setDoublonId(null);
+    setDoublonNom(null);
     try {
       const res = await fetch(`/api/contacts/${contact.id}`, {
         method: "PUT",
@@ -246,6 +252,10 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
       } else {
         const err = await res.json();
         setSaveError(err.error || "Erreur lors de la sauvegarde");
+        if (err.doublonId) {
+          setDoublonId(err.doublonId);
+          setDoublonNom(err.doublonNom || null);
+        }
       }
     } catch {
       setSaveError("Erreur réseau — réessaie dans quelques secondes");
@@ -689,9 +699,21 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
         <div className="border-t border-[#E8EAED] bg-[#F5F6F7]">
           {saveError && editing && (
             <div className="px-4 pt-3 pb-1">
-              <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
-                <span className="shrink-0">⚠️</span>
-                <span>{saveError}</span>
+              <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 space-y-1">
+                <div className="flex items-start gap-2">
+                  <span className="shrink-0">⚠️</span>
+                  <span>{saveError}</span>
+                </div>
+                {doublonId && doublonNom && (
+                  <a
+                    href={`/contacts/${doublonId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block ml-6 text-xs font-medium text-red-600 underline underline-offset-2 hover:text-red-800"
+                  >
+                    → Ouvrir la fiche de {doublonNom}
+                  </a>
+                )}
               </div>
             </div>
           )}

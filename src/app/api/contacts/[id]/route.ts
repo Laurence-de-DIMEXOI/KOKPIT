@@ -117,6 +117,28 @@ export async function PUT(
     }
     // Contrainte unique sur email — un autre contact utilise déjà cette adresse
     if (error.code === "P2002" && error.meta?.target?.includes("email")) {
+      // Retrouver quel contact a cet email pour afficher son nom
+      try {
+        const body = await request.clone().json().catch(() => ({})) as Record<string, unknown>;
+        const emailToFind = typeof body.email === "string" ? body.email.toLowerCase().trim() : null;
+        if (emailToFind) {
+          const doublon = await prisma.contact.findUnique({
+            where: { email: emailToFind },
+            select: { id: true, nom: true, prenom: true },
+          });
+          if (doublon) {
+            const nomDoublon = [doublon.prenom, doublon.nom].filter(Boolean).join(" ") || "Contact sans nom";
+            return NextResponse.json(
+              {
+                error: `Cette adresse email est déjà utilisée par "${nomDoublon}". Va corriger cet autre contact d'abord.`,
+                doublonId: doublon.id,
+                doublonNom: nomDoublon,
+              },
+              { status: 409 }
+            );
+          }
+        }
+      } catch { /* Si la recherche échoue, on tombe sur le message générique */ }
       return NextResponse.json(
         { error: "Cette adresse email est déjà utilisée par un autre contact. Corrige d'abord l'autre fiche, ou utilise une adresse différente." },
         { status: 409 }
