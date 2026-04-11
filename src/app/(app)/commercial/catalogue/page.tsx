@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import {
   Package,
@@ -96,6 +96,7 @@ export default function CataloguePage() {
   const [labelStartPos, setLabelStartPos] = useState(0);
   const [page, setPage] = useState(1);
   const [loadingAllDecl, setLoadingAllDecl] = useState(false); // chargement arrière-plan
+  const enrichedItemIds = useRef<Set<number>>(new Set()); // items dont les prix déclinaisons ont été enrichis
 
   // Search debounce
   useEffect(() => {
@@ -141,40 +142,41 @@ export default function CataloguePage() {
 
   // Lazy-load declinations for a single item + enrichit les prix via GET /items/{decl.id}
   const fetchDeclinations = async (itemId: number) => {
-    if (declinations[itemId]) return;
+    // Garde : déjà enrichi (pas seulement chargé — le background load peut avoir rempli sans enrichissement)
+    if (enrichedItemIds.current.has(itemId)) return;
+    enrichedItemIds.current.add(itemId);
     setLoadingDecl((prev) => new Set(prev).add(itemId));
     try {
+      // Récupère les déclinaisons (depuis état ou API)
+      let decls: Declination[] = [];
       const res = await fetch(`/api/sellsy/items/${itemId}/declinations`);
       const data = await res.json();
-      if (data.success) {
-        const decls: Declination[] = data.declinations || [];
+      if (data.success) decls = data.declinations || [];
 
-        // Enrichir les prix : fetch individuel pour les déclinaisons sans prix
-        const enriched = await Promise.all(
-          decls.map(async (d) => {
-            if (d.reference_price_taxes_exc && d.reference_price_taxes_exc !== "0") {
-              return d; // prix déjà présent, pas besoin
+      // Enrichir les prix : fetch individuel pour les déclinaisons sans prix TTC
+      const enriched = await Promise.all(
+        decls.map(async (d) => {
+          if (d.reference_price_taxes_inc) return d; // déjà enrichi
+          try {
+            const r = await fetch(`/api/sellsy/items/${d.id}`);
+            const itemData = await r.json();
+            if (itemData.success && itemData.item) {
+              return {
+                ...d,
+                reference_price_taxes_exc: itemData.item.reference_price_taxes_exc ?? d.reference_price_taxes_exc,
+                reference_price_taxes_inc: itemData.item.reference_price_taxes_inc ?? null,
+                purchase_amount: d.purchase_amount ?? itemData.item.purchase_amount,
+              };
             }
-            try {
-              const r = await fetch(`/api/sellsy/items/${d.id}`);
-              const itemData = await r.json();
-              if (itemData.success && itemData.item) {
-                return {
-                  ...d,
-                  reference_price_taxes_exc: itemData.item.reference_price_taxes_exc ?? d.reference_price_taxes_exc,
-                  reference_price_taxes_inc: itemData.item.reference_price_taxes_inc ?? null,
-                  purchase_amount: d.purchase_amount ?? itemData.item.purchase_amount,
-                };
-              }
-            } catch { /* silencieux */ }
-            return d;
-          })
-        );
+          } catch { /* silencieux */ }
+          return d;
+        })
+      );
 
-        setDeclinations((prev) => ({ ...prev, [itemId]: enriched }));
-      }
+      setDeclinations((prev) => ({ ...prev, [itemId]: enriched }));
     } catch (error) {
       console.error(`Erreur déclinaisons item ${itemId}:`, error);
+      enrichedItemIds.current.delete(itemId); // permettre retry
     } finally {
       setLoadingDecl((prev) => {
         const next = new Set(prev);
@@ -266,11 +268,13 @@ export default function CataloguePage() {
     [filtered, page]
   );
 
-  // Auto-fetch declinations for items on current page
+  // Auto-fetch + enrichit les déclinaisons pour les items de la page courante
   useEffect(() => {
-    const declined = paginated.filter((i) => i.is_declined && !declinations[i.id] && !loadingDecl.has(i.id));
+    const declined = paginated.filter(
+      (i) => i.is_declined && !enrichedItemIds.current.has(i.id) && !loadingDecl.has(i.id)
+    );
     declined.forEach((i) => fetchDeclinations(i.id));
-  }, [paginated]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [paginated, declinations]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // Index rapide pour résoudre les prix des déclinaisons (qui sont aussi des items standalone)
