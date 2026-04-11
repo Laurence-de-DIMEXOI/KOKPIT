@@ -4,15 +4,18 @@ import {
   X, Mail, Phone, MapPin, CheckCircle2, Circle,
   ShoppingBag, Calendar, User, Pencil, Save,
   MessageSquare, Loader2, FileText, ShoppingCart,
-  ExternalLink, Activity, Send, PhoneCall, RefreshCw,
+  ExternalLink, Activity, Send, PhoneCall, RefreshCw, GitMerge,
 } from "lucide-react";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 import { traduireStatut } from "@/lib/sellsy-statuts";
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { ContactTimeline } from "./contact-timeline";
 import { PriorityGauge } from "./priority-badge";
 import { calculatePriority } from "@/lib/contact-priority";
 import type { PriorityData } from "./priority-badge";
+import MergeContactModal from "./MergeContactModal";
 
 // Types pour les données API
 interface DemandePrix {
@@ -111,6 +114,11 @@ function formatDate(dateStr: string | null) {
 }
 
 export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: ContactPreviewDrawerProps) {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const canMerge = ["ADMIN", "MARKETING", "DIRECTION"].includes((session?.user as any)?.role);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -333,6 +341,15 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
+            {canMerge && !editing && (
+              <button
+                onClick={() => setMergeModalOpen(true)}
+                className="p-2 hover:bg-[#8592A3]/10 rounded-lg transition-colors"
+                title="Fusionner avec un autre contact"
+              >
+                <GitMerge className="w-5 h-5 text-[#8592A3]" />
+              </button>
+            )}
             {editing ? (
               <button onClick={handleSave} disabled={saving} className="p-2 bg-[#F4B400] text-white rounded-lg hover:opacity-90 transition-opacity">
                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
@@ -739,6 +756,29 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
           </div>
         </div>
       </div>
+
+      {/* Modal fusion */}
+      {canMerge && contact && mergeModalOpen && (
+        <MergeContactModal
+          primaryContact={{
+            id: contact.id,
+            nom: contact.nom,
+            prenom: contact.prenom,
+            email: contact.email,
+            telephone: contact.telephone,
+            lifecycleStage: contact.lifecycleStage,
+            sellsyContactId: contact.sellsyContactId,
+            _count: contact._count,
+          }}
+          isOpen={mergeModalOpen}
+          onClose={() => setMergeModalOpen(false)}
+          onMergeComplete={(newPrimaryId) => {
+            setMergeModalOpen(false);
+            onClose();
+            router.push(`/contacts/${newPrimaryId}`);
+          }}
+        />
+      )}
     </>
   );
 }
