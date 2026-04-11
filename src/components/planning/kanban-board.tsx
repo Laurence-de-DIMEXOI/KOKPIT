@@ -22,7 +22,15 @@ export default function KanbanBoard({ posts, onRefresh }: KanbanBoardProps) {
     COLUMNS.reduce((acc, col) => {
       acc[col.statut] = posts
         .filter((p) => p.statut === col.statut)
-        .sort((a, b) => a.position - b.position);
+        .sort((a, b) => {
+          // Tri par date de publication décroissante (les plus récentes en haut)
+          // Les cartes sans date vont en bas
+          const da = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0;
+          const db = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0;
+          if (db !== da) return db - da;
+          // Fallback : date de création décroissante
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
       return acc;
     }, {} as Record<PostStatut, Post[]>),
     [posts]);

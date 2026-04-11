@@ -32,7 +32,11 @@ export async function GET(request: NextRequest) {
         attachments: { orderBy: { createdAt: "desc" } },
         createdBy: { select: { id: true, nom: true, prenom: true } },
       },
-      orderBy: [{ statut: "asc" }, { position: "asc" }],
+      orderBy: [
+        { statut: "asc" },
+        { scheduledDate: { sort: "desc", nulls: "last" } },
+        { createdAt: "desc" },
+      ],
     });
 
     return NextResponse.json({ success: true, posts });
