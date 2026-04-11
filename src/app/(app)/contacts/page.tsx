@@ -711,7 +711,17 @@ export default function ContactsPage() {
       )}
 
       {/* Drawer */}
-      <ContactPreviewDrawer contact={selectedContact} isOpen={selectedContact !== null} onClose={() => setSelectedContact(null)} />
+      <ContactPreviewDrawer
+        contact={selectedContact}
+        isOpen={selectedContact !== null}
+        onClose={() => setSelectedContact(null)}
+        onUpdate={(updated) => {
+          // Met à jour le contact affiché dans le drawer immédiatement
+          setSelectedContact(updated as ContactData);
+          // Met à jour la ligne dans la liste sans rechargement complet
+          setApiContacts((prev) => prev.map((c) => c.id === updated.id ? { ...c, ...updated } : c));
+        }}
+      />
     </div>
   );
 }
