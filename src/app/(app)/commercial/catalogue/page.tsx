@@ -94,6 +94,7 @@ export default function CataloguePage() {
   const [checkedDeclIds, setCheckedDeclIds] = useState<Set<number>>(new Set());
   const [labelStartPos, setLabelStartPos] = useState(0);
   const [page, setPage] = useState(1);
+  const [loadingAllDecl, setLoadingAllDecl] = useState(false); // chargement arrière-plan
 
   // Search debounce
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function CataloguePage() {
   // Reset page on filter change
   useEffect(() => { setPage(1); }, [typeFilter, declFilter, priceFilter]);
 
-  // Fetch items only (fast — no declinations)
+  // Fetch items (fast), puis charge toutes les déclinaisons en arrière-plan pour la recherche
   const fetchItems = async (fresh = false) => {
     setRefreshing(true);
     try {
@@ -115,15 +116,25 @@ export default function CataloguePage() {
       const data = await res.json();
       if (data.success) {
         setItems(data.items || []);
-        if (fresh) {
-          setDeclinations({});
-        }
+        if (fresh) setDeclinations({});
       }
     } catch (error) {
       console.error("Erreur chargement catalogue:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+
+    // Arrière-plan : charge toutes les déclinaisons (réponse mise en cache 1h côté serveur)
+    setLoadingAllDecl(true);
+    try {
+      const res2 = await fetch(`/api/sellsy/items?all=true&withDeclinations=true${fresh ? "&fresh=true" : ""}`);
+      const data2 = await res2.json();
+      if (data2.success && data2.declinations) {
+        setDeclinations((prev) => ({ ...data2.declinations, ...prev }));
+      }
+    } catch { /* silencieux */ } finally {
+      setLoadingAllDecl(false);
     }
   };
 
@@ -173,6 +184,7 @@ export default function CataloguePage() {
         return false;
       });
     }
+
 
     if (typeFilter !== "ALL") {
       result = result.filter((item) => item.type === typeFilter);
@@ -238,6 +250,35 @@ export default function CataloguePage() {
 
   // Index rapide pour résoudre les prix des déclinaisons (qui sont aussi des items standalone)
   const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
+  // Quand une recherche est active : quelles déclinaisons matchent (pour n'afficher que celles-là)
+  const searchMatchedDeclIds = useMemo(() => {
+    if (!search) return null; // null = pas de filtre, tout afficher
+    const q = search.toLowerCase();
+    const matched = new Set<number>();
+    for (const decls of Object.values(declinations)) {
+      for (const d of decls) {
+        if (
+          (d.name || "").toLowerCase().includes(q) ||
+          (d.reference || "").toLowerCase().includes(q)
+        ) {
+          matched.add(d.id);
+        }
+      }
+    }
+    return matched;
+  }, [search, declinations]);
+
+  // Pour un item donné, est-ce que le parent lui-même matche la recherche ?
+  const parentMatchesSearch = (item: SellsyItem): boolean => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (item.name || "").toLowerCase().includes(q) ||
+      (item.reference || "").toLowerCase().includes(q) ||
+      (item.description || "").toLowerCase().includes(q)
+    );
+  };
 
   // KPIs
   const totalDeclined = useMemo(() => items.filter((i) => i.is_declined).length, [items]);
@@ -546,9 +587,15 @@ ${pages.join("\n")}
           <h1 className="text-2xl sm:text-3xl font-bold text-cockpit-heading mb-1">
             Catalogue Produits
           </h1>
-          <p className="text-cockpit-secondary text-sm">
-            {filtered.length} produit{filtered.length > 1 ? "s" : ""} sur {items.length}
-            {totalDeclined > 0 && <span className="ml-1">({totalDeclined} avec déclinaisons)</span>}
+          <p className="text-cockpit-secondary text-sm flex items-center gap-2 flex-wrap">
+            <span>{filtered.length} produit{filtered.length > 1 ? "s" : ""} sur {items.length}
+            {totalDeclined > 0 && <span className="ml-1">({totalDeclined} avec déclinaisons)</span>}</span>
+            {loadingAllDecl && (
+              <span className="flex items-center gap-1 text-xs text-cockpit-warning">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Chargement des déclinaisons…
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -776,7 +823,12 @@ ${pages.join("\n")}
                         </tr>
                       )}
                       {/* Declination rows — each with its own checkbox + drawer */}
-                      {hasDecls && decls.map((decl, dIdx) => {
+                      {hasDecls && decls.filter((d) => {
+                        // Si le parent lui-même matche la recherche → tout afficher
+                        if (parentMatchesSearch(item)) return true;
+                        // Sinon n'afficher que les déclinaisons qui matchent
+                        return searchMatchedDeclIds ? searchMatchedDeclIds.has(d.id) : true;
+                      }).map((decl, dIdx) => {
                         // Priorité : item standalone (prix précis) > prix API déclinaisons > prix parent
                         const declItem = itemsById.get(decl.id);
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
@@ -916,7 +968,10 @@ ${pages.join("\n")}
                   {/* Declination rows with checkboxes */}
                   {hasDecls && decls.length > 0 && (
                     <div className="divide-y divide-cockpit/50">
-                      {decls.map((decl, dIdx) => {
+                      {decls.filter((d) => {
+                        if (parentMatchesSearch(item)) return true;
+                        return searchMatchedDeclIds ? searchMatchedDeclIds.has(d.id) : true;
+                      }).map((decl, dIdx) => {
                         const declItem = itemsById.get(decl.id);
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
                         const dHT = declItem

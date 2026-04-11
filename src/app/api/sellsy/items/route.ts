@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
 
       if (withDecl) {
         const declinedItems = items.filter((i) => i.is_declined);
-        // Batch par 5 pour ne pas surcharger l'API
-        const BATCH = 5;
+        // Batch par 20 — bon compromis vitesse / rate limit Sellsy
+        const BATCH = 20;
         for (let i = 0; i < declinedItems.length; i += BATCH) {
           const batch = declinedItems.slice(i, i + BATCH);
           const results = await Promise.all(
