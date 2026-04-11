@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import {
   Users,
@@ -17,7 +18,6 @@ import {
   Check,
   Ban,
 } from "lucide-react";
-import { ContactPreviewDrawer } from "@/components/contacts/contact-preview-drawer";
 import { PriorityBadge } from "@/components/contacts/priority-badge";
 
 const ITEMS_PER_PAGE = 25;
@@ -39,12 +39,12 @@ const stageConfig: Record<string, { bg: string; text: string }> = {
 };
 
 export default function ContactsPage() {
+  const router = useRouter();
   const [apiContacts, setApiContacts] = useState<ContactData[]>([]);
   const [totalContacts, setTotalContacts] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [selectedContact, setSelectedContact] = useState<ContactData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [stageFilter, setStageFilter] = useState<string>("ALL");
   const [sourceFilter, setSourceFilter] = useState<string>("ALL");
@@ -362,7 +362,7 @@ export default function ContactsPage() {
                   const lastDate = getLastDemandeDate(c);
                   return (
                     <tr key={c.id} className="hover:bg-cockpit-dark transition-colors cursor-pointer"
-                      onClick={() => setSelectedContact(c)}>
+                      onClick={() => router.push(`/contacts/${c.id}`)}>
                       <td className="px-4 lg:px-6 py-3">
                         <span className="text-cockpit-yellow font-medium hover:underline text-sm">
                           {c.prenom} {c.nom}
@@ -438,7 +438,7 @@ export default function ContactsPage() {
               const nbDem = c._count?.demandesPrix || 0;
               return (
                 <div key={c.id} className="p-4 hover:bg-cockpit-dark transition-colors cursor-pointer"
-                  onClick={() => setSelectedContact(c)}>
+                  onClick={() => router.push(`/contacts/${c.id}`)}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-cockpit-yellow font-medium text-sm truncate">
@@ -710,18 +710,6 @@ export default function ContactsPage() {
         </div>
       )}
 
-      {/* Drawer */}
-      <ContactPreviewDrawer
-        contact={selectedContact}
-        isOpen={selectedContact !== null}
-        onClose={() => setSelectedContact(null)}
-        onUpdate={(updated) => {
-          // Met à jour le contact affiché dans le drawer immédiatement
-          setSelectedContact(updated as ContactData);
-          // Met à jour la ligne dans la liste sans rechargement complet
-          setApiContacts((prev) => prev.map((c) => c.id === updated.id ? { ...c, ...updated } : c));
-        }}
-      />
     </div>
   );
 }
