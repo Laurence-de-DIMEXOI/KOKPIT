@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 4 avril 2026 (v21 — Passerelle complète : guide SDB + Meta Ads + Calendly RDV showroom)
-**Mis à jour par** : Session Claude Code (Sprint 4 avril — Passerelle + Calendly)
+**Dernière mise à jour** : 11 avril 2026 (v22 — ROI Marketing : CA depuis BDC Sellsy filtrés + dépenses Meta/Google APIs)
+**Mis à jour par** : Session Claude Code (Sprint 11 avril — ROI Marketing refonte calcul CA)
 
 ---
 
@@ -61,6 +61,7 @@
 - `src/app/api/demandes/relance/route.ts` — envoi email relance commercial via Brevo (fallback Resend) ✅ f5911fc
 
 - `src/lib/guide-brevo.ts` — `sendGuidePdfEmail()` — envoi guide PDF par email Brevo transactionnel (template ID 19, désactivé sans env var)
+- `src/app/api/marketing/roi/route.ts` — Route ROI : CA depuis `listAllOrders()` Sellsy filtré (exclusion SAV/COMMANDE MAGASIN/FOURNISSEUR + annulés) + dépenses Meta/Google depuis leurs APIs respectives + fallback Prisma auto. `c7272c5`
 - `src/app/api/webhooks/guide-download/route.ts` — webhook dimexoi.fr → KOKPIT : crée Contact + Lead + Evenement + stocke showroom + envoie email guide
 
 **⚠️ Règle critique API Sellsy V2** : Les filtres `third_ids`, `contact_id`, `individual_ids` sont cassés — ils retournent TOUS les documents au lieu de filtrer. Solution : utiliser `findDocumentsByRelated()` — récupérer les N derniers documents et filtrer côté serveur par `related[].id`. Ne jamais utiliser ces filtres V2 directement.
@@ -309,6 +310,9 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | CALENDLY | Module Rendez-vous Calendly complet | Widget CalendlyWidget.tsx (inline + popup) intégré sur 3 pages dimexoi.fr (contact inline, fiches produit popup, guide popup post-submit). Webhook Calendly → dimexoi.fr → KOKPIT `/api/webhooks/calendly-rdv`. Modèle RendezVous (statuts CONFIRME/HONORE/ANNULE). Page `/commercial/rendez-vous` avec 4 KPIs + tableau filtrable + actions statut. API routes GET liste + GET stats + PATCH statut. EvenementType RDV_PRIS + RDV_ANNULE. Ajouté dans sidebar Commercial |
 | X9-RFM | Segmentation RFM | 5 segments (Champions, Loyaux, À risque, Perdus, Nouveaux) calculés à la volée. Export vers listes Brevo |
 | X8-ROI | ROI Marketing | Page /marketing/roi — dépenses multi-canal (Meta, Google, Salon, Agence) + CA + ROI% + CAC réel |
+| ROI-BDC | ROI Marketing — CA depuis BDC Sellsy filtrés | CA calculé depuis `listAllOrders()` Sellsy (BDC) au lieu des factures Prisma. Exclusion : champs perso SAV/COMMANDE MAGASIN/FOURNISSEUR + statuts annulés. Fallback auto Prisma si Sellsy indisponible. Colonnes Meta/Google conditionnelles dans tableau mensuel. `c7272c5` |
+| ROI-META-API | ROI Marketing — Meta Ads API mensuelle | Dépenses Meta depuis `/insights?time_increment=monthly` (API Graph). Anti-doublon : si API active, les entrées manuelles meta_ads ignorées. `c7272c5` |
+| ROI-GOOGLE-API | ROI Marketing — Google Ads API mensuelle | Dépenses Google depuis GAQL `SELECT segments.month, metrics.cost_micros`. OAuth refresh_token → access_token. Anti-doublon idem. `c7272c5` |
 | X6-NOTIF | Notifications topbar | 5 types : token Meta expirant, devis expirant, SLA 72h, congé à valider, tâche assignée. Cloche avec badge |
 | RECAP-HEBDO | Récap hebdomadaire email | Cron lundi 7h — email à Laurence + Michelle : demandes reçues, statut traitement, devis associés, KPIs |
 | RESET-PWD | Reset password par email | Lien token 24h → page /set-password. Envoi via Brevo transactionnel. Route /api/auth/set-password + /api/auth/send-reset |
@@ -411,6 +415,9 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | Calendly UTM | Params a1 (pageSource) + a2 (productSlug) passés dans URL Calendly → renvoyés dans webhook | Attribution page source → RDV |
 | Calendly statuts | CONFIRME→HONORE (manuel commercial) ou CONFIRME→ANNULE (webhook ou manuel). Pas de retour. | Le commercial sait si le client est venu |
 | RDV taux conversion | Basé sur ventes (BDC) créées après la date du RDV, pas sur les devis (toujours créés) | Vrai indicateur commercial |
+| ROI Marketing — source CA | CA calculé depuis les BDC Sellsy (`listAllOrders()`), pas les factures Prisma `Vente`. Filtrage client-side : champs perso SAV/COMMANDE MAGASIN/FOURNISSEUR + statuts annulés (`cancelled`, `annul*`). `moisKey.startsWith(annee)` pour filtrer l'année | BDC = engagement client, pas les factures différées |
+| ROI Marketing — custom fields | `order.custom_fields_values` + `order._embed?.custom_fields_values` vérifiés. Embed `custom_fields_values` non demandé à l'API Sellsy (instable) — données récupérées si présentes dans la réponse list | Évite erreurs 400 sur endpoint orders |
+| ROI Marketing — dépenses APIs | Meta : `/me/adaccounts` → `/insights?time_increment=monthly`. Google : GAQL `cost_micros/1_000_000`. Anti-doublon : si API active → ignorer entrées manuelles correspondantes dans CoutMarketing | Pas de double-comptage |
 
 ---
 
@@ -500,6 +507,11 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | `BREVO_GUIDE_SDB_TEMPLATE_ID` | ⚠️ À ajouter Vercel | ID template Brevo envoi guide SDB (19). Désactivé sans cette var |
 | `META_WEBHOOK_VERIFY_TOKEN` | ⚠️ À ajouter dimexoi-site Vercel | Token vérification webhook Meta Ads |
 | `CALENDLY_WEBHOOK_SIGNING_KEY` | ⚠️ À ajouter dimexoi-site Vercel | Signing key depuis Calendly > Webhooks |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | ⚠️ À configurer Vercel | Token développeur Google Ads (obligatoire) |
+| `GOOGLE_ADS_CUSTOMER_ID` | ⚠️ À configurer Vercel | ID client Google Ads (sans tirets, ex: 1234567890) |
+| `GOOGLE_ADS_REFRESH_TOKEN` | ⚠️ À configurer Vercel | OAuth2 refresh token Google Ads |
+| `GOOGLE_ADS_CLIENT_ID` | ⚠️ À configurer Vercel | OAuth2 client ID Google Ads |
+| `GOOGLE_ADS_CLIENT_SECRET` | ⚠️ À configurer Vercel | OAuth2 client secret Google Ads |
 
 **Action requise** : activer scope "API V1" dans Sellsy > Paramètres > Portail développeur > API V2 pour que C3bis fonctionne en prod.
 
