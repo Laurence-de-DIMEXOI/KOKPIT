@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft, CheckCircle2, Circle, Mail, Phone, MapPin,
   FileText, ShoppingCart, Calendar, ExternalLink, Loader2,
   User, ShoppingBag, MessageSquare, PhoneCall, StickyNote,
-  Send, Plus, Trash2, Clock, AlertTriangle,
+  Send, Plus, Trash2, Clock, AlertTriangle, GitMerge,
 } from "lucide-react";
 import { getStatutConfig as getSavStatutConfig } from "@/data/sav-config";
 import Link from "next/link";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
+import MergeContactModal from "@/components/contacts/MergeContactModal";
 
 interface ContactData {
   id: string;
@@ -131,12 +134,17 @@ function statusColor(status?: string): string {
 }
 
 export default function ContactDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const canMerge = ["ADMIN", "MARKETING", "DIRECTION"].includes((session?.user as any)?.role);
+
   const [contact, setContact] = useState<ContactData | null>(null);
   const [sellsyHistory, setSellsyHistory] = useState<SellsyHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contactId, setContactId] = useState<string>("");
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
   // Timeline
   const [evenements, setEvenements] = useState<Evenement[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -319,6 +327,16 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
             )}
           </div>
         </div>
+        {canMerge && (
+          <button
+            onClick={() => setMergeModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#8592A3] hover:bg-[#697a8d] transition-colors flex-shrink-0"
+            title="Fusionner avec un autre contact"
+          >
+            <GitMerge className="w-3.5 h-3.5" />
+            Fusionner
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -759,6 +777,28 @@ export default function ContactDetailsPage({ params }: { params: Promise<{ id: s
           </div>
         )}
       </div>
+
+      {/* Modal fusion */}
+      {canMerge && contact && mergeModalOpen && (
+        <MergeContactModal
+          primaryContact={{
+            id: contact.id,
+            nom: contact.nom,
+            prenom: contact.prenom,
+            email: contact.email,
+            telephone: contact.telephone,
+            lifecycleStage: contact.lifecycleStage,
+            sellsyContactId: contact.sellsyContactId,
+            _count: contact._count,
+          }}
+          isOpen={mergeModalOpen}
+          onClose={() => setMergeModalOpen(false)}
+          onMergeComplete={(newPrimaryId) => {
+            setMergeModalOpen(false);
+            router.push(`/contacts/${newPrimaryId}`);
+          }}
+        />
+      )}
     </div>
   );
 }
