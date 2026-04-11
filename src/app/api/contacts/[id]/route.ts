@@ -115,6 +115,13 @@ export async function PUT(
         { status: 404 }
       );
     }
+    // Contrainte unique sur email — un autre contact utilise déjà cette adresse
+    if (error.code === "P2002" && error.meta?.target?.includes("email")) {
+      return NextResponse.json(
+        { error: "Cette adresse email est déjà utilisée par un autre contact. Corrige d'abord l'autre fiche, ou utilise une adresse différente." },
+        { status: 409 }
+      );
+    }
     console.error("PUT /api/contacts/[id] error:", error);
     return NextResponse.json(
       { error: error.message || "Erreur serveur" },

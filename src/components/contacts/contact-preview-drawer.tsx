@@ -113,6 +113,7 @@ function formatDate(dateStr: string | null) {
 export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: ContactPreviewDrawerProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [form, setForm] = useState({
     nom: "", prenom: "", email: "", telephone: "",
     lifecycleStage: "PROSPECT",
@@ -209,6 +210,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
       notes: contact.notes || "",
     });
     setEditing(false);
+    setSaveError(null);
     // Load events + Sellsy history
     fetchEvents(contact.id);
     fetchSellsyHistory(contact.id);
@@ -229,6 +231,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
   const handleSave = useCallback(async () => {
     if (!contact) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const res = await fetch(`/api/contacts/${contact.id}`, {
         method: "PUT",
@@ -238,13 +241,14 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
       if (res.ok) {
         const updated = await res.json();
         setEditing(false);
+        setSaveError(null);
         if (onUpdate) onUpdate(updated);
       } else {
         const err = await res.json();
-        alert(err.error || "Erreur lors de la sauvegarde");
+        setSaveError(err.error || "Erreur lors de la sauvegarde");
       }
     } catch {
-      alert("Erreur réseau");
+      setSaveError("Erreur réseau — réessaie dans quelques secondes");
     } finally {
       setSaving(false);
     }
@@ -682,7 +686,16 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#E8EAED] bg-[#F5F6F7]">
+        <div className="border-t border-[#E8EAED] bg-[#F5F6F7]">
+          {saveError && editing && (
+            <div className="px-4 pt-3 pb-1">
+              <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
+                <span className="shrink-0">⚠️</span>
+                <span>{saveError}</span>
+              </div>
+            </div>
+          )}
+          <div className="p-4">
           {editing ? (
             <div className="flex gap-3">
               <button onClick={() => setEditing(false)}
@@ -701,6 +714,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
               Voir la fiche complète
             </a>
           )}
+          </div>
         </div>
       </div>
     </>
