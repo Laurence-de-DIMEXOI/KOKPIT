@@ -58,6 +58,8 @@ export interface Post {
   scheduledDate: string | null;
   labels: PostLabel[];
   coverImage: string | null;
+  fbPostId: string | null;
+  fbScheduledAt: string | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;

@@ -5,7 +5,7 @@ import { Post, PostStatut, PostLabel, COLUMNS } from "./types";
 import LabelPicker from "./label-picker";
 import PostChecklist from "./post-checklist";
 import FormatSignatureSelector from "./FormatSignatureSelector";
-import { X, Trash2, CalendarDays, Upload, ImageIcon, Loader2 } from "lucide-react";
+import { X, Trash2, CalendarDays, Upload, ImageIcon, Loader2, CircleCheckBig, Clock, AlertCircle } from "lucide-react";
 
 interface PostModalProps {
   post: Post | null; // null = création
@@ -40,6 +40,10 @@ export default function PostModal({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [formatToast, setFormatToast] = useState("");
+  // Facebook scheduling
+  const [fbPublishing, setFbPublishing] = useState(false);
+  const [fbError, setFbError] = useState("");
+  const [fbSuccess, setFbSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -204,6 +208,39 @@ export default function PostModal({
       console.error("Erreur suppression:", err);
     }
     setDeleting(false);
+  };
+
+  // Facebook — conditions d'affichage
+  // Le post doit être sauvegardé (pour éviter une race condition avec scheduledDate non encore enregistrée)
+  const savedScheduledDate = post?.scheduledDate ? new Date(post.scheduledDate) : null;
+  const canScheduleToFacebook =
+    !!post &&
+    !!savedScheduledDate &&
+    savedScheduledDate.getTime() > Date.now() + 10 * 60 * 1000 &&
+    !!post.description?.trim() &&
+    !post.fbPostId;
+
+  const alreadyScheduledOnFb = !!post?.fbPostId;
+
+  const handlePublishFacebook = async () => {
+    if (!post || fbPublishing) return;
+    setFbError("");
+    setFbPublishing(true);
+    try {
+      const res = await fetch(`/api/planning/${post.id}/publish-facebook`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFbSuccess(true);
+        onRefresh();
+      } else {
+        setFbError(data.error || "Erreur lors de la programmation sur Facebook");
+      }
+    } catch (err: unknown) {
+      setFbError(err instanceof Error ? err.message : "Erreur réseau");
+    }
+    setFbPublishing(false);
   };
 
   return (
@@ -401,6 +438,72 @@ export default function PostModal({
                   items={post.checklist}
                   onUpdate={onRefresh}
                 />
+              )}
+
+              {/* Programmation Facebook */}
+              {post && (
+                <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                    {/* Logo Facebook — SVG inline */}
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="#1877F2">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                    Facebook
+                  </p>
+
+                  {alreadyScheduledOnFb || fbSuccess ? (
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2.5">
+                      <CircleCheckBig className="w-4 h-4 shrink-0" />
+                      <span className="font-medium">Programmé sur Facebook</span>
+                      {post.fbScheduledAt && (
+                        <span className="text-xs text-green-500 ml-auto">
+                          {new Date(post.fbScheduledAt).toLocaleDateString("fr-FR")}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {/* Message d'aide si conditions non remplies */}
+                      {!canScheduleToFacebook && (
+                        <p className="text-xs text-gray-400 flex items-start gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          {!post.description?.trim()
+                            ? "Ajoute une description et enregistre le post pour pouvoir programmer sur Facebook."
+                            : !post.scheduledDate
+                            ? "Définis une date de publication et enregistre le post avant de programmer sur Facebook."
+                            : "La date de publication doit être au moins 10 minutes dans le futur (enregistre le post après modification)."}
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handlePublishFacebook}
+                        disabled={!canScheduleToFacebook || fbPublishing}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        style={{ backgroundColor: canScheduleToFacebook ? "#1877F2" : "#9CA3AF" }}
+                      >
+                        {fbPublishing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Programmation en cours...
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-4 h-4" />
+                            Programmer sur Facebook
+                          </>
+                        )}
+                      </button>
+
+                      {fbError && (
+                        <p className="text-xs text-red-500 flex items-start gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          {fbError}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
             </div>
 

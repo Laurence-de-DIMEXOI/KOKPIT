@@ -623,6 +623,8 @@ model PostPlanning {
   scheduledDate DateTime?
   labels        PostLabel[] @default([])
   coverImage    String?
+  fbPostId      String?   // ID post Facebook retourné après programmation
+  fbScheduledAt DateTime? // Date/heure à laquelle la programmation a été envoyée à Facebook
   createdById String
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -636,6 +638,7 @@ model PostPlanning {
   @@index([createdById])
   @@index([dueDate])
   @@index([scheduledDate])
+  @@index([fbPostId])
 }
 
 model PostChecklist {

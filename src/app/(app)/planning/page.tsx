@@ -79,6 +79,30 @@ export default function PlanningPage() {
     fetchCalendarPosts(now.getFullYear(), now.getMonth());
   }, [fetchPosts, fetchCalendarPosts]);
 
+  // Auto-passage en POSTE : si un post est programmé sur Facebook et que sa date est passée
+  useEffect(() => {
+    if (!posts.length) return;
+    const now = new Date();
+    const toPromote = posts.filter(
+      (p) =>
+        p.fbPostId &&
+        p.scheduledDate &&
+        new Date(p.scheduledDate) < now &&
+        p.statut !== "POSTE"
+    );
+    if (!toPromote.length) return;
+
+    Promise.all(
+      toPromote.map((p) =>
+        fetch(`/api/planning/${p.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ statut: "POSTE" }),
+        })
+      )
+    ).then(() => fetchPosts());
+  }, [posts, fetchPosts]);
+
   const handleCalendarCardClick = (post: Post) => {
     setModalPost(post);
     setModalOpen(true);
