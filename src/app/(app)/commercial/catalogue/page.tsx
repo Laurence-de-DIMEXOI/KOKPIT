@@ -30,6 +30,7 @@ interface Declination {
   reference: string;
   name: string | null;
   reference_price_taxes_exc: string | null;
+  reference_price_taxes_inc: string | null; // enrichi après fetch individuel
   purchase_amount: string | null;
 }
 
@@ -138,7 +139,7 @@ export default function CataloguePage() {
     }
   };
 
-  // Lazy-load declinations for a single item
+  // Lazy-load declinations for a single item + enrichit les prix via GET /items/{decl.id}
   const fetchDeclinations = async (itemId: number) => {
     if (declinations[itemId]) return;
     setLoadingDecl((prev) => new Set(prev).add(itemId));
@@ -146,7 +147,31 @@ export default function CataloguePage() {
       const res = await fetch(`/api/sellsy/items/${itemId}/declinations`);
       const data = await res.json();
       if (data.success) {
-        setDeclinations((prev) => ({ ...prev, [itemId]: data.declinations || [] }));
+        const decls: Declination[] = data.declinations || [];
+
+        // Enrichir les prix : fetch individuel pour les déclinaisons sans prix
+        const enriched = await Promise.all(
+          decls.map(async (d) => {
+            if (d.reference_price_taxes_exc && d.reference_price_taxes_exc !== "0") {
+              return d; // prix déjà présent, pas besoin
+            }
+            try {
+              const r = await fetch(`/api/sellsy/items/${d.id}`);
+              const itemData = await r.json();
+              if (itemData.success && itemData.item) {
+                return {
+                  ...d,
+                  reference_price_taxes_exc: itemData.item.reference_price_taxes_exc ?? d.reference_price_taxes_exc,
+                  reference_price_taxes_inc: itemData.item.reference_price_taxes_inc ?? null,
+                  purchase_amount: d.purchase_amount ?? itemData.item.purchase_amount,
+                };
+              }
+            } catch { /* silencieux */ }
+            return d;
+          })
+        );
+
+        setDeclinations((prev) => ({ ...prev, [itemId]: enriched }));
       }
     } catch (error) {
       console.error(`Erreur déclinaisons item ${itemId}:`, error);
@@ -300,18 +325,14 @@ export default function CataloguePage() {
 
   // Ouvrir le drawer d'une déclinaison spécifique (virtual SellsyItem)
   const openDeclDrawer = (decl: Declination, parentItem: SellsyItem) => {
-    // Priorité : item standalone (prix précis) > prix de l'API déclinaisons > prix parent
-    const declItem = itemsById.get(decl.id);
     const parentHT = parseFloat(parentItem.reference_price_taxes_exc || "0");
     const parentTTC = parseFloat(parentItem.reference_price_taxes_inc || "0");
     const tvaMultiplier = parentHT > 0 && parentTTC > parentHT ? parentTTC / parentHT : 1.085;
-    const dHT = declItem
-      ? parseFloat(declItem.reference_price_taxes_exc || "0")
-      : parseFloat(decl.reference_price_taxes_exc || "0") || parentHT;
-    const dTTC = declItem
-      ? parseFloat(declItem.reference_price_taxes_inc || "0") || dHT * tvaMultiplier
+    const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || parentHT;
+    const dTTC = decl.reference_price_taxes_inc
+      ? parseFloat(decl.reference_price_taxes_inc)
       : dHT * tvaMultiplier;
-    const dPurch = parseFloat(decl.purchase_amount || "0") || (declItem ? parseFloat(declItem.purchase_amount || "0") : 0) || parseFloat(parentItem.purchase_amount || "0");
+    const dPurch = parseFloat(decl.purchase_amount || "0") || parseFloat(parentItem.purchase_amount || "0");
     const virtualItem: SellsyItem = {
       id: parentItem.id,
       type: parentItem.type,
@@ -829,17 +850,13 @@ ${pages.join("\n")}
                         // Sinon n'afficher que les déclinaisons qui matchent
                         return searchMatchedDeclIds ? searchMatchedDeclIds.has(d.id) : true;
                       }).map((decl, dIdx) => {
-                        // Priorité : item standalone (prix précis) > prix API déclinaisons > prix parent
-                        const declItem = itemsById.get(decl.id);
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
-                        const dHT = declItem
-                          ? parseFloat(declItem.reference_price_taxes_exc || "0")
-                          : parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
-                        const dTTC = declItem
-                          ? parseFloat(declItem.reference_price_taxes_inc || "0") || dHT * tvaMultiplier
+                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                        const dTTC = decl.reference_price_taxes_inc
+                          ? parseFloat(decl.reference_price_taxes_inc)
                           : dHT * tvaMultiplier;
                         const dPurchRaw = parseFloat(decl.purchase_amount || "0");
-                        const dPurch = dPurchRaw > 0 ? dPurchRaw : (declItem ? parseFloat(declItem.purchase_amount || "0") : 0) || purchasePrice;
+                        const dPurch = dPurchRaw > 0 ? dPurchRaw : purchasePrice;
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
                         return (
                           <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => openDeclDrawer(decl, item)}>
@@ -972,13 +989,10 @@ ${pages.join("\n")}
                         if (parentMatchesSearch(item)) return true;
                         return searchMatchedDeclIds ? searchMatchedDeclIds.has(d.id) : true;
                       }).map((decl, dIdx) => {
-                        const declItem = itemsById.get(decl.id);
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
-                        const dHT = declItem
-                          ? parseFloat(declItem.reference_price_taxes_exc || "0")
-                          : parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
-                        const dTTC = declItem
-                          ? parseFloat(declItem.reference_price_taxes_inc || "0") || dHT * tvaMultiplier
+                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                        const dTTC = decl.reference_price_taxes_inc
+                          ? parseFloat(decl.reference_price_taxes_inc)
                           : dHT * tvaMultiplier;
                         return (
                           <div
