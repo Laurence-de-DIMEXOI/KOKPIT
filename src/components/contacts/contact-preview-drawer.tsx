@@ -366,7 +366,7 @@ export function ContactPreviewDrawer({ contact, isOpen, onClose, onUpdate }: Con
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {/* Priority Gauge */}
           {(() => {
             const priority: PriorityData = calculatePriority(
