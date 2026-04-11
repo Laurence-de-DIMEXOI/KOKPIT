@@ -236,6 +236,9 @@ export default function CataloguePage() {
   }, [paginated]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
+  // Index rapide pour résoudre les prix des déclinaisons (qui sont aussi des items standalone)
+  const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
   // KPIs
   const totalDeclined = useMemo(() => items.filter((i) => i.is_declined).length, [items]);
   const kpis = useMemo(() => {
@@ -256,12 +259,18 @@ export default function CataloguePage() {
 
   // Ouvrir le drawer d'une déclinaison spécifique (virtual SellsyItem)
   const openDeclDrawer = (decl: Declination, parentItem: SellsyItem) => {
+    // Priorité : item standalone (prix précis) > prix de l'API déclinaisons > prix parent
+    const declItem = itemsById.get(decl.id);
     const parentHT = parseFloat(parentItem.reference_price_taxes_exc || "0");
     const parentTTC = parseFloat(parentItem.reference_price_taxes_inc || "0");
     const tvaMultiplier = parentHT > 0 && parentTTC > parentHT ? parentTTC / parentHT : 1.085;
-    const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || parentHT;
-    const dTTC = dHT * tvaMultiplier;
-    const dPurch = parseFloat(decl.purchase_amount || "0") || parseFloat(parentItem.purchase_amount || "0");
+    const dHT = declItem
+      ? parseFloat(declItem.reference_price_taxes_exc || "0")
+      : parseFloat(decl.reference_price_taxes_exc || "0") || parentHT;
+    const dTTC = declItem
+      ? parseFloat(declItem.reference_price_taxes_inc || "0") || dHT * tvaMultiplier
+      : dHT * tvaMultiplier;
+    const dPurch = parseFloat(decl.purchase_amount || "0") || (declItem ? parseFloat(declItem.purchase_amount || "0") : 0) || parseFloat(parentItem.purchase_amount || "0");
     const virtualItem: SellsyItem = {
       id: parentItem.id,
       type: parentItem.type,
@@ -367,13 +376,24 @@ export default function CataloguePage() {
         });
       }
     }
-    for (const decls of Object.values(declinations)) {
+    for (const [itemIdStr, decls] of Object.entries(declinations)) {
+      const parentItem = items.find((i) => i.id === Number(itemIdStr));
+      const parentHT = parseFloat(parentItem?.reference_price_taxes_exc || "0");
+      const parentTTC = parseFloat(parentItem?.reference_price_taxes_inc || "0");
+      const tvaMultiplier = parentHT > 0 && parentTTC > parentHT ? parentTTC / parentHT : 1.085;
       for (const decl of decls) {
         if (checkedDeclIds.has(decl.id)) {
+          const declItem = itemsById.get(decl.id);
+          const dHT = declItem
+            ? parseFloat(declItem.reference_price_taxes_exc || "0")
+            : parseFloat(decl.reference_price_taxes_exc || "0") || parentHT;
+          const dTTC = declItem
+            ? parseFloat(declItem.reference_price_taxes_inc || "0") || dHT * tvaMultiplier
+            : dHT * tvaMultiplier;
           labels.push({
             reference: decl.reference || "",
             name: decl.name || decl.reference || "",
-            priceTTC: decl.reference_price_taxes_exc || "0",
+            priceTTC: String(dTTC),
           });
         }
       }
@@ -757,11 +777,17 @@ ${pages.join("\n")}
                       )}
                       {/* Declination rows — each with its own checkbox + drawer */}
                       {hasDecls && decls.map((decl, dIdx) => {
-                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                        // Priorité : item standalone (prix précis) > prix API déclinaisons > prix parent
+                        const declItem = itemsById.get(decl.id);
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
-                        const dTTC = dHT * tvaMultiplier;
+                        const dHT = declItem
+                          ? parseFloat(declItem.reference_price_taxes_exc || "0")
+                          : parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                        const dTTC = declItem
+                          ? parseFloat(declItem.reference_price_taxes_inc || "0") || dHT * tvaMultiplier
+                          : dHT * tvaMultiplier;
                         const dPurchRaw = parseFloat(decl.purchase_amount || "0");
-                        const dPurch = dPurchRaw > 0 ? dPurchRaw : purchasePrice;
+                        const dPurch = dPurchRaw > 0 ? dPurchRaw : (declItem ? parseFloat(declItem.purchase_amount || "0") : 0) || purchasePrice;
                         const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
                         return (
                           <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => openDeclDrawer(decl, item)}>
@@ -891,9 +917,14 @@ ${pages.join("\n")}
                   {hasDecls && decls.length > 0 && (
                     <div className="divide-y divide-cockpit/50">
                       {decls.map((decl, dIdx) => {
-                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                        const declItem = itemsById.get(decl.id);
                         const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
-                        const dTTC = dHT * tvaMultiplier;
+                        const dHT = declItem
+                          ? parseFloat(declItem.reference_price_taxes_exc || "0")
+                          : parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                        const dTTC = declItem
+                          ? parseFloat(declItem.reference_price_taxes_inc || "0") || dHT * tvaMultiplier
+                          : dHT * tvaMultiplier;
                         return (
                           <div
                             key={decl.id}
