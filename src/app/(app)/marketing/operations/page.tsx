@@ -59,6 +59,8 @@ interface Operation {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  source?: "operation" | "planning";
+  coverImage?: string | null;
 }
 
 type OpType =
@@ -227,6 +229,23 @@ export default function OperationsMarketingPage() {
     } catch {}
   }, []);
 
+  // Mapper labels planning → OpType
+  const mapPlanningLabelsToType = (labels: string[]): OpType => {
+    if (labels.includes("CANAL_META")) return "POST_FACEBOOK";
+    if (labels.includes("CANAL_STORY") || labels.includes("STORY")) return "POST_INSTAGRAM";
+    if (labels.includes("CANAL_GOOGLE")) return "CAMPAGNE_GOOGLE_ADS";
+    if (labels.includes("CONTEXTE_NEWSLETTER") || labels.includes("EMAIL_BREVO")) return "NEWSLETTER";
+    if (labels.includes("BLOG_SEO")) return "ARTICLE_BLOG";
+    if (labels.includes("VIDEO_REEL")) return "POST_INSTAGRAM";
+    if (labels.includes("CONTEXTE_PUBLICITE")) return "CAMPAGNE_META_ADS";
+    return "AUTRE";
+  };
+
+  const mapPlanningStatut = (statut: string): StatutOp => {
+    if (statut === "POSTE") return "TERMINE";
+    return "PLANIFIE";
+  };
+
   const fetchOperations = useCallback(
     async (fresh = false) => {
       if (fresh) setRefreshing(true);
@@ -243,9 +262,70 @@ export default function OperationsMarketingPage() {
         filterStatuts.forEach((s) => params.append("statut", s));
         if (search.trim()) params.set("search", search.trim());
 
-        const res = await fetch(`/api/marketing/operations?${params}`);
-        const json = await res.json();
-        setOperations(json.operations || []);
+        // Mois pour le planning
+        let planningMonth: string;
+        if (periode === "mois") {
+          planningMonth = selectedMonth;
+        } else if (periode === "mois_dernier") {
+          const n = new Date();
+          const d = new Date(n.getFullYear(), n.getMonth() - 1, 1);
+          planningMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        } else {
+          const n = new Date();
+          planningMonth = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
+        }
+
+        const [opsRes, planningRes] = await Promise.all([
+          fetch(`/api/marketing/operations?${params}`),
+          fetch(`/api/planning?mois=${planningMonth}`),
+        ]);
+
+        const opsJson = await opsRes.json();
+        const planningJson = await planningRes.json();
+
+        const ops: Operation[] = (opsJson.operations || []).map((o: Operation) => ({
+          ...o,
+          source: "operation" as const,
+        }));
+
+        // Mapper les posts planning PRET_A_POSTER / POSTE
+        const planningPosts: Operation[] = ((planningJson.posts || []) as any[])
+          .filter((p: any) => p.statut === "PRET_A_POSTER" || p.statut === "POSTE")
+          .filter((p: any) => p.scheduledDate)
+          .map((p: any) => {
+            const type = mapPlanningLabelsToType(p.labels || []);
+            const statut = mapPlanningStatut(p.statut);
+            if (filterTypes.length > 0 && !filterTypes.includes(type)) return null;
+            if (filterStatuts.length > 0 && !filterStatuts.includes(statut)) return null;
+            if (search.trim()) {
+              const s = search.trim().toLowerCase();
+              if (!p.title.toLowerCase().includes(s) && !(p.description || "").toLowerCase().includes(s)) return null;
+            }
+            return {
+              id: `planning-${p.id}`,
+              date: p.scheduledDate,
+              titre: p.title,
+              type,
+              description: p.description || null,
+              canalId: null,
+              canal: null,
+              notes: null,
+              statut,
+              fichiers: [],
+              createdBy: p.createdById,
+              createdAt: p.createdAt,
+              updatedAt: p.updatedAt,
+              source: "planning" as const,
+              coverImage: p.coverImage || null,
+            } as Operation;
+          })
+          .filter(Boolean) as Operation[];
+
+        const merged = [...ops, ...planningPosts].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setOperations(merged);
       } catch (err) {
         console.error("Erreur fetch ops:", err);
       } finally {
@@ -739,8 +819,9 @@ export default function OperationsMarketingPage() {
                   >
                     {/* Thumbnail ou vignette couleur */}
                     {(() => {
+                      // Cover image du Planning OU signed URL du premier fichier image
                       const firstImg = op.fichiers.find((f) => f.mimeType?.startsWith("image/"));
-                      const imgUrl = firstImg ? signedUrls[firstImg.id] : null;
+                      const imgUrl = op.coverImage || (firstImg ? signedUrls[firstImg.id] : null);
                       if (imgUrl) {
                         return (
                           <div className="h-36 w-full bg-cockpit-dark relative overflow-hidden">
@@ -758,13 +839,21 @@ export default function OperationsMarketingPage() {
                     <div className="p-4">
                       {/* Top row : date + statut + menu */}
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] text-cockpit-secondary font-medium">
-                          {formatDateShort(op.date)}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-cockpit-secondary font-medium">
+                            {formatDateShort(op.date)}
+                          </span>
+                          {op.source === "planning" && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-medium">
+                              Planning
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1.5">
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUT_COLORS[op.statut]}`}>
                             {STATUT_LABELS[op.statut]}
                           </span>
+                          {op.source !== "planning" && (
                           <div className="relative">
                             <button
                               onClick={(e) => {
@@ -807,6 +896,7 @@ export default function OperationsMarketingPage() {
                               </div>
                             )}
                           </div>
+                          )}
                         </div>
                       </div>
 
@@ -1146,6 +1236,24 @@ export default function OperationsMarketingPage() {
                 </div>
               )}
 
+              {/* Cover image (posts Planning) */}
+              {detailOp.coverImage && (
+                <div>
+                  <h4 className="text-xs font-semibold text-cockpit-secondary mb-2">Visuel</h4>
+                  <div
+                    className="rounded-lg overflow-hidden cursor-pointer border border-cockpit"
+                    onClick={() => setLightboxUrl(detailOp.coverImage!)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={detailOp.coverImage}
+                      alt={detailOp.titre}
+                      className="w-full max-h-64 object-contain bg-cockpit-dark"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Fichiers — Galerie */}
               {detailOp.fichiers.length > 0 && (
                 <div>
@@ -1304,26 +1412,34 @@ export default function OperationsMarketingPage() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => { openEditForm(detailOp); setDetailOp(null); }}
-                  className="flex-1 px-4 py-2 bg-cockpit-dark border border-cockpit rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark/80 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Pencil className="w-4 h-4" /> Modifier
-                </button>
-                <button
-                  onClick={() => { duplicateOperation(detailOp.id); setDetailOp(null); }}
-                  className="px-4 py-2 bg-cockpit-dark border border-cockpit rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark/80 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Copy className="w-4 h-4" /> Dupliquer
-                </button>
-                <button
-                  onClick={() => { deleteOperation(detailOp.id); setDetailOp(null); }}
-                  className="px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              {detailOp.source === "planning" ? (
+                <div className="pt-2">
+                  <p className="text-[10px] text-cockpit-secondary text-center mb-2">
+                    Ce contenu provient du Planning. Il n'est pas modifiable ici.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => { openEditForm(detailOp); setDetailOp(null); }}
+                    className="flex-1 px-4 py-2 bg-cockpit-dark border border-cockpit rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark/80 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Pencil className="w-4 h-4" /> Modifier
+                  </button>
+                  <button
+                    onClick={() => { duplicateOperation(detailOp.id); setDetailOp(null); }}
+                    className="px-4 py-2 bg-cockpit-dark border border-cockpit rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark/80 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Copy className="w-4 h-4" /> Dupliquer
+                  </button>
+                  <button
+                    onClick={() => { deleteOperation(detailOp.id); setDetailOp(null); }}
+                    className="px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
