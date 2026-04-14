@@ -912,17 +912,22 @@ export default function OperationsMarketingPage() {
         </div>
       )}
 
-      {/* ─── Modale Formulaire ─────────────────────────────────────────────── */}
+      {/* ─── Drawer Formulaire ──────────────────────────────────────────────── */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto pt-[5vh] pb-8 px-4" onClick={() => setShowForm(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowForm(false)}>
           <div
-            className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg w-full max-w-lg max-h-[85vh] overflow-y-auto"
+            className="absolute top-0 right-0 h-full w-full max-w-lg bg-cockpit-card border-l border-cockpit shadow-cockpit-lg overflow-y-auto animate-slide-in-right"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 space-y-4">
-              <h2 className="text-lg font-bold text-cockpit-heading">
-                {editingOp ? "Modifier l'opération" : "Nouvelle opération"}
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-cockpit-heading">
+                  {editingOp ? "Modifier l'opération" : "Nouvelle opération"}
+                </h2>
+                <button onClick={() => setShowForm(false)} className="p-1.5 hover:bg-cockpit-dark rounded-lg transition-colors">
+                  <X className="w-5 h-5 text-cockpit-secondary" />
+                </button>
+              </div>
 
               {/* Date */}
               <div>
@@ -1125,11 +1130,11 @@ export default function OperationsMarketingPage() {
         </div>
       )}
 
-      {/* ─── Modale Détail ─────────────────────────────────────────────────── */}
+      {/* ─── Drawer Détail ──────────────────────────────────────────────────── */}
       {detailOp && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto pt-[5vh] pb-8 px-4" onClick={() => setDetailOp(null)}>
+        <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setDetailOp(null)}>
           <div
-            className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg w-full max-w-lg max-h-[85vh] overflow-y-auto"
+            className="absolute top-0 right-0 h-full w-full max-w-lg bg-cockpit-card border-l border-cockpit shadow-cockpit-lg overflow-y-auto animate-slide-in-right"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 space-y-4">
@@ -1374,9 +1379,9 @@ export default function OperationsMarketingPage() {
 
       {/* ─── Modale Canaux ───────────────────────────────────────────────── */}
       {showCanaux && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto pt-[5vh] pb-8 px-4" onClick={() => setShowCanaux(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowCanaux(false)}>
           <div
-            className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg w-full max-w-sm max-h-[85vh] overflow-y-auto"
+            className="absolute top-0 right-0 h-full w-full max-w-sm bg-cockpit-card border-l border-cockpit shadow-cockpit-lg overflow-y-auto animate-slide-in-right"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 space-y-4">
