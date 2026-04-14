@@ -55,3 +55,32 @@ export async function deleteFromStorage(bucket: string, path: string): Promise<v
     },
   });
 }
+
+/**
+ * Génère une signed URL pour un fichier dans un bucket privé
+ * @returns L'URL signée (valide pour la durée spécifiée)
+ */
+export async function getSignedUrl(
+  bucket: string,
+  path: string,
+  expiresIn = 3600
+): Promise<string> {
+  const url = `${SUPABASE_URL}/storage/v1/object/sign/${bucket}/${path}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      apikey: SUPABASE_ANON_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ expiresIn }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Signed URL error ${res.status}`);
+  }
+
+  const data = await res.json();
+  return `${SUPABASE_URL}/storage/v1${data.signedURL}`;
+}

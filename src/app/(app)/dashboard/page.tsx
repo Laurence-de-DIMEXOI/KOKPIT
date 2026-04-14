@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { RechartsLineChart } from "@/components/dashboard/line-chart";
+import { OperationsSemaineWidget } from "@/components/dashboard/operations-semaine";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 
 // ===== TYPES =====
@@ -626,6 +627,9 @@ export default function DashboardPage() {
           height={300}
         />
       </div>
+
+      {/* ===== Opérations de la semaine ===== */}
+      <OperationsSemaineWidget />
 
       {/* ===== Contacts sans devis — À traiter ===== */}
       {contactsSansDevis.length > 0 && (

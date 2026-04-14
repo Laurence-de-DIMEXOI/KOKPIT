@@ -7,7 +7,9 @@ const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 let cache: { data: unknown; timestamp: number } | null = null;
 
-async function brevoFetch(path: string) {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function brevoFetch(path: string, attempt = 0): Promise<any> {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) throw new Error("BREVO_API_KEY manquante");
 
@@ -18,6 +20,15 @@ async function brevoFetch(path: string) {
       "Content-Type": "application/json",
     },
   });
+
+  if (res.status === 429 && attempt < 3) {
+    const retryAfter = res.headers.get("Retry-After");
+    const delay = retryAfter
+      ? Number(retryAfter) * 1000
+      : Math.min(2000 * 2 ** attempt, 16000);
+    await sleep(delay);
+    return brevoFetch(path, attempt + 1);
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -159,9 +170,10 @@ export async function GET(request: Request) {
 
         // Pour les campagnes envoyées : forcer un appel individuel
         // ?excludeHtmlContent=true = pas de HTML dans la réponse (perf)
+        let detail: any = null;
         if (c.status === "sent") {
           try {
-            const detail = await brevoFetch(
+            detail = await brevoFetch(
               `/emailCampaigns/${c.id}?excludeHtmlContent=true`
             );
             const extracted = extractStats(detail);
@@ -174,6 +186,14 @@ export async function GET(request: Request) {
           }
         }
 
+        // Détecter les campagnes envoyées par segment uniquement (pas de listes)
+        // L'API Brevo ne retourne pas les stats pour ce cas → indiquer à l'UI
+        const recipients = detail?.recipients || c.recipients || {};
+        const sentToSegmentsOnly =
+          destinataires === 0 &&
+          (recipients.lists?.length ?? 0) === 0 &&
+          (recipients.segments?.length ?? 0) > 0;
+
         return {
           id: c.id,
           nom: c.name || "Sans nom",
@@ -183,6 +203,9 @@ export async function GET(request: Request) {
           tauxClic: destinataires > 0 ? Math.round((clics / destinataires) * 1000) / 10 : 0,
           desabonnements,
           bounces,
+          statsIndisponibles: sentToSegmentsOnly,
+          // Segments IDs pour recalcul via /contacts/{email}/campaignStats
+          segments: sentToSegmentsOnly ? (recipients.segments || []) : undefined,
         };
       })
     );

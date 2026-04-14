@@ -18,6 +18,7 @@ import {
   Calendar,
   FileEdit,
 } from "lucide-react";
+// Loader2 kept for the refresh spinner
 
 interface Campaign {
   id: number;
@@ -28,6 +29,7 @@ interface Campaign {
   tauxClic: number;
   desabonnements: number;
   bounces: number;
+  statsIndisponibles?: boolean;
 }
 
 interface CampagneEnCours {
@@ -438,16 +440,8 @@ export default function EmailingPage() {
                             </a>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            {c.destinataires === 0 ? (
-                              <a
-                                href={`https://app.brevo.com/campaign/email/${c.id}/report`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-cockpit-secondary hover:text-[var(--color-active)] flex items-center gap-0.5 justify-end"
-                                title="Stats indisponibles via API — voir dans Brevo"
-                              >
-                                Voir Brevo <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
+                            {c.statsIndisponibles || c.destinataires === 0 ? (
+                              <span className="text-xs text-cockpit-secondary">—</span>
                             ) : (
                               <span className="text-sm font-semibold text-cockpit-heading">
                                 {c.destinataires.toLocaleString("fr-FR")}
@@ -455,16 +449,14 @@ export default function EmailingPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            {c.destinataires === 0 ? (
+                            {c.statsIndisponibles || c.destinataires === 0 ? (
                               <span className="text-xs text-cockpit-secondary">—</span>
                             ) : (
                               <div className="flex items-center justify-end gap-2">
                                 <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                                   <div
                                     className="h-full bg-[var(--color-active)] rounded-full"
-                                    style={{
-                                      width: `${(c.tauxOuverture / maxOuverture) * 100}%`,
-                                    }}
+                                    style={{ width: `${(c.tauxOuverture / maxOuverture) * 100}%` }}
                                   />
                                 </div>
                                 <span className="text-sm font-medium text-[var(--color-active)] w-12 text-right">
@@ -474,16 +466,14 @@ export default function EmailingPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            {c.destinataires === 0 ? (
+                            {c.statsIndisponibles || c.destinataires === 0 ? (
                               <span className="text-xs text-cockpit-secondary">—</span>
                             ) : (
                               <div className="flex items-center justify-end gap-2">
                                 <div className="w-16 h-1.5 bg-cockpit-dark rounded-full overflow-hidden">
                                   <div
                                     className="h-full bg-[var(--color-active)]/60 rounded-full"
-                                    style={{
-                                      width: `${(c.tauxClic / maxClic) * 100}%`,
-                                    }}
+                                    style={{ width: `${(c.tauxClic / maxClic) * 100}%` }}
                                   />
                                 </div>
                                 <span className="text-sm font-medium text-[var(--color-active)]/60 w-12 text-right">
@@ -494,12 +484,12 @@ export default function EmailingPage() {
                           </td>
                           <td className="px-4 py-3 text-right hidden lg:table-cell">
                             <span className={`text-xs font-medium ${c.desabonnements > 0 ? "text-amber-400" : "text-cockpit-secondary"}`}>
-                              {c.desabonnements > 0 ? `−${c.desabonnements}` : "0"}
+                              {c.statsIndisponibles ? "—" : c.desabonnements > 0 ? `−${c.desabonnements}` : "0"}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right hidden lg:table-cell">
                             <span className={`text-xs font-medium ${c.bounces > 0 ? "text-red-400" : "text-cockpit-secondary"}`}>
-                              {c.bounces > 0 ? c.bounces : "0"}
+                              {c.statsIndisponibles ? "—" : c.bounces > 0 ? c.bounces : "0"}
                             </span>
                           </td>
                           <td className="px-4 lg:px-6 py-3 text-right">
@@ -534,10 +524,11 @@ export default function EmailingPage() {
                       </a>
                       <p className="text-cockpit-secondary text-xs mt-0.5">
                         {new Date(c.dateEnvoi).toLocaleDateString("fr-FR")} •{" "}
-                        {c.destinataires.toLocaleString("fr-FR")} envoyés
+                        {c.statsIndisponibles ? "stats non disponibles" : `${c.destinataires.toLocaleString("fr-FR")} envoyés`}
                       </p>
                     </div>
                   </div>
+                  {!c.statsIndisponibles && c.destinataires > 0 && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-[10px] text-cockpit-secondary mb-1">Ouverture</p>
@@ -582,6 +573,7 @@ export default function EmailingPage() {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               ))}
             </div>

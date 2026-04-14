@@ -40,6 +40,7 @@ export type Module =
   | "parametres-achat"
   | "previsionnel-achat"
   | "previsionnel"
+  | "operations-marketing"
 ;
 
 /**
@@ -89,6 +90,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "parametres-achat",
     "previsionnel-achat",
     "previsionnel",
+    "operations-marketing",
 
     "permissions",
   ],
@@ -124,6 +126,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "alertes-stock",
     "parametres-achat",
     "previsionnel",
+    "operations-marketing",
   ],
   COMMERCIAL: [
     // Section commerciale
@@ -189,6 +192,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "parametres-achat",
     "previsionnel-achat",
     "previsionnel",
+    "operations-marketing",
 
     "permissions",
   ],

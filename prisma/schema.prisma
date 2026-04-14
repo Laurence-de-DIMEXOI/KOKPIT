@@ -1338,3 +1338,79 @@ model CatalogueStat {
   @@index([createdAt])
   @@map("catalogue_stat")
 }
+
+// ─── Module OP Marketing ────────────────────────────────────────────────────
+
+enum OpMarketingType {
+  POST_FACEBOOK
+  POST_INSTAGRAM
+  CAMPAGNE_META_ADS
+  CAMPAGNE_GOOGLE_ADS
+  NEWSLETTER
+  SMS
+  CATALOGUE
+  PLV
+  EVENEMENT
+  ARTICLE_BLOG
+  AUTRE
+}
+
+enum FichierType {
+  CAPTURE
+  PDF
+  AUTRE
+}
+
+enum StatutOp {
+  BROUILLON
+  PLANIFIE
+  EN_COURS
+  TERMINE
+}
+
+model OperationMarketing {
+  id          String            @id @default(cuid())
+  date        DateTime
+  titre       String
+  type        OpMarketingType
+  description String?           @db.Text
+  canalId     String?
+  canal       CanalMarketing?   @relation(fields: [canalId], references: [id])
+
+  fichiers    OperationFichier[]
+
+  notes       String?           @db.Text
+  statut      StatutOp          @default(PLANIFIE)
+
+  createdBy   String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([date])
+  @@index([type])
+  @@index([canalId])
+}
+
+model OperationFichier {
+  id          String             @id @default(cuid())
+  operationId String
+  operation   OperationMarketing @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  nom         String
+  storagePath String
+  mimeType    String
+  taille      Int
+  type        FichierType
+  ordre       Int                @default(0)
+  createdAt   DateTime           @default(now())
+
+  @@index([operationId])
+}
+
+model CanalMarketing {
+  id         String               @id @default(cuid())
+  nom        String               @unique
+  couleur    String?
+  actif      Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  operations OperationMarketing[]
+}

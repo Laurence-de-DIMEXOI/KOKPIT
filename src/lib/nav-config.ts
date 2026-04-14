@@ -26,6 +26,7 @@ import {
   Calculator,
   Truck,
   Ship,
+  Sparkles,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -76,6 +77,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { label: "Planning", href: "/planning", icon: CalendarDays, module: "planning" },
       { label: "Nos Réseaux", href: "/nos-reseaux", icon: Share2, module: "nos-reseaux" },
       { label: "Automatisations", href: "/automatisations", icon: Zap, module: "automatisations" },
+      { label: "Opérations", href: "/marketing/operations", icon: Sparkles, module: "operations-marketing" },
       { label: "ROI Marketing", href: "/marketing/roi", icon: TrendingUp, module: "analytique" },
     ],
   },
