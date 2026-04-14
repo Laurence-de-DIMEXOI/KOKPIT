@@ -266,6 +266,30 @@ export default function OperationsMarketingPage() {
     return () => clearTimeout(t);
   }, [fetchOperations]);
 
+  // Charger les thumbnails (signed URLs) pour les cartes
+  useEffect(() => {
+    if (operations.length === 0) return;
+    const toLoad = operations.filter((op) => {
+      const firstImg = op.fichiers.find((f) => f.mimeType?.startsWith("image/"));
+      return firstImg && !signedUrls[firstImg.id];
+    });
+    if (toLoad.length === 0) return;
+
+    toLoad.forEach((op) => {
+      const firstImg = op.fichiers.find((f) => f.mimeType?.startsWith("image/"));
+      if (!firstImg) return;
+      fetch(`/api/marketing/operations/${op.id}/fichiers/${firstImg.id}`)
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.url) {
+            setSignedUrls((prev) => ({ ...prev, [firstImg.id]: json.url }));
+          }
+        })
+        .catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operations]);
+
   // ─── CRUD ───────────────────────────────────────────────────────────────
 
   const openCreateForm = () => {
@@ -713,8 +737,23 @@ export default function OperationsMarketingPage() {
                     className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg hover:border-[var(--color-active)]/30 transition-all cursor-pointer group relative overflow-hidden"
                     onClick={() => openDetail(op)}
                   >
-                    {/* Vignette couleur type */}
-                    <div className="h-2 rounded-t-card" style={{ backgroundColor: OP_TYPE_COLORS[op.type] }} />
+                    {/* Thumbnail ou vignette couleur */}
+                    {(() => {
+                      const firstImg = op.fichiers.find((f) => f.mimeType?.startsWith("image/"));
+                      const imgUrl = firstImg ? signedUrls[firstImg.id] : null;
+                      if (imgUrl) {
+                        return (
+                          <div className="h-36 w-full bg-cockpit-dark relative overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-black/40 to-transparent" />
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="h-2 rounded-t-card" style={{ backgroundColor: OP_TYPE_COLORS[op.type] }} />
+                      );
+                    })()}
 
                     <div className="p-4">
                       {/* Top row : date + statut + menu */}
