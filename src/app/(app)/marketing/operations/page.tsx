@@ -120,6 +120,14 @@ const STATUT_COLORS: Record<StatutOp, string> = {
   TERMINE: "bg-emerald-500/10 text-emerald-400",
 };
 
+// ─── Storage URL ───────────────────────────────────────────────────────────
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+
+function getPublicUrl(storagePath: string) {
+  return `${SUPABASE_URL}/storage/v1/object/public/op-marketing/${storagePath}`;
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatDateShort(iso: string) {
@@ -205,7 +213,6 @@ export default function OperationsMarketingPage() {
 
   // Détail
   const [detailOp, setDetailOp] = useState<Operation | null>(null);
-  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
 
@@ -346,30 +353,6 @@ export default function OperationsMarketingPage() {
     return () => clearTimeout(t);
   }, [fetchOperations]);
 
-  // Charger les thumbnails (signed URLs) pour les cartes
-  useEffect(() => {
-    if (operations.length === 0) return;
-    const toLoad = operations.filter((op) => {
-      const firstImg = op.fichiers.find((f) => f.mimeType?.startsWith("image/"));
-      return firstImg && !signedUrls[firstImg.id];
-    });
-    if (toLoad.length === 0) return;
-
-    toLoad.forEach((op) => {
-      const firstImg = op.fichiers.find((f) => f.mimeType?.startsWith("image/"));
-      if (!firstImg) return;
-      fetch(`/api/marketing/operations/${op.id}/fichiers/${firstImg.id}`)
-        .then((r) => r.json())
-        .then((json) => {
-          if (json.url) {
-            setSignedUrls((prev) => ({ ...prev, [firstImg.id]: json.url }));
-          }
-        })
-        .catch(() => {});
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [operations]);
-
   // ─── CRUD ───────────────────────────────────────────────────────────────
 
   const openCreateForm = () => {
@@ -488,40 +471,8 @@ export default function OperationsMarketingPage() {
     }
   };
 
-  // ─── Signed URLs pour galerie ──────────────────────────────────────────
-
-  const fetchSignedUrl = async (opId: string, fichier: OperationFichier) => {
-    if (signedUrls[fichier.id]) return signedUrls[fichier.id];
-    try {
-      const res = await fetch(`/api/marketing/operations/${opId}/fichiers/${fichier.id}`);
-      const json = await res.json();
-      if (json.url) {
-        setSignedUrls((prev) => ({ ...prev, [fichier.id]: json.url }));
-        return json.url as string;
-      }
-    } catch {}
-    return null;
-  };
-
-  const loadAllSignedUrls = useCallback(async (op: Operation) => {
-    const urls: Record<string, string> = {};
-    await Promise.all(
-      op.fichiers.map(async (f) => {
-        try {
-          const res = await fetch(`/api/marketing/operations/${op.id}/fichiers/${f.id}`);
-          const json = await res.json();
-          if (json.url) urls[f.id] = json.url;
-        } catch {}
-      })
-    );
-    setSignedUrls((prev) => ({ ...prev, ...urls }));
-  }, []);
-
   const openDetail = (op: Operation) => {
     setDetailOp(op);
-    if (op.fichiers.length > 0) {
-      loadAllSignedUrls(op);
-    }
   };
 
   const deleteFile = async (opId: string, fichierId: string) => {
@@ -819,9 +770,8 @@ export default function OperationsMarketingPage() {
                   >
                     {/* Thumbnail ou vignette couleur */}
                     {(() => {
-                      // Cover image du Planning OU signed URL du premier fichier image
                       const firstImg = op.fichiers.find((f) => f.mimeType?.startsWith("image/"));
-                      const imgUrl = op.coverImage || (firstImg ? signedUrls[firstImg.id] : null);
+                      const imgUrl = op.coverImage || (firstImg ? getPublicUrl(firstImg.storagePath) : null);
                       if (imgUrl) {
                         return (
                           <div className="h-36 w-full bg-cockpit-dark relative overflow-hidden">
@@ -1270,27 +1220,17 @@ export default function OperationsMarketingPage() {
                           <div
                             key={f.id}
                             className="relative group rounded-lg overflow-hidden bg-cockpit-dark aspect-square cursor-pointer border border-cockpit hover:border-[var(--color-active)]/40 transition-colors"
-                            onClick={async () => {
-                              const url = signedUrls[f.id] || (await fetchSignedUrl(detailOp.id, f));
-                              if (url) setLightboxUrl(url);
-                            }}
+                            onClick={() => setLightboxUrl(getPublicUrl(f.storagePath))}
                           >
-                            {signedUrls[f.id] ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={signedUrls[f.id]}
-                                alt={f.nom}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Loader2 className="w-5 h-5 text-cockpit-secondary animate-spin" />
-                              </div>
-                            )}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={getPublicUrl(f.storagePath)}
+                              alt={f.nom}
+                              className="w-full h-full object-cover"
+                            />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                               <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
-                            {/* Delete button */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1327,10 +1267,7 @@ export default function OperationsMarketingPage() {
                           </div>
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={async () => {
-                                const url = signedUrls[f.id] || (await fetchSignedUrl(detailOp.id, f));
-                                if (url) window.open(url, "_blank");
-                              }}
+                              onClick={() => window.open(getPublicUrl(f.storagePath), "_blank")}
                               className="px-2.5 py-1 bg-[var(--color-active)]/10 text-[var(--color-active)] rounded-lg text-[10px] font-medium hover:bg-[var(--color-active)]/20 transition-colors flex items-center gap-1"
                             >
                               <ExternalLink className="w-3 h-3" /> Ouvrir le PDF
@@ -1351,20 +1288,13 @@ export default function OperationsMarketingPage() {
                           </div>
                         </div>
                         {/* Embed PDF */}
-                        {signedUrls[f.id] && (
-                          <div className="rounded-lg overflow-hidden border border-cockpit bg-white">
-                            <iframe
-                              src={signedUrls[f.id]}
-                              className="w-full h-64"
-                              title={f.nom}
-                            />
-                          </div>
-                        )}
-                        {!signedUrls[f.id] && (
-                          <div className="rounded-lg border border-cockpit bg-cockpit-dark h-40 flex items-center justify-center">
-                            <Loader2 className="w-5 h-5 text-cockpit-secondary animate-spin" />
-                          </div>
-                        )}
+                        <div className="rounded-lg overflow-hidden border border-cockpit bg-white">
+                          <iframe
+                            src={getPublicUrl(f.storagePath)}
+                            className="w-full h-64"
+                            title={f.nom}
+                          />
+                        </div>
                       </div>
                     ))}
 
@@ -1384,10 +1314,7 @@ export default function OperationsMarketingPage() {
                             : `${(f.taille / 1024).toFixed(0)} Ko`}
                         </span>
                         <button
-                          onClick={async () => {
-                            const url = signedUrls[f.id] || (await fetchSignedUrl(detailOp.id, f));
-                            if (url) window.open(url, "_blank");
-                          }}
+                          onClick={() => window.open(getPublicUrl(f.storagePath), "_blank")}
                           className="p-1 hover:bg-cockpit-card rounded transition-colors opacity-0 group-hover:opacity-100"
                           title="Ouvrir"
                         >
