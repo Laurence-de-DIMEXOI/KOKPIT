@@ -58,6 +58,9 @@ interface Operation {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  // Champs additionnels pour les posts Planning
+  source?: "operation" | "planning";
+  coverImage?: string | null;
 }
 
 type OpType =
@@ -226,10 +229,30 @@ export default function OperationsMarketingPage() {
     } catch {}
   }, []);
 
+  // Mapper labels planning → OpType
+  const mapPlanningLabelsToType = (labels: string[]): OpType => {
+    if (labels.includes("CANAL_META")) return "POST_FACEBOOK";
+    if (labels.includes("CANAL_STORY") || labels.includes("STORY")) return "POST_INSTAGRAM";
+    if (labels.includes("CANAL_GOOGLE")) return "CAMPAGNE_GOOGLE_ADS";
+    if (labels.includes("CONTEXTE_NEWSLETTER") || labels.includes("EMAIL_BREVO")) return "NEWSLETTER";
+    if (labels.includes("BLOG_SEO")) return "ARTICLE_BLOG";
+    if (labels.includes("VIDEO_REEL")) return "POST_INSTAGRAM";
+    if (labels.includes("CONTEXTE_PUBLICITE")) return "CAMPAGNE_META_ADS";
+    return "AUTRE";
+  };
+
+  // Mapper statut planning → StatutOp
+  const mapPlanningStatut = (statut: string): StatutOp => {
+    if (statut === "POSTE") return "TERMINE";
+    if (statut === "PRET_A_POSTER") return "PLANIFIE";
+    return "PLANIFIE";
+  };
+
   const fetchOperations = useCallback(
     async (fresh = false) => {
       if (fresh) setRefreshing(true);
       try {
+        // 1. Fetch opérations marketing
         const params = new URLSearchParams();
         if (periode === "mois") {
           params.set("periode", "mois");
@@ -242,9 +265,72 @@ export default function OperationsMarketingPage() {
         filterStatuts.forEach((s) => params.append("statut", s));
         if (search.trim()) params.set("search", search.trim());
 
-        const res = await fetch(`/api/marketing/operations?${params}`);
-        const json = await res.json();
-        setOperations(json.operations || []);
+        // 2. Fetch posts planning (PRET_A_POSTER + POSTE) pour le même mois
+        let planningMonth: string;
+        if (periode === "mois") {
+          planningMonth = selectedMonth;
+        } else if (periode === "mois_dernier") {
+          const n = new Date();
+          const d = new Date(n.getFullYear(), n.getMonth() - 1, 1);
+          planningMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        } else {
+          const n = new Date();
+          planningMonth = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
+        }
+
+        const [opsRes, planningRes] = await Promise.all([
+          fetch(`/api/marketing/operations?${params}`),
+          fetch(`/api/planning?mois=${planningMonth}`),
+        ]);
+
+        const opsJson = await opsRes.json();
+        const planningJson = await planningRes.json();
+
+        const ops: Operation[] = (opsJson.operations || []).map((o: Operation) => ({
+          ...o,
+          source: "operation" as const,
+        }));
+
+        // Mapper les posts planning en opérations
+        const planningPosts: Operation[] = ((planningJson.posts || []) as any[])
+          .filter((p: any) => p.statut === "PRET_A_POSTER" || p.statut === "POSTE")
+          .filter((p: any) => p.scheduledDate) // Seulement ceux avec une date planifiée
+          .map((p: any) => {
+            const type = mapPlanningLabelsToType(p.labels || []);
+            const statut = mapPlanningStatut(p.statut);
+            // Appliquer les filtres type si actifs
+            if (filterTypes.length > 0 && !filterTypes.includes(type)) return null;
+            if (filterStatuts.length > 0 && !filterStatuts.includes(statut)) return null;
+            if (search.trim()) {
+              const s = search.trim().toLowerCase();
+              if (!p.title.toLowerCase().includes(s) && !(p.description || "").toLowerCase().includes(s)) return null;
+            }
+            return {
+              id: `planning-${p.id}`,
+              date: p.scheduledDate,
+              titre: p.title,
+              type,
+              description: p.description || null,
+              canalId: null,
+              canal: null,
+              notes: null,
+              statut,
+              fichiers: [],
+              createdBy: p.createdById,
+              createdAt: p.createdAt,
+              updatedAt: p.updatedAt,
+              source: "planning" as const,
+              coverImage: p.coverImage || null,
+            } as Operation;
+          })
+          .filter(Boolean) as Operation[];
+
+        // Fusionner et trier par date desc
+        const merged = [...ops, ...planningPosts].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setOperations(merged);
       } catch (err) {
         console.error("Erreur fetch ops:", err);
       } finally {
@@ -709,22 +795,44 @@ export default function OperationsMarketingPage() {
                 {week.ops.map((op) => (
                   <div
                     key={op.id}
-                    className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg hover:border-[var(--color-active)]/30 transition-all cursor-pointer group relative"
+                    className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg hover:border-[var(--color-active)]/30 transition-all cursor-pointer group relative overflow-hidden"
                     onClick={() => openDetail(op)}
                   >
-                    {/* Vignette */}
-                    <div className="h-2 rounded-t-card" style={{ backgroundColor: OP_TYPE_COLORS[op.type] }} />
+                    {/* Thumbnail image */}
+                    {(() => {
+                      const thumbUrl = op.coverImage || (op.fichiers.find(f => f.mimeType?.startsWith("image/")) ? null : null);
+                      if (op.coverImage) {
+                        return (
+                          <div className="h-32 w-full bg-cockpit-dark relative">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={op.coverImage} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="h-2 rounded-t-card" style={{ backgroundColor: OP_TYPE_COLORS[op.type] }} />
+                      );
+                    })()}
 
                     <div className="p-4">
-                      {/* Top row : date + statut + menu */}
+                      {/* Top row : date + source + statut + menu */}
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] text-cockpit-secondary font-medium">
-                          {formatDateShort(op.date)}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-cockpit-secondary font-medium">
+                            {formatDateShort(op.date)}
+                          </span>
+                          {op.source === "planning" && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-medium">
+                              Planning
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1.5">
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUT_COLORS[op.statut]}`}>
                             {STATUT_LABELS[op.statut]}
                           </span>
+                          {op.source !== "planning" && (
                           <div className="relative">
                             <button
                               onClick={(e) => {
@@ -767,6 +875,7 @@ export default function OperationsMarketingPage() {
                               </div>
                             )}
                           </div>
+                          )}
                         </div>
                       </div>
 
@@ -1094,6 +1203,24 @@ export default function OperationsMarketingPage() {
                 </div>
               )}
 
+              {/* Cover image (posts Planning) */}
+              {detailOp.coverImage && (
+                <div>
+                  <h4 className="text-xs font-semibold text-cockpit-secondary mb-2">Visuel</h4>
+                  <div
+                    className="rounded-lg overflow-hidden cursor-pointer border border-cockpit"
+                    onClick={() => setLightboxUrl(detailOp.coverImage!)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={detailOp.coverImage}
+                      alt={detailOp.titre}
+                      className="w-full max-h-64 object-contain bg-cockpit-dark"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Fichiers — Galerie */}
               {detailOp.fichiers.length > 0 && (
                 <div>
@@ -1196,26 +1323,37 @@ export default function OperationsMarketingPage() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => { openEditForm(detailOp); setDetailOp(null); }}
-                  className="flex-1 px-4 py-2 bg-cockpit-dark border border-cockpit rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark/80 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Pencil className="w-4 h-4" /> Modifier
-                </button>
-                <button
-                  onClick={() => { duplicateOperation(detailOp.id); setDetailOp(null); }}
-                  className="px-4 py-2 bg-cockpit-dark border border-cockpit rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark/80 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Copy className="w-4 h-4" /> Dupliquer
-                </button>
-                <button
-                  onClick={() => { deleteOperation(detailOp.id); setDetailOp(null); }}
-                  className="px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              {detailOp.source === "planning" ? (
+                <div className="flex gap-2 pt-2">
+                  <a
+                    href="/planning"
+                    className="flex-1 px-4 py-2 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Calendar className="w-4 h-4" /> Voir dans le Planning
+                  </a>
+                </div>
+              ) : (
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => { openEditForm(detailOp); setDetailOp(null); }}
+                    className="flex-1 px-4 py-2 bg-cockpit-dark border border-cockpit rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark/80 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Pencil className="w-4 h-4" /> Modifier
+                  </button>
+                  <button
+                    onClick={() => { duplicateOperation(detailOp.id); setDetailOp(null); }}
+                    className="px-4 py-2 bg-cockpit-dark border border-cockpit rounded-lg text-sm font-medium text-cockpit-primary hover:bg-cockpit-dark/80 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Copy className="w-4 h-4" /> Dupliquer
+                  </button>
+                  <button
+                    onClick={() => { deleteOperation(detailOp.id); setDetailOp(null); }}
+                    className="px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
