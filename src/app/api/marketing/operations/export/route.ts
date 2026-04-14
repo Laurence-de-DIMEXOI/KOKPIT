@@ -16,7 +16,7 @@ import {
 
 const TYPE_LABELS: Record<string, string> = {
   POST_FACEBOOK: "Post Facebook",
-  POST_INSTAGRAM: "Post Instagram",
+  POST_INSTAGRAM: "Story Instagram",
   CAMPAGNE_META_ADS: "Meta Ads",
   CAMPAGNE_GOOGLE_ADS: "Google Ads",
   NEWSLETTER: "Newsletter",

@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadToStorage } from "@/lib/supabase";
 
+// Augmenter la limite de taille (20 Mo pour les PDF)
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 type Ctx = { params: Promise<{ id: string }> };
 
 // POST /api/marketing/operations/[id]/fichiers — upload multi-fichiers
@@ -37,17 +41,27 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const created = [];
 
+  const getMimeFromName = (name: string): string => {
+    const ext = name.toLowerCase().split(".").pop();
+    const map: Record<string, string> = {
+      jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+      webp: "image/webp", pdf: "application/pdf",
+    };
+    return map[ext || ""] || "application/octet-stream";
+  };
+
   for (const file of files) {
     const buffer = await file.arrayBuffer();
     const slug = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const fichierId = crypto.randomUUID();
     const storagePath = `${id}/${fichierId}-${slug}`;
+    const mimeType = file.type || getMimeFromName(file.name);
 
-    await uploadToStorage("op-marketing", storagePath, buffer, file.type);
+    await uploadToStorage("op-marketing", storagePath, buffer, mimeType);
 
-    const fichierType = file.type === "application/pdf"
+    const fichierType = mimeType === "application/pdf"
       ? "PDF"
-      : file.type.startsWith("image/")
+      : mimeType.startsWith("image/")
         ? "CAPTURE"
         : "AUTRE";
 
@@ -56,7 +70,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         operationId: id,
         nom: file.name,
         storagePath,
-        mimeType: file.type,
+        mimeType,
         taille: buffer.byteLength,
         type: fichierType,
         ordre: ordre++,

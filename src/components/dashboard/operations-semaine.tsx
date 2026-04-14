@@ -15,7 +15,7 @@ interface OpSemaine {
 
 const TYPE_LABELS: Record<string, string> = {
   POST_FACEBOOK: "Post FB",
-  POST_INSTAGRAM: "Post IG",
+  POST_INSTAGRAM: "Story IG",
   CAMPAGNE_META_ADS: "Meta Ads",
   CAMPAGNE_GOOGLE_ADS: "Google Ads",
   NEWSLETTER: "Newsletter",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   Plus,
@@ -80,7 +81,7 @@ type StatutOp = "BROUILLON" | "PLANIFIE" | "EN_COURS" | "TERMINE";
 
 const OP_TYPE_LABELS: Record<OpType, string> = {
   POST_FACEBOOK: "Post Facebook",
-  POST_INSTAGRAM: "Post Instagram",
+  POST_INSTAGRAM: "Story Instagram",
   CAMPAGNE_META_ADS: "Meta Ads",
   CAMPAGNE_GOOGLE_ADS: "Google Ads",
   NEWSLETTER: "Newsletter",
@@ -439,10 +440,22 @@ export default function OperationsMarketingPage() {
 
   const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 Mo
   const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+  const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
+
+  const getMimeFromName = (name: string): string => {
+    const ext = name.toLowerCase().split(".").pop();
+    const map: Record<string, string> = {
+      jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+      webp: "image/webp", pdf: "application/pdf",
+    };
+    return map[ext || ""] || "";
+  };
 
   const addFiles = (files: FileList | File[]) => {
     const arr = Array.from(files).filter((f) => {
-      if (!ACCEPTED_TYPES.includes(f.type)) return false;
+      const mime = f.type || getMimeFromName(f.name);
+      const ext = "." + (f.name.toLowerCase().split(".").pop() || "");
+      if (!ACCEPTED_TYPES.includes(mime) && !ACCEPTED_EXTENSIONS.includes(ext)) return false;
       if (f.size > MAX_FILE_SIZE) return false;
       return true;
     });
@@ -774,10 +787,9 @@ export default function OperationsMarketingPage() {
                       const imgUrl = op.coverImage || (firstImg ? getPublicUrl(firstImg.storagePath) : null);
                       if (imgUrl) {
                         return (
-                          <div className="h-36 w-full bg-cockpit-dark relative overflow-hidden">
+                          <div className="w-full bg-cockpit-dark relative overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={imgUrl} alt="" className="w-full h-full object-cover" />
-                            <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-black/40 to-transparent" />
+                            <img src={imgUrl} alt="" className="w-full h-auto object-contain" />
                           </div>
                         );
                       }
@@ -913,7 +925,7 @@ export default function OperationsMarketingPage() {
       )}
 
       {/* ─── Drawer Formulaire ──────────────────────────────────────────────── */}
-      {showForm && (
+      {showForm && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowForm(false)}>
           <div
             className="absolute top-0 right-0 h-full w-full max-w-lg bg-cockpit-card border-l border-cockpit shadow-cockpit-lg overflow-y-auto animate-slide-in-right"
@@ -1127,11 +1139,12 @@ export default function OperationsMarketingPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── Drawer Détail ──────────────────────────────────────────────────── */}
-      {detailOp && (
+      {detailOp && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setDetailOp(null)}>
           <div
             className="absolute top-0 right-0 h-full w-full max-w-lg bg-cockpit-card border-l border-cockpit shadow-cockpit-lg overflow-y-auto animate-slide-in-right"
@@ -1374,11 +1387,12 @@ export default function OperationsMarketingPage() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── Modale Canaux ───────────────────────────────────────────────── */}
-      {showCanaux && (
+      {showCanaux && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowCanaux(false)}>
           <div
             className="absolute top-0 right-0 h-full w-full max-w-sm bg-cockpit-card border-l border-cockpit shadow-cockpit-lg overflow-y-auto animate-slide-in-right"
@@ -1449,11 +1463,12 @@ export default function OperationsMarketingPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Lightbox */}
-      {lightboxUrl && (
+      {lightboxUrl && createPortal(
         <div
           className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
           onClick={() => setLightboxUrl(null)}
@@ -1471,7 +1486,8 @@ export default function OperationsMarketingPage() {
             className="max-w-full max-h-[90vh] rounded-lg object-contain"
             onClick={(e) => e.stopPropagation()}
           />
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Close menu on outside click */}
