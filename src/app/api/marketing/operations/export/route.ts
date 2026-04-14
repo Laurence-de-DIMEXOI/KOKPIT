@@ -246,7 +246,7 @@ export async function GET(req: NextRequest) {
   const doc = OpPdfDocument({ operations, periodLabel });
   const buffer = await renderToBuffer(doc as any);
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="operations-marketing-${periodLabel.replace(/\s+/g, "-")}.pdf"`,
