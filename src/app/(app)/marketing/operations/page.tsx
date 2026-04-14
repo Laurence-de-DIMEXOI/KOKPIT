@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useSession } from "next-auth/react";
 import {
   Sparkles,
   Plus,
@@ -176,6 +177,10 @@ function monthLabel(year: number, month: number) {
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function OperationsMarketingPage() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role;
+  const canEdit = userRole === "MARKETING" || userRole === "ADMIN" || userRole === "DIRECTION";
+
   const [operations, setOperations] = useState<Operation[]>([]);
   const [canaux, setCanaux] = useState<CanalMarketing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -669,13 +674,15 @@ export default function OperationsMarketingPage() {
           >
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
           </button>
-          <button
-            onClick={openCanaux}
-            className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg hover:bg-cockpit-dark transition-colors text-sm text-cockpit-secondary"
-            title="Gérer les canaux"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
+          {canEdit && (
+            <button
+              onClick={openCanaux}
+              className="flex items-center gap-2 bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg hover:bg-cockpit-dark transition-colors text-sm text-cockpit-secondary"
+              title="Gérer les canaux"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={() => fetchOperations(true)}
             disabled={refreshing}
@@ -683,13 +690,15 @@ export default function OperationsMarketingPage() {
           >
             {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           </button>
-          <button
-            onClick={openCreateForm}
-            className="flex items-center gap-2 bg-[var(--color-active)] text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Nouvelle opération
-          </button>
+          {canEdit && (
+            <button
+              onClick={openCreateForm}
+              className="flex items-center gap-2 bg-[var(--color-active)] text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Nouvelle opération
+            </button>
+          )}
         </div>
       </div>
 
@@ -850,7 +859,7 @@ export default function OperationsMarketingPage() {
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUT_COLORS[op.statut]}`}>
                             {STATUT_LABELS[op.statut]}
                           </span>
-                          {op.source !== "planning" && (
+                          {op.source !== "planning" && canEdit && (
                           <div className="relative">
                             <button
                               onClick={(e) => {
@@ -1284,6 +1293,7 @@ export default function OperationsMarketingPage() {
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                               <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
+                            {canEdit && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1298,6 +1308,7 @@ export default function OperationsMarketingPage() {
                                 <Trash2 className="w-3 h-3 text-white" />
                               )}
                             </button>
+                            )}
                           </div>
                         ))}
                     </div>
@@ -1325,6 +1336,7 @@ export default function OperationsMarketingPage() {
                             >
                               <ExternalLink className="w-3 h-3" /> Ouvrir le PDF
                             </button>
+                            {canEdit && (
                             <button
                               onClick={() => {
                                 if (confirm("Supprimer ce fichier ?")) deleteFile(detailOp.id, f.id);
@@ -1338,6 +1350,7 @@ export default function OperationsMarketingPage() {
                                 <Trash2 className="w-3.5 h-3.5 text-red-400" />
                               )}
                             </button>
+                            )}
                           </div>
                         </div>
                         {/* Embed PDF */}
@@ -1373,6 +1386,7 @@ export default function OperationsMarketingPage() {
                         >
                           <Download className="w-3.5 h-3.5 text-cockpit-secondary" />
                         </button>
+                        {canEdit && (
                         <button
                           onClick={() => {
                             if (confirm("Supprimer ce fichier ?")) deleteFile(detailOp.id, f.id);
@@ -1386,6 +1400,7 @@ export default function OperationsMarketingPage() {
                             <Trash2 className="w-3.5 h-3.5 text-red-400" />
                           )}
                         </button>
+                        )}
                       </div>
                     ))}
                 </div>
@@ -1398,7 +1413,7 @@ export default function OperationsMarketingPage() {
                     Ce contenu provient du Planning. Il n'est pas modifiable ici.
                   </p>
                 </div>
-              ) : (
+              ) : canEdit ? (
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={() => { openEditForm(detailOp); setDetailOp(null); }}
@@ -1418,6 +1433,12 @@ export default function OperationsMarketingPage() {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                </div>
+              ) : (
+                <div className="pt-2">
+                  <p className="text-[10px] text-cockpit-secondary text-center">
+                    Consultation uniquement
+                  </p>
                 </div>
               )}
             </div>
