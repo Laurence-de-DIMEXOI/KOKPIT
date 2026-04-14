@@ -1216,22 +1216,22 @@ export default function OperationsMarketingPage() {
                     Fichiers ({detailOp.fichiers.length})
                   </h4>
 
-                  {/* Grille images */}
+                  {/* Images */}
                   {detailOp.fichiers.some((f) => f.mimeType.startsWith("image/")) && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                    <div className="space-y-2 mb-3">
                       {detailOp.fichiers
                         .filter((f) => f.mimeType.startsWith("image/"))
                         .map((f) => (
                           <div
                             key={f.id}
-                            className="relative group rounded-lg overflow-hidden bg-cockpit-dark aspect-square cursor-pointer border border-cockpit hover:border-[var(--color-active)]/40 transition-colors"
+                            className="relative group rounded-lg overflow-hidden bg-cockpit-dark cursor-pointer border border-cockpit hover:border-[var(--color-active)]/40 transition-colors"
                             onClick={() => setLightboxUrl(getPublicUrl(f.storagePath))}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={getPublicUrl(f.storagePath)}
                               alt={f.nom}
-                              className="w-full h-full object-cover"
+                              className="w-full h-auto max-h-[400px] object-contain mx-auto"
                             />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                               <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
