@@ -964,7 +964,7 @@ export default function OperationsMarketingPage() {
 
       {/* ─── Modale Formulaire ─────────────────────────────────────────────── */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto pt-[5vh] pb-8 px-4" onClick={() => setShowForm(false)}>
           <div
             className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg w-full max-w-lg max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
@@ -1177,7 +1177,7 @@ export default function OperationsMarketingPage() {
 
       {/* ─── Modale Détail ─────────────────────────────────────────────────── */}
       {detailOp && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailOp(null)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto pt-[5vh] pb-8 px-4" onClick={() => setDetailOp(null)}>
           <div
             className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg w-full max-w-lg max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
@@ -1447,7 +1447,7 @@ export default function OperationsMarketingPage() {
 
       {/* ─── Modale Canaux ───────────────────────────────────────────────── */}
       {showCanaux && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCanaux(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto pt-[5vh] pb-8 px-4" onClick={() => setShowCanaux(false)}>
           <div
             className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg w-full max-w-sm max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
