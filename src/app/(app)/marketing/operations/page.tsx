@@ -469,13 +469,48 @@ export default function OperationsMarketingPage() {
   const uploadFiles = async (operationId: string) => {
     if (pendingFiles.length === 0) return;
     setUploading(true);
-    const fd = new FormData();
-    pendingFiles.forEach((f) => fd.append("fichiers", f));
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
     try {
-      await fetch(`/api/marketing/operations/${operationId}/fichiers`, {
-        method: "POST",
-        body: fd,
-      });
+      for (const file of pendingFiles) {
+        const mime = file.type || getMimeFromName(file.name);
+        const slug = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const uid = crypto.randomUUID();
+        const storagePath = `${operationId}/${uid}-${slug}`;
+
+        // Upload direct vers Supabase Storage (pas de limite 4.5 Mo Vercel)
+        const uploadRes = await fetch(
+          `${supabaseUrl}/storage/v1/object/op-marketing/${storagePath}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${supabaseKey}`,
+              apikey: supabaseKey,
+              "Content-Type": mime,
+              "x-upsert": "true",
+            },
+            body: file,
+          }
+        );
+
+        if (!uploadRes.ok) {
+          console.error("Erreur upload Supabase:", await uploadRes.text());
+          continue;
+        }
+
+        // Enregistrer les métadonnées via l'API
+        await fetch(`/api/marketing/operations/${operationId}/fichiers/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nom: file.name,
+            storagePath,
+            mimeType: mime,
+            taille: file.size,
+          }),
+        });
+      }
     } catch (err) {
       console.error("Erreur upload:", err);
     } finally {

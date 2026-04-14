@@ -2,6 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ['bcryptjs'],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '25mb',
+    },
+  },
   async headers() {
     return [
       {
