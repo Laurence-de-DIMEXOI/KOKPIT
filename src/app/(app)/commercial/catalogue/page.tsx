@@ -666,6 +666,7 @@ export default function CataloguePage() {
               <div class="name">${(label.name).replace(/"/g, "&quot;")}</div>
               <div class="ref">Réf : ${label.reference || "—"}</div>
               <div class="price-ttc">${fmtEuro(label.priceTTC)}</div>
+              <div class="origin">Origine Bois : Tectona Grandis (Teck)</div>
               <div class="barcode-container" id="bc-${globalIdx}"></div>
             </div>`;
         } else {
@@ -711,6 +712,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .name { font-size: 6.5pt; font-weight: bold; color: #1F2937; line-height: 1.2; max-height: 2.4em; overflow: hidden; margin-bottom: 0.5mm; padding: 0 1mm; }
 .ref { font-family: monospace; font-size: 6pt; color: #03C3EC; margin-bottom: 0.5mm; }
 .price-ttc { font-size: 9pt; font-weight: bold; color: #1F2937; margin-bottom: 0.5mm; }
+.origin { font-size: 4.5pt; color: #6B7280; font-style: italic; margin-bottom: 0.5mm; }
 .barcode-container { width: 100%; }
 .barcode-container svg { width: 80%; height: auto; max-height: 9mm; }
 @media print { body { background: white; } }
