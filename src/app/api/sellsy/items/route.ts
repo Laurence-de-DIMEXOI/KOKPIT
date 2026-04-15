@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchItems, listAllItems, listDeclinations, getItemV1Declinations, invalidateSellsyCache } from "@/lib/sellsy";
+import { searchItems, listAllItems, listDeclinations, invalidateSellsyCache } from "@/lib/sellsy";
 import { itemsCache } from "@/lib/api-cache";
 
 // GET /api/sellsy/items - Liste des produits (exclut shipping/packaging et archivés)
@@ -46,45 +46,30 @@ export async function GET(request: NextRequest) {
 
       if (withDecl) {
         const declinedItems = items.filter((i) => i.is_declined);
-        // Batch par 20 — bon compromis vitesse / rate limit Sellsy.
-        // Pour chaque item on appelle v2 (structure) ET v1 (prix propres) en parallèle.
+        // Bulk preload : v2 uniquement pour rester rapide (sinon timeout Vercel avec ~1700 items).
+        // L'enrichissement v1 (prix propres) se fait dans la route individuelle /declinations.
         const BATCH = 20;
         for (let i = 0; i < declinedItems.length; i += BATCH) {
           const batch = declinedItems.slice(i, i + BATCH);
           const results = await Promise.all(
             batch.map(async (item) => {
               try {
-                const [res, v1Decls] = await Promise.all([
-                  listDeclinations(item.id),
-                  getItemV1Declinations(item.id),
-                ]);
-                return { itemId: item.id, data: res.data, v1: v1Decls };
+                const res = await listDeclinations(item.id);
+                return { itemId: item.id, data: res.data };
               } catch {
-                return { itemId: item.id, data: [], v1: [] };
+                return { itemId: item.id, data: [] };
               }
             })
           );
           for (const r of results) {
             if (r.data.length > 0) {
-              const v1ById = new Map<string, any>();
-              const v1ByRef = new Map<string, any>();
-              for (const v of r.v1 || []) {
-                if (v.id) v1ById.set(String(v.id), v);
-                if (v.name) v1ByRef.set(String(v.name), v);
-              }
-              declinations[r.itemId] = r.data.map((d: any) => {
-                const v1 = v1ById.get(String(d.id)) || v1ByRef.get(String(d.reference));
-                const v1HT = v1?.refPriceTaxesFree ? (v1?.refPrice ?? v1?.priceInc ?? null) : null;
-                const v1TTCIfInc = !v1?.refPriceTaxesFree ? (v1?.priceInc ?? v1?.refPrice ?? null) : null;
-                return {
-                  id: d.id,
-                  reference: d.reference,
-                  name: d.name,
-                  reference_price_taxes_exc: d.reference_price_taxes_exc ?? v1HT,
-                  reference_price_taxes_inc: d.reference_price_taxes_inc ?? v1TTCIfInc,
-                  purchase_amount: d.purchase_amount ?? (v1?.purchaseInc ?? null),
-                };
-              });
+              declinations[r.itemId] = r.data.map((d) => ({
+                id: d.id,
+                reference: d.reference,
+                name: d.name,
+                reference_price_taxes_exc: d.reference_price_taxes_exc,
+                purchase_amount: d.purchase_amount,
+              }));
             }
           }
         }
