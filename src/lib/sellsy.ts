@@ -296,6 +296,15 @@ export async function listDeclinations(
   );
 }
 
+// Récupérer une déclinaison individuelle (inclut reference_price_taxes_inc)
+export async function getDeclination(
+  declinationId: number
+): Promise<{ data: SellsyDeclination & { reference_price_taxes_inc?: string | null } }> {
+  return sellsyFetch<{ data: SellsyDeclination & { reference_price_taxes_inc?: string | null } }>(
+    `/declinations/${declinationId}`
+  );
+}
+
 // ===== STOCK (via API V1 sellsyV1Call défini plus bas) =====
 
 export interface StockWarehouse {

@@ -153,19 +153,19 @@ export default function CataloguePage() {
       const data = await res.json();
       if (data.success) decls = data.declinations || [];
 
-      // Enrichir les prix : fetch individuel pour les déclinaisons sans prix TTC
+      // Enrichir les prix : fetch individuel de chaque déclinaison (endpoint /declinations/{id})
       const enriched = await Promise.all(
         decls.map(async (d) => {
           if (d.reference_price_taxes_inc) return d; // déjà enrichi
           try {
-            const r = await fetch(`/api/sellsy/items/${d.id}`);
-            const itemData = await r.json();
-            if (itemData.success && itemData.item) {
+            const r = await fetch(`/api/sellsy/declinations/${d.id}`);
+            const json = await r.json();
+            if (json.success && json.declination) {
               return {
                 ...d,
-                reference_price_taxes_exc: itemData.item.reference_price_taxes_exc ?? d.reference_price_taxes_exc,
-                reference_price_taxes_inc: itemData.item.reference_price_taxes_inc ?? null,
-                purchase_amount: d.purchase_amount ?? itemData.item.purchase_amount,
+                reference_price_taxes_exc: json.declination.reference_price_taxes_exc ?? d.reference_price_taxes_exc,
+                reference_price_taxes_inc: json.declination.reference_price_taxes_inc ?? null,
+                purchase_amount: d.purchase_amount ?? json.declination.purchase_amount,
               };
             }
           } catch { /* silencieux */ }
