@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 // Stock.getForItem ramène les stocks de toutes les déclinaisons.
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const limit = Math.min(parseInt(searchParams.get("limit") || "10", 10), 10);
+  const limit = Math.min(parseInt(searchParams.get("limit") || "30", 10), 50);
+  const concurrency = Math.min(parseInt(searchParams.get("concurrency") || "5", 10), 10);
   const syncId = searchParams.get("syncId") || undefined;
 
   try {
@@ -58,7 +59,8 @@ export async function POST(req: NextRequest) {
     const itemAggs: Map<number, Agg> = new Map();
     const declAggs: Map<number, Agg> = new Map();
 
-    for (const item of batch) {
+    // Traitement par groupes parallèles
+    const processItem = async (item: typeof batch[number]) => {
       try {
         const stock = await getStockForItem(item.id);
         const values = Object.values(stock);
@@ -113,6 +115,11 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.warn(`[sync stock] skip item ${item.id}: ${(e as Error).message}`);
       }
+    };
+
+    for (let i = 0; i < batch.length; i += concurrency) {
+      const group = batch.slice(i, i + concurrency);
+      await Promise.all(group.map((it) => processItem(it)));
       await new Promise((r) => setTimeout(r, 100));
     }
 

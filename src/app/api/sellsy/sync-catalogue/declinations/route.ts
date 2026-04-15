@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 // les traite, les marque. Idempotent : re-déclenchable même onglet fermé.
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const limit = Math.min(parseInt(searchParams.get("limit") || "10", 10), 10);
+  const limit = Math.min(parseInt(searchParams.get("limit") || "30", 10), 50);
+  const concurrency = Math.min(parseInt(searchParams.get("concurrency") || "5", 10), 10);
   const syncId = searchParams.get("syncId") || undefined;
 
   try {
@@ -56,14 +57,20 @@ export async function POST(req: NextRequest) {
     }
 
     const results: Array<{ item: typeof batch[number]; v1: any[] }> = [];
-    for (const item of batch) {
-      try {
-        const v1 = await getItemV1Declinations(item.id);
-        results.push({ item, v1 });
-      } catch (e) {
-        console.warn(`[sync decls] skip item ${item.id}: ${(e as Error).message}`);
-        results.push({ item, v1: [] });
-      }
+    for (let i = 0; i < batch.length; i += concurrency) {
+      const group = batch.slice(i, i + concurrency);
+      const groupResults = await Promise.all(
+        group.map(async (item) => {
+          try {
+            const v1 = await getItemV1Declinations(item.id);
+            return { item, v1 };
+          } catch (e) {
+            console.warn(`[sync decls] skip item ${item.id}: ${(e as Error).message}`);
+            return { item, v1: [] as any[] };
+          }
+        })
+      );
+      results.push(...groupResults);
       await new Promise((r) => setTimeout(r, 100));
     }
 

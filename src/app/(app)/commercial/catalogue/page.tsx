@@ -162,7 +162,7 @@ export default function CataloguePage() {
           while (!done) {
             try {
               const res = await fetch(
-                `/api/sellsy/sync-catalogue/declinations?limit=10&syncId=${syncId}`,
+                `/api/sellsy/sync-catalogue/declinations?limit=30&syncId=${syncId}`,
                 { method: "POST" }
               );
               const data = await res.json();
@@ -190,7 +190,7 @@ export default function CataloguePage() {
           while (!stockDone) {
             try {
               const res = await fetch(
-                `/api/sellsy/sync-catalogue/stock?limit=10&syncId=${syncId}`,
+                `/api/sellsy/sync-catalogue/stock?limit=30&syncId=${syncId}`,
                 { method: "POST" }
               );
               const data = await res.json();

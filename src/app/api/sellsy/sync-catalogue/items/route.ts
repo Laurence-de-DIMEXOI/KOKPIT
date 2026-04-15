@@ -1,23 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { listAllItems } from "@/lib/sellsy";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
-// POST /api/sellsy/sync-catalogue/items
-// Phase 1 : sync les items Sellsy vers Supabase (bulk, rapide).
-export async function POST() {
+// POST /api/sellsy/sync-catalogue/items?full=1 pour forcer resync Phase 2+3
+export async function POST(req: NextRequest) {
+  const full = new URL(req.url).searchParams.get("full") === "1";
   const syncLog = await prisma.sellsyCatalogueSync.create({
     data: { status: "running" },
   });
 
   try {
-    // Reset des flags de sync Phase 2 (déclinaisons) et Phase 3 (stocks)
-    await prisma.sellsyItemCache.updateMany({
-      data: { declSyncedAt: null, stockSyncedAt: null },
-    });
-
+    if (full) {
+      // Mode resync total : on oublie la progression des phases
+      await prisma.sellsyItemCache.updateMany({
+        data: { declSyncedAt: null, stockSyncedAt: null },
+      });
+    }
     const rawItems = await listAllItems();
 
     // Filtre : on ignore les items non déclinés à 0€ (inutiles, polluent la liste)
