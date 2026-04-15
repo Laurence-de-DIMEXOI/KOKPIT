@@ -989,12 +989,12 @@ ${pages.join("\n")}
                             </span>
                           </td>
                           <td className="px-4 lg:px-6 py-3 text-right">
-                            <span className="text-sm font-semibold text-cockpit-heading">
+                            <span className="text-sm text-cockpit-primary">
                               {formatEuro(priceHT)}
                             </span>
                           </td>
                           <td className="px-4 lg:px-6 py-3 text-right">
-                            <span className="text-sm text-cockpit-primary">
+                            <span className="text-sm font-semibold text-cockpit-heading">
                               {formatEuro(priceTTC)}
                             </span>
                           </td>
@@ -1062,12 +1062,12 @@ ${pages.join("\n")}
                           <span className="text-[9px] text-purple-400 font-medium bg-purple-400/10 px-1.5 py-0.5 rounded">Déclinaison</span>
                         </td>
                         <td className="px-4 lg:px-6 py-2 text-right">
-                          <span className="text-xs font-semibold text-cockpit-heading">
+                          <span className="text-xs text-cockpit-primary">
                             {formatEuro(dHT)}
                           </span>
                         </td>
                         <td className="px-4 lg:px-6 py-2 text-right">
-                          <span className="text-xs text-cockpit-primary">
+                          <span className="text-xs font-semibold text-cockpit-heading">
                             {formatEuro(dTTC)}
                           </span>
                         </td>
@@ -1148,8 +1148,8 @@ ${pages.join("\n")}
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
-                          <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
+                          <p className="text-[10px] text-cockpit-secondary">HT: {formatEuro(priceHT)}</p>
+                          <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceTTC)}</p>
                           <div className="mt-1"><StockBadge available={item.stock_available ?? null} byWh={item.stock_by_warehouse} /></div>
                         </div>
                       </div>
@@ -1195,8 +1195,8 @@ ${pages.join("\n")}
                         <p className="text-[9px] text-cockpit-secondary mt-0.5">{item.name || item.reference}</p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dHT)}</p>
-                        <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(dTTC)}</p>
+                        <p className="text-[10px] text-cockpit-secondary">HT: {formatEuro(dHT)}</p>
+                        <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dTTC)}</p>
                         <div className="mt-1"><StockBadge available={decl.stock_available ?? null} byWh={decl.stock_by_warehouse} /></div>
                       </div>
                     </div>
