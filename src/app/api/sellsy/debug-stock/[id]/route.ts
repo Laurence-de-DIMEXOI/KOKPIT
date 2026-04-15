@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStockForItem } from "@/lib/sellsy";
+import { getStockForItem, sellsyV1Call } from "@/lib/sellsy";
 
 export const dynamic = "force-dynamic";
 
@@ -14,21 +14,21 @@ export async function GET(
   if (isNaN(itemId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
-  try {
-    const stock = await getStockForItem(itemId);
-    return NextResponse.json({
-      itemId,
-      keys: Object.keys(stock),
-      entries: Object.entries(stock).map(([k, v]) => ({
-        key: k,
-        whid: (v as any)?.whid,
-        declid: (v as any)?.declid,
-        qt: (v as any)?.qt,
-        bookedqt: (v as any)?.bookedqt,
-      })),
-      raw: stock,
-    });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  // Tester 4 variantes d'appel pour cerner le bon format
+  const variants = [
+    { name: "itemid", params: { itemid: itemId } },
+    { name: "declid", params: { declid: itemId } },
+    { name: "id+type=item", params: { id: itemId, type: "item" } },
+    { name: "id only", params: { id: itemId } },
+  ];
+  const results: Record<string, any> = {};
+  for (const v of variants) {
+    try {
+      const raw = await sellsyV1Call("Stock.getForItem", v.params);
+      results[v.name] = raw;
+    } catch (e: any) {
+      results[v.name] = { error: e.message };
+    }
   }
+  return NextResponse.json({ itemId, results, parsed: await getStockForItem(itemId) });
 }
