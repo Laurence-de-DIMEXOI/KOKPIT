@@ -35,6 +35,23 @@ const STATUT_LABELS: Record<string, string> = {
   TERMINE: "Terminé",
 };
 
+// Mapping Planning → Operation type
+function mapPlanningLabelsToType(labels: string[]): string {
+  if (labels.includes("CANAL_META")) return "POST_FACEBOOK";
+  if (labels.includes("CANAL_STORY") || labels.includes("STORY")) return "POST_INSTAGRAM";
+  if (labels.includes("CANAL_GOOGLE")) return "CAMPAGNE_GOOGLE_ADS";
+  if (labels.includes("CONTEXTE_NEWSLETTER") || labels.includes("EMAIL_BREVO")) return "NEWSLETTER";
+  if (labels.includes("BLOG_SEO")) return "ARTICLE_BLOG";
+  if (labels.includes("VIDEO_REEL")) return "POST_INSTAGRAM";
+  if (labels.includes("CONTEXTE_PUBLICITE")) return "CAMPAGNE_META_ADS";
+  return "AUTRE";
+}
+
+function mapPlanningStatut(statut: string): string {
+  if (statut === "POSTE") return "TERMINE";
+  return "PLANIFIE";
+}
+
 // ─── Styles PDF ────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -233,15 +250,48 @@ export async function GET(req: NextRequest) {
   const types = sp.getAll("type");
   const statuts = sp.getAll("statut");
 
-  const operations = await prisma.operationMarketing.findMany({
-    where: {
-      date: { gte: startDate, lte: endDate },
-      ...(types.length > 0 && { type: { in: types as any[] } }),
-      ...(statuts.length > 0 && { statut: { in: statuts as any[] } }),
-    },
-    include: { canal: true },
-    orderBy: { date: "desc" },
-  });
+  const [opsRaw, planningPosts] = await Promise.all([
+    prisma.operationMarketing.findMany({
+      where: {
+        date: { gte: startDate, lte: endDate },
+        ...(types.length > 0 && { type: { in: types as any[] } }),
+        ...(statuts.length > 0 && { statut: { in: statuts as any[] } }),
+      },
+      include: { canal: true },
+      orderBy: { date: "desc" },
+    }),
+    prisma.postPlanning.findMany({
+      where: {
+        scheduledDate: { gte: startDate, lte: endDate },
+        statut: { in: ["PRET_A_POSTER", "POSTE"] },
+      },
+      orderBy: { scheduledDate: "desc" },
+    }),
+  ]);
+
+  // Normaliser les posts Planning au format Operation
+  const planningAsOps = planningPosts
+    .filter((p) => p.scheduledDate)
+    .map((p) => {
+      const type = mapPlanningLabelsToType(p.labels || []);
+      const statut = mapPlanningStatut(p.statut);
+      return {
+        date: p.scheduledDate!,
+        titre: p.title,
+        type,
+        description: p.description,
+        statut,
+        canal: null as { nom: string } | null,
+      };
+    })
+    // Appliquer les filtres type/statut sur les posts Planning aussi
+    .filter((o) => types.length === 0 || types.includes(o.type))
+    .filter((o) => statuts.length === 0 || statuts.includes(o.statut));
+
+  // Fusionner et trier par date desc
+  const operations = [...opsRaw, ...planningAsOps].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
   const doc = OpPdfDocument({ operations, periodLabel });
   const buffer = await renderToBuffer(doc as any);
