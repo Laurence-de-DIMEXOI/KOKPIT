@@ -381,12 +381,12 @@ export async function getWarehouses(): Promise<Record<string, Warehouse>> {
   return res;
 }
 
-export async function getStockForDeclination(declId: number): Promise<Record<string, StockWarehouse>> {
+export async function getStockForDeclination(itemId: number, declId: number): Promise<Record<string, StockWarehouse>> {
   let res: unknown;
   try {
-    res = await sellsyV1Call("Stock.getForItem", { declid: declId });
+    res = await sellsyV1Call("Stock.getForItem", { itemid: itemId, declid: declId });
   } catch (err: any) {
-    console.warn(`[getStockForDeclination] declid=${declId} V1 error: ${err?.message || err}`);
+    console.warn(`[getStockForDeclination] item=${itemId} declid=${declId} V1 error: ${err?.message || err}`);
     return {};
   }
   if (!res || typeof res !== "object") return {};

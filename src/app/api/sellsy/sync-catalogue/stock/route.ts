@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
           const parentAgg: Agg = { physical: 0, reserved: 0, available: 0, byWh: [] };
           for (const d of decls) {
             try {
-              const stock = await getStockForDeclination(d.id);
+              const stock = await getStockForDeclination(item.id, d.id);
               const agg = toAgg(Object.values(stock));
               declAggs.set(d.id, agg);
               parentAgg.physical += agg.physical;
