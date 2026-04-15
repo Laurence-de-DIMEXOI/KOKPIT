@@ -14,12 +14,18 @@ export async function GET(
     }
 
     const res = await listDeclinations(id);
-    const declinations = res.data.map((d) => ({
+    // Log pour diagnostic — voir ce que Sellsy renvoie vraiment
+    if (res.data.length > 0) {
+      console.log(`[decl list item=${id}] first decl raw:`, JSON.stringify(res.data[0]).slice(0, 400));
+    }
+    const declinations = res.data.map((d: any) => ({
       id: d.id,
       reference: d.reference,
       name: d.name,
-      reference_price_taxes_exc: d.reference_price_taxes_exc,
+      reference_price_taxes_exc: d.reference_price_taxes_exc ?? d.reference_price?.amount_taxes_exc ?? null,
+      reference_price_taxes_inc: d.reference_price_taxes_inc ?? d.reference_price?.amount_taxes_inc ?? null,
       purchase_amount: d.purchase_amount,
+      tax_id: d.tax_id,
     }));
 
     return NextResponse.json({ success: true, declinations });

@@ -153,36 +153,25 @@ export default function CataloguePage() {
       const data = await res.json();
       if (data.success) decls = data.declinations || [];
 
-      // Enrichir les prix : endpoint officiel v2 /items/{id}/declinations/{declId}/prices
-      // N appels en parallèle par batch de 8 pour éviter le rate limit
-      const BATCH_SIZE = 8;
-      const enriched: Declination[] = [];
-      for (let i = 0; i < decls.length; i += BATCH_SIZE) {
-        const chunk = decls.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(
-          chunk.map(async (d) => {
-            // HT déjà connu via listDeclinations → si présent + TTC aussi, skip
-            if (d.reference_price_taxes_exc && d.reference_price_taxes_inc) return d;
-            try {
-              const r = await fetch(`/api/sellsy/items/${itemId}/declinations/${d.id}/prices`);
-              const json = await r.json();
-              if (json.success && Array.isArray(json.prices) && json.prices.length > 0) {
-                // Prendre le prix de référence (1ère grille = défaut)
-                const p = json.prices[0];
-                return {
-                  ...d,
-                  reference_price_taxes_exc:
-                    p.reference_price_taxes_exc ?? p.amount_taxes_exc ?? d.reference_price_taxes_exc,
-                  reference_price_taxes_inc:
-                    p.reference_price_taxes_inc ?? p.amount_taxes_inc ?? null,
-                };
-              }
-            } catch { /* silencieux */ }
-            return d;
-          })
-        );
-        enriched.push(...results);
-      }
+      // Enrichissement : le HT est déjà retourné par listDeclinations (reference_price_taxes_exc).
+      // Le TTC est calculé via la TVA du parent (tvaMultiplier = parentTTC / parentHT).
+      // Le sous-endpoint /prices renvoie 404 si l'item n'a pas de grilles tarifaires multiples — on l'évite.
+      const parent = items.find((i) => i.id === itemId);
+      const parentHT = parseFloat(parent?.reference_price_taxes_exc || "0");
+      const parentTTC = parseFloat(parent?.reference_price_taxes_inc || "0");
+      const tvaMultiplier = parentHT > 0 && parentTTC > parentHT ? parentTTC / parentHT : 1.085;
+      const enriched = decls.map((d) => {
+        if (d.reference_price_taxes_inc) return d;
+        const declHT = parseFloat(d.reference_price_taxes_exc || "0");
+        if (declHT > 0) {
+          return {
+            ...d,
+            reference_price_taxes_inc: String(declHT * tvaMultiplier),
+          };
+        }
+        return d;
+      });
+      console.log(`[decls item=${itemId}] ${decls.length} déclinaisons enrichies`, enriched.slice(0, 3));
 
       setDeclinations((prev) => ({ ...prev, [itemId]: enriched }));
     } catch (error) {
