@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { listDeclinations, getItemV1Declinations } from "@/lib/sellsy";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 // POST /api/sellsy/sync-catalogue/declinations?offset=N&limit=M
@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const offset = parseInt(searchParams.get("offset") || "0", 10);
-  const limit = Math.min(parseInt(searchParams.get("limit") || "30", 10), 50);
+  // Limite à 10 max pour respecter le rate limit Sellsy (2 appels v1+v2 par item)
+  const limit = Math.min(parseInt(searchParams.get("limit") || "10", 10), 10);
   const syncId = searchParams.get("syncId") || undefined;
 
   try {
@@ -24,16 +25,20 @@ export async function POST(req: NextRequest) {
     const batch = allDeclined.slice(offset, offset + limit);
     let added = 0;
 
-    // Fetch v2 + v1 en parallèle pour les items du batch
-    const results = await Promise.all(
-      batch.map(async (item) => {
-        const [v2, v1] = await Promise.all([
-          listDeclinations(item.id).catch(() => ({ data: [] as any[] })),
-          getItemV1Declinations(item.id),
-        ]);
-        return { item, v2: v2.data, v1 };
-      })
-    );
+    // Séquentialise v2 puis v1 par item pour ménager le rate limit Sellsy.
+    // Échec individuel = item skippé (pas de plantage du batch).
+    const results: Array<{ item: typeof batch[number]; v2: any[]; v1: any[] }> = [];
+    for (const item of batch) {
+      try {
+        const v2 = await listDeclinations(item.id).catch(() => ({ data: [] as any[] }));
+        const v1 = await getItemV1Declinations(item.id);
+        results.push({ item, v2: v2.data, v1 });
+      } catch (e) {
+        console.warn(`[sync decls] skip item ${item.id}: ${(e as Error).message}`);
+      }
+      // Petit délai entre items pour éviter la saturation
+      await new Promise((r) => setTimeout(r, 150));
+    }
 
     // Construit les rows à insérer
     type Row = [number, number, string, string | null, number | null, number | null, number | null];

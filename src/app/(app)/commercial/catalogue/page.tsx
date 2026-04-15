@@ -132,7 +132,7 @@ export default function CataloguePage() {
           let done = false;
           while (!done) {
             const res = await fetch(
-              `/api/sellsy/sync-catalogue/declinations?offset=${offset}&limit=30&syncId=${syncId}`,
+              `/api/sellsy/sync-catalogue/declinations?offset=${offset}&limit=10&syncId=${syncId}`,
               { method: "POST" }
             );
             const data = await res.json();
