@@ -34,6 +34,10 @@ export async function GET() {
     is_declined: i.isDeclined,
     created: i.createdAtSellsy?.toISOString() || "",
     updated: i.updatedAtSellsy?.toISOString() || "",
+    stock_physical: i.stockPhysical ? Number(i.stockPhysical) : null,
+    stock_reserved: i.stockReserved ? Number(i.stockReserved) : null,
+    stock_available: i.stockAvailable ? Number(i.stockAvailable) : null,
+    stock_by_warehouse: (i as any).stockByWarehouse || null,
   }));
 
   const declsByItemId: Record<number, any[]> = {};
@@ -50,6 +54,10 @@ export async function GET() {
       reference_price_taxes_exc: d.priceHT?.toString() || null,
       reference_price_taxes_inc: d.priceTTC?.toString() || null,
       purchase_amount: d.purchaseAmount?.toString() || null,
+      stock_physical: d.stockPhysical ? Number(d.stockPhysical) : null,
+      stock_reserved: d.stockReserved ? Number(d.stockReserved) : null,
+      stock_available: d.stockAvailable ? Number(d.stockAvailable) : null,
+      stock_by_warehouse: (d as any).stockByWarehouse || null,
     });
   }
 

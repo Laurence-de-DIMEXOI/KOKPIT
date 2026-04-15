@@ -13,9 +13,9 @@ export async function POST() {
   });
 
   try {
-    // Reset des flags de sync décl. pour repartir de zéro en Phase 2
+    // Reset des flags de sync Phase 2 (déclinaisons) et Phase 3 (stocks)
     await prisma.sellsyItemCache.updateMany({
-      data: { declSyncedAt: null },
+      data: { declSyncedAt: null, stockSyncedAt: null },
     });
 
     const rawItems = await listAllItems();

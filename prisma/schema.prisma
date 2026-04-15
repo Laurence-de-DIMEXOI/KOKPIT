@@ -1438,6 +1438,12 @@ model SellsyItemCache {
   syncedAt        DateTime @default(now())
   declSyncedAt    DateTime? // null = déclinaisons pas encore sync pour cet item
 
+  stockPhysical    Decimal? @db.Decimal(14, 3)
+  stockReserved    Decimal? @db.Decimal(14, 3)
+  stockAvailable   Decimal? @db.Decimal(14, 3)
+  stockByWarehouse Json?
+  stockSyncedAt    DateTime?
+
   declinations SellsyDeclinationCache[]
 
   @@index([reference])
@@ -1456,6 +1462,11 @@ model SellsyDeclinationCache {
   priceTTC       Decimal? @db.Decimal(12, 4)
   purchaseAmount Decimal? @db.Decimal(12, 4)
   syncedAt       DateTime @default(now())
+
+  stockPhysical    Decimal? @db.Decimal(14, 3)
+  stockReserved    Decimal? @db.Decimal(14, 3)
+  stockAvailable   Decimal? @db.Decimal(14, 3)
+  stockByWarehouse Json?
 
   @@index([itemId])
   @@index([reference])

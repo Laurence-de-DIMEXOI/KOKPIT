@@ -24,6 +24,8 @@ import Link from "next/link";
 import { ProductDrawer } from "@/components/catalogue/product-drawer";
 import { getSellsyDeclUrl } from "@/lib/sellsy-urls";
 
+interface StockWh { whId: number; name: string; physical: number; reserved: number; available: number }
+
 interface Declination {
   id: number;
   reference: string;
@@ -31,6 +33,10 @@ interface Declination {
   reference_price_taxes_exc: string | null;
   reference_price_taxes_inc: string | null; // enrichi après fetch individuel
   purchase_amount: string | null;
+  stock_physical?: number | null;
+  stock_reserved?: number | null;
+  stock_available?: number | null;
+  stock_by_warehouse?: StockWh[] | null;
 }
 
 interface SellsyItem {
@@ -49,9 +55,13 @@ interface SellsyItem {
   is_declined: boolean;
   created: string;
   updated: string;
+  stock_physical?: number | null;
+  stock_reserved?: number | null;
+  stock_available?: number | null;
+  stock_by_warehouse?: StockWh[] | null;
 }
 
-type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type";
+type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type" | "stock";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 50;
@@ -67,6 +77,24 @@ const formatEuro = (val: string | number | null | undefined) => {
     maximumFractionDigits: 2,
   }).format(num);
 };
+
+function StockBadge({ available, byWh }: { available: number | null | undefined; byWh?: StockWh[] | null }) {
+  if (available === null || available === undefined) {
+    return <span className="text-[10px] text-cockpit-secondary">—</span>;
+  }
+  const color =
+    available <= 0 ? "bg-red-500/15 text-red-600"
+    : available <= 5 ? "bg-amber-500/15 text-amber-700"
+    : "bg-green-500/15 text-green-700";
+  const title = byWh && byWh.length
+    ? byWh.map((w) => `${w.name}: ${w.available} dispo (${w.physical} phys - ${w.reserved} rés)`).join("\n")
+    : undefined;
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold ${color}`} title={title}>
+      {available}
+    </span>
+  );
+}
 
 const SELLSY_ITEM_URL = "https://app.sellsy.com/items";
 const LABEL_BUY_URL = "https://www.bureau-vallee.re/fr_RE/2400-etiquettes-multi-usages-35x70-agipa-51259.html";
@@ -86,6 +114,7 @@ export default function CataloguePage() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [declFilter, setDeclFilter] = useState<string>("ALL"); // ALL | with | without
   const [priceFilter, setPriceFilter] = useState<string>("ALL"); // ALL | <100 | 100-500 | 500-1000 | >1000
+  const [stockFilter, setStockFilter] = useState<string>("ALL"); // ALL | in | out | low
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedItem, setSelectedItem] = useState<SellsyItem | null>(null);
@@ -107,7 +136,7 @@ export default function CataloguePage() {
   }, [searchInput]);
 
   // Reset page on filter change
-  useEffect(() => { setPage(1); }, [typeFilter, declFilter, priceFilter]);
+  useEffect(() => { setPage(1); }, [typeFilter, declFilter, priceFilter, stockFilter]);
 
   const [syncProgress, setSyncProgress] = useState<string>("");
 
@@ -119,7 +148,7 @@ export default function CataloguePage() {
       if (fresh) {
         setLoadingAllDecl(true);
         // Phase 1 : sync items (rapide, bulk)
-        setSyncProgress("Phase 1/2 : sync articles…");
+        setSyncProgress("Phase 1/3 : sync articles…");
         const syncItems = await fetch("/api/sellsy/sync-catalogue/items", { method: "POST" });
         const syncItemsData = await syncItems.json();
         if (!syncItemsData.success) {
@@ -146,11 +175,39 @@ export default function CataloguePage() {
               }
               consecutiveErrors = 0;
               done = data.done;
-              setSyncProgress(`Phase 2/2 : déclinaisons ${data.synced}/${data.total}…`);
+              setSyncProgress(`Phase 2/3 : déclinaisons ${data.synced}/${data.total}…`);
             } catch (e) {
               console.error("Erreur fetch decls:", e);
               consecutiveErrors++;
               if (consecutiveErrors >= 3) break;
+              await new Promise((r) => setTimeout(r, 2000));
+            }
+          }
+
+          // Phase 3 : sync stocks (resume mode)
+          let stockDone = false;
+          let stockErrors = 0;
+          while (!stockDone) {
+            try {
+              const res = await fetch(
+                `/api/sellsy/sync-catalogue/stock?limit=10&syncId=${syncId}`,
+                { method: "POST" }
+              );
+              const data = await res.json();
+              if (!data.success) {
+                console.error("Erreur sync stock:", data.error);
+                stockErrors++;
+                if (stockErrors >= 3) break;
+                await new Promise((r) => setTimeout(r, 2000));
+                continue;
+              }
+              stockErrors = 0;
+              stockDone = data.done;
+              setSyncProgress(`Phase 3/3 : stocks ${data.synced}/${data.total}…`);
+            } catch (e) {
+              console.error("Erreur fetch stock:", e);
+              stockErrors++;
+              if (stockErrors >= 3) break;
               await new Promise((r) => setTimeout(r, 2000));
             }
           }
@@ -270,6 +327,18 @@ export default function CataloguePage() {
       });
     }
 
+    if (stockFilter !== "ALL") {
+      result = result.filter((item) => {
+        const avail = item.stock_available ?? 0;
+        switch (stockFilter) {
+          case "in": return avail > 0;
+          case "out": return avail <= 0;
+          case "low": return avail > 0 && avail <= 5;
+          default: return true;
+        }
+      });
+    }
+
     result = [...result].sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
@@ -288,12 +357,15 @@ export default function CataloguePage() {
         case "type":
           cmp = (a.type || "").localeCompare(b.type || "");
           break;
+        case "stock":
+          cmp = (a.stock_available ?? -1) - (b.stock_available ?? -1);
+          break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
 
     return result;
-  }, [items, declinations, search, typeFilter, declFilter, priceFilter, sortKey, sortDir]);
+  }, [items, declinations, search, typeFilter, declFilter, priceFilter, stockFilter, sortKey, sortDir]);
 
   // Index rapide pour résoudre les prix des déclinaisons (qui sont aussi des items standalone)
   const itemsByIdEarly = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
@@ -801,10 +873,21 @@ ${pages.join("\n")}
             <option value="500-1000">500 - 1 000 &euro;</option>
             <option value=">1000">&gt; 1 000 &euro;</option>
           </select>
+          {/* Stock */}
+          <select
+            value={stockFilter}
+            onChange={(e) => setStockFilter(e.target.value)}
+            className="bg-cockpit-input border border-cockpit-input px-3 py-1.5 rounded-lg text-xs text-cockpit-primary"
+          >
+            <option value="ALL">Stock : Tous</option>
+            <option value="in">En stock (&gt; 0)</option>
+            <option value="low">Stock faible (≤ 5)</option>
+            <option value="out">Rupture (0)</option>
+          </select>
           {/* Reset */}
-          {(typeFilter !== "ALL" || declFilter !== "ALL" || priceFilter !== "ALL" || search) && (
+          {(typeFilter !== "ALL" || declFilter !== "ALL" || priceFilter !== "ALL" || stockFilter !== "ALL" || search) && (
             <button
-              onClick={() => { setTypeFilter("ALL"); setDeclFilter("ALL"); setPriceFilter("ALL"); setSearchInput(""); setSearch(""); }}
+              onClick={() => { setTypeFilter("ALL"); setDeclFilter("ALL"); setPriceFilter("ALL"); setStockFilter("ALL"); setSearchInput(""); setSearch(""); }}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
             >
               Effacer filtres
@@ -842,6 +925,9 @@ ${pages.join("\n")}
                 </th>
                 <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("price_ttc")}>
                   <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
+                </th>
+                <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("stock")}>
+                  <span className="flex items-center gap-1.5 justify-end">STOCK <SortIcon col="stock" /></span>
                 </th>
                 {canSeePurchase && (
                   <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
@@ -911,6 +997,9 @@ ${pages.join("\n")}
                             <span className="text-sm text-cockpit-primary">
                               {formatEuro(priceTTC)}
                             </span>
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <StockBadge available={item.stock_available ?? null} byWh={item.stock_by_warehouse} />
                           </td>
                           {canSeePurchase && (
                             <td className="px-3 py-3 text-right hidden lg:table-cell">
@@ -982,6 +1071,9 @@ ${pages.join("\n")}
                             {formatEuro(dTTC)}
                           </span>
                         </td>
+                        <td className="px-3 py-2 text-right">
+                          <StockBadge available={decl.stock_available ?? null} byWh={decl.stock_by_warehouse} />
+                        </td>
                         {canSeePurchase && (
                           <td className="px-3 py-2 text-right hidden lg:table-cell">
                             <div>
@@ -1002,7 +1094,7 @@ ${pages.join("\n")}
                 })
               ) : (
                 <tr>
-                  <td colSpan={canSeePurchase ? 8 : 7} className="px-4 py-12 text-center text-cockpit-secondary">
+                  <td colSpan={canSeePurchase ? 9 : 8} className="px-4 py-12 text-center text-cockpit-secondary">
                     <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p>Aucun produit trouvé</p>
                   </td>
@@ -1058,6 +1150,7 @@ ${pages.join("\n")}
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceHT)}</p>
                           <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(priceTTC)}</p>
+                          <div className="mt-1"><StockBadge available={item.stock_available ?? null} byWh={item.stock_by_warehouse} /></div>
                         </div>
                       </div>
                     </div>
@@ -1104,6 +1197,7 @@ ${pages.join("\n")}
                       <div className="text-right flex-shrink-0">
                         <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dHT)}</p>
                         <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(dTTC)}</p>
+                        <div className="mt-1"><StockBadge available={decl.stock_available ?? null} byWh={decl.stock_by_warehouse} /></div>
                       </div>
                     </div>
                   </div>
