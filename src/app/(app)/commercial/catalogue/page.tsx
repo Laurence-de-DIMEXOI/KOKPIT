@@ -61,7 +61,16 @@ interface SellsyItem {
   stock_by_warehouse?: StockWh[] | null;
 }
 
-type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type" | "stock";
+type SortKey = "name" | "reference" | "price_ht" | "price_ttc" | "type" | "stock_sp" | "stock_bo";
+
+const WH_SP = 10928; // DIMEXOI Saint-Pierre
+const WH_BO = 16712; // Bois d'Orient Saint-Denis
+
+function getWhAvailable(byWh: StockWh[] | null | undefined, whId: number): number | null {
+  if (!byWh || !Array.isArray(byWh)) return null;
+  const entry = byWh.find((w) => w.whId === whId);
+  return entry ? entry.available : null;
+}
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 50;
@@ -357,8 +366,11 @@ export default function CataloguePage() {
         case "type":
           cmp = (a.type || "").localeCompare(b.type || "");
           break;
-        case "stock":
-          cmp = (a.stock_available ?? -1) - (b.stock_available ?? -1);
+        case "stock_sp":
+          cmp = (getWhAvailable(a.stock_by_warehouse, WH_SP) ?? -1) - (getWhAvailable(b.stock_by_warehouse, WH_SP) ?? -1);
+          break;
+        case "stock_bo":
+          cmp = (getWhAvailable(a.stock_by_warehouse, WH_BO) ?? -1) - (getWhAvailable(b.stock_by_warehouse, WH_BO) ?? -1);
           break;
       }
       return sortDir === "asc" ? cmp : -cmp;
@@ -517,6 +529,10 @@ export default function CataloguePage() {
       is_declined: false,
       created: parentItem.created,
       updated: parentItem.updated,
+      stock_physical: decl.stock_physical ?? null,
+      stock_reserved: decl.stock_reserved ?? null,
+      stock_available: decl.stock_available ?? null,
+      stock_by_warehouse: decl.stock_by_warehouse ?? null,
     };
     setSelectedItem(virtualItem);
     setDrawerDeclUrl(getSellsyDeclUrl(parentItem.id, decl.id));
@@ -928,8 +944,11 @@ ${pages.join("\n")}
                 <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("price_ttc")}>
                   <span className="flex items-center gap-1.5 justify-end">PRIX TTC <SortIcon col="price_ttc" /></span>
                 </th>
-                <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("stock")}>
-                  <span className="flex items-center gap-1.5 justify-end">STOCK <SortIcon col="stock" /></span>
+                <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("stock_sp")}>
+                  <span className="flex items-center gap-1.5 justify-end">DISPO SP <SortIcon col="stock_sp" /></span>
+                </th>
+                <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading cursor-pointer hover:text-cockpit-info transition-colors" onClick={() => handleSort("stock_bo")}>
+                  <span className="flex items-center gap-1.5 justify-end">DISPO BO <SortIcon col="stock_bo" /></span>
                 </th>
                 {canSeePurchase && (
                   <th className="px-3 py-3 text-right text-xs font-semibold text-cockpit-heading hidden lg:table-cell">
@@ -1001,7 +1020,10 @@ ${pages.join("\n")}
                             </span>
                           </td>
                           <td className="px-3 py-3 text-right">
-                            <StockBadge available={item.stock_available ?? null} byWh={item.stock_by_warehouse} />
+                            <StockBadge available={getWhAvailable(item.stock_by_warehouse, WH_SP)} byWh={item.stock_by_warehouse} />
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <StockBadge available={getWhAvailable(item.stock_by_warehouse, WH_BO)} byWh={item.stock_by_warehouse} />
                           </td>
                           {canSeePurchase && (
                             <td className="px-3 py-3 text-right hidden lg:table-cell">
@@ -1074,7 +1096,10 @@ ${pages.join("\n")}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <StockBadge available={decl.stock_available ?? null} byWh={decl.stock_by_warehouse} />
+                          <StockBadge available={getWhAvailable(decl.stock_by_warehouse, WH_SP)} byWh={decl.stock_by_warehouse} />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <StockBadge available={getWhAvailable(decl.stock_by_warehouse, WH_BO)} byWh={decl.stock_by_warehouse} />
                         </td>
                         {canSeePurchase && (
                           <td className="px-3 py-2 text-right hidden lg:table-cell">
@@ -1096,7 +1121,7 @@ ${pages.join("\n")}
                 })
               ) : (
                 <tr>
-                  <td colSpan={canSeePurchase ? 9 : 8} className="px-4 py-12 text-center text-cockpit-secondary">
+                  <td colSpan={canSeePurchase ? 10 : 9} className="px-4 py-12 text-center text-cockpit-secondary">
                     <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p>Aucun produit trouvé</p>
                   </td>
@@ -1152,7 +1177,12 @@ ${pages.join("\n")}
                         <div className="text-right flex-shrink-0">
                           <p className="text-[10px] text-cockpit-secondary">HT: {formatEuro(priceHT)}</p>
                           <p className="text-sm font-bold text-cockpit-heading">{formatEuro(priceTTC)}</p>
-                          <div className="mt-1"><StockBadge available={item.stock_available ?? null} byWh={item.stock_by_warehouse} /></div>
+                          <div className="mt-1 flex items-center gap-1 justify-end">
+                            <span className="text-[9px] text-cockpit-secondary">SP</span>
+                            <StockBadge available={getWhAvailable(item.stock_by_warehouse, WH_SP)} byWh={item.stock_by_warehouse} />
+                            <span className="text-[9px] text-cockpit-secondary ml-1">BO</span>
+                            <StockBadge available={getWhAvailable(item.stock_by_warehouse, WH_BO)} byWh={item.stock_by_warehouse} />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1199,7 +1229,12 @@ ${pages.join("\n")}
                       <div className="text-right flex-shrink-0">
                         <p className="text-[10px] text-cockpit-secondary">HT: {formatEuro(dHT)}</p>
                         <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dTTC)}</p>
-                        <div className="mt-1"><StockBadge available={decl.stock_available ?? null} byWh={decl.stock_by_warehouse} /></div>
+                        <div className="mt-1 flex items-center gap-1 justify-end">
+                          <span className="text-[9px] text-cockpit-secondary">SP</span>
+                          <StockBadge available={getWhAvailable(decl.stock_by_warehouse, WH_SP)} byWh={decl.stock_by_warehouse} />
+                          <span className="text-[9px] text-cockpit-secondary ml-1">BO</span>
+                          <StockBadge available={getWhAvailable(decl.stock_by_warehouse, WH_BO)} byWh={decl.stock_by_warehouse} />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1329,6 +1364,7 @@ ${pages.join("\n")}
         item={selectedItem}
         onClose={() => { setSelectedItem(null); setDrawerDeclUrl(undefined); }}
         declinations={selectedItem && !drawerDeclUrl ? declinations[selectedItem.id] || [] : []}
+        stockByWarehouse={selectedItem?.stock_by_warehouse ?? null}
         canSeePurchase={canSeePurchase}
         sellsyUrlOverride={drawerDeclUrl}
       />

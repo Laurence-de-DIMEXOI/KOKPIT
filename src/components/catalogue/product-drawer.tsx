@@ -31,28 +31,25 @@ interface Declination {
   purchase_amount: string | null;
 }
 
-interface StockEntry {
-  warehouseId: string;
-  warehouseLabel: string;
-  quantity: number;
-  booked: number;
+interface StockWh {
+  whId: number;
+  name: string;
+  physical: number;
+  reserved: number;
   available: number;
-  isDefault: boolean;
-}
-
-interface ItemStock {
-  stock: StockEntry[];
-  totalAvailable: number;
 }
 
 interface ProductDrawerProps {
   item: SellsyItem | null;
   onClose: () => void;
   declinations?: Declination[];
-  stock?: ItemStock | null;
+  stockByWarehouse?: StockWh[] | null;
   canSeePurchase?: boolean;
   sellsyUrlOverride?: string;
 }
+
+const WH_SP = 10928; // DIMEXOI Saint-Pierre
+const WH_BO = 16712; // Bois d'Orient Saint-Denis
 
 const formatEuro = (val: string | number | null | undefined) => {
   if (val === null || val === undefined) return "—";
@@ -66,7 +63,7 @@ const formatEuro = (val: string | number | null | undefined) => {
   }).format(num);
 };
 
-export function ProductDrawer({ item, onClose, declinations = [], stock, canSeePurchase = false, sellsyUrlOverride }: ProductDrawerProps) {
+export function ProductDrawer({ item, onClose, declinations = [], stockByWarehouse, canSeePurchase = false, sellsyUrlOverride }: ProductDrawerProps) {
   if (!item) return null;
 
   const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
@@ -174,35 +171,34 @@ export function ProductDrawer({ item, onClose, declinations = [], stock, canSeeP
           </div>
 
           {/* Stock par entrepôt */}
-          {stock && (
-            <div className="px-6 py-4 border-b border-[#E8EAED]">
-              <h3 className="text-xs font-semibold text-[#8592A3] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Warehouse className="w-3.5 h-3.5" />
-                Stock — {stock.totalAvailable} disponible{stock.totalAvailable !== 1 ? "s" : ""}
-              </h3>
-              <div className="space-y-2">
-                {stock.stock.map((s) => (
-                  <div key={s.warehouseId} className="flex items-center justify-between bg-[#F5F6F7] border border-[#E8EAED] px-4 py-2.5 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      {s.isDefault && <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-semibold">Défaut</span>}
-                      <span className="text-xs text-[#32475C]">{s.warehouseLabel}</span>
+          {stockByWarehouse && stockByWarehouse.length > 0 && (() => {
+            const sp = stockByWarehouse.find((w) => w.whId === WH_SP);
+            const bo = stockByWarehouse.find((w) => w.whId === WH_BO);
+            const blocks: Array<{ label: string; wh: StockWh | undefined }> = [
+              { label: "Stock Saint-Pierre", wh: sp },
+              { label: "Stock Saint-Denis", wh: bo },
+            ];
+            return (
+              <div className="px-6 py-4 border-b border-[#E8EAED]">
+                <h3 className="text-xs font-semibold text-[#8592A3] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Warehouse className="w-3.5 h-3.5" />
+                  Stocks
+                </h3>
+                <div className="space-y-3">
+                  {blocks.map(({ label, wh }) => (
+                    <div key={label} className="bg-[#F5F6F7] border border-[#E8EAED] px-4 py-3 rounded-lg">
+                      <p className="text-xs font-semibold text-[#32475C] mb-2">{label} :</p>
+                      <ul className="text-xs text-[#32475C] space-y-1 pl-4 list-disc">
+                        <li>Physique : <span className="font-semibold">{wh?.physical ?? 0}</span></li>
+                        <li>Réservé : <span className="font-semibold text-[#FFAB00]">{wh?.reserved ?? 0}</span></li>
+                        <li>Réel : <span className={`font-bold ${(wh?.available ?? 0) > 0 ? "text-[#71DD37]" : "text-[#FF3E1D]"}`}>{wh?.available ?? 0}</span></li>
+                      </ul>
                     </div>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className={`font-bold ${s.available > 0 ? "text-[#71DD37]" : "text-[#FF3E1D]"}`}>
-                        {s.available}
-                      </span>
-                      {s.booked > 0 && (
-                        <span className="text-[#FFAB00] text-[10px]">({s.booked} rés.)</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {stock.stock.length === 0 && (
-                  <p className="text-xs text-[#8592A3] text-center py-2">Aucun entrepôt</p>
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Déclinaisons */}
           {declinations.length > 0 && (
