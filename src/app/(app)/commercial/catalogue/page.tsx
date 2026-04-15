@@ -153,38 +153,36 @@ export default function CataloguePage() {
       const data = await res.json();
       if (data.success) decls = data.declinations || [];
 
-      // Enrichir les prix en un seul appel : /items/{id}/declinations/prices
-      // Sellsy peut retourner différents formats — on essaie plusieurs chemins
-      let pricesMap = new Map<number, { exc: string | null; inc: string | null; purchase: string | null }>();
-      try {
-        const pr = await fetch(`/api/sellsy/items/${itemId}/declinations/prices`);
-        const prJson = await pr.json();
-        console.log(`[decl-prices fetch item=${itemId}]`, prJson);
-        const pricesArr: any[] = Array.isArray(prJson.prices)
-          ? prJson.prices
-          : Array.isArray(prJson._raw?.data) ? prJson._raw.data
-          : [];
-        for (const p of pricesArr) {
-          const declId = Number(p.declination_id ?? p.id ?? p.declinationId ?? 0);
-          if (!declId) continue;
-          pricesMap.set(declId, {
-            exc: p.reference_price_taxes_exc ?? p.amount_taxes_exc ?? p.unit_amount_taxes_exc ?? null,
-            inc: p.reference_price_taxes_inc ?? p.amount_taxes_inc ?? p.unit_amount_taxes_inc ?? null,
-            purchase: p.purchase_amount ?? null,
-          });
-        }
-      } catch (e) { console.warn(`[decl-prices] failed for ${itemId}:`, e); }
-
-      const enriched = decls.map((d) => {
-        const p = pricesMap.get(d.id);
-        if (!p) return d;
-        return {
-          ...d,
-          reference_price_taxes_exc: p.exc ?? d.reference_price_taxes_exc,
-          reference_price_taxes_inc: p.inc ?? null,
-          purchase_amount: d.purchase_amount ?? p.purchase,
-        };
-      });
+      // Enrichir les prix : endpoint officiel v2 /items/{id}/declinations/{declId}/prices
+      // N appels en parallèle par batch de 8 pour éviter le rate limit
+      const BATCH_SIZE = 8;
+      const enriched: Declination[] = [];
+      for (let i = 0; i < decls.length; i += BATCH_SIZE) {
+        const chunk = decls.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          chunk.map(async (d) => {
+            // HT déjà connu via listDeclinations → si présent + TTC aussi, skip
+            if (d.reference_price_taxes_exc && d.reference_price_taxes_inc) return d;
+            try {
+              const r = await fetch(`/api/sellsy/items/${itemId}/declinations/${d.id}/prices`);
+              const json = await r.json();
+              if (json.success && Array.isArray(json.prices) && json.prices.length > 0) {
+                // Prendre le prix de référence (1ère grille = défaut)
+                const p = json.prices[0];
+                return {
+                  ...d,
+                  reference_price_taxes_exc:
+                    p.reference_price_taxes_exc ?? p.amount_taxes_exc ?? d.reference_price_taxes_exc,
+                  reference_price_taxes_inc:
+                    p.reference_price_taxes_inc ?? p.amount_taxes_inc ?? null,
+                };
+              }
+            } catch { /* silencieux */ }
+            return d;
+          })
+        );
+        enriched.push(...results);
+      }
 
       setDeclinations((prev) => ({ ...prev, [itemId]: enriched }));
     } catch (error) {

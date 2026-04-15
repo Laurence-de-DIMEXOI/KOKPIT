@@ -305,20 +305,24 @@ export async function getDeclination(
   );
 }
 
-// Prix d'une déclinaison (endpoint officiel v2)
-export interface DeclinationPrice {
-  declination_id: number;
-  reference_price_taxes_exc: string | null;
-  reference_price_taxes_inc: string | null;
-  purchase_amount?: string | null;
+// Prix d'une déclinaison par grille tarifaire (ItemPrice)
+export interface DeclinationItemPrice {
+  id?: number;
+  rate_category_id?: number | null;
+  amount_taxes_exc?: string | null;
+  amount_taxes_inc?: string | null;
+  reference_price_taxes_exc?: string | null;
+  reference_price_taxes_inc?: string | null;
 }
 
-// Récupérer tous les prix des déclinaisons d'un item en un seul appel
-export async function getItemDeclinationPrices(
-  itemId: number
-): Promise<SellsyListResponse<DeclinationPrice>> {
-  return sellsyFetch<SellsyListResponse<DeclinationPrice>>(
-    `/items/${itemId}/declinations/prices?limit=100`
+// GET /items/{id}/declinations/{declinationId}/prices
+// Retourne les prix par grille tarifaire d'une déclinaison
+export async function getDeclinationPrices(
+  itemId: number,
+  declinationId: number
+): Promise<SellsyListResponse<DeclinationItemPrice>> {
+  return sellsyFetch<SellsyListResponse<DeclinationItemPrice>>(
+    `/items/${itemId}/declinations/${declinationId}/prices?limit=100`
   );
 }
 
