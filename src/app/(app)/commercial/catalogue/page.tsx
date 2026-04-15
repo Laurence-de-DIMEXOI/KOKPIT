@@ -21,7 +21,6 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
-import { KPICard } from "@/components/dashboard/kpi-card";
 import { ProductDrawer } from "@/components/catalogue/product-drawer";
 import { getSellsyDeclUrl } from "@/lib/sellsy-urls";
 
@@ -743,14 +742,6 @@ ${pages.join("\n")}
           <ShoppingCart className="w-3.5 h-3.5" />
           Commander
         </a>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <KPICard title="Total articles" value={kpis.total} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-yellow" />
-        <KPICard title="Produits" value={kpis.products} icon={<Package className="w-7 h-7" />} bgColor="bg-cockpit-info" />
-        <KPICard title="Services" value={kpis.services} icon={<Tag className="w-7 h-7" />} bgColor="bg-cockpit-success" />
-        <KPICard title="Avec déclinaisons" value={kpis.declined} icon={<Layers className="w-7 h-7" />} bgColor="bg-purple-500" />
       </div>
 
       {/* Search + Filters */}
