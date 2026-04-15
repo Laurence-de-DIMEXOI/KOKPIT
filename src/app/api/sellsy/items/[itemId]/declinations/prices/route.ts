@@ -14,8 +14,11 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Invalid itemId" }, { status: 400 });
     }
     const res = await getItemDeclinationPrices(id);
-    return NextResponse.json({ success: true, prices: res.data });
+    // Log pour diagnostic : format exact de la réponse Sellsy
+    console.log(`[decl-prices/${id}] raw response:`, JSON.stringify(res).slice(0, 500));
+    return NextResponse.json({ success: true, prices: res.data, _raw: res });
   } catch (error: any) {
+    console.error(`[decl-prices] ERROR:`, error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

@@ -154,20 +154,26 @@ export default function CataloguePage() {
       if (data.success) decls = data.declinations || [];
 
       // Enrichir les prix en un seul appel : /items/{id}/declinations/prices
+      // Sellsy peut retourner différents formats — on essaie plusieurs chemins
       let pricesMap = new Map<number, { exc: string | null; inc: string | null; purchase: string | null }>();
       try {
         const pr = await fetch(`/api/sellsy/items/${itemId}/declinations/prices`);
         const prJson = await pr.json();
-        if (prJson.success && Array.isArray(prJson.prices)) {
-          for (const p of prJson.prices) {
-            pricesMap.set(p.declination_id, {
-              exc: p.reference_price_taxes_exc ?? null,
-              inc: p.reference_price_taxes_inc ?? null,
-              purchase: p.purchase_amount ?? null,
-            });
-          }
+        console.log(`[decl-prices fetch item=${itemId}]`, prJson);
+        const pricesArr: any[] = Array.isArray(prJson.prices)
+          ? prJson.prices
+          : Array.isArray(prJson._raw?.data) ? prJson._raw.data
+          : [];
+        for (const p of pricesArr) {
+          const declId = Number(p.declination_id ?? p.id ?? p.declinationId ?? 0);
+          if (!declId) continue;
+          pricesMap.set(declId, {
+            exc: p.reference_price_taxes_exc ?? p.amount_taxes_exc ?? p.unit_amount_taxes_exc ?? null,
+            inc: p.reference_price_taxes_inc ?? p.amount_taxes_inc ?? p.unit_amount_taxes_inc ?? null,
+            purchase: p.purchase_amount ?? null,
+          });
         }
-      } catch { /* silencieux */ }
+      } catch (e) { console.warn(`[decl-prices] failed for ${itemId}:`, e); }
 
       const enriched = decls.map((d) => {
         const p = pricesMap.get(d.id);
