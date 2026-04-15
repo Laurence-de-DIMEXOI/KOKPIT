@@ -38,6 +38,10 @@ export async function GET() {
 
   const declsByItemId: Record<number, any[]> = {};
   for (const d of declinations) {
+    // Masque les déclinaisons à 0€ (HT et TTC nuls ou absents)
+    const ht = d.priceHT ? Number(d.priceHT) : 0;
+    const ttc = d.priceTTC ? Number(d.priceTTC) : 0;
+    if (ht <= 0 && ttc <= 0) continue;
     if (!declsByItemId[d.itemId]) declsByItemId[d.itemId] = [];
     declsByItemId[d.itemId].push({
       id: d.id,
@@ -49,9 +53,15 @@ export async function GET() {
     });
   }
 
+  // Masque aussi les parents déclinés qui n'ont plus aucune décl. visible
+  const itemsFinal = itemsFormatted.filter((i) => {
+    if (!i.is_declined) return true;
+    return (declsByItemId[i.id]?.length ?? 0) > 0;
+  });
+
   return NextResponse.json({
     success: true,
-    items: itemsFormatted,
+    items: itemsFinal,
     declinations: declsByItemId,
     lastSync: latestSync?.finishedAt || null,
     syncStatus: latestSync?.status || "never",
