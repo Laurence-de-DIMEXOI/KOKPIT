@@ -456,17 +456,23 @@ export default function CataloguePage() {
       const tvaMultiplier = parentHT > 0 && parentTTC > parentHT ? parentTTC / parentHT : 1.085;
       for (const decl of decls) {
         if (checkedDeclIds.has(decl.id)) {
-          const declItem = itemsById.get(decl.id);
-          const dHT = declItem
-            ? parseFloat(declItem.reference_price_taxes_exc || "0")
-            : parseFloat(decl.reference_price_taxes_exc || "0") || parentHT;
-          const dTTC = declItem
-            ? parseFloat(declItem.reference_price_taxes_inc || "0") || dHT * tvaMultiplier
-            : dHT * tvaMultiplier;
+          // 1) Prix TTC propre de la déclinaison (enrichi via /items/{id}/declinations/prices)
+          const declTTCRaw = parseFloat(decl.reference_price_taxes_inc || "0");
+          // 2) Sinon HT déclinaison × TVA
+          const declHTRaw = parseFloat(decl.reference_price_taxes_exc || "0");
+          // 3) Fallback final : prix parent
+          let priceTTC = 0;
+          if (declTTCRaw > 0) {
+            priceTTC = declTTCRaw;
+          } else if (declHTRaw > 0) {
+            priceTTC = declHTRaw * tvaMultiplier;
+          } else {
+            priceTTC = parentTTC > 0 ? parentTTC : parentHT * tvaMultiplier;
+          }
           labels.push({
             reference: decl.reference || "",
             name: decl.name || decl.reference || "",
-            priceTTC: String(dTTC),
+            priceTTC: String(priceTTC),
           });
         }
       }
