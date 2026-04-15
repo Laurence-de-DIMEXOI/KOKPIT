@@ -6,7 +6,7 @@ import { getItemDeclinationPrices } from "@/lib/sellsy";
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ itemId: string }> }
-) {
+): Promise<NextResponse> {
   try {
     const { itemId } = await params;
     const id = Number(itemId);
