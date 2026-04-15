@@ -14,12 +14,16 @@ export async function GET(
   if (isNaN(itemId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
-  // Tester 4 variantes d'appel pour cerner le bon format
+  const url = new URL(_req.url);
+  const declIdParam = url.searchParams.get("decl");
+  const declId = declIdParam ? parseInt(declIdParam, 10) : null;
+
   const variants = [
     { name: "itemid", params: { itemid: itemId } },
-    { name: "declid", params: { declid: itemId } },
-    { name: "id+type=item", params: { id: itemId, type: "item" } },
-    { name: "id only", params: { id: itemId } },
+    ...(declId ? [
+      { name: "itemid+declid", params: { itemid: itemId, declid: declId } },
+      { name: "declid-only", params: { itemid: declId } }, // test : et si on passe l'id décl. comme itemid ?
+    ] : []),
   ];
   const results: Record<string, any> = {};
   for (const v of variants) {
