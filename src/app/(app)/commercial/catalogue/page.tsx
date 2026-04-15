@@ -110,16 +110,42 @@ export default function CataloguePage() {
   // Reset page on filter change
   useEffect(() => { setPage(1); }, [typeFilter, declFilter, priceFilter]);
 
+  const [syncProgress, setSyncProgress] = useState<string>("");
+
   // Lit le catalogue depuis Supabase (synchronisé depuis Sellsy).
-  // Si `fresh=true`, déclenche d'abord une sync Sellsy → Supabase.
+  // Si `fresh=true`, déclenche d'abord une sync Sellsy → Supabase en 2 phases.
   const fetchItems = async (fresh = false) => {
     setRefreshing(true);
     try {
       if (fresh) {
         setLoadingAllDecl(true);
-        const sync = await fetch("/api/sellsy/sync-catalogue", { method: "POST" });
-        if (!sync.ok) {
-          console.error("Erreur sync catalogue");
+        // Phase 1 : sync items (rapide, bulk)
+        setSyncProgress("Phase 1/2 : sync articles…");
+        const syncItems = await fetch("/api/sellsy/sync-catalogue/items", { method: "POST" });
+        const syncItemsData = await syncItems.json();
+        if (!syncItemsData.success) {
+          console.error("Erreur sync items:", syncItemsData.error);
+          setSyncProgress("");
+        } else {
+          // Phase 2 : sync déclinaisons par chunks
+          const syncId = syncItemsData.syncId;
+          let offset = 0;
+          let done = false;
+          while (!done) {
+            const res = await fetch(
+              `/api/sellsy/sync-catalogue/declinations?offset=${offset}&limit=30&syncId=${syncId}`,
+              { method: "POST" }
+            );
+            const data = await res.json();
+            if (!data.success) {
+              console.error("Erreur sync decls:", data.error);
+              break;
+            }
+            offset = data.offset;
+            done = data.done;
+            setSyncProgress(`Phase 2/2 : déclinaisons ${offset}/${data.total}…`);
+          }
+          setSyncProgress("");
         }
       }
       const res = await fetch("/api/catalogue");
@@ -127,11 +153,11 @@ export default function CataloguePage() {
       if (data.success) {
         setItems(data.items || []);
         setDeclinations(data.declinations || {});
-        // Marque tous les items comme "déjà enrichis" (les prix v1 sont dans Supabase)
         enrichedItemIds.current = new Set((data.items || []).map((i: SellsyItem) => i.id));
       }
     } catch (error) {
       console.error("Erreur chargement catalogue:", error);
+      setSyncProgress("");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -672,7 +698,7 @@ ${pages.join("\n")}
             {loadingAllDecl && (
               <span className="flex items-center gap-1 text-xs text-cockpit-warning">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Chargement des déclinaisons…
+                {syncProgress || "Chargement des déclinaisons…"}
               </span>
             )}
           </p>
