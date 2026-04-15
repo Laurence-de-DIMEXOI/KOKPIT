@@ -381,6 +381,27 @@ export async function getWarehouses(): Promise<Record<string, Warehouse>> {
   return res;
 }
 
+export async function getStockForDeclination(declId: number): Promise<Record<string, StockWarehouse>> {
+  let res: unknown;
+  try {
+    res = await sellsyV1Call("Stock.getForItem", { declid: declId });
+  } catch (err: any) {
+    console.warn(`[getStockForDeclination] declid=${declId} V1 error: ${err?.message || err}`);
+    return {};
+  }
+  if (!res || typeof res !== "object") return {};
+  const obj = res as Record<string, unknown>;
+  const result: Record<string, StockWarehouse> = {};
+  // Format attendu : flat { "<id>": StockWarehouse, ... } avec declid renseigné
+  for (const [k, v] of Object.entries(obj)) {
+    if (v && typeof v === "object" && "whid" in (v as object)) {
+      const entry = v as StockWarehouse;
+      result[k] = { ...entry, declid: entry.declid || String(declId) };
+    }
+  }
+  return result;
+}
+
 export async function getStockForItem(itemId: number): Promise<Record<string, StockWarehouse>> {
   let res: unknown;
   try {

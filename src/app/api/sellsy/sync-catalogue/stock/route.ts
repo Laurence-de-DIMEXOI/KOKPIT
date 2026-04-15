@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getStockForItem, getWarehouses } from "@/lib/sellsy";
+import { getStockForItem, getStockForDeclination, getWarehouses } from "@/lib/sellsy";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -59,52 +59,49 @@ export async function POST(req: NextRequest) {
       const itemAggs: Map<number, Agg> = new Map();
       const declAggs: Map<number, Agg> = new Map();
 
+      const toAgg = (values: any[]): Agg => {
+        const agg: Agg = { physical: 0, reserved: 0, available: 0, byWh: [] };
+        for (const w of values) {
+          const qt = parseFloat(w.qt || "0");
+          const booked = parseFloat(w.bookedqt || "0");
+          const avail = parseFloat(w.availableqt || String(qt - booked));
+          const whId = parseInt(w.whid, 10);
+          const whName = warehouses[String(whId)]?.label || `Entrepôt ${whId}`;
+          agg.physical += qt;
+          agg.reserved += booked;
+          agg.available += avail;
+          agg.byWh.push({ whId, name: whName, physical: qt, reserved: booked, available: avail });
+        }
+        return agg;
+      };
+
       const processItem = async (item: typeof batch[number]) => {
         try {
-          const stock = await getStockForItem(item.id);
-          const values = Object.values(stock);
-
-          const itemAgg: Agg = { physical: 0, reserved: 0, available: 0, byWh: [] };
-          const declBuckets: Map<number, Agg> = new Map();
-
-          for (const w of values) {
-            const qt = parseFloat(w.qt || "0");
-            const booked = parseFloat(w.bookedqt || "0");
-            const avail = parseFloat(w.availableqt || String(qt - booked));
-            const whId = parseInt(w.whid, 10);
-            const whName = warehouses[String(whId)]?.label || `Entrepôt ${whId}`;
-            const declId = parseInt(w.declid || "0", 10);
-            const whEntry = { whId, name: whName, physical: qt, reserved: booked, available: avail };
-
-            if (item.isDeclined && declId > 0) {
-              let bucket = declBuckets.get(declId);
-              if (!bucket) { bucket = { physical: 0, reserved: 0, available: 0, byWh: [] }; declBuckets.set(declId, bucket); }
-              bucket.physical += qt;
-              bucket.reserved += booked;
-              bucket.available += avail;
-              bucket.byWh.push(whEntry);
-            } else {
-              itemAgg.physical += qt;
-              itemAgg.reserved += booked;
-              itemAgg.available += avail;
-              itemAgg.byWh.push(whEntry);
-            }
-          }
-
           if (!item.isDeclined) {
-            itemAggs.set(item.id, itemAgg);
-          } else {
-            const parentAgg: Agg = { physical: 0, reserved: 0, available: 0, byWh: [] };
-            for (const b of declBuckets.values()) {
-              parentAgg.physical += b.physical;
-              parentAgg.reserved += b.reserved;
-              parentAgg.available += b.available;
-            }
-            itemAggs.set(item.id, parentAgg);
-            for (const [declId, agg] of declBuckets.entries()) {
-              declAggs.set(declId, agg);
-            }
+            const stock = await getStockForItem(item.id);
+            itemAggs.set(item.id, toAgg(Object.values(stock)));
+            return;
           }
+          // Item décliné : une requête par déclinaison
+          const decls = await prisma.sellsyDeclinationCache.findMany({
+            where: { itemId: item.id },
+            select: { id: true },
+          });
+          const parentAgg: Agg = { physical: 0, reserved: 0, available: 0, byWh: [] };
+          for (const d of decls) {
+            try {
+              const stock = await getStockForDeclination(d.id);
+              const agg = toAgg(Object.values(stock));
+              declAggs.set(d.id, agg);
+              parentAgg.physical += agg.physical;
+              parentAgg.reserved += agg.reserved;
+              parentAgg.available += agg.available;
+            } catch (e) {
+              console.warn(`[sync stock] decl ${d.id}: ${(e as Error).message}`);
+            }
+            await new Promise((r) => setTimeout(r, 40));
+          }
+          itemAggs.set(item.id, parentAgg);
         } catch (e) {
           console.warn(`[sync stock] skip item ${item.id}: ${(e as Error).message}`);
         }
