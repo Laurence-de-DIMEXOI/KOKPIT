@@ -417,7 +417,12 @@ export async function getStockForItem(itemId: number): Promise<Record<string, St
     if (declVal && typeof declVal === "object" && !Array.isArray(declVal)) {
       for (const [whKey, whVal] of Object.entries(declVal as Record<string, unknown>)) {
         if (whVal && typeof whVal === "object" && "whid" in (whVal as object)) {
-          result[`${declKey}_${whKey}`] = whVal as StockWarehouse;
+          // Préserve le declid depuis la clé outer si l'entrée ne l'a pas
+          const entry = whVal as StockWarehouse;
+          result[`${declKey}_${whKey}`] = {
+            ...entry,
+            declid: entry.declid || declKey,
+          };
         }
       }
     }
