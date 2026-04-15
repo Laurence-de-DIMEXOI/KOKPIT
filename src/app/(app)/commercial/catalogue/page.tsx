@@ -261,28 +261,12 @@ export default function CataloguePage() {
     return result;
   }, [items, declinations, search, typeFilter, declFilter, priceFilter, sortKey, sortDir]);
 
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = useMemo(
-    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [filtered, page]
-  );
-
-  // Auto-fetch + enrichit les déclinaisons pour les items de la page courante
-  useEffect(() => {
-    const declined = paginated.filter(
-      (i) => i.is_declined && !enrichedItemIds.current.has(i.id) && !loadingDecl.has(i.id)
-    );
-    declined.forEach((i) => fetchDeclinations(i.id));
-  }, [paginated, declinations]); // eslint-disable-line react-hooks/exhaustive-deps
-
-
   // Index rapide pour résoudre les prix des déclinaisons (qui sont aussi des items standalone)
-  const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  const itemsByIdEarly = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
   // Quand une recherche est active : quelles déclinaisons matchent (pour n'afficher que celles-là)
-  const searchMatchedDeclIds = useMemo(() => {
-    if (!search) return null; // null = pas de filtre, tout afficher
+  const searchMatchedDeclIdsEarly = useMemo(() => {
+    if (!search) return null;
     const q = search.toLowerCase();
     const matched = new Set<number>();
     for (const decls of Object.values(declinations)) {
@@ -298,16 +282,90 @@ export default function CataloguePage() {
     return matched;
   }, [search, declinations]);
 
-  // Pour un item donné, est-ce que le parent lui-même matche la recherche ?
-  const parentMatchesSearch = (item: SellsyItem): boolean => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (item.name || "").toLowerCase().includes(q) ||
-      (item.reference || "").toLowerCase().includes(q) ||
-      (item.description || "").toLowerCase().includes(q)
+  const parentMatchesSearchEarly = useCallback(
+    (item: SellsyItem): boolean => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        (item.name || "").toLowerCase().includes(q) ||
+        (item.reference || "").toLowerCase().includes(q) ||
+        (item.description || "").toLowerCase().includes(q)
+      );
+    },
+    [search]
+  );
+
+  // Flat display rows : en mode recherche, chaque déclinaison qui match apparait comme une ligne top-level (comme Sellsy).
+  type DisplayRow =
+    | { kind: "parent"; item: SellsyItem }
+    | { kind: "decl"; item: SellsyItem; decl: Declination };
+
+  const displayRows = useMemo<DisplayRow[]>(() => {
+    const rows: DisplayRow[] = [];
+    for (const item of filtered) {
+      const decls = declinations[item.id] || [];
+      const hasDecls = item.is_declined;
+      if (search) {
+        const pMatches = parentMatchesSearchEarly(item);
+        if (pMatches) {
+          rows.push({ kind: "parent", item });
+        }
+        for (const d of decls) {
+          if (searchMatchedDeclIdsEarly?.has(d.id)) {
+            rows.push({ kind: "decl", item, decl: d });
+          }
+        }
+        // Si aucun match explicite n'a été ajouté (edge case : item matché mais pas de decls chargées)
+        if (!pMatches && decls.length === 0) {
+          rows.push({ kind: "parent", item });
+        }
+      } else {
+        const showParent = !hasDecls || decls.length === 0;
+        if (showParent) {
+          rows.push({ kind: "parent", item });
+        } else {
+          for (const d of decls) {
+            rows.push({ kind: "decl", item, decl: d });
+          }
+        }
+      }
+    }
+    return rows;
+  }, [filtered, declinations, search, searchMatchedDeclIdsEarly, parentMatchesSearchEarly]);
+
+  // Pagination (sur les lignes d'affichage)
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / PAGE_SIZE));
+  const paginatedRows = useMemo(
+    () => displayRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [displayRows, page]
+  );
+
+  // Items uniques présents dans la page courante (pour le prefetch des déclinaisons)
+  const paginated = useMemo(() => {
+    const seen = new Set<number>();
+    const arr: SellsyItem[] = [];
+    for (const r of paginatedRows) {
+      if (!seen.has(r.item.id)) {
+        seen.add(r.item.id);
+        arr.push(r.item);
+      }
+    }
+    return arr;
+  }, [paginatedRows]);
+
+  // Auto-fetch + enrichit les déclinaisons pour les items de la page courante
+  useEffect(() => {
+    const declined = paginated.filter(
+      (i) => i.is_declined && !enrichedItemIds.current.has(i.id) && !loadingDecl.has(i.id)
     );
-  };
+    declined.forEach((i) => fetchDeclinations(i.id));
+  }, [paginated, declinations]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
+  // Aliases pour compat avec le reste du fichier
+  const itemsById = itemsByIdEarly;
+  const searchMatchedDeclIds = searchMatchedDeclIdsEarly;
+  const parentMatchesSearch = parentMatchesSearchEarly;
 
   // KPIs
   const totalDeclined = useMemo(() => items.filter((i) => i.is_declined).length, [items]);
@@ -389,42 +447,33 @@ export default function CataloguePage() {
     });
   };
 
-  const allPageChecked = paginated.length > 0 && paginated.every((i) => {
-    const decls = declinations[i.id];
-    if (i.is_declined && decls && decls.length > 0) {
-      return decls.every((d) => checkedDeclIds.has(d.id));
-    }
-    return checkedIds.has(i.id);
+  const allPageChecked = paginatedRows.length > 0 && paginatedRows.every((r) => {
+    if (r.kind === "decl") return checkedDeclIds.has(r.decl.id);
+    return checkedIds.has(r.item.id);
   });
 
   const toggleAll = () => {
     if (allPageChecked) {
       setCheckedIds((prev) => {
         const next = new Set(prev);
-        paginated.forEach((i) => {
-          if (!i.is_declined || !declinations[i.id]?.length) next.delete(i.id);
-        });
+        paginatedRows.forEach((r) => { if (r.kind === "parent") next.delete(r.item.id); });
         return next;
       });
       setCheckedDeclIds((prev) => {
         const next = new Set(prev);
-        paginated.forEach((i) => {
-          (declinations[i.id] || []).forEach((d) => next.delete(d.id));
-        });
+        paginatedRows.forEach((r) => { if (r.kind === "decl") next.delete(r.decl.id); });
         return next;
       });
     } else {
-      paginated.forEach((i) => {
-        const decls = declinations[i.id];
-        if (i.is_declined && decls && decls.length > 0) {
-          setCheckedDeclIds((prev) => {
-            const next = new Set(prev);
-            decls.forEach((d) => next.add(d.id));
-            return next;
-          });
-        } else {
-          setCheckedIds((prev) => new Set(prev).add(i.id));
-        }
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        paginatedRows.forEach((r) => { if (r.kind === "parent") next.add(r.item.id); });
+        return next;
+      });
+      setCheckedDeclIds((prev) => {
+        const next = new Set(prev);
+        paginatedRows.forEach((r) => { if (r.kind === "decl") next.add(r.decl.id); });
+        return next;
       });
     }
   };
@@ -776,21 +825,21 @@ ${pages.join("\n")}
               </tr>
             </thead>
             <tbody className="divide-y divide-cockpit">
-              {paginated.length > 0 ? (
-                paginated.map((item) => {
+              {paginatedRows.length > 0 ? (
+                paginatedRows.map((row) => {
+                  if (row.kind === "parent") {
+                  const item = row.item;
                   const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
                   const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
                   const purchasePrice = parseFloat(item.purchase_amount || "0");
                   const margin = priceHT > 0 && purchasePrice > 0 ? ((priceHT - purchasePrice) / priceHT * 100) : null;
-                  const decls = declinations[item.id] || [];
                   const hasDecls = item.is_declined;
                   const isDeclLoading = loadingDecl.has(item.id);
-                  const showParent = !hasDecls || decls.length === 0;
 
                   return (
-                    <React.Fragment key={item.id}>
-                      {/* Parent row — hidden when declinations are loaded */}
-                      {showParent && (
+                    <React.Fragment key={`item-${item.id}`}>
+                      {/* Parent row */}
+                      {true && (
                         <tr className={`hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
                           <td className="pl-4 pr-1 py-3 w-8" onClick={(e) => e.stopPropagation()}>
                             <input
@@ -853,81 +902,77 @@ ${pages.join("\n")}
                           )}
                         </tr>
                       )}
-                      {/* Declination rows — each with its own checkbox + drawer */}
-                      {hasDecls && decls.filter((d) => {
-                        // Si le parent lui-même matche la recherche → tout afficher
-                        if (parentMatchesSearch(item)) return true;
-                        // Sinon n'afficher que les déclinaisons qui matchent
-                        return searchMatchedDeclIds ? searchMatchedDeclIds.has(d.id) : true;
-                      }).map((decl, dIdx) => {
-                        const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
-                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
-                        const dTTC = decl.reference_price_taxes_inc
-                          ? parseFloat(decl.reference_price_taxes_inc)
-                          : dHT * tvaMultiplier;
-                        const dPurchRaw = parseFloat(decl.purchase_amount || "0");
-                        const dPurch = dPurchRaw > 0 ? dPurchRaw : purchasePrice;
-                        const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
-                        return (
-                          <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => openDeclDrawer(decl, item)}>
-                            <td className="pl-4 pr-1 py-2 w-8" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={checkedDeclIds.has(decl.id)}
-                                onChange={() => {}}
-                                onClick={(e) => toggleCheckDecl(decl.id, e)}
-                                className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
-                              />
-                            </td>
-                            <td className="px-4 lg:px-6 py-2">
-                              <span className="text-xs font-mono text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded">
-                                {decl.reference || "—"}
-                              </span>
-                            </td>
-                            <td className="px-4 lg:px-6 py-2">
-                              <div className="min-w-0">
-                                <p className="text-xs text-cockpit-primary truncate max-w-[300px]">
-                                  {decl.name || decl.reference}
-                                </p>
-                                {dIdx === 0 && (
-                                  <p className="text-[9px] text-cockpit-secondary mt-0.5">
-                                    {item.name || item.reference}
-                                  </p>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="text-[9px] text-purple-400 font-medium bg-purple-400/10 px-1.5 py-0.5 rounded">Déclinaison</span>
-                            </td>
-                            <td className="px-4 lg:px-6 py-2 text-right">
-                              <span className="text-xs font-semibold text-cockpit-heading">
-                                {formatEuro(dHT)}
-                              </span>
-                            </td>
-                            <td className="px-4 lg:px-6 py-2 text-right">
-                              <span className="text-xs text-cockpit-primary">
-                                {formatEuro(dTTC)}
-                              </span>
-                            </td>
-                            {canSeePurchase && (
-                              <td className="px-3 py-2 text-right hidden lg:table-cell">
-                                <div>
-                                  <span className="text-[10px] text-cockpit-secondary">
-                                    {formatEuro(dPurch)}
-                                  </span>
-                                  {dMargin !== null && dMargin > 0 && (
-                                    <p className={`text-[9px] ${dMargin > 30 ? "text-cockpit-success" : dMargin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
-                                      Marge {dMargin.toFixed(0)}%
-                                    </p>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
                     </React.Fragment>
                   );
+                  } else {
+                    const { item, decl } = row;
+                    const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
+                    const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
+                    const purchasePrice = parseFloat(item.purchase_amount || "0");
+                    const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
+                    const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                    const dTTC = decl.reference_price_taxes_inc
+                      ? parseFloat(decl.reference_price_taxes_inc)
+                      : dHT * tvaMultiplier;
+                    const dPurchRaw = parseFloat(decl.purchase_amount || "0");
+                    const dPurch = dPurchRaw > 0 ? dPurchRaw : purchasePrice;
+                    const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
+                    return (
+                      <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => openDeclDrawer(decl, item)}>
+                        <td className="pl-4 pr-1 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={checkedDeclIds.has(decl.id)}
+                            onChange={() => {}}
+                            onClick={(e) => toggleCheckDecl(decl.id, e)}
+                            className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
+                          />
+                        </td>
+                        <td className="px-4 lg:px-6 py-2">
+                          <span className="text-xs font-mono text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded">
+                            {decl.reference || "—"}
+                          </span>
+                        </td>
+                        <td className="px-4 lg:px-6 py-2">
+                          <div className="min-w-0">
+                            <p className="text-xs text-cockpit-primary truncate max-w-[300px]">
+                              {decl.name || decl.reference}
+                            </p>
+                            <p className="text-[9px] text-cockpit-secondary mt-0.5">
+                              {item.name || item.reference}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="text-[9px] text-purple-400 font-medium bg-purple-400/10 px-1.5 py-0.5 rounded">Déclinaison</span>
+                        </td>
+                        <td className="px-4 lg:px-6 py-2 text-right">
+                          <span className="text-xs font-semibold text-cockpit-heading">
+                            {formatEuro(dHT)}
+                          </span>
+                        </td>
+                        <td className="px-4 lg:px-6 py-2 text-right">
+                          <span className="text-xs text-cockpit-primary">
+                            {formatEuro(dTTC)}
+                          </span>
+                        </td>
+                        {canSeePurchase && (
+                          <td className="px-3 py-2 text-right hidden lg:table-cell">
+                            <div>
+                              <span className="text-[10px] text-cockpit-secondary">
+                                {formatEuro(dPurch)}
+                              </span>
+                              {dMargin !== null && dMargin > 0 && (
+                                <p className={`text-[9px] ${dMargin > 30 ? "text-cockpit-success" : dMargin > 15 ? "text-cockpit-warning" : "text-red-400"}`}>
+                                  Marge {dMargin.toFixed(0)}%
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  }
                 })
               ) : (
                 <tr>
@@ -943,18 +988,17 @@ ${pages.join("\n")}
 
         {/* Mobile */}
         <div className="md:hidden divide-y divide-cockpit">
-          {paginated.length > 0 ? (
-            paginated.map((item) => {
+          {paginatedRows.length > 0 ? (
+            paginatedRows.map((row) => {
+              if (row.kind === "parent") {
+              const item = row.item;
               const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
               const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
-              const decls = declinations[item.id] || [];
-              const hasDecls = item.is_declined;
-              const showParent = !hasDecls || decls.length === 0;
 
               return (
-                <div key={item.id}>
-                  {/* Parent — hidden when declinations loaded */}
-                  {showParent && (
+                <div key={`item-${item.id}`}>
+                  {/* Parent */}
+                  {true && (
                     <div className={`p-4 hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-shrink-0 pt-0.5 flex items-center gap-1.5">
@@ -992,60 +1036,53 @@ ${pages.join("\n")}
                       </div>
                     </div>
                   )}
-                  {/* Declination rows with checkboxes */}
-                  {hasDecls && decls.length > 0 && (
-                    <div className="divide-y divide-cockpit/50">
-                      {decls.filter((d) => {
-                        if (parentMatchesSearch(item)) return true;
-                        return searchMatchedDeclIds ? searchMatchedDeclIds.has(d.id) : true;
-                      }).map((decl, dIdx) => {
-                        const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
-                        const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
-                        const dTTC = decl.reference_price_taxes_inc
-                          ? parseFloat(decl.reference_price_taxes_inc)
-                          : dHT * tvaMultiplier;
-                        return (
-                          <div
-                            key={decl.id}
-                            className={`p-4 hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`}
-                            onClick={() => openDeclDrawer(decl, item)}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={checkedDeclIds.has(decl.id)}
-                                  onChange={() => {}}
-                                  onClick={(e) => toggleCheckDecl(decl.id, e)}
-                                  className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
-                                    {decl.reference}
-                                  </span>
-                                  <span className="text-[9px] text-purple-400 font-medium bg-purple-400/10 px-1.5 py-0.5 rounded">Déclinaison</span>
-                                </div>
-                                <p className="text-xs text-cockpit-primary truncate">
-                                  {decl.name || decl.reference}
-                                </p>
-                                {dIdx === 0 && (
-                                  <p className="text-[9px] text-cockpit-secondary mt-0.5">{item.name || item.reference}</p>
-                                )}
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dHT)}</p>
-                                <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(dTTC)}</p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               );
+              } else {
+                const { item, decl } = row;
+                const priceHT = parseFloat(item.reference_price_taxes_exc || "0");
+                const priceTTC = parseFloat(item.reference_price_taxes_inc || "0");
+                const tvaMultiplier = priceHT > 0 && priceTTC > priceHT ? priceTTC / priceHT : 1.085;
+                const dHT = parseFloat(decl.reference_price_taxes_exc || "0") || priceHT;
+                const dTTC = decl.reference_price_taxes_inc
+                  ? parseFloat(decl.reference_price_taxes_inc)
+                  : dHT * tvaMultiplier;
+                return (
+                  <div
+                    key={`decl-${decl.id}`}
+                    className={`p-4 hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`}
+                    onClick={() => openDeclDrawer(decl, item)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={checkedDeclIds.has(decl.id)}
+                          onChange={() => {}}
+                          onClick={(e) => toggleCheckDecl(decl.id, e)}
+                          className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">
+                            {decl.reference}
+                          </span>
+                          <span className="text-[9px] text-purple-400 font-medium bg-purple-400/10 px-1.5 py-0.5 rounded">Déclinaison</span>
+                        </div>
+                        <p className="text-xs text-cockpit-primary truncate">
+                          {decl.name || decl.reference}
+                        </p>
+                        <p className="text-[9px] text-cockpit-secondary mt-0.5">{item.name || item.reference}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs font-semibold text-cockpit-heading">{formatEuro(dHT)}</p>
+                        <p className="text-[10px] text-cockpit-secondary">TTC: {formatEuro(dTTC)}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
             })
           ) : (
             <div className="py-12 text-center text-cockpit-secondary text-sm">
@@ -1057,8 +1094,8 @@ ${pages.join("\n")}
         {/* Pagination + Footer */}
         <div className="px-4 lg:px-6 py-3 border-t border-cockpit flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-cockpit-secondary">
-            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} sur {filtered.length} article{filtered.length > 1 ? "s" : ""}
-            {filtered.length !== items.length && ` (${items.length} total)`}
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, displayRows.length)} sur {displayRows.length} ligne{displayRows.length > 1 ? "s" : ""}
+            {displayRows.length !== items.length && ` (${items.length} articles)`}
           </p>
           {totalPages > 1 && (
             <div className="flex items-center gap-1.5">

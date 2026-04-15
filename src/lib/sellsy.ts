@@ -326,6 +326,32 @@ export async function getDeclinationPrices(
   );
 }
 
+// V1 Catalogue.getDeclinations — retourne chaque déclinaison avec son propre prix HT + achat.
+// Utile car v2 /items/{id}/declinations renvoie `reference_price_taxes_exc = null` pour la plupart des items.
+// Ref: champs renvoyés : id, name (=référence), tradename, refPrice (HT si refPriceTaxesFree=true), priceInc, purchaseInc
+export interface V1Declination {
+  id: string;
+  name?: string;
+  tradename?: string;
+  refPrice?: string; // HT (si refPriceTaxesFree=true, ce qui est le cas par défaut)
+  priceInc?: string; // même valeur que refPrice (HT malgré le nom trompeur)
+  refPriceTaxesFree?: boolean;
+  purchaseInc?: string; // prix d'achat
+}
+export async function getItemV1Declinations(itemId: number): Promise<V1Declination[]> {
+  try {
+    const res = (await sellsyV1Call("Catalogue.getDeclinations", {
+      itemid: itemId,
+    })) as any;
+    if (!res) return [];
+    if (Array.isArray(res)) return res as V1Declination[];
+    return Object.values(res) as V1Declination[];
+  } catch (err) {
+    console.warn(`[getItemV1Declinations item=${itemId}] ${(err as Error).message}`);
+    return [];
+  }
+}
+
 // ===== STOCK (via API V1 sellsyV1Call défini plus bas) =====
 
 export interface StockWarehouse {
