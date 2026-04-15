@@ -153,25 +153,32 @@ export default function CataloguePage() {
       const data = await res.json();
       if (data.success) decls = data.declinations || [];
 
-      // Enrichir les prix : fetch individuel de chaque déclinaison (endpoint /declinations/{id})
-      const enriched = await Promise.all(
-        decls.map(async (d) => {
-          if (d.reference_price_taxes_inc) return d; // déjà enrichi
-          try {
-            const r = await fetch(`/api/sellsy/declinations/${d.id}`);
-            const json = await r.json();
-            if (json.success && json.declination) {
-              return {
-                ...d,
-                reference_price_taxes_exc: json.declination.reference_price_taxes_exc ?? d.reference_price_taxes_exc,
-                reference_price_taxes_inc: json.declination.reference_price_taxes_inc ?? null,
-                purchase_amount: d.purchase_amount ?? json.declination.purchase_amount,
-              };
-            }
-          } catch { /* silencieux */ }
-          return d;
-        })
-      );
+      // Enrichir les prix en un seul appel : /items/{id}/declinations/prices
+      let pricesMap = new Map<number, { exc: string | null; inc: string | null; purchase: string | null }>();
+      try {
+        const pr = await fetch(`/api/sellsy/items/${itemId}/declinations/prices`);
+        const prJson = await pr.json();
+        if (prJson.success && Array.isArray(prJson.prices)) {
+          for (const p of prJson.prices) {
+            pricesMap.set(p.declination_id, {
+              exc: p.reference_price_taxes_exc ?? null,
+              inc: p.reference_price_taxes_inc ?? null,
+              purchase: p.purchase_amount ?? null,
+            });
+          }
+        }
+      } catch { /* silencieux */ }
+
+      const enriched = decls.map((d) => {
+        const p = pricesMap.get(d.id);
+        if (!p) return d;
+        return {
+          ...d,
+          reference_price_taxes_exc: p.exc ?? d.reference_price_taxes_exc,
+          reference_price_taxes_inc: p.inc ?? null,
+          purchase_amount: d.purchase_amount ?? p.purchase,
+        };
+      });
 
       setDeclinations((prev) => ({ ...prev, [itemId]: enriched }));
     } catch (error) {

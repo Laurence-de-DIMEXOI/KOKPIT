@@ -305,6 +305,23 @@ export async function getDeclination(
   );
 }
 
+// Prix d'une déclinaison (endpoint officiel v2)
+export interface DeclinationPrice {
+  declination_id: number;
+  reference_price_taxes_exc: string | null;
+  reference_price_taxes_inc: string | null;
+  purchase_amount?: string | null;
+}
+
+// Récupérer tous les prix des déclinaisons d'un item en un seul appel
+export async function getItemDeclinationPrices(
+  itemId: number
+): Promise<SellsyListResponse<DeclinationPrice>> {
+  return sellsyFetch<SellsyListResponse<DeclinationPrice>>(
+    `/items/${itemId}/declinations/prices?limit=100`
+  );
+}
+
 // ===== STOCK (via API V1 sellsyV1Call défini plus bas) =====
 
 export interface StockWarehouse {
