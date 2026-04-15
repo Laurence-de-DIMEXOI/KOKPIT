@@ -14,9 +14,13 @@ export async function GET(
     }
 
     // On appelle v2 (structure propre) ET v1 (prix propres par déclinaison) en parallèle.
-    // v2 seul renvoie souvent des prix null ou égaux au parent — v1 Catalogue.getOne donne les vrais.
+    // Les deux sont défensifs — si l'un échoue (rate limit Sellsy, scope manquant, etc.)
+    // on continue avec ce qu'on a plutôt que de renvoyer 500.
     const [res, v1Decls] = await Promise.all([
-      listDeclinations(id),
+      listDeclinations(id).catch((err) => {
+        console.warn(`[decl item=${id}] v2 listDeclinations failed: ${err.message}`);
+        return { data: [] as any[] };
+      }),
       getItemV1Declinations(id),
     ]);
 
