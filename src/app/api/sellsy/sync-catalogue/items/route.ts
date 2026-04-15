@@ -13,7 +13,20 @@ export async function POST() {
   });
 
   try {
-    const items = await listAllItems();
+    // Reset des flags de sync décl. pour repartir de zéro en Phase 2
+    await prisma.sellsyItemCache.updateMany({
+      data: { declSyncedAt: null },
+    });
+
+    const rawItems = await listAllItems();
+
+    // Filtre : on ignore les items non déclinés à 0€ (inutiles, polluent la liste)
+    const items = rawItems.filter((i) => {
+      if (i.is_declined) return true; // parents déclinés = prix sur décl., garder
+      const ht = parseFloat(i.reference_price_taxes_exc || "0");
+      const ttc = parseFloat(i.reference_price_taxes_inc || "0");
+      return ht > 0 || ttc > 0;
+    });
 
     // Construction des rows à insérer
     const values = items.map((i) => [

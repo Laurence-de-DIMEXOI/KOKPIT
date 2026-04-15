@@ -5,29 +5,56 @@ import { getItemV1Declinations } from "@/lib/sellsy";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
-// POST /api/sellsy/sync-catalogue/declinations?offset=N&limit=M
-// Phase 2 : sync un batch de déclinaisons (client appelle en boucle jusqu'à done=true).
+// POST /api/sellsy/sync-catalogue/declinations?limit=M&syncId=...
+// Phase 2 : sync un batch en mode RESUME.
+// Pioche les items déclinés sans declSyncedAt (ou plus ancien que le dernier sync),
+// les traite, les marque. Idempotent : re-déclenchable même onglet fermé.
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const offset = parseInt(searchParams.get("offset") || "0", 10);
-  // Limite à 10 max pour respecter le rate limit Sellsy (2 appels v1+v2 par item)
   const limit = Math.min(parseInt(searchParams.get("limit") || "10", 10), 10);
   const syncId = searchParams.get("syncId") || undefined;
 
   try {
-    // Liste tous les items déclinés (triés par id pour pagination stable)
-    const allDeclined = await prisma.sellsyItemCache.findMany({
+    // Total items déclinés (pour barre de progression)
+    const totalDeclined = await prisma.sellsyItemCache.count({
       where: { isDeclined: true, isArchived: false },
+    });
+
+    // Items pas encore synchro (declSyncedAt NULL)
+    const batch = await prisma.sellsyItemCache.findMany({
+      where: { isDeclined: true, isArchived: false, declSyncedAt: null },
       select: { id: true, priceHT: true, priceTTC: true },
       orderBy: { id: "asc" },
+      take: limit,
     });
-    const total = allDeclined.length;
-    const batch = allDeclined.slice(offset, offset + limit);
-    let added = 0;
 
-    // Séquentialise v1 uniquement (suffisant : Catalogue.getDeclinations renvoie
-    // id, reference (=name), tradename, priceInc, purchaseInc, refPrice, refPriceTaxesFree).
-    // Échec individuel = item skippé (pas de plantage du batch).
+    const alreadyDone = totalDeclined - (await prisma.sellsyItemCache.count({
+      where: { isDeclined: true, isArchived: false, declSyncedAt: null },
+    }));
+
+    if (batch.length === 0) {
+      // Terminé
+      if (syncId) {
+        const totalDecls = await prisma.sellsyDeclinationCache.count();
+        await prisma.sellsyCatalogueSync.update({
+          where: { id: syncId },
+          data: {
+            declCount: totalDecls,
+            finishedAt: new Date(),
+            status: "success",
+          },
+        });
+      }
+      return NextResponse.json({
+        success: true,
+        processed: 0,
+        added: 0,
+        synced: totalDeclined,
+        total: totalDeclined,
+        done: true,
+      });
+    }
+
     const results: Array<{ item: typeof batch[number]; v1: any[] }> = [];
     for (const item of batch) {
       try {
@@ -35,12 +62,11 @@ export async function POST(req: NextRequest) {
         results.push({ item, v1 });
       } catch (e) {
         console.warn(`[sync decls] skip item ${item.id}: ${(e as Error).message}`);
+        results.push({ item, v1: [] });
       }
       await new Promise((r) => setTimeout(r, 100));
     }
 
-    // Construit les rows à insérer depuis la réponse v1 Catalogue.getDeclinations.
-    // Dans v1, le champ "name" est la référence Sellsy et "tradename" est le nom commercial.
     type Row = [number, number, string, string | null, number | null, number | null, number | null];
     const rows: Row[] = [];
     for (const r of results) {
@@ -85,11 +111,17 @@ export async function POST(req: NextRequest) {
           "syncedAt" = NOW()
       `;
       await prisma.$executeRawUnsafe(sql, ...params);
-      added = rows.length;
     }
 
-    const nextOffset = offset + batch.length;
-    const done = nextOffset >= total;
+    // Marque les items traités (même si 0 déclinaisons renvoyées — on ne veut pas les re-piocher)
+    const processedIds = batch.map((b) => b.id);
+    await prisma.sellsyItemCache.updateMany({
+      where: { id: { in: processedIds } },
+      data: { declSyncedAt: new Date() },
+    });
+
+    const syncedNow = alreadyDone + batch.length;
+    const done = syncedNow >= totalDeclined;
 
     if (done && syncId) {
       const totalDecls = await prisma.sellsyDeclinationCache.count();
@@ -106,9 +138,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       processed: batch.length,
-      added,
-      offset: nextOffset,
-      total,
+      added: rows.length,
+      synced: syncedNow,
+      total: totalDeclined,
       done,
     });
   } catch (err: any) {

@@ -1436,6 +1436,7 @@ model SellsyItemCache {
   createdAtSellsy DateTime?
   updatedAtSellsy DateTime?
   syncedAt        DateTime @default(now())
+  declSyncedAt    DateTime? // null = déclinaisons pas encore sync pour cet item
 
   declinations SellsyDeclinationCache[]
 

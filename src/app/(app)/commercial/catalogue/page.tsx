@@ -126,23 +126,33 @@ export default function CataloguePage() {
           console.error("Erreur sync items:", syncItemsData.error);
           setSyncProgress("");
         } else {
-          // Phase 2 : sync déclinaisons par chunks
+          // Phase 2 : sync déclinaisons en mode resume (pioche next not-synced)
           const syncId = syncItemsData.syncId;
-          let offset = 0;
           let done = false;
+          let consecutiveErrors = 0;
           while (!done) {
-            const res = await fetch(
-              `/api/sellsy/sync-catalogue/declinations?offset=${offset}&limit=10&syncId=${syncId}`,
-              { method: "POST" }
-            );
-            const data = await res.json();
-            if (!data.success) {
-              console.error("Erreur sync decls:", data.error);
-              break;
+            try {
+              const res = await fetch(
+                `/api/sellsy/sync-catalogue/declinations?limit=10&syncId=${syncId}`,
+                { method: "POST" }
+              );
+              const data = await res.json();
+              if (!data.success) {
+                console.error("Erreur sync decls:", data.error);
+                consecutiveErrors++;
+                if (consecutiveErrors >= 3) break;
+                await new Promise((r) => setTimeout(r, 2000));
+                continue;
+              }
+              consecutiveErrors = 0;
+              done = data.done;
+              setSyncProgress(`Phase 2/2 : déclinaisons ${data.synced}/${data.total}…`);
+            } catch (e) {
+              console.error("Erreur fetch decls:", e);
+              consecutiveErrors++;
+              if (consecutiveErrors >= 3) break;
+              await new Promise((r) => setTimeout(r, 2000));
             }
-            offset = data.offset;
-            done = data.done;
-            setSyncProgress(`Phase 2/2 : déclinaisons ${offset}/${data.total}…`);
           }
           setSyncProgress("");
         }
