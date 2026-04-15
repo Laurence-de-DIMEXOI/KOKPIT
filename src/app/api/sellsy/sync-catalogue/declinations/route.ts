@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { listDeclinations, getItemV1Declinations } from "@/lib/sellsy";
+import { getItemV1Declinations } from "@/lib/sellsy";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -25,45 +25,41 @@ export async function POST(req: NextRequest) {
     const batch = allDeclined.slice(offset, offset + limit);
     let added = 0;
 
-    // Séquentialise v2 puis v1 par item pour ménager le rate limit Sellsy.
+    // Séquentialise v1 uniquement (suffisant : Catalogue.getDeclinations renvoie
+    // id, reference (=name), tradename, priceInc, purchaseInc, refPrice, refPriceTaxesFree).
     // Échec individuel = item skippé (pas de plantage du batch).
-    const results: Array<{ item: typeof batch[number]; v2: any[]; v1: any[] }> = [];
+    const results: Array<{ item: typeof batch[number]; v1: any[] }> = [];
     for (const item of batch) {
       try {
-        const v2 = await listDeclinations(item.id).catch(() => ({ data: [] as any[] }));
         const v1 = await getItemV1Declinations(item.id);
-        results.push({ item, v2: v2.data, v1 });
+        results.push({ item, v1 });
       } catch (e) {
         console.warn(`[sync decls] skip item ${item.id}: ${(e as Error).message}`);
       }
-      // Petit délai entre items pour éviter la saturation
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 100));
     }
 
-    // Construit les rows à insérer
+    // Construit les rows à insérer depuis la réponse v1 Catalogue.getDeclinations.
+    // Dans v1, le champ "name" est la référence Sellsy et "tradename" est le nom commercial.
     type Row = [number, number, string, string | null, number | null, number | null, number | null];
     const rows: Row[] = [];
     for (const r of results) {
-      if (r.v2.length === 0) continue;
-      const v1ById = new Map<string, any>();
-      const v1ByName = new Map<string, any>();
-      for (const v of r.v1) {
-        if (v.id) v1ById.set(String(v.id), v);
-        if (v.name) v1ByName.set(String(v.name), v);
-      }
+      if (r.v1.length === 0) continue;
       const parentHT = r.item.priceHT ? Number(r.item.priceHT) : 0;
       const parentTTC = r.item.priceTTC ? Number(r.item.priceTTC) : 0;
       const tvaMult = parentHT > 0 && parentTTC > parentHT ? parentTTC / parentHT : 1.085;
 
-      for (const d of r.v2) {
-        const v1 = v1ById.get(String(d.id)) || v1ByName.get(String(d.reference));
-        const v1HT = v1?.refPriceTaxesFree ? (v1?.refPrice ?? v1?.priceInc ?? null) : null;
-        const v1TTCInc = !v1?.refPriceTaxesFree ? (v1?.priceInc ?? v1?.refPrice ?? null) : null;
-        const ht = parseNum(d.reference_price_taxes_exc) ?? parseNum(v1HT);
-        let ttc = parseNum(d.reference_price_taxes_inc) ?? parseNum(v1TTCInc);
+      for (const v of r.v1) {
+        const id = parseInt(String(v.id), 10);
+        if (isNaN(id)) continue;
+        const isTaxFree = v.refPriceTaxesFree === true || String(v.refPriceTaxesFree) === "true";
+        const htRaw = isTaxFree ? (v.refPrice ?? v.priceInc) : null;
+        const ttcRaw = !isTaxFree ? (v.priceInc ?? v.refPrice) : null;
+        const ht = parseNum(htRaw);
+        let ttc = parseNum(ttcRaw);
         if (!ttc && ht) ttc = +(ht * tvaMult).toFixed(4);
-        const purch = parseNum(d.purchase_amount) ?? parseNum(v1?.purchaseInc);
-        rows.push([d.id, r.item.id, d.reference || "", d.name ?? null, ht, ttc, purch]);
+        const purch = parseNum(v.purchaseInc);
+        rows.push([id, r.item.id, v.name ?? "", v.tradename ?? v.name ?? null, ht, ttc, purch]);
       }
     }
 
