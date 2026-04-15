@@ -1414,3 +1414,61 @@ model CanalMarketing {
   createdAt  DateTime             @default(now())
   operations OperationMarketing[]
 }
+
+// ============================================================================
+// CATALOGUE SELLSY — cache local pour affichage rapide
+// ============================================================================
+
+model SellsyItemCache {
+  id              Int      @id // Sellsy item id
+  type            String   // "product" | "service"
+  reference       String
+  name            String?
+  description     String?  @db.Text
+  priceHT         Decimal? @db.Decimal(12, 4)
+  priceTTC        Decimal? @db.Decimal(12, 4)
+  purchaseAmount  Decimal? @db.Decimal(12, 4)
+  currency        String?
+  categoryId      Int?
+  standardQty     Decimal? @db.Decimal(12, 4)
+  isArchived      Boolean  @default(false)
+  isDeclined      Boolean  @default(false)
+  createdAtSellsy DateTime?
+  updatedAtSellsy DateTime?
+  syncedAt        DateTime @default(now())
+
+  declinations SellsyDeclinationCache[]
+
+  @@index([reference])
+  @@index([isDeclined])
+  @@index([type])
+  @@map("sellsy_item_cache")
+}
+
+model SellsyDeclinationCache {
+  id             Int      @id // Sellsy declination id
+  itemId         Int
+  item           SellsyItemCache @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  reference      String
+  name           String?
+  priceHT        Decimal? @db.Decimal(12, 4)
+  priceTTC       Decimal? @db.Decimal(12, 4)
+  purchaseAmount Decimal? @db.Decimal(12, 4)
+  syncedAt       DateTime @default(now())
+
+  @@index([itemId])
+  @@index([reference])
+  @@map("sellsy_declination_cache")
+}
+
+model SellsyCatalogueSync {
+  id         String    @id @default(cuid())
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  itemCount  Int?
+  declCount  Int?
+  status     String    @default("running") // running | success | error
+  error      String?   @db.Text
+
+  @@map("sellsy_catalogue_sync")
+}

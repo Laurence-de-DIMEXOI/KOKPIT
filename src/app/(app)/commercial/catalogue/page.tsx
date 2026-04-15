@@ -110,32 +110,31 @@ export default function CataloguePage() {
   // Reset page on filter change
   useEffect(() => { setPage(1); }, [typeFilter, declFilter, priceFilter]);
 
-  // Fetch items (fast), puis charge toutes les déclinaisons en arrière-plan pour la recherche
+  // Lit le catalogue depuis Supabase (synchronisé depuis Sellsy).
+  // Si `fresh=true`, déclenche d'abord une sync Sellsy → Supabase.
   const fetchItems = async (fresh = false) => {
     setRefreshing(true);
     try {
-      const res = await fetch(`/api/sellsy/items?all=true${fresh ? "&fresh=true" : ""}`);
+      if (fresh) {
+        setLoadingAllDecl(true);
+        const sync = await fetch("/api/sellsy/sync-catalogue", { method: "POST" });
+        if (!sync.ok) {
+          console.error("Erreur sync catalogue");
+        }
+      }
+      const res = await fetch("/api/catalogue");
       const data = await res.json();
       if (data.success) {
         setItems(data.items || []);
-        if (fresh) setDeclinations({});
+        setDeclinations(data.declinations || {});
+        // Marque tous les items comme "déjà enrichis" (les prix v1 sont dans Supabase)
+        enrichedItemIds.current = new Set((data.items || []).map((i: SellsyItem) => i.id));
       }
     } catch (error) {
       console.error("Erreur chargement catalogue:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
-    }
-
-    // Arrière-plan : charge toutes les déclinaisons (réponse mise en cache 1h côté serveur)
-    setLoadingAllDecl(true);
-    try {
-      const res2 = await fetch(`/api/sellsy/items?all=true&withDeclinations=true${fresh ? "&fresh=true" : ""}`);
-      const data2 = await res2.json();
-      if (data2.success && data2.declinations) {
-        setDeclinations((prev) => ({ ...data2.declinations, ...prev }));
-      }
-    } catch { /* silencieux */ } finally {
       setLoadingAllDecl(false);
     }
   };
