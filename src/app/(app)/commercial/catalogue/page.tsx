@@ -299,7 +299,24 @@ export default function CataloguePage() {
       });
       console.log(`[decls item=${itemId}] ${decls.length} déclinaisons enrichies`, enriched.slice(0, 3));
 
-      setDeclinations((prev) => ({ ...prev, [itemId]: enriched }));
+      // Préserve le stock déjà chargé depuis /api/catalogue : l'endpoint
+      // /items/{id}/declinations ne renvoie ni stock_available ni stock_by_warehouse.
+      setDeclinations((prev) => {
+        const existing = prev[itemId] || [];
+        const stockById = new Map(existing.map((d) => [d.id, d]));
+        const merged = enriched.map((d) => {
+          const prior = stockById.get(d.id);
+          if (!prior) return d;
+          return {
+            ...d,
+            stock_physical: d.stock_physical ?? prior.stock_physical ?? null,
+            stock_reserved: d.stock_reserved ?? prior.stock_reserved ?? null,
+            stock_available: d.stock_available ?? prior.stock_available ?? null,
+            stock_by_warehouse: d.stock_by_warehouse ?? prior.stock_by_warehouse ?? null,
+          };
+        });
+        return { ...prev, [itemId]: merged };
+      });
     } catch (error) {
       console.error(`Erreur déclinaisons item ${itemId}:`, error);
       enrichedItemIds.current.delete(itemId); // permettre retry
@@ -362,8 +379,13 @@ export default function CataloguePage() {
       });
     }
 
+    // NB : le filtre de stock est appliqué plus bas au niveau des lignes
+    // affichées (parent simple OU déclinaison), pas ici sur l'agrégat parent.
+    // Exception : on garde un garde-fou pour les items non-déclinés afin de
+    // ne pas garder inutilement les simples qui ne correspondent pas.
     if (stockFilter !== "ALL") {
       result = result.filter((item) => {
+        if (item.is_declined) return true; // la filtration se fait sur la décl.
         const avail = item.stock_available ?? 0;
         switch (stockFilter) {
           case "in": return avail > 0;
@@ -444,6 +466,21 @@ export default function CataloguePage() {
     | { kind: "parent"; item: SellsyItem }
     | { kind: "decl"; item: SellsyItem; decl: Declination };
 
+  // Prédicat de filtrage stock appliqué ligne par ligne (parent simple OU déclinaison)
+  const matchesStockFilter = useCallback(
+    (avail: number | null | undefined): boolean => {
+      if (stockFilter === "ALL") return true;
+      const v = avail ?? 0;
+      switch (stockFilter) {
+        case "in": return v > 0;
+        case "out": return v <= 0;
+        case "low": return v > 0 && v <= 5;
+        default: return true;
+      }
+    },
+    [stockFilter]
+  );
+
   const displayRows = useMemo<DisplayRow[]>(() => {
     const rows: DisplayRow[] = [];
     for (const item of filtered) {
@@ -455,28 +492,42 @@ export default function CataloguePage() {
         // On masque le parent s'il est décliné et qu'on a au moins une déclinaison à afficher
         const showParent = pMatches && (!hasDecls || matchingDecls.length === 0);
         if (showParent) {
-          rows.push({ kind: "parent", item });
+          // Simple item : filtre sur son propre stock. Décliné sans décl chargée :
+          // on garde (le filtrage se fera à l'affichage des décls).
+          if (hasDecls || matchesStockFilter(item.stock_available)) {
+            rows.push({ kind: "parent", item });
+          }
         }
         for (const d of matchingDecls) {
-          rows.push({ kind: "decl", item, decl: d });
+          if (matchesStockFilter(d.stock_available)) {
+            rows.push({ kind: "decl", item, decl: d });
+          }
         }
         // Edge case : item matché mais aucune décl. chargée et aucune décl. matchée
         if (!showParent && matchingDecls.length === 0 && pMatches) {
-          rows.push({ kind: "parent", item });
+          if (hasDecls || matchesStockFilter(item.stock_available)) {
+            rows.push({ kind: "parent", item });
+          }
         }
       } else {
         const showParent = !hasDecls || decls.length === 0;
         if (showParent) {
-          rows.push({ kind: "parent", item });
+          // Simple item : filtre direct. Décliné sans décl chargée : on garde
+          // (le filtrage se fera quand les décls seront chargées).
+          if (hasDecls || matchesStockFilter(item.stock_available)) {
+            rows.push({ kind: "parent", item });
+          }
         } else {
           for (const d of decls) {
-            rows.push({ kind: "decl", item, decl: d });
+            if (matchesStockFilter(d.stock_available)) {
+              rows.push({ kind: "decl", item, decl: d });
+            }
           }
         }
       }
     }
     return rows;
-  }, [filtered, declinations, search, searchMatchedDeclIdsEarly, parentMatchesSearchEarly]);
+  }, [filtered, declinations, search, searchMatchedDeclIdsEarly, parentMatchesSearchEarly, matchesStockFilter]);
 
   // Pagination (sur les lignes d'affichage)
   const totalPages = Math.max(1, Math.ceil(displayRows.length / PAGE_SIZE));

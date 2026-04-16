@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 11 avril 2026 (v22 — ROI Marketing : CA depuis BDC Sellsy filtrés + dépenses Meta/Google APIs)
-**Mis à jour par** : Session Claude Code (Sprint 11 avril — ROI Marketing refonte calcul CA)
+**Dernière mise à jour** : 16 avril 2026 (v23 — Sync stock Sellsy V1 robustifié + filtre catalogue par déclinaison)
+**Mis à jour par** : Session Claude Code (Sprint 16 avril — Stock catalogue, Sellsy V1 error propagation)
 
 ---
 
@@ -69,6 +69,21 @@
 **Règle Sellsy individuals/companies** : Un client B2C peut avoir 2 IDs Sellsy (1 company + 1 individual) avec le même email. Toujours utiliser le pool unifié companies + individuals. Fonction : `listAllIndividuals()` (pagination 82 pages). Map multi-ID par email : tous les IDs partageant le même email → même contact KOKPIT.
 
 **Règle montants Sellsy** : Les montants sont retournés en string par l'API — toujours wrapper avec `Number()` avant stockage Prisma (type Float). Champ correct : `total_incl_tax` (pas `total_with_tax`).
+
+**⚠️ Règle critique API Sellsy V1 (stock)** : `Stock.getForItem` est rate-limité et instable. Les helpers `getStockForItem` / `getStockForDeclination` (`src/lib/sellsy.ts`) **doivent propager les erreurs** (ne jamais retourner `{}` silencieusement sur catch). Sinon un parent décliné voit ses décl « réussir » avec 0 warehouses et on écrase le stock existant en base par des zéros.
+
+**Pattern sync stock (`src/app/api/sellsy/sync-catalogue/stock/route.ts`)** :
+1. **Resume mode** : boucle interne jusqu'à 270s, filtre `stockSyncedAt: null` pour piocher les items pas encore traités. Le client (`catalogue/page.tsx`) rappelle tant que `done: false` jusqu'à épuisement.
+2. **Agrégation parent** : pour un item décliné, on ne stocke PAS `Stock.getForItem(parentId)` — on somme les `getStockForDeclination(parentId, declId)` par `whId` (via `parentWhMap: Map<whId, {physical, reserved, available}>`). Évite les divergences Sellsy entre niveau parent et niveau décl.
+3. **Ne jamais écraser avec des zéros** : un parent n'est écrit (`itemAggs.set`) QUE si `declSuccess > 0 && declErrors === 0`. Sinon, `failedItems.add(parentId)` → `stockSyncedAt` non marqué → retenté au passage suivant.
+4. **Items simples** : `getStockForItem(id)` dans un `try/catch` — en cas d'erreur, `failedItems.add(id)` et pas d'écriture. Les données existantes survivent.
+5. **Flush parallèle** : `itemAggs` + `declAggs` sont écrits en parallèle via `Promise.all` à la fin de chaque batch pour éviter de perdre des données si le batch suivant plante.
+
+**Pattern affichage stock (catalogue)** :
+- `stock_available` (agrégat parent) est la somme des déclinaisons — à ne jamais utiliser comme filtre si le parent est décliné (masquerait des décl en stock).
+- Filtre catalogue (`page.tsx` `matchesStockFilter`) : applique par ligne affichée (parent simple OU décl), pas sur l'agrégat. Les parents déclinés passent systématiquement `filtered`, puis leurs décl sont filtrées une par une dans `displayRows`.
+- `fetchDeclinations` (lazy load) **doit merger** les décl existantes en préservant `stock_physical/reserved/available/by_warehouse` : l'endpoint `/api/sellsy/items/[itemId]/declinations` ne renvoie PAS le stock (seulement prix) → écraser naïvement fait perdre le stock chargé par `/api/catalogue`.
+- Affichage `—` vs `0` (composant `StockBadge`) : `—` = pas d'entrée Sellsy pour ce warehouse, `0` = Sellsy retourne explicitement `available=0`. Ne pas confondre.
 
 **Règles techniques non négociables :**
 - DnD : HTML5 natif partout, pas de librairie externe
@@ -305,6 +320,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | CATALOGUE-V2 | Catalogue déclinaisons complètes | Chaque déclinaison a sa propre ligne, checkbox, drawer, étiquette. Prix TTC calculé depuis TVA parent (ratio TTC/HT Sellsy, fallback 8,5%). Prix achat hérité du parent si absent sur la déclinaison. Drawer déclinaison via `openDeclDrawer` → virtual SellsyItem avec id=parentItem.id + `sellsyUrlOverride` vers `getSellsyDeclUrl(parentId, declId)`. Mémo étiquettes déplacé au-dessus des KPIs |
 | CATALOGUE-PRINT | Fiche de prélèvement | Remplacement impression étiquettes → fiche A4 tableau (# / Référence / Désignation / Code-barre CODE128 / Qté vide). Workflow : rechercher → cocher → changer recherche → cocher → imprimer. La sélection persiste à travers les recherches (checkedIds + checkedDeclIds en état React). Commit `1d503db` |
 | CATALOGUE-STOCK | Suppression affichage stock catalogue | Sellsy V1 `Stock.getForItem` rate-limité (429) dès que plus de ~8 appels/min. `fetchAllStock` auto = 125+ appels → throttle total. Solution : colonne STOCK supprimée, filtre stock supprimé, chargement stock supprimé. `getStockForItem` rendu robuste (gère array, objet plat, objet imbriqué, catch 429). Commit `1d503db` |
+| CATALOGUE-STOCK-V2 | Sync stock Sellsy V1 robustifié + filtre par déclinaison | `getStockForItem` / `getStockForDeclination` propagent désormais les erreurs (avant : `{}` silencieux → écrasement zéros). Sync `/api/sellsy/sync-catalogue/stock` : agrège les `byWh` des décl au niveau parent (`parentWhMap`), n'écrit le parent QUE si aucune décl en erreur, `failedItems` Set pour re-tenter au passage suivant (resume mode via `stockSyncedAt: null`). Catalogue : `matchesStockFilter` appliqué ligne par ligne (décl ou item simple) au lieu de l'agrégat parent, `fetchDeclinations` merge les décl pour préserver stock déjà chargé. Commits `9114c85`, `5396c60`, `2d83886`, session 16 avril |
 | STOCK-CACHE | Cache Supabase stock persistant | Table `stock_cache` (key, data JSONB, cached_at, expires_at). Modèle Prisma `StockCache` + `@@map("stock_cache")`. Classe `db-cache.ts` → `dbStockCache.get/set/getStale` async avec fallback mémoire si DB inaccessible. TTL 30 min. Partagé entre toutes les instances Vercel (vs in-memory qui est par instance). Endpoint `/api/sellsy/stock/[itemId]` : retry auto sur 429 (attente 2,5s). Endpoint `/api/sellsy/stock/all` : batch de 5 avec 1,2s de délai. Commit `1d503db` |
 | PASSERELLE | Passerelle dimexoi.fr ↔ KOKPIT | Webhook `/api/webhooks/guide-download` reçoit leads guide SDB depuis dimexoi.fr → crée Contact (avec showroomId SUD/NORD) + Lead + Evenement. Envoi PDF par email Brevo (template ID 19, désactivé sans `BREVO_GUIDE_SDB_TEMPLATE_ID`). Compteur téléchargements dans dashboard ROI. Segment Brevo "Guide SDB teck". Côté dimexoi.fr : formulaire avec showroom préféré, tracking Meta Pixel Lead + GTM + Google Ads conversion, webhook Meta Ads `/api/webhooks/meta-leads` pour formulaires natifs Facebook |
 | CALENDLY | Module Rendez-vous Calendly complet | Widget CalendlyWidget.tsx (inline + popup) intégré sur 3 pages dimexoi.fr (contact inline, fiches produit popup, guide popup post-submit). Webhook Calendly → dimexoi.fr → KOKPIT `/api/webhooks/calendly-rdv`. Modèle RendezVous (statuts CONFIRME/HONORE/ANNULE). Page `/commercial/rendez-vous` avec 4 KPIs + tableau filtrable + actions statut. API routes GET liste + GET stats + PATCH statut. EvenementType RDV_PRIS + RDV_ANNULE. Ajouté dans sidebar Commercial |
