@@ -212,12 +212,18 @@ export default function VeilleConcurrentsPage() {
       const res = await fetch(`/api/veille/sync?id=${id}`);
       const data = await res.json();
       if (res.ok && data.success) {
-        addToast(
-          `Sync OK — ${data.pubsNew} nouvelle${data.pubsNew > 1 ? "s" : ""} pub${
-            data.pubsNew > 1 ? "s" : ""
-          }, ${data.pubsUpdated} mise${data.pubsUpdated > 1 ? "s" : ""} à jour`,
-          "success",
-        );
+        const errs = (data.errors ?? []) as Array<{ concurrent: string; error: string }>;
+        if (errs.length > 0) {
+          console.warn("[veille sync] erreurs :", errs);
+          addToast(`Erreur Meta : ${errs[0].error.slice(0, 220)}`, "error", 10000);
+        } else {
+          addToast(
+            `Sync OK — ${data.pubsNew} nouvelle${data.pubsNew > 1 ? "s" : ""} pub${
+              data.pubsNew > 1 ? "s" : ""
+            }, ${data.pubsUpdated} mise${data.pubsUpdated > 1 ? "s" : ""} à jour`,
+            "success",
+          );
+        }
         await fetchData();
       } else {
         addToast(data.error || "Erreur de synchronisation", "error");

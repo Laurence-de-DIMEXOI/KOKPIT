@@ -361,12 +361,24 @@ export default function VeillePage() {
       const res = await fetch("/api/veille/sync");
       const data = await res.json();
       if (res.ok && data.success) {
-        addToast(
-          `Sync OK — ${data.pubsNew} nouvelle${data.pubsNew > 1 ? "s" : ""} pub${
-            data.pubsNew > 1 ? "s" : ""
-          }, ${data.pubsUpdated} mise${data.pubsUpdated > 1 ? "s" : ""} à jour`,
-          "success",
-        );
+        const errs = (data.errors ?? []) as Array<{ concurrent: string; error: string }>;
+        if (errs.length > 0) {
+          // Affiche la première erreur Meta dans le toast (copiable en console.log)
+          console.warn("[veille sync] erreurs :", errs);
+          const firstErr = errs[0];
+          addToast(
+            `${errs.length} erreur${errs.length > 1 ? "s" : ""} Meta — ${firstErr.concurrent}: ${firstErr.error.slice(0, 200)}`,
+            "error",
+            10000,
+          );
+        } else {
+          addToast(
+            `Sync OK — ${data.pubsNew} nouvelle${data.pubsNew > 1 ? "s" : ""} pub${
+              data.pubsNew > 1 ? "s" : ""
+            }, ${data.pubsUpdated} mise${data.pubsUpdated > 1 ? "s" : ""} à jour`,
+            "success",
+          );
+        }
         setOffset(0);
         await Promise.all([fetchPubs(true), fetchMots()]);
       } else {
