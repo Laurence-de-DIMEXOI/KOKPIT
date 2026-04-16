@@ -87,6 +87,31 @@ const formatEuro = (val: string | number | null | undefined) => {
   }).format(num);
 };
 
+function QtyControl({ qty, onChange, accent = "blue" }: { qty: number; onChange: (n: number) => void; accent?: "blue" | "purple" }) {
+  const color = accent === "purple" ? "text-purple-500 border-purple-400/40 bg-purple-400/10 hover:bg-purple-400/20" : "text-cockpit-info border-cockpit-info/40 bg-cockpit-info/10 hover:bg-cockpit-info/20";
+  return (
+    <div
+      className="flex items-center gap-0.5"
+      onClick={(e) => e.stopPropagation()}
+      title="Nombre d'étiquettes à imprimer"
+    >
+      <button
+        type="button"
+        onClick={() => onChange(qty - 1)}
+        disabled={qty <= 1}
+        className={`w-5 h-5 rounded border ${color} flex items-center justify-center text-xs font-bold leading-none transition-colors disabled:opacity-30 disabled:cursor-not-allowed`}
+      >−</button>
+      <span className="min-w-[16px] text-center text-[11px] font-bold text-cockpit-heading tabular-nums">{qty}</span>
+      <button
+        type="button"
+        onClick={() => onChange(qty + 1)}
+        disabled={qty >= 99}
+        className={`w-5 h-5 rounded border ${color} flex items-center justify-center text-xs font-bold leading-none transition-colors disabled:opacity-30 disabled:cursor-not-allowed`}
+      >+</button>
+    </div>
+  );
+}
+
 function StockBadge({ available, byWh }: { available: number | null | undefined; byWh?: StockWh[] | null }) {
   if (available === null || available === undefined) {
     return <span className="text-[10px] text-cockpit-secondary">—</span>;
@@ -130,6 +155,7 @@ export default function CataloguePage() {
   const [drawerDeclUrl, setDrawerDeclUrl] = useState<string | undefined>(undefined);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [checkedDeclIds, setCheckedDeclIds] = useState<Set<number>>(new Set());
+  const [labelQuantities, setLabelQuantities] = useState<Record<string, number>>({});
   const [labelStartPos, setLabelStartPos] = useState(0);
   const [page, setPage] = useState(1);
   const [loadingAllDecl, setLoadingAllDecl] = useState(false); // chargement arrière-plan
@@ -549,12 +575,19 @@ export default function CataloguePage() {
   };
 
   // ── Sélection multi-étiquettes ──
+  const getQty = (key: string) => labelQuantities[key] ?? 1;
+  const setQty = (key: string, n: number) => {
+    setLabelQuantities((prev) => ({ ...prev, [key]: Math.max(1, Math.min(99, n)) }));
+  };
+
   const toggleCheck = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setCheckedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        setLabelQuantities((q) => { const c = { ...q }; delete c[`item-${id}`]; return c; });
+      } else next.add(id);
       return next;
     });
   };
@@ -563,8 +596,10 @@ export default function CataloguePage() {
     e.stopPropagation();
     setCheckedDeclIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        setLabelQuantities((q) => { const c = { ...q }; delete c[`decl-${id}`]; return c; });
+      } else next.add(id);
       return next;
     });
   };
@@ -606,11 +641,13 @@ export default function CataloguePage() {
     const labels: Array<{ reference: string; name: string; priceTTC: string }> = [];
     for (const item of items) {
       if (checkedIds.has(item.id)) {
-        labels.push({
+        const qty = labelQuantities[`item-${item.id}`] ?? 1;
+        const label = {
           reference: item.reference || "",
           name: item.name || item.reference || `#${item.id}`,
           priceTTC: item.reference_price_taxes_inc || "0",
-        });
+        };
+        for (let k = 0; k < qty; k++) labels.push(label);
       }
     }
     for (const [itemIdStr, decls] of Object.entries(declinations)) {
@@ -633,16 +670,18 @@ export default function CataloguePage() {
           } else {
             priceTTC = parentTTC > 0 ? parentTTC : parentHT * tvaMultiplier;
           }
-          labels.push({
+          const qty = labelQuantities[`decl-${decl.id}`] ?? 1;
+          const label = {
             reference: decl.reference || "",
             name: decl.name || decl.reference || "",
             priceTTC: String(priceTTC),
-          });
+          };
+          for (let k = 0; k < qty; k++) labels.push(label);
         }
       }
     }
     return labels;
-  }, [items, declinations, checkedIds, checkedDeclIds]);
+  }, [items, declinations, checkedIds, checkedDeclIds, labelQuantities]);
 
   const handlePrintMulti = useCallback(() => {
     if (printableLabels.length === 0) return;
@@ -974,14 +1013,19 @@ ${pages.join("\n")}
                       {/* Parent row */}
                       {true && (
                         <tr className={`hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
-                          <td className="pl-4 pr-1 py-3 w-8" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={checkedIds.has(item.id)}
-                              onChange={() => {}}
-                              onClick={(e) => toggleCheck(item.id, e)}
-                              className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
-                            />
+                          <td className="pl-4 pr-1 py-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={checkedIds.has(item.id)}
+                                onChange={() => {}}
+                                onClick={(e) => toggleCheck(item.id, e)}
+                                className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
+                              />
+                              {checkedIds.has(item.id) && (
+                                <QtyControl qty={getQty(`item-${item.id}`)} onChange={(n) => setQty(`item-${item.id}`, n)} accent="blue" />
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 lg:px-6 py-3">
                             <div className="flex items-center gap-1.5">
@@ -1058,14 +1102,19 @@ ${pages.join("\n")}
                     const dMargin = dHT > 0 && dPurch > 0 ? ((dHT - dPurch) / dHT * 100) : null;
                     return (
                       <tr key={`decl-${decl.id}`} className={`hover:bg-cockpit-dark/50 transition-colors cursor-pointer ${checkedDeclIds.has(decl.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => openDeclDrawer(decl, item)}>
-                        <td className="pl-4 pr-1 py-2 w-8" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={checkedDeclIds.has(decl.id)}
-                            onChange={() => {}}
-                            onClick={(e) => toggleCheckDecl(decl.id, e)}
-                            className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
-                          />
+                        <td className="pl-4 pr-1 py-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={checkedDeclIds.has(decl.id)}
+                              onChange={() => {}}
+                              onClick={(e) => toggleCheckDecl(decl.id, e)}
+                              className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
+                            />
+                            {checkedDeclIds.has(decl.id) && (
+                              <QtyControl qty={getQty(`decl-${decl.id}`)} onChange={(n) => setQty(`decl-${decl.id}`, n)} accent="purple" />
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 lg:px-6 py-2">
                           <span className="text-xs font-mono text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded">
@@ -1147,7 +1196,7 @@ ${pages.join("\n")}
                     <div className={`p-4 hover:bg-cockpit-dark transition-colors cursor-pointer ${checkedIds.has(item.id) ? "bg-[var(--color-active-light,rgba(14,105,115,0.06))]" : ""}`} onClick={() => setSelectedItem(item)}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-shrink-0 pt-0.5 flex items-center gap-1.5">
-                          <div onClick={(e) => e.stopPropagation()}>
+                          <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
                             <input
                               type="checkbox"
                               checked={checkedIds.has(item.id)}
@@ -1155,6 +1204,9 @@ ${pages.join("\n")}
                               onClick={(e) => toggleCheck(item.id, e)}
                               className="w-4 h-4 rounded border-cockpit accent-[var(--color-active,#4C9DB0)] cursor-pointer"
                             />
+                            {checkedIds.has(item.id) && (
+                              <QtyControl qty={getQty(`item-${item.id}`)} onChange={(n) => setQty(`item-${item.id}`, n)} accent="blue" />
+                            )}
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1205,7 +1257,7 @@ ${pages.join("\n")}
                     onClick={() => openDeclDrawer(decl, item)}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex-shrink-0 pt-0.5 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={checkedDeclIds.has(decl.id)}
@@ -1213,6 +1265,9 @@ ${pages.join("\n")}
                           onClick={(e) => toggleCheckDecl(decl.id, e)}
                           className="w-4 h-4 rounded border-cockpit accent-purple-500 cursor-pointer"
                         />
+                        {checkedDeclIds.has(decl.id) && (
+                          <QtyControl qty={getQty(`decl-${decl.id}`)} onChange={(n) => setQty(`decl-${decl.id}`, n)} accent="purple" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -1353,7 +1408,10 @@ ${pages.join("\n")}
               style={{ backgroundColor: "var(--color-active, #4C9DB0)", color: "white" }}
             >
               <Printer className="w-4 h-4" />
-              Imprimer {totalChecked} étiquette{totalChecked > 1 ? "s" : ""}
+              Imprimer {printableLabels.length} étiquette{printableLabels.length > 1 ? "s" : ""}
+              {printableLabels.length !== totalChecked && (
+                <span className="text-[10px] opacity-80 ml-1">({totalChecked} article{totalChecked > 1 ? "s" : ""})</span>
+              )}
             </button>
           </div>
         </div>
