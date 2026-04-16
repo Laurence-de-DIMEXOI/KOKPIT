@@ -1163,10 +1163,12 @@ model NeedPrice {
   reference       String    @unique // Auto : "NP-2026-001"
   refDevis        String?   // Référence DEPI- associée
   nomClient       String?   // Nom du client
-  denomination    String    // Nom du meuble en anglais
-  dimensions      String    // ex: "200x90x75cm"
-  finitions       String?
-  photoUrl        String?   // Supabase Storage
+  denomination    String?   // Legacy — alimenté depuis lignes[0] en back-compat
+  dimensions      String?   // Legacy — alimenté depuis lignes[0]
+  finitions       String?   // Legacy — alimenté depuis lignes[0]
+  photoUrl        String?   // Legacy — alimenté depuis attachments[0]
+  lignes          Json?     // Array of { denomination, dimensions, finitions } (1+)
+  attachments     Json?     // Array of { url, type, filename, size }
   statut          String    @default("DEMANDE") // "DEMANDE" | "PRIX_RECU" | "ANNULE"
   prixFournisseur Float?    // Base fournisseur en IDR
   prixVente       Float?    // Prix de vente calculé (Arrondi ou Cuisine)

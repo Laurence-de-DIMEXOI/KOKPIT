@@ -11,32 +11,66 @@ function fmtEuro(n: number | null | undefined): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function sendPrixRecuEmail(np: any, demandeur: { prenom: string; nom: string; email: string }) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) return;
 
   const ref = np.refDevis ? `${np.reference} — ${np.refDevis}` : np.reference;
 
+  // Lignes de meubles (nouveau format) ou fallback ancienne structure
+  const lignes: Array<{ denomination?: string; dimensions?: string; finitions?: string | null }> =
+    Array.isArray(np.lignes) && np.lignes.length > 0
+      ? np.lignes
+      : np.denomination
+        ? [{ denomination: np.denomination, dimensions: np.dimensions, finitions: np.finitions }]
+        : [];
+
+  const linesHtml = lignes
+    .map(
+      (l, i) => `
+      <tr>
+        <td style="padding:8px 12px;font-size:12px;color:#6B7280;border-top:1px solid #F3F4F6;">#${i + 1}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#1F2937;font-weight:600;border-top:1px solid #F3F4F6;">${escapeHtml(l.denomination || "—")}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#374151;border-top:1px solid #F3F4F6;">${escapeHtml(l.dimensions || "—")}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#374151;border-top:1px solid #F3F4F6;">${escapeHtml(l.finitions || "—")}</td>
+      </tr>`
+    )
+    .join("");
+
   const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"/></head>
 <body style="margin:0;padding:0;background:#F5F6F7;font-family:Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F6F7;"><tr><td align="center" style="padding:24px 16px;">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+<table width="640" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
   <tr><td style="background:linear-gradient(135deg,#CBA1D4,#a855f7);padding:24px 32px;">
-    <h1 style="margin:0;color:#fff;font-size:18px;font-weight:700;">💰 Prix reçu — ${ref}</h1>
-    <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Client : ${np.nomClient || "—"}</p>
+    <h1 style="margin:0;color:#fff;font-size:18px;font-weight:700;">💰 Prix reçu — ${escapeHtml(ref)}</h1>
+    <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Client : ${escapeHtml(np.nomClient || "—")}</p>
   </td></tr>
   <tr><td style="padding:24px 32px;">
-    <p style="margin:0 0 16px;font-size:14px;color:#374151;">Bonjour ${demandeur.prenom},</p>
-    <p style="margin:0 0 20px;font-size:14px;color:#374151;">Le prix pour la demande suivante est disponible :</p>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;">Bonjour ${escapeHtml(demandeur.prenom)},</p>
+    <p style="margin:0 0 14px;font-size:14px;color:#374151;">Le prix pour la demande suivante est disponible :</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-bottom:20px;">
       <tr style="background:#F9FAFB;">
-        <td style="padding:10px 16px;font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase;">Article</td>
-        <td style="padding:10px 16px;font-size:13px;color:#1F2937;font-weight:600;">${np.denomination}</td>
+        <td style="padding:10px 12px;font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;width:40px;">#</td>
+        <td style="padding:10px 12px;font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;">Furniture</td>
+        <td style="padding:10px 12px;font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;">Dimensions</td>
+        <td style="padding:10px 12px;font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;">Finitions</td>
       </tr>
+      ${linesHtml}
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-bottom:20px;">
       <tr>
-        <td style="padding:10px 16px;font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase;border-top:1px solid #F3F4F6;">Prix de vente</td>
-        <td style="padding:10px 16px;font-size:18px;font-weight:700;color:#10B981;border-top:1px solid #F3F4F6;">${fmtEuro(np.prixVente)}</td>
+        <td style="padding:10px 16px;font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase;">Prix de vente</td>
+        <td style="padding:10px 16px;font-size:18px;font-weight:700;color:#10B981;">${fmtEuro(np.prixVente)}</td>
       </tr>
       <tr>
         <td style="padding:10px 16px;font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase;border-top:1px solid #F3F4F6;">Prix minimum</td>
@@ -44,7 +78,7 @@ async function sendPrixRecuEmail(np: any, demandeur: { prenom: string; nom: stri
       </tr>
       ${np.notes ? `<tr>
         <td style="padding:10px 16px;font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase;border-top:1px solid #F3F4F6;">Notes</td>
-        <td style="padding:10px 16px;font-size:13px;color:#374151;border-top:1px solid #F3F4F6;white-space:pre-line;">${np.notes}</td>
+        <td style="padding:10px 16px;font-size:13px;color:#374151;border-top:1px solid #F3F4F6;white-space:pre-line;">${escapeHtml(np.notes)}</td>
       </tr>` : ""}
     </table>
     <p style="margin:0;font-size:11px;color:#9CA3AF;text-align:center;">Email automatique KOKPIT — <a href="https://kokpit-kappa.vercel.app/achat/need-price" style="color:#a855f7;">Voir dans KOKPIT</a></p>

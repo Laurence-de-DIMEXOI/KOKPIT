@@ -42,15 +42,30 @@ const PAGE_SIZE = 20;
 // TYPES
 // ============================================================================
 
+interface NeedPriceLine {
+  denomination: string;
+  dimensions: string;
+  finitions?: string | null;
+}
+
+interface NeedPriceAttachment {
+  url: string;
+  type: string;
+  filename: string;
+  size?: number;
+}
+
 interface NeedPrice {
   id: string;
   reference: string;
   refDevis: string | null;
   nomClient: string | null;
-  denomination: string;
-  dimensions: string;
+  denomination: string | null;
+  dimensions: string | null;
   finitions: string | null;
   photoUrl: string | null;
+  lignes: NeedPriceLine[] | null;
+  attachments: NeedPriceAttachment[] | null;
   notes: string | null;
   statut: "DEMANDE" | "PRIX_RECU" | "ANNULE";
   prixFournisseur: number | null;
@@ -92,7 +107,6 @@ function NeedPriceDrawer({
   const [noteInput, setNoteInput] = useState(item.notes || "");
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [imgError, setImgError] = useState(false);
 
   const isValidUrl = (url: string | null) => {
     if (!url) return false;
@@ -244,30 +258,106 @@ function NeedPriceDrawer({
             )}
           </div>
 
-          {/* Photo */}
-          {item.photoUrl && isValidUrl(item.photoUrl) && !imgError && (
-            <div className="rounded-lg overflow-hidden border border-cockpit">
-              <img
-                src={item.photoUrl}
-                alt={item.denomination}
-                className="w-full h-48 object-contain bg-gray-50"
-                onError={() => setImgError(true)}
-              />
-            </div>
-          )}
-          {item.photoUrl && (!isValidUrl(item.photoUrl) || imgError) && (
-            <div className="rounded-lg border border-cockpit bg-gray-50 h-24 flex items-center justify-center gap-2 text-cockpit-secondary text-sm">
-              <ImageIcon className="w-4 h-4" />
-              <span>Photo non disponible</span>
-            </div>
-          )}
+          {/* Pièces jointes (photos + PDF) */}
+          {(() => {
+            const list: NeedPriceAttachment[] = Array.isArray(item.attachments) && item.attachments.length > 0
+              ? item.attachments
+              : item.photoUrl
+                ? [{ url: item.photoUrl, type: item.photoUrl.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg", filename: "photo" }]
+                : [];
+            if (list.length === 0) return null;
+            const images = list.filter((a) => a.type.startsWith("image/"));
+            const pdfs = list.filter((a) => a.type === "application/pdf" || a.url.toLowerCase().endsWith(".pdf"));
+            const others = list.filter((a) => !images.includes(a) && !pdfs.includes(a));
+            return (
+              <div className="space-y-3">
+                {images.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {images.map((a, i) => (
+                      isValidUrl(a.url) ? (
+                        <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden border border-cockpit block bg-gray-50">
+                          <img
+                            src={a.url}
+                            alt={a.filename}
+                            className="w-full h-32 object-contain"
+                          />
+                        </a>
+                      ) : null
+                    ))}
+                  </div>
+                )}
+                {pdfs.length > 0 && (
+                  <div className="space-y-2">
+                    {pdfs.map((a, i) => (
+                      <a
+                        key={i}
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-cockpit bg-cockpit-dark hover:border-[var(--color-active)]/40 transition-colors"
+                      >
+                        <FileText className="w-4 h-4 text-red-400 flex-shrink-0" />
+                        <span className="text-sm text-cockpit-primary truncate flex-1">{a.filename}</span>
+                        <span className="text-[10px] text-cockpit-secondary">PDF</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {others.length > 0 && (
+                  <div className="space-y-2">
+                    {others.map((a, i) => (
+                      <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-cockpit-info hover:underline">
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        {a.filename}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
-          {/* Fields */}
+          {/* Infos générales */}
           <div className="space-y-3">
             <Field label="Référence DEPI" value={item.refDevis || "—"} />
-            <Field label="Dénomination" value={item.denomination} />
-            <Field label="Dimensions" value={item.dimensions} />
-            <Field label="Finitions" value={item.finitions || "—"} />
+            <Field label="Nom du client" value={item.nomClient || "—"} />
+          </div>
+
+          {/* Meubles demandés */}
+          {(() => {
+            const lignes: NeedPriceLine[] = Array.isArray(item.lignes) && item.lignes.length > 0
+              ? item.lignes
+              : item.denomination
+                ? [{ denomination: item.denomination, dimensions: item.dimensions || "", finitions: item.finitions }]
+                : [];
+            if (lignes.length === 0) return null;
+            return (
+              <div className="space-y-2 pt-2 border-t border-cockpit">
+                <p className="text-xs font-semibold text-cockpit-secondary uppercase tracking-wider">
+                  Meubles demandés ({lignes.length})
+                </p>
+                {lignes.map((l, i) => (
+                  <div key={i} className="rounded-lg border border-cockpit bg-cockpit-dark p-3 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-cockpit-secondary bg-cockpit-card px-1.5 py-0.5 rounded">#{i + 1}</span>
+                      <span className="text-sm font-semibold text-cockpit-primary">{l.denomination}</span>
+                    </div>
+                    <p className="text-xs text-cockpit-secondary">
+                      <span className="opacity-70">Dimensions :</span> {l.dimensions || "—"}
+                    </p>
+                    {l.finitions && (
+                      <p className="text-xs text-cockpit-secondary">
+                        <span className="opacity-70">Finitions :</span> {l.finitions}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Notes & créateur */}
+          <div className="space-y-3 pt-2 border-t border-cockpit">
             <Field label="Notes" value={item.notes || "—"} />
             <Field
               label="Créé par"
@@ -467,6 +557,8 @@ function Field({ label, value }: { label: string; value: string }) {
 // MODAL - Nouvelle demande
 // ============================================================================
 
+type ModalLine = { denomination: string; dimensions: string; finitions: string };
+
 function NouvellDemandeModal({
   onClose,
   onSuccess,
@@ -477,29 +569,45 @@ function NouvellDemandeModal({
   const { addToast } = useToast();
   const [referenceDepi, setReferenceDepi] = useState("");
   const [nomClient, setNomClient] = useState("");
-  const [denomination, setDenomination] = useState("");
-  const [dimensions, setDimensions] = useState("");
-  const [finitions, setFinitions] = useState("");
-  const [photo, setPhoto] = useState("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [lines, setLines] = useState<ModalLine[]>([
+    { denomination: "", dimensions: "", finitions: "" },
+  ]);
+  const [files, setFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const addLine = () => setLines((prev) => [...prev, { denomination: "", dimensions: "", finitions: "" }]);
+  const removeLine = (idx: number) => setLines((prev) => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
+  const updateLine = (idx: number, patch: Partial<ModalLine>) => {
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  };
+
+  const validLines = lines
+    .map((l) => ({
+      denomination: l.denomination.trim(),
+      dimensions: l.dimensions.trim(),
+      finitions: l.finitions.trim(),
+    }))
+    .filter((l) => l.denomination && l.dimensions);
+
+  const canSubmit =
+    referenceDepi.trim().length > 0 &&
+    nomClient.trim().length > 0 &&
+    validLines.length > 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!denomination.trim() || !dimensions.trim()) return;
+    if (!canSubmit) return;
 
     setSubmitting(true);
     try {
       const formData = new FormData();
       formData.append("refDevis", referenceDepi.trim());
       formData.append("nomClient", nomClient.trim());
-      formData.append("denomination", denomination.trim());
-      formData.append("dimensions", dimensions.trim());
-      formData.append("finitions", finitions.trim());
+      formData.append("lignes", JSON.stringify(validLines));
       formData.append("notes", notes.trim());
-      if (photoFile) {
-        formData.append("photo", photoFile);
+      for (const f of files) {
+        formData.append("files", f);
       }
       const res = await fetch("/api/achat/need-price", {
         method: "POST",
@@ -552,8 +660,7 @@ function NouvellDemandeModal({
           {/* Référence DEPI */}
           <div>
             <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-              Référence DEPI{" "}
-              <span className="text-cockpit-secondary/60">(optionnel)</span>
+              Référence DEPI <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -561,14 +668,14 @@ function NouvellDemandeModal({
               onChange={(e) => setReferenceDepi(e.target.value)}
               placeholder="Ex: DEPI-2024-001"
               className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+              required
             />
           </div>
 
           {/* Nom Client */}
           <div>
             <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-              Nom du client{" "}
-              <span className="text-cockpit-secondary/60">(optionnel)</span>
+              Nom du client <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -576,110 +683,129 @@ function NouvellDemandeModal({
               onChange={(e) => setNomClient(e.target.value)}
               placeholder="Ex: M. Dupont"
               className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
-            />
-          </div>
-
-          {/* Dénomination */}
-          <div>
-            <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-              Dénomination <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={denomination}
-              onChange={(e) => setDenomination(e.target.value)}
-              placeholder="Nom du produit en anglais (ex: Wardrobe 3 doors)"
-              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
               required
             />
           </div>
 
-          {/* Dimensions */}
-          <div>
-            <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-              Dimensions <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={dimensions}
-              onChange={(e) => setDimensions(e.target.value)}
-              placeholder="Ex: L 200 x l 100 x H 75 cm"
-              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
-              required
-            />
-          </div>
-
-          {/* Finitions */}
-          <div>
-            <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-              Finitions{" "}
-              <span className="text-cockpit-secondary/60">(optionnel)</span>
-            </label>
-            <select
-              value={finitions}
-              onChange={(e) => setFinitions(e.target.value)}
-              className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+          {/* Meubles demandés — lignes multiples */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-medium text-cockpit-secondary">
+                Meubles demandés (en anglais) <span className="text-red-500">*</span>
+              </label>
+              <span className="text-[10px] text-cockpit-secondary/70">{lines.length} ligne{lines.length > 1 ? "s" : ""}</span>
+            </div>
+            {lines.map((l, idx) => (
+              <div key={idx} className="rounded-lg border border-cockpit bg-cockpit-dark p-3 space-y-2 relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-cockpit-secondary bg-cockpit-card px-1.5 py-0.5 rounded">#{idx + 1}</span>
+                  {lines.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeLine(idx)}
+                      className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" /> Retirer
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={l.denomination}
+                  onChange={(e) => updateLine(idx, { denomination: e.target.value })}
+                  placeholder="Denomination (EN) — ex: Wardrobe 3 doors"
+                  className="w-full bg-cockpit-card border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                />
+                <input
+                  type="text"
+                  value={l.dimensions}
+                  onChange={(e) => updateLine(idx, { dimensions: e.target.value })}
+                  placeholder="Dimensions — ex: L 200 x W 100 x H 75 cm"
+                  className="w-full bg-cockpit-card border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                />
+                <select
+                  value={l.finitions}
+                  onChange={(e) => updateLine(idx, { finitions: e.target.value })}
+                  className="w-full bg-cockpit-card border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"
+                >
+                  <option value="">Finitions (optionnel)</option>
+                  <option value="Natural">Natural</option>
+                  <option value="Raw">Raw</option>
+                  <option value="WW">WW</option>
+                  <option value="BW">BW</option>
+                  <option value="Antic">Antic</option>
+                </select>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addLine}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-dashed border-cockpit text-cockpit-secondary hover:text-[var(--color-active)] hover:border-[var(--color-active)]/40 transition-colors"
             >
-              <option value="">Sélectionner une finition</option>
-              <option value="Natural">Natural</option>
-              <option value="Raw">Raw</option>
-              <option value="WW">WW</option>
-              <option value="BW">BW</option>
-              <option value="Antic">Antic</option>
-            </select>
+              <Plus className="w-3.5 h-3.5" /> Ajouter un meuble
+            </button>
           </div>
 
-          {/* Photo upload */}
+          {/* Pièces jointes (photos + PDF) */}
           <div>
             <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-              Photo / PDF{" "}
-              <span className="text-cockpit-secondary/60">(optionnel)</span>
+              Photos / PDF <span className="text-cockpit-secondary/60">(multiples)</span>
             </label>
             <input
               type="file"
-              accept="image/*,.pdf"
-              id="photo-upload"
+              accept="image/*,.pdf,application/pdf"
+              id="np-files-upload"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setPhotoFile(file);
-                setPhoto(file ? file.name : "");
+                const next = Array.from(e.target.files || []);
+                if (next.length > 0) setFiles((prev) => [...prev, ...next]);
+                // Reset so re-selecting the same file still triggers change
+                e.target.value = "";
               }}
             />
             <button
               type="button"
-              onClick={() => document.getElementById("photo-upload")?.click()}
+              onClick={() => document.getElementById("np-files-upload")?.click()}
               className="w-full flex items-center gap-2 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-secondary hover:border-[var(--color-active)]/40 transition-colors"
             >
               <ImageIcon className="w-4 h-4" />
-              {photoFile ? photoFile.name : "Ajouter une photo / PDF"}
+              Ajouter des photos ou PDF
             </button>
-            {photoFile && (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-cockpit-secondary truncate flex-1">
-                  {photoFile.name} ({(photoFile.size / 1024).toFixed(0)} Ko)
-                </span>
-                <button
-                  type="button"
-                  onClick={() => { setPhotoFile(null); setPhoto(""); }}
-                  className="text-xs text-red-400 hover:text-red-300"
-                >
-                  Supprimer
-                </button>
-              </div>
+            {files.length > 0 && (
+              <ul className="mt-2 space-y-1.5">
+                {files.map((f, i) => (
+                  <li key={i} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-cockpit-dark border border-cockpit">
+                    {f.type === "application/pdf" ? (
+                      <FileText className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                    ) : (
+                      <ImageIcon className="w-3.5 h-3.5 text-cockpit-info flex-shrink-0" />
+                    )}
+                    <span className="text-xs text-cockpit-secondary truncate flex-1">
+                      {f.name} <span className="opacity-60">({(f.size / 1024).toFixed(0)} Ko)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                      className="text-xs text-red-400 hover:text-red-300"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 
           {/* Notes */}
           <div>
             <label className="block text-xs font-medium text-cockpit-secondary mb-1.5">
-              Notes{" "}
-              <span className="text-cockpit-secondary/60">(optionnel)</span>
+              Notes & infos <span className="text-cockpit-secondary/60">(optionnel)</span>
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Informations complémentaires..."
+              placeholder="Informations complémentaires, délais, spécifications..."
               rows={3}
               className="w-full bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40 resize-none"
             />
@@ -696,7 +822,7 @@ function NouvellDemandeModal({
             </button>
             <button
               type="submit"
-              disabled={submitting || !denomination.trim() || !dimensions.trim()}
+              disabled={submitting || !canSubmit}
               className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
               style={{
                 background: `linear-gradient(135deg, ${ACHAT_GRADIENT.from}, ${ACHAT_GRADIENT.to})`,
