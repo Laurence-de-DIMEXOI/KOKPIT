@@ -163,14 +163,8 @@ export async function POST(request: NextRequest) {
         .join("\n");
 
       const textContent = [
-        `Need Price ${reference}${refDevis ? ` / Devis ${refDevis}` : ""}`,
-        `Client : ${nomClient}`,
-        `Demandé par : ${creatorName}`,
-        "",
         lignesText,
         ...(notes ? ["", `Notes : ${notes}`] : []),
-        "",
-        "https://kokpit-kappa.vercel.app/achat/need-price",
       ].join("\n");
 
       // Toutes les pièces jointes directement (images + PDF), limite 10 MB par fichier
