@@ -15,7 +15,7 @@ const SEED_ARTICLES = [
 ## A quoi sert KOKPIT ?
 
 - **Gestion commerciale** : suivi des devis, commandes, pipeline de vente, tracabilite
-- **Marketing** : planning reseaux sociaux, campagnes email (Brevo), feed Instagram, liens utiles
+- **Marketing** : planning reseaux sociaux, campagnes email (Brevo), ROI publicitaire, liens utiles
 - **Administration** : gestion des collaborateurs, conges, pointage
 - **SAV / Litiges** : suivi des dossiers clients
 
@@ -71,9 +71,8 @@ Cliquez sur un des boutons d'espace en bas de la sidebar. Le menu se met a jour 
 - **Campagnes** : suivi des campagnes pub (Meta)
 - **Emailing** : statistiques Brevo + synchronisation contacts
 - **Planning** : planning editorial reseaux sociaux (Kanban + Calendrier)
-- **Nos Reseaux** : liens sociaux + feed Instagram
+- **Operations** : opérations marketing à venir (promos, lancements)
 - **ROI Marketing** : analyse CA vs depenses, ROAS, CAC
-- **Automatisations** : workflows email automatises
 
 ## Espace Administration
 
@@ -297,39 +296,6 @@ Les donnees sont mises en cache 15 minutes. Cliquez sur "Rafraichir" pour forcer
 ## Creer une campagne
 
 Pour creer une campagne, cliquez sur "Aller sur Brevo" qui vous redirige vers l'interface Brevo.`,
-  },
-  {
-    titre: "Le feed Instagram",
-    slug: "feed-instagram",
-    categorie: "Marketing",
-    position: 3,
-    contenu: `## Page Nos Reseaux
-
-La page Nos Reseaux affiche les liens vers vos profils sociaux et le dernier feed Instagram.
-
-## Liens sociaux
-
-3 cartes donnent un acces direct a :
-- Instagram @dimexoi.re
-- Facebook /dimexoi.re
-- Google Business
-
-## Feed Instagram
-
-Les 12 derniers posts Instagram sont affiches en grille avec :
-- Miniature du post (image ou thumbnail video)
-- Badge de type (Video, Carrousel)
-- Au survol : extrait de la legende + date
-
-Cliquez sur un post pour l'ouvrir dans Instagram.
-
-## Token Meta
-
-Le feed necessite un token d'acces Meta valide. Des alertes apparaissent :
-- **Orange** : le token expire dans moins de 10 jours
-- **Rouge** : le token est expire (le feed ne se charge plus)
-
-Contactez l'administrateur pour renouveler le token.`,
   },
   {
     titre: "Les liens utiles",

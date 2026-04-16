@@ -8,7 +8,6 @@ export type Module =
   | "contacts"
   | "campagnes"
   | "emailing"
-  | "automatisations"
   | "devis"
   | "ventes"
   | "analytique"
@@ -22,7 +21,6 @@ export type Module =
   | "collaborateurs"
   | "planning"
   | "liens-utiles"
-  | "nos-reseaux"
   | "taches"
   | "docs"
   | "club-tectona"
@@ -35,11 +33,7 @@ export type Module =
   | "calculateur"
   | "suivi-commandes"
   | "permissions"
-  | "catalogue-abc"
-  | "alertes-stock"
   | "parametres-achat"
-  | "previsionnel-achat"
-  | "previsionnel"
   | "operations-marketing"
 ;
 
@@ -59,7 +53,6 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "contacts",
     "campagnes",
     "emailing",
-    "automatisations",
     "devis",
     "ventes",
     "analytique",
@@ -74,7 +67,6 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "collaborateurs",
     "planning",
     "liens-utiles",
-    "nos-reseaux",
     "docs",
     "club-tectona",
     "bois-dorient",
@@ -85,11 +77,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "need-price",
     "calculateur",
     "suivi-commandes",
-    "catalogue-abc",
-    "alertes-stock",
     "parametres-achat",
-    "previsionnel-achat",
-    "previsionnel",
     "operations-marketing",
 
     "permissions",
@@ -101,10 +89,8 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "contacts",
     "campagnes",
     "emailing",
-    "automatisations",
     "analytique",
     "planning",
-    "nos-reseaux",
     "docs",
     "club-tectona",
     "taches",
@@ -122,10 +108,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "messagerie",
     "need-price",
     "suivi-commandes",
-    "catalogue-abc",
-    "alertes-stock",
     "parametres-achat",
-    "previsionnel",
     "operations-marketing",
   ],
   COMMERCIAL: [
@@ -149,10 +132,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "messagerie",
     "need-price",
     "suivi-commandes",
-    "catalogue-abc",
-    "alertes-stock",
     "parametres-achat",
-    "previsionnel",
   ],
   DIRECTION: [
     // Tout accès (comme ADMIN)
@@ -161,7 +141,6 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "contacts",
     "campagnes",
     "emailing",
-    "automatisations",
     "devis",
     "ventes",
     "analytique",
@@ -176,7 +155,6 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "collaborateurs",
     "planning",
     "liens-utiles",
-    "nos-reseaux",
     "docs",
     "club-tectona",
     "bois-dorient",
@@ -187,11 +165,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "need-price",
     "calculateur",
     "suivi-commandes",
-    "catalogue-abc",
-    "alertes-stock",
     "parametres-achat",
-    "previsionnel-achat",
-    "previsionnel",
     "operations-marketing",
 
     "permissions",
@@ -216,11 +190,7 @@ const roleModuleAccess: Record<Role, Module[]> = {
     "need-price",
     "calculateur",
     "suivi-commandes",
-    "catalogue-abc",
-    "alertes-stock",
     "parametres-achat",
-    "previsionnel-achat",
-    "previsionnel",
   ],
 };
 

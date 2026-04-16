@@ -44,16 +44,16 @@ export async function GET() {
             if (joursRestants < 0) {
               items.push({
                 type: "token_meta",
-                message: "Token Meta expiré — le feed Instagram ne fonctionne plus",
+                message: "Token Meta expiré — les données Meta Ads ne sont plus mises à jour",
                 severity: "danger",
-                href: "/nos-reseaux",
+                href: "/marketing/roi",
               });
             } else if (joursRestants < 10) {
               items.push({
                 type: "token_meta",
                 message: `Token Meta expire dans ${joursRestants} jour${joursRestants > 1 ? "s" : ""}`,
                 severity: "warning",
-                href: "/nos-reseaux",
+                href: "/marketing/roi",
               });
             }
           }

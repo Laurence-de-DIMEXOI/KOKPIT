@@ -21,7 +21,7 @@
 - Pas de "lead scoring", "conversion funnel", "automation engine" — vocabulaire banni
 
 **Ce que KOKPIT est :**
-- Le hub central qui agrège Sellsy + Brevo + Instagram + Meta Ads + Planning
+- Le hub central qui agrège Sellsy + Brevo + Meta Ads + Planning
 - L'interface quotidienne de Laurence et de l'équipe commerciale
 - Un outil qui s'améliore de façon incrémentale
 
@@ -286,7 +286,6 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | M1 | Liens Utiles | `4804911` |
 | M2 | KPIs Brevo — dashboard Marketing | ✅ |
 | M2bis | Sync contacts Sellsy → Brevo (4 segments) | ✅ |
-| M3 | Nos Réseaux + Feed Instagram | `acc6902` |
 | M4 | Docs + FAQ + Chatbot (Claude Haiku) | `678964d` |
 | NAV | Navigation Option B — Topbar + Sidebar | `293621c` |
 | M5 | Vue Calendrier mensuel Planning | Toggle Kanban/Calendrier, scheduledDate, légende labels, impression checklist |
@@ -493,8 +492,6 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 **À créer (prochains sprints) :**
 - `PlanTechnique` — dépôt plans PDF + transfert OneDrive (Module 3 Achat)
 - `BrevoWebhookEvent` — signaux Brevo→KOKPIT (X5 — plan Pro requis)
-- `SeuilStockAchat` — seuils stock par référence (ACH1)
-- `ConfigABC` — seuils globaux A/B/C configurables (ACH1)
 
 ---
 
@@ -506,7 +503,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ Vercel | Storage Planning |
 | `SELLSY_CLIENT_ID` | ✅ Vercel | API Sellsy V2 + V1 |
 | `SELLSY_CLIENT_SECRET` | ✅ Vercel | API Sellsy V2 + V1 |
-| `META_ACCESS_TOKEN` | ✅ Vercel | Feed Instagram + Meta Ads |
+| `META_ACCESS_TOKEN` | ✅ Vercel | Meta Ads (ROI Marketing) |
 | `META_ACCESS_TOKEN_EXPIRES_AT` | ⚠️ À ajouter | Alerte expiration token |
 | `BREVO_API_KEY` | ✅ Vercel | Stats email + sync + webhooks + relance commercial |
 | `BREVO_SENDER_EMAIL` | ✅ .env.local | Expéditeur emails transactionnels (`laurence.payet@dimexoi.fr`) |
@@ -684,68 +681,6 @@ Calcul à la volée · Cache 24h · Pas de modèle Prisma supplémentaire · Cha
 
 ---
 
-## 17. SPECS — ESPACE ACHAT — CLASSIFICATION ABC (A1)
-
-> ⚠️ Specs rédigées — pas encore développé
-
-### Principe 80/20 (Pareto) appliqué au catalogue DIMEXOI
-
-**Philosophie** : 20% des références font 80% du CA. L'espace Achat concentre l'attention sur ce qui compte et évite les ruptures critiques.
-
-### Rôle et accès
-
-Nouveau rôle à créer : **ACHAT**
-
-| Rôle | Espace Achat |
-|------|-------------|
-| ACHAT | ✅ Accès exclusif Achat |
-| ADMIN / DIRECTION | ✅ Accès à tous les espaces dont Achat |
-
-**Menus espace Achat** : Tableau de bord `/achat` · Catalogue ABC `/achat/catalogue` · Alertes stock `/achat/alertes` · Paramètres seuils `/achat/parametres`
-
-**Couleur espace Achat** : Cerise `#E23260` (token CSS déjà défini ✅)
-
-### Calcul ABC
-
-| Classe | % CA cumulé | Badge | Gestion |
-|--------|------------|-------|---------|
-| A | 0 → 80% | 🔴 Rouge | Stock obligatoire · Alerte rupture immédiate |
-| B | 80 → 95% | 🟡 Jaune | Stock tampon · Surveillance régulière |
-| C | 95 → 100% | ⚪ Gris | À la demande · Pas d'alerte |
-
-```prisma
-model SeuilStockAchat {
-  id            String   @id @default(cuid())
-  sellsyRefId   String   @unique
-  seuilAlerte   Int
-  classeABC     String   // "A" | "B" | "C"
-  note          String?
-  updatedAt     DateTime @updatedAt
-  updatedById   String
-  updatedBy     User     @relation(fields: [updatedById], references: [id])
-}
-
-model ConfigABC {
-  id        String   @id @default(cuid())
-  seuilA    Float    @default(80)
-  seuilB    Float    @default(95)
-  updatedAt DateTime @updatedAt
-}
-```
-
-### Ordre d'implémentation (~2j)
-
-1. Créer rôle ACHAT dans Prisma + NextAuth
-2. Déverrouiller espace Achat dans nav-config.ts
-3. Créer pages /achat, /achat/catalogue, /achat/alertes, /achat/parametres
-4. Implémenter fonction calcul ABC (pure, testable)
-5. Dashboard KPIs + tableau alertes
-6. Catalogue enrichi avec badges ABC
-7. Interface seuils par référence (SeuilStockAchat)
-8. Paramètres seuils globaux (ConfigABC)
-
----
-
 ## 🗺️ PROCHAINS SPRINTS
 
 | ID | Feature | Pourquoi | Effort est. |
@@ -755,7 +690,6 @@ model ConfigABC {
 | ~~X3~~ | ~~Recherche globale topbar~~ | ✅ | Contacts + devis + commandes en parallèle — déjà implémenté |
 | ~~X4~~ | ~~Priorité contact~~ | ✅ Déployé `ddf18ac` — 4 niveaux | — |
 | X5 | Brevo enrichi | Stand-by — plan Starter ne supporte pas export webhook. Listes dynamiques possibles mais webhooks limités | 2j |
-| A1 | Espace Achat — Classification ABC | Rôle ACHAT + catalogue ABC + alertes stock | 2j |
 | ~~X6~~ | ~~Notifications internes~~ | ✅ | Bell topbar + API 5 types (token Meta, devis expirant, Brevo sync, tâches retard, SLA 72h) — déjà implémenté |
 | ~~X7~~ | ~~Dashboards avec courbes~~ | ✅ | Recharts LineChart + ComposedChart + BarChart — évolution devis/commandes, leads par source — déjà implémenté |
 | ~~X8~~ | ~~ROI Marketing réel~~ | ✅ | Modèle CoutMarketing + page /marketing/roi (KPIs, tableau mensuel, répartition par canal, ajout dépenses) — `563889b` |
@@ -765,7 +699,6 @@ model ConfigABC {
 | ~~X10~~ | ~~SLA 72h leads + relance commercial~~ | ✅ | SLA + bouton relance email + tâche auto commercial |
 | ~~ADM1~~ | ~~Espace Administration~~ | ✅ | Paramètres (SLA, pointage, rôles) + Pointage + Congés + Collaborateurs — `484e24d` |
 | ACH-PLANS | Module 3 Achat — Plans PDF + OneDrive | Upload PDF → Supabase → transfert OneDrive via Microsoft Graph API. Bloqué : clés Microsoft à fournir | 1.5j |
-| ACH-ABC | Classification ABC | Catalogue Pareto 80/20 + alertes stock + seuils configurables | 2j |
 | F1 | Création devis KOKPIT → Sellsy | KOKPIT écrit dans Sellsy via API | À spécifier |
 | E1 | Espace client externe | Site séparé connecté à KOKPIT — suivi de commande | À spécifier |
 

@@ -3,7 +3,6 @@ import {
   Inbox,
   Users,
   Megaphone,
-  Zap,
   Mail,
   ShoppingCart,
   Package,
@@ -14,7 +13,6 @@ import {
   UserCircle,
   Link2,
   GitCompareArrows,
-  Share2,
   BookOpen,
   ClipboardList,
   Crown,
@@ -25,7 +23,6 @@ import {
   MessageSquare,
   Calculator,
   Truck,
-  Ship,
   Sparkles,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
@@ -61,7 +58,6 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { label: "Pipeline Devis", href: "/commercial/pipeline", icon: FileText, module: "pipeline" },
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
-      { label: "Arrivages", href: "/commercial/previsionnel", icon: Ship, module: "previsionnel" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
     ],
@@ -75,8 +71,6 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { label: "Campagnes", href: "/campagnes", icon: Megaphone, module: "campagnes" },
       { label: "Emailing", href: "/emailing", icon: Mail, module: "emailing" },
       { label: "Planning", href: "/planning", icon: CalendarDays, module: "planning" },
-      { label: "Nos Réseaux", href: "/nos-reseaux", icon: Share2, module: "nos-reseaux" },
-      { label: "Automatisations", href: "/automatisations", icon: Zap, module: "automatisations" },
       { label: "Opérations", href: "/marketing/operations", icon: Sparkles, module: "operations-marketing" },
       { label: "ROI Marketing", href: "/marketing/roi", icon: TrendingUp, module: "analytique" },
     ],
@@ -86,12 +80,9 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Achat",
     color: "#CBA1D4",
     items: [
-      { label: "Catalogue ABC", href: "/achat/catalogue", icon: Package, module: "catalogue-abc" },
-      { label: "Alertes stock", href: "/achat/alertes", icon: AlertTriangle, module: "alertes-stock" },
       { label: "Need Price", href: "/achat/need-price", icon: FileText, module: "need-price" },
       { label: "Calculateur", href: "/achat/calculateur", icon: Calculator, module: "calculateur" },
       { label: "Suivi commandes", href: "/achat/suivi-commandes", icon: Truck, module: "suivi-commandes" },
-      { label: "Prévisionnel", href: "/achat/previsionnel", icon: Ship, module: "previsionnel-achat" },
     ],
   },
   {
@@ -125,7 +116,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
 
 export function detectColorFromPath(pathname: string): string {
   if (pathname.startsWith("/commercial") || pathname.startsWith("/leads") || pathname.startsWith("/contacts")) return "#4C9DB0";
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/campagnes") || pathname.startsWith("/emailing") || pathname.startsWith("/planning") || pathname.startsWith("/nos-reseaux") || pathname.startsWith("/automatisations") || pathname.startsWith("/marketing")) return "#E36887";
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/campagnes") || pathname.startsWith("/emailing") || pathname.startsWith("/planning") || pathname.startsWith("/marketing")) return "#E36887";
   if (pathname.startsWith("/achat")) return "#CBA1D4";
   if (pathname.startsWith("/administration") || pathname.startsWith("/parametres")) return "#F17142";
   return "#F4B400"; // Général
@@ -133,7 +124,7 @@ export function detectColorFromPath(pathname: string): string {
 
 export function detectEspaceFromPath(pathname: string): string {
   if (pathname.startsWith("/commercial") || pathname.startsWith("/leads") || pathname.startsWith("/contacts")) return "commercial";
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/campagnes") || pathname.startsWith("/emailing") || pathname.startsWith("/planning") || pathname.startsWith("/nos-reseaux") || pathname.startsWith("/automatisations") || pathname.startsWith("/marketing")) return "marketing";
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/campagnes") || pathname.startsWith("/emailing") || pathname.startsWith("/planning") || pathname.startsWith("/marketing")) return "marketing";
   if (pathname.startsWith("/achat")) return "achat";
   if (pathname.startsWith("/administration") || pathname.startsWith("/parametres")) return "administration";
   return "general";
