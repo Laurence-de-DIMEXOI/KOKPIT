@@ -382,13 +382,10 @@ export async function getWarehouses(): Promise<Record<string, Warehouse>> {
 }
 
 export async function getStockForDeclination(itemId: number, declId: number): Promise<Record<string, StockWarehouse>> {
-  let res: unknown;
-  try {
-    res = await sellsyV1Call("Stock.getForItem", { itemid: itemId, declid: declId });
-  } catch (err: any) {
-    console.warn(`[getStockForDeclination] item=${itemId} declid=${declId} V1 error: ${err?.message || err}`);
-    return {};
-  }
+  // Ne pas avaler les erreurs réseau/API : elles doivent remonter pour que le
+  // sync ne confonde pas "pas d'entrepôt côté Sellsy" avec "appel en erreur"
+  // (sans ça on écrasait les données valides par [] en cas de hoquet Sellsy).
+  const res = await sellsyV1Call("Stock.getForItem", { itemid: itemId, declid: declId });
   if (!res || typeof res !== "object") return {};
   const obj = res as Record<string, unknown>;
   const result: Record<string, StockWarehouse> = {};

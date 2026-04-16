@@ -88,6 +88,8 @@ export async function POST(req: NextRequest) {
             select: { id: true },
           });
           const parentAgg: Agg = { physical: 0, reserved: 0, available: 0, byWh: [] };
+          // Aggregation des entrepôts au niveau parent : somme par whId des byWh de chaque déclinaison
+          const parentWhMap = new Map<number, { whId: number; name: string; physical: number; reserved: number; available: number }>();
           for (const d of decls) {
             try {
               const stock = await getStockForDeclination(item.id, d.id);
@@ -96,11 +98,22 @@ export async function POST(req: NextRequest) {
               parentAgg.physical += agg.physical;
               parentAgg.reserved += agg.reserved;
               parentAgg.available += agg.available;
+              for (const w of agg.byWh) {
+                const existing = parentWhMap.get(w.whId);
+                if (existing) {
+                  existing.physical += w.physical;
+                  existing.reserved += w.reserved;
+                  existing.available += w.available;
+                } else {
+                  parentWhMap.set(w.whId, { ...w });
+                }
+              }
             } catch (e) {
               console.warn(`[sync stock] decl ${d.id}: ${(e as Error).message}`);
             }
             await new Promise((r) => setTimeout(r, 40));
           }
+          parentAgg.byWh = Array.from(parentWhMap.values());
           itemAggs.set(item.id, parentAgg);
         } catch (e) {
           console.warn(`[sync stock] skip item ${item.id}: ${(e as Error).message}`);
