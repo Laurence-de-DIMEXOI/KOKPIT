@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 16 avril 2026 (v24 — Veille concurrentielle Meta Ad Library)
-**Mis à jour par** : Session Claude Code (Sprint 16 avril — Stock catalogue + Veille concurrentielle)
+**Dernière mise à jour** : 16 avril 2026 (v24 — Stock catalogue)
+**Mis à jour par** : Session Claude Code (Sprint 16 avril — Stock catalogue)
 
 ---
 
@@ -337,7 +337,6 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | PERMS-SUPA | Permissions via Supabase | Page /administration/permissions supprimée. Gestion directe dans Supabase table User colonne moduleAccessOverrides (JSON) |
 | TZ-REUNION | Fuseau horaire La Réunion | UTC+4 appliqué partout (pointage, congés, cron). Fonction getReunionDateJour() centralisée |
 | CAFE | Popup café ☕ | Rotation hebdomadaire Planning CAFE 2026 (Excel importé). Popup fun au pointage arrivée quand c'est ta semaine |
-| VEILLE | Veille concurrentielle Meta Ad Library | Suivi automatique des pubs Facebook/Instagram de 6 concurrents (80 La Boutique, La Case Déco, Tikamoon, Happy Wood, IDMR, Iemanja). Page `/marketing/veille` (Pinterest-style gallery via iframe snapshot_url + nuage de mots-clés cliquables + 4 KPIs Raspberry + filtres concurrent/plateforme/actives + infinite scroll). Page admin `/marketing/veille/concurrents` CRUD avec résolution auto du Page ID depuis URL Facebook. Sync via cron Vercel quotidien 6h10 (`/api/veille/sync`) — App Access Token Meta (`META_APP_ID\|META_APP_SECRET`, jamais de user token). Rate limit 200 req/h → retry 2/4/8s. DSA FR/UE depuis août 2023 → pubs commerciales dispo. Dedupe sur `adArchiveId`, update partiel (dateFin/active seulement). Commits `8af23fb`, `b445b44`, `1451e56` + UI session 16 avril |
 
 **Nettoyage effectué :**
 - [x] Route `/api/sellsy/diagnostic` supprimée
@@ -490,9 +489,6 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 - **ConfigApp** — paramètres globaux (SLA heures, etc.) ✅
 - **PasswordResetToken** — tokens de réinitialisation mot de passe (24h) ✅
 - **StockCache** — cache persistant stock Sellsy (key TEXT PK, data JSONB, cached_at, expires_at). TTL 30 min. `@@map("stock_cache")` ✅
-- **Concurrent** — concurrents suivis (nom unique, pageId unique nullable, pageUrl, categorie, actif, derniereSync). Relations `pubs PubConcurrent[]` + `snapshots VeilleSiteSnapshot[]` onDelete:Cascade. `@@map("concurrent")` ✅
-- **PubConcurrent** — pub Meta Ad Library (adArchiveId unique, snapshotUrl, texte/titre/caption, plateformes String[], dateDebut, dateFin, active, recupereLe). `@@map("pub_concurrent")` ✅
-- **VeilleSiteSnapshot** — snapshots site concurrent (urlPage, contenuHash, contenuExtrait, detecteLe) — réservé pour future veille HTML. `@@map("veille_site_snapshot")` ✅
 
 **À créer (prochains sprints) :**
 - `PlanTechnique` — dépôt plans PDF + transfert OneDrive (Module 3 Achat)
@@ -532,9 +528,7 @@ Persistance espace actif : localStorage clé `kokpit_espace_actif`
 | `GOOGLE_ADS_REFRESH_TOKEN` | ⚠️ À configurer Vercel | OAuth2 refresh token Google Ads |
 | `GOOGLE_ADS_CLIENT_ID` | ⚠️ À configurer Vercel | OAuth2 client ID Google Ads |
 | `GOOGLE_ADS_CLIENT_SECRET` | ⚠️ À configurer Vercel | OAuth2 client secret Google Ads |
-| `META_APP_ID` | ⚠️ À configurer Vercel | App ID Meta (Veille concurrentielle — Ad Library API). Format token : `{id}\|{secret}` |
-| `META_APP_SECRET` | ⚠️ À configurer Vercel | App Secret Meta (Veille concurrentielle — Ad Library API) |
-| `CRON_SECRET` | ✅ Vercel | Bearer token pour auth crons (dont `/api/veille/sync`) |
+| `CRON_SECRET` | ✅ Vercel | Bearer token pour auth crons |
 
 **Action requise** : activer scope "API V1" dans Sellsy > Paramètres > Portail développeur > API V2 pour que C3bis fonctionne en prod.
 
