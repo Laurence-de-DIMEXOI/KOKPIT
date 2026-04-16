@@ -58,6 +58,9 @@ export async function POST(req: NextRequest) {
 
       const itemAggs: Map<number, Agg> = new Map();
       const declAggs: Map<number, Agg> = new Map();
+      // Parents pour lesquels au moins une décl a échoué : on ne marque PAS
+      // stockSyncedAt pour qu'ils repassent au prochain appel.
+      const failedItems: Set<number> = new Set();
 
       const toAgg = (values: any[]): Agg => {
         const agg: Agg = { physical: 0, reserved: 0, available: 0, byWh: [] };
@@ -90,6 +93,8 @@ export async function POST(req: NextRequest) {
           const parentAgg: Agg = { physical: 0, reserved: 0, available: 0, byWh: [] };
           // Aggregation des entrepôts au niveau parent : somme par whId des byWh de chaque déclinaison
           const parentWhMap = new Map<number, { whId: number; name: string; physical: number; reserved: number; available: number }>();
+          let declErrors = 0;
+          let declSuccess = 0;
           for (const d of decls) {
             try {
               const stock = await getStockForDeclination(item.id, d.id);
@@ -108,13 +113,23 @@ export async function POST(req: NextRequest) {
                   parentWhMap.set(w.whId, { ...w });
                 }
               }
+              declSuccess++;
             } catch (e) {
+              declErrors++;
               console.warn(`[sync stock] decl ${d.id}: ${(e as Error).message}`);
             }
             await new Promise((r) => setTimeout(r, 40));
           }
-          parentAgg.byWh = Array.from(parentWhMap.values());
-          itemAggs.set(item.id, parentAgg);
+          // On n'écrit le parent QUE si au moins une décl a répondu ET aucune n'a échoué.
+          // Sinon on risque d'écrire des zéros qui écrasent des données valides.
+          if (declSuccess > 0 && declErrors === 0) {
+            parentAgg.byWh = Array.from(parentWhMap.values());
+            itemAggs.set(item.id, parentAgg);
+          } else if (declErrors > 0) {
+            console.warn(`[sync stock] skip parent ${item.id}: ${declErrors}/${decls.length} decl errors`);
+            // Bloque aussi la màj du stockSyncedAt pour ce parent (sera rebuilt au prochain run)
+            failedItems.add(item.id);
+          }
         } catch (e) {
           console.warn(`[sync stock] skip item ${item.id}: ${(e as Error).message}`);
         }
@@ -152,10 +167,15 @@ export async function POST(req: NextRequest) {
         ),
       ]);
 
-      await prisma.sellsyItemCache.updateMany({
-        where: { id: { in: batch.map((b) => b.id) } },
-        data: { stockSyncedAt: new Date() },
-      });
+      // Ne marque stockSyncedAt QUE sur les items sans échec — les autres
+      // seront re-tentés au prochain passage.
+      const syncedIds = batch.map((b) => b.id).filter((id) => !failedItems.has(id));
+      if (syncedIds.length > 0) {
+        await prisma.sellsyItemCache.updateMany({
+          where: { id: { in: syncedIds } },
+          data: { stockSyncedAt: new Date() },
+        });
+      }
 
       processedCount += batch.length;
     }
