@@ -81,8 +81,15 @@ export async function POST(req: NextRequest) {
       const processItem = async (item: typeof batch[number]) => {
         try {
           if (!item.isDeclined) {
-            const stock = await getStockForItem(item.id);
-            itemAggs.set(item.id, toAgg(Object.values(stock)));
+            try {
+              const stock = await getStockForItem(item.id);
+              itemAggs.set(item.id, toAgg(Object.values(stock)));
+            } catch (e) {
+              // Erreur Sellsy V1 : on ne touche PAS les données existantes et
+              // on ne marque pas stockSyncedAt → re-tentative au prochain passage.
+              console.warn(`[sync stock] skip simple ${item.id}: ${(e as Error).message}`);
+              failedItems.add(item.id);
+            }
             return;
           }
           // Item décliné : une requête par déclinaison

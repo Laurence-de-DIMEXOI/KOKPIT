@@ -400,15 +400,10 @@ export async function getStockForDeclination(itemId: number, declId: number): Pr
 }
 
 export async function getStockForItem(itemId: number): Promise<Record<string, StockWarehouse>> {
-  let res: unknown;
-  try {
-    res = await sellsyV1Call("Stock.getForItem", { itemid: itemId });
-  } catch (err: any) {
-    // Certains articles déclinés renvoient une erreur V1 quand on appelle avec l'ID parent
-    // On logue et on retourne vide plutôt que de propager l'erreur
-    console.warn(`[getStockForItem] id=${itemId} V1 error: ${err?.message || err}`);
-    return {};
-  }
+  // Les erreurs V1 (timeout, 429, 5xx…) doivent remonter : le sync et les
+  // autres callers ont leur propre retry/skip logic. Avaler l'erreur ici
+  // conduisait à écrire [] en base par-dessus des données valides.
+  const res = await sellsyV1Call("Stock.getForItem", { itemid: itemId });
 
   if (!res) return {};
 
