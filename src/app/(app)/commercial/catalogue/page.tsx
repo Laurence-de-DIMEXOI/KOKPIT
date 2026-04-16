@@ -451,16 +451,17 @@ export default function CataloguePage() {
       const hasDecls = item.is_declined;
       if (search) {
         const pMatches = parentMatchesSearchEarly(item);
-        if (pMatches) {
+        const matchingDecls = decls.filter((d) => searchMatchedDeclIdsEarly?.has(d.id));
+        // On masque le parent s'il est décliné et qu'on a au moins une déclinaison à afficher
+        const showParent = pMatches && (!hasDecls || matchingDecls.length === 0);
+        if (showParent) {
           rows.push({ kind: "parent", item });
         }
-        for (const d of decls) {
-          if (searchMatchedDeclIdsEarly?.has(d.id)) {
-            rows.push({ kind: "decl", item, decl: d });
-          }
+        for (const d of matchingDecls) {
+          rows.push({ kind: "decl", item, decl: d });
         }
-        // Si aucun match explicite n'a été ajouté (edge case : item matché mais pas de decls chargées)
-        if (!pMatches && decls.length === 0) {
+        // Edge case : item matché mais aucune décl. chargée et aucune décl. matchée
+        if (!showParent && matchingDecls.length === 0 && pMatches) {
           rows.push({ kind: "parent", item });
         }
       } else {
