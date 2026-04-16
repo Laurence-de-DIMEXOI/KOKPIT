@@ -145,6 +145,40 @@ function NeedPriceDrawer({
     setSubmitting(false);
   };
 
+  const handleReset = async () => {
+    if (!confirm("Effacer tous les prix saisis et repasser la demande en « En attente » ?")) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/achat/need-price/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          statut: "DEMANDE",
+          prixFournisseur: null,
+          prixVente: null,
+          prixMinimum: null,
+          typePrix: null,
+          notes: null,
+        }),
+      });
+      if (res.ok) {
+        // Reset local form inputs so "En attente" section ouvre vide
+        setPrixInput("");
+        setNoteInput("");
+        setEditing(false);
+        addToast("Prix effacés, demande repassée en attente", "success");
+        onUpdate();
+        onClose();
+      } else {
+        const d = await res.json();
+        addToast(d.error || "Erreur", "error");
+      }
+    } catch {
+      addToast("Erreur de connexion", "error");
+    }
+    setSubmitting(false);
+  };
+
   const handleAnnuler = async () => {
     setSubmitting(true);
     try {
@@ -322,6 +356,14 @@ function NeedPriceDrawer({
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-cockpit text-cockpit-secondary hover:text-[var(--color-active)] hover:border-[var(--color-active)]/30 transition-colors"
               >
                 Modifier le prix fournisseur
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium border border-cockpit text-cockpit-secondary hover:text-red-500 hover:border-red-500/30 transition-colors disabled:opacity-50"
+              >
+                <XCircle className="w-4 h-4" />
+                Effacer les prix & remettre en attente
               </button>
             </div>
           )}
