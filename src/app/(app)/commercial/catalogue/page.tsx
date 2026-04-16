@@ -379,20 +379,29 @@ export default function CataloguePage() {
       });
     }
 
-    // NB : le filtre de stock est appliqué plus bas au niveau des lignes
-    // affichées (parent simple OU déclinaison), pas ici sur l'agrégat parent.
-    // Exception : on garde un garde-fou pour les items non-déclinés afin de
-    // ne pas garder inutilement les simples qui ne correspondent pas.
+    // Pré-filtre stock au niveau parent : on garde un parent si
+    //   (a) il est simple et matche, OU
+    //   (b) il est décliné et son agrégat matche (somme des décl), OU
+    //   (c) il est décliné et au moins une de ses décl chargées matche.
+    // displayRows re-filtrera ensuite par ligne affichée (décl par décl).
     if (stockFilter !== "ALL") {
-      result = result.filter((item) => {
-        if (item.is_declined) return true; // la filtration se fait sur la décl.
-        const avail = item.stock_available ?? 0;
+      const match = (avail: number | null | undefined) => {
+        const v = avail ?? 0;
         switch (stockFilter) {
-          case "in": return avail > 0;
-          case "out": return avail <= 0;
-          case "low": return avail > 0 && avail <= 5;
+          case "in": return v > 0;
+          case "out": return v <= 0;
+          case "low": return v > 0 && v <= 5;
           default: return true;
         }
+      };
+      result = result.filter((item) => {
+        if (!item.is_declined) return match(item.stock_available);
+        if (match(item.stock_available)) return true;
+        const decls = declinations[item.id];
+        if (decls && decls.length > 0) {
+          return decls.some((d) => match(d.stock_available));
+        }
+        return false;
       });
     }
 
@@ -492,9 +501,8 @@ export default function CataloguePage() {
         // On masque le parent s'il est décliné et qu'on a au moins une déclinaison à afficher
         const showParent = pMatches && (!hasDecls || matchingDecls.length === 0);
         if (showParent) {
-          // Simple item : filtre sur son propre stock. Décliné sans décl chargée :
-          // on garde (le filtrage se fera à l'affichage des décls).
-          if (hasDecls || matchesStockFilter(item.stock_available)) {
+          // Filtre systématique sur le stock affiché (agrégat parent dans ce cas).
+          if (matchesStockFilter(item.stock_available)) {
             rows.push({ kind: "parent", item });
           }
         }
@@ -505,16 +513,16 @@ export default function CataloguePage() {
         }
         // Edge case : item matché mais aucune décl. chargée et aucune décl. matchée
         if (!showParent && matchingDecls.length === 0 && pMatches) {
-          if (hasDecls || matchesStockFilter(item.stock_available)) {
+          if (matchesStockFilter(item.stock_available)) {
             rows.push({ kind: "parent", item });
           }
         }
       } else {
         const showParent = !hasDecls || decls.length === 0;
         if (showParent) {
-          // Simple item : filtre direct. Décliné sans décl chargée : on garde
-          // (le filtrage se fera quand les décls seront chargées).
-          if (hasDecls || matchesStockFilter(item.stock_available)) {
+          // Filtre sur le stock affiché : agrégat pour un parent décliné sans
+          // décl encore chargée, stock propre pour un item simple.
+          if (matchesStockFilter(item.stock_available)) {
             rows.push({ kind: "parent", item });
           }
         } else {
