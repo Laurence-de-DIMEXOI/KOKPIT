@@ -1486,3 +1486,62 @@ model SellsyCatalogueSync {
 
   @@map("sellsy_catalogue_sync")
 }
+
+// ============================================================================
+// VEILLE CONCURRENTIELLE (Meta Ad Library)
+// ============================================================================
+
+model Concurrent {
+  id           String    @id @default(cuid())
+  nom          String    @unique
+  pageId       String?   @unique // Page ID Facebook (null tant que non résolu)
+  pageUrl      String?            // URL Facebook saisie par l'admin
+  categorie    String?            // "mobilier", "déco", "teck"...
+  actif        Boolean   @default(true)
+  derniereSync DateTime?          // Dernier passage cron Ad Library réussi
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  pubs       PubConcurrent[]
+  snapshots  VeilleSiteSnapshot[]
+
+  @@index([actif])
+  @@map("concurrent")
+}
+
+model PubConcurrent {
+  id            String      @id @default(cuid())
+  concurrentId  String
+  concurrent    Concurrent  @relation(fields: [concurrentId], references: [id], onDelete: Cascade)
+
+  adArchiveId   String      @unique // ID Meta Ad Library (dédoublonnage)
+  snapshotUrl   String              // URL iframe Meta pour afficher le créatif
+  texte         String?     @db.Text // ad_creative_bodies[0]
+  titre         String?                // ad_creative_link_titles[0]
+  caption       String?                // ad_creative_link_captions[0]
+  plateformes   String[]               // ["facebook","instagram"]
+  dateDebut     DateTime
+  dateFin       DateTime?              // null = encore active
+  active        Boolean     @default(true)
+
+  recupereLe    DateTime    @default(now())
+
+  @@index([concurrentId, dateDebut])
+  @@index([active])
+  @@index([dateDebut])
+  @@map("pub_concurrent")
+}
+
+// Veille site web — V2 (non utilisé en V1, table créée pour éviter migration future)
+model VeilleSiteSnapshot {
+  id             String     @id @default(cuid())
+  concurrentId   String
+  concurrent     Concurrent @relation(fields: [concurrentId], references: [id], onDelete: Cascade)
+  urlPage        String                     // URL surveillée (ex: /promos)
+  contenuHash    String                     // SHA256 du contenu texte
+  contenuExtrait String?    @db.Text        // 500 premiers caractères pour diff
+  detecteLe      DateTime   @default(now())
+
+  @@index([concurrentId, detecteLe])
+  @@map("veille_site_snapshot")
+}
