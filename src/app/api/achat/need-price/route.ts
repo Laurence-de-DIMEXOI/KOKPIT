@@ -158,59 +158,26 @@ export async function POST(request: NextRequest) {
       const creatorName = `${needPrice.createdBy.prenom} ${needPrice.createdBy.nom}`;
       const subject = `Need Price ${refDevis} — ${nomClient}`;
 
-      const linesHtml = lignes
-        .map(
-          (l, i) => `
-          <tr>
-            <td style="padding:8px 12px;font-size:12px;color:#6B7280;border-top:1px solid #F3F4F6;">#${i + 1}</td>
-            <td style="padding:8px 12px;font-size:13px;color:#1F2937;font-weight:600;border-top:1px solid #F3F4F6;">${escapeHtml(l.denomination)}</td>
-            <td style="padding:8px 12px;font-size:13px;color:#374151;border-top:1px solid #F3F4F6;">${escapeHtml(l.dimensions)}</td>
-            <td style="padding:8px 12px;font-size:13px;color:#374151;border-top:1px solid #F3F4F6;">${escapeHtml(l.finitions || "—")}</td>
-          </tr>`
-        )
-        .join("");
+      const lignesText = lignes
+        .map((l, i) => `${i + 1}. ${l.denomination} — ${l.dimensions}${l.finitions ? ` — ${l.finitions}` : ""}`)
+        .join("\n");
 
-      const attachmentsHtml = attachments.length
-        ? `<p style="margin:16px 0 6px;font-size:13px;color:#374151;font-weight:600;">Pièces jointes (${attachments.length}) :</p>
-           <ul style="margin:0;padding:0 0 0 20px;font-size:12px;color:#374151;">
-             ${attachments
-               .map((a) => `<li style="margin:4px 0;"><a href="${a.url}" style="color:#7C3AED;">${escapeHtml(a.filename)}</a> <span style="color:#9CA3AF;">(${a.type})</span></li>`)
-               .join("")}
-           </ul>`
-        : "";
+      const textContent = [
+        `Need Price ${reference}${refDevis ? ` / Devis ${refDevis}` : ""}`,
+        `Client : ${nomClient}`,
+        `Demandé par : ${creatorName}`,
+        "",
+        lignesText,
+        ...(notes ? ["", `Notes : ${notes}`] : []),
+        "",
+        "https://kokpit-kappa.vercel.app/achat/need-price",
+      ].join("\n");
 
-      const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
-<body style="margin:0;padding:0;background:#F5F6F7;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F6F7;"><tr><td align="center" style="padding:24px 16px;">
-<table width="640" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-  <tr><td style="background:linear-gradient(135deg,#CBA1D4,#FEEB9C);padding:22px 28px;">
-    <h1 style="margin:0;color:#1F2937;font-size:17px;font-weight:700;">📦 ${escapeHtml(subject)}</h1>
-    <p style="margin:4px 0 0;color:#1F2937;font-size:13px;">Réf KOKPIT : ${reference} · Demandé par ${escapeHtml(creatorName)}</p>
-  </td></tr>
-  <tr><td style="padding:20px 28px;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;">
-      <tr style="background:#F9FAFB;">
-        <td style="padding:10px 12px;font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;width:40px;">#</td>
-        <td style="padding:10px 12px;font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;">Furniture</td>
-        <td style="padding:10px 12px;font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;">Dimensions</td>
-        <td style="padding:10px 12px;font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;">Finitions</td>
-      </tr>
-      ${linesHtml}
-    </table>
-    ${notes ? `<p style="margin:16px 0 6px;font-size:13px;color:#374151;font-weight:600;">Notes :</p><pre style="margin:0;font-family:Arial,sans-serif;font-size:13px;color:#374151;white-space:pre-wrap;">${escapeHtml(notes)}</pre>` : ""}
-    ${attachmentsHtml}
-    <p style="margin:24px 0 0;font-size:11px;color:#9CA3AF;text-align:center;">KOKPIT — <a href="https://kokpit-kappa.vercel.app/achat/need-price" style="color:#7C3AED;">Voir la demande</a></p>
-  </td></tr>
-</table>
-</td></tr></table>
-</body></html>`;
-
-      // Joindre uniquement les images en base64 (les PDF peuvent être lourds → lien uniquement)
+      // Toutes les pièces jointes directement (images + PDF), limite 10 MB par fichier
       const attachmentPayload: Array<{ content: string; name: string }> = [];
       for (const file of files) {
         if (!file || typeof file === "string" || file.size === 0) continue;
-        if (!file.type.startsWith("image/")) continue;
-        if (file.size > 4 * 1024 * 1024) continue; // skip images > 4 MB
+        if (file.size > 10 * 1024 * 1024) continue;
         try {
           const buf = Buffer.from(await file.arrayBuffer());
           attachmentPayload.push({ content: buf.toString("base64"), name: file.name });
@@ -221,7 +188,7 @@ export async function POST(request: NextRequest) {
         sender: { name: "KOKPIT", email: "laurence.payet@dimexoi.fr" },
         to: [{ email: "dimexoi.depi@gmail.com" }],
         subject,
-        htmlContent,
+        textContent,
       };
       if (attachmentPayload.length > 0) emailPayload.attachment = attachmentPayload;
 
