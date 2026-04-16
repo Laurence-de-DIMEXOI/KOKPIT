@@ -15,6 +15,10 @@
     {
       "path": "/api/recap-hebdo",
       "schedule": "57 8 * * 2"
+    },
+    {
+      "path": "/api/veille/sync",
+      "schedule": "10 6 * * *"
     }
   ]
 }
