@@ -126,8 +126,86 @@ async function fetchMetaMonthlySpend(annee: string): Promise<Record<string, numb
   }
 }
 
-// --- Google Ads monthly spend — depuis la table Campagne (import Google Sheet) ---
+// --- Google Ads monthly spend — API officielle avec developer token + OAuth2 ---
+async function fetchGoogleAdsAccessToken(): Promise<string | null> {
+  const clientId     = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) return null;
+
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id:     clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type:    "refresh_token",
+      }),
+    });
+    if (!res.ok) { console.error("[ROI] Google OAuth token error:", await res.text()); return null; }
+    const data = await res.json();
+    return data.access_token || null;
+  } catch (err) {
+    console.error("[ROI] Google OAuth fetch error:", err);
+    return null;
+  }
+}
+
 async function fetchGoogleMonthlySpend(annee: string): Promise<Record<string, number>> {
+  const devToken  = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  const customerId = (process.env.GOOGLE_ADS_CUSTOMER_ID || "").replace(/-/g, "");
+  const loginId   = (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || "").replace(/-/g, "");
+
+  // --- Tentative via Google Ads API ---
+  if (devToken && customerId) {
+    const accessToken = await fetchGoogleAdsAccessToken();
+    if (accessToken) {
+      try {
+        const query = `
+          SELECT metrics.cost_micros, segments.month
+          FROM campaign
+          WHERE segments.date BETWEEN '${annee}-01-01' AND '${annee}-12-31'
+            AND campaign.status != 'REMOVED'
+        `;
+        const headers: Record<string, string> = {
+          "Authorization":   `Bearer ${accessToken}`,
+          "developer-token": devToken,
+          "Content-Type":    "application/json",
+        };
+        if (loginId) headers["login-customer-id"] = loginId;
+
+        const res = await fetch(
+          `https://googleads.googleapis.com/v17/customers/${customerId}/googleAds:search`,
+          { method: "POST", headers, body: JSON.stringify({ query }) }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const monthly: Record<string, number> = {};
+          for (const row of (data.results || [])) {
+            const micros = Number(row.metrics?.costMicros || 0);
+            const euros  = micros / 1_000_000;
+            const month  = (row.segments?.month || "").substring(0, 7); // "2026-01"
+            if (!month) continue;
+            monthly[month] = (monthly[month] || 0) + euros;
+          }
+          for (const k of Object.keys(monthly)) {
+            monthly[k] = Math.round(monthly[k] * 100) / 100;
+          }
+          console.log("[ROI] Google Ads API OK — mois:", Object.keys(monthly).length);
+          return monthly;
+        } else {
+          console.error("[ROI] Google Ads API error:", await res.text());
+        }
+      } catch (err) {
+        console.error("[ROI] Google Ads API fetch error:", err);
+      }
+    }
+  }
+
+  // --- Fallback : table Campagne (import Google Sheet) ---
   try {
     const campaigns = await prisma.campagne.findMany({
       where: {
@@ -147,12 +225,10 @@ async function fetchGoogleMonthlySpend(annee: string): Promise<Record<string, nu
       const monthKey = c.dateDebut.toISOString().substring(0, 7);
       monthly[monthKey] = (monthly[monthKey] || 0) + c.coutTotal;
     }
-
-    // Arrondir
     for (const k of Object.keys(monthly)) {
       monthly[k] = Math.round(monthly[k] * 100) / 100;
     }
-
+    console.log("[ROI] Google Ads fallback DB — mois:", Object.keys(monthly).length);
     return monthly;
   } catch (err) {
     console.error("[ROI] Google Ads DB spend error:", err);

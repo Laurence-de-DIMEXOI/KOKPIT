@@ -422,6 +422,10 @@ export async function POST(request: NextRequest) {
         notes: `Demande site web: ${meuble}${message ? ` — ${message}` : ""}${budget ? ` (Budget: ${budget})` : ""}${sourceDetail ? ` [Source: ${sourceDetail}]` : ""}`,
         commercialId: commercial?.id || null,
         slaDeadline,
+        // UTM — stockés dans les colonnes dédiées pour analyse dans ROI Marketing
+        ...(utmSource ? { utmSource } : {}),
+        ...(utmMedium ? { utmMedium } : {}),
+        ...(utmCampaign ? { utmCampaign } : {}),
       },
     });
 
