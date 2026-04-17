@@ -869,52 +869,59 @@ export default function ROIMarketingPage() {
             ))}
           </div>
 
-          {/* Tableau mensuel desktop */}
-          <div className="hidden md:block bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-cockpit text-cockpit-secondary text-xs">
-                  <th className="text-left px-4 py-3 font-medium">Mois</th>
-                  {demandesSources.sources.map((s) => (
-                    <th key={s.key} className="text-right px-4 py-3 font-medium">{s.label}</th>
-                  ))}
-                  <th className="text-right px-4 py-3 font-medium">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {demandesSources.tableau.filter((m) => (m.total as number) > 0).map((m) => (
-                  <tr key={m.mois as string} className="border-b border-cockpit/50 hover:bg-cockpit-dark/50 transition-colors">
-                    <td className="px-4 py-3 text-cockpit-primary font-medium">{formatPeriode(m.mois as string)}</td>
-                    {demandesSources.sources.map((s) => (
-                      <td key={s.key} className="px-4 py-3 text-right text-cockpit-secondary">
-                        {(m[s.key] as number) > 0 ? m[s.key] as number : "—"}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3 text-right font-semibold text-cockpit-primary">{m.total as number}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* Tableau : sources en lignes, mois en colonnes */}
+          {(() => {
+            const moisActifs = demandesSources.tableau.filter((m) => (m.total as number) > 0);
+            return (
+              <>
+                <div className="hidden md:block bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-cockpit text-cockpit-secondary text-xs">
+                        <th className="text-left px-4 py-3 font-medium">Source</th>
+                        {moisActifs.map((m) => (
+                          <th key={m.mois as string} className="text-right px-4 py-3 font-medium">{formatPeriode(m.mois as string)}</th>
+                        ))}
+                        <th className="text-right px-4 py-3 font-medium">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {demandesSources.sources.map((s) => (
+                        <tr key={s.key} className="border-b border-cockpit/50 hover:bg-cockpit-dark/50 transition-colors">
+                          <td className="px-4 py-3 text-cockpit-primary font-medium">{s.label}</td>
+                          {moisActifs.map((m) => (
+                            <td key={m.mois as string} className="px-4 py-3 text-right text-cockpit-secondary">
+                              {(m[s.key] as number) > 0 ? m[s.key] as number : "—"}
+                            </td>
+                          ))}
+                          <td className="px-4 py-3 text-right font-semibold text-cockpit-primary">{s.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-          {/* Mobile */}
-          <div className="md:hidden space-y-2">
-            {demandesSources.tableau.filter((m) => (m.total as number) > 0).map((m) => (
-              <div key={m.mois as string} className="bg-cockpit-card rounded-xl border border-cockpit p-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm text-cockpit-primary font-medium">{formatPeriode(m.mois as string)}</span>
-                  <span className="text-sm font-bold text-cockpit-primary">{m.total as number} leads</span>
-                </div>
-                <div className="flex gap-3 flex-wrap">
-                  {demandesSources.sources.filter((s) => (m[s.key] as number) > 0).map((s) => (
-                    <span key={s.key} className="text-[10px] text-cockpit-secondary">
-                      {s.label} : <span className="font-semibold text-cockpit-primary">{m[s.key] as number}</span>
-                    </span>
+                {/* Mobile */}
+                <div className="md:hidden space-y-2">
+                  {demandesSources.sources.map((s) => (
+                    <div key={s.key} className="bg-cockpit-card rounded-xl border border-cockpit p-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm text-cockpit-primary font-medium">{s.label}</span>
+                        <span className="text-sm font-bold text-cockpit-primary">{s.total} leads</span>
+                      </div>
+                      <div className="flex gap-3 flex-wrap">
+                        {moisActifs.filter((m) => (m[s.key] as number) > 0).map((m) => (
+                          <span key={m.mois as string} className="text-[10px] text-cockpit-secondary">
+                            {formatPeriode(m.mois as string)} : <span className="font-semibold text-cockpit-primary">{m[s.key] as number}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
-            ))}
-          </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
