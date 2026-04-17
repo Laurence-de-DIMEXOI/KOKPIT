@@ -17,7 +17,6 @@ const TYPES_COUT = [
 const EXCLUDED_CF_VALUES = ["SAV", "COMMANDE MAGASIN", "FOURNISSEUR"];
 
 const META_API = "https://graph.facebook.com/v19.0";
-const GADS_BASE = "https://googleads.googleapis.com/v20";
 
 function isOrderExcluded(order: Awaited<ReturnType<typeof listAllOrders>>[number]): boolean {
   // Exclure les statuts annulés
@@ -127,70 +126,36 @@ async function fetchMetaMonthlySpend(annee: string): Promise<Record<string, numb
   }
 }
 
-// --- Google Ads monthly spend ---
+// --- Google Ads monthly spend — depuis la table Campagne (import Google Sheet) ---
 async function fetchGoogleMonthlySpend(annee: string): Promise<Record<string, number>> {
-  const required = [
-    "GOOGLE_ADS_DEVELOPER_TOKEN",
-    "GOOGLE_ADS_CUSTOMER_ID",
-    "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET",
-    "GOOGLE_REFRESH_TOKEN",
-  ];
-  if (required.some((k) => !process.env[k])) return {};
-
   try {
-    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        refresh_token: process.env.GOOGLE_REFRESH_TOKEN!,
-        grant_type: "refresh_token",
-      }),
-    });
-    const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) return {};
-
-    const customerId = process.env.GOOGLE_ADS_CUSTOMER_ID!;
-
-    const query = `
-      SELECT segments.month, metrics.cost_micros
-      FROM campaign
-      WHERE campaign.status != 'REMOVED'
-        AND segments.date BETWEEN '${annee}-01-01' AND '${annee}-12-31'
-      ORDER BY segments.month ASC
-    `;
-
-    const res = await fetch(`${GADS_BASE}/customers/${customerId}/googleAds:search`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
-        "Content-Type": "application/json",
+    const campaigns = await prisma.campagne.findMany({
+      where: {
+        plateforme: "GOOGLE",
+        coutTotal: { gt: 0 },
+        dateDebut: {
+          gte: new Date(`${annee}-01-01`),
+          lt: new Date(`${parseInt(annee) + 1}-01-01`),
+        },
       },
-      body: JSON.stringify({ query }),
+      select: { coutTotal: true, dateDebut: true },
     });
 
-    if (!res.ok) {
-      console.error("[ROI] Google Ads API error:", res.status);
-      return {};
+    const monthly: Record<string, number> = {};
+    for (const c of campaigns) {
+      if (!c.dateDebut || !c.coutTotal) continue;
+      const monthKey = c.dateDebut.toISOString().substring(0, 7);
+      monthly[monthKey] = (monthly[monthKey] || 0) + c.coutTotal;
     }
 
-    const data = await res.json();
-    const monthly: Record<string, number> = {};
-
-    for (const row of (data.results || [])) {
-      const rawMonth: string = row.segments?.month || "";
-      const monthKey = rawMonth.substring(0, 7); // "2026-01"
-      if (!monthKey) continue;
-      const spend = Math.round((Number(row.metrics?.costMicros || 0) / 1_000_000) * 100) / 100;
-      monthly[monthKey] = (monthly[monthKey] || 0) + spend;
+    // Arrondir
+    for (const k of Object.keys(monthly)) {
+      monthly[k] = Math.round(monthly[k] * 100) / 100;
     }
 
     return monthly;
   } catch (err) {
-    console.error("[ROI] Google Ads spend error:", err);
+    console.error("[ROI] Google Ads DB spend error:", err);
     return {};
   }
 }
