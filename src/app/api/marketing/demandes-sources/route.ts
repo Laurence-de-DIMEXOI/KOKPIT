@@ -40,8 +40,12 @@ export async function GET(req: NextRequest) {
   const leads = await prisma.lead.findMany({
     where: {
       createdAt: { gte, lt },
-      // Exclure les téléchargements de guide PDF — ce sont des leads froids, pas des demandes de prix
-      NOT: { utmMedium: "guide_pdf" },
+      // Exclure les téléchargements de guide PDF (utmMedium = 'guide_pdf')
+      // Les leads sans UTM (NULL) doivent être inclus
+      OR: [
+        { utmMedium: null },
+        { utmMedium: { not: "guide_pdf" } },
+      ],
     },
     select: { source: true, utmSource: true, utmMedium: true, utmCampaign: true, createdAt: true },
   });
