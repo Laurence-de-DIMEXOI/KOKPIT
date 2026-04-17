@@ -28,7 +28,7 @@ import { useToast } from "@/components/ui/toast";
 interface KPIs {
   totalCA: number;
   totalDepenses: number;
-  roiAnnuel: number;
+  roasAnnuel: number;
   cac: number;
   nbVentes: number;
   guideDownloads: number;
@@ -40,7 +40,7 @@ interface MoisData {
   depenses: number;
   metaSpend: number;
   googleSpend: number;
-  roi: number;
+  roas: number;
 }
 
 interface DepenseParType {
@@ -560,8 +560,8 @@ export default function ROIMarketingPage() {
             },
             {
               icon: TrendingUp,
-              label: "ROI annuel",
-              value: `${(data?.kpis.roiAnnuel || 0).toFixed(1)} %`,
+              label: "ROAS annuel",
+              value: `${(data?.kpis.roasAnnuel || 0).toFixed(2)}x`,
             },
             {
               icon: Target,
@@ -711,6 +711,36 @@ export default function ROIMarketingPage() {
               )}
             </div>
           )}
+
+          {/* Liens de suivi */}
+          <div className="rounded-xl p-4 mt-3" style={{ background: "var(--color-cockpit-card)", border: "1px solid var(--color-cockpit-border)" }}>
+            <p className="text-xs font-semibold text-cockpit-secondary mb-3">Liens de suivi — à partager par canal</p>
+            <div className="space-y-2">
+              {[
+                { label: "Instagram / Story", source: "instagram", medium: "social" },
+                { label: "Facebook / Post", source: "facebook", medium: "social" },
+                { label: "Meta Ads", source: "meta-ads", medium: "paid" },
+                { label: "Google Ads", source: "google-ads", medium: "paid" },
+                { label: "WhatsApp", source: "whatsapp", medium: "direct" },
+                { label: "Email / Newsletter", source: "email", medium: "email" },
+                { label: "SMS", source: "sms", medium: "direct" },
+              ].map(({ label, source, medium }) => {
+                const url = `https://www.dimexoi.fr/catalogue-track?utm_source=${source}&utm_medium=${medium}&utm_campaign=catalogue-${annee}`;
+                return (
+                  <div key={source} className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-cockpit-primary w-36 flex-shrink-0">{label}</span>
+                    <span className="text-[10px] text-cockpit-secondary truncate flex-1 font-mono">{url}</span>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(url); addToast("Lien copié", "success"); }}
+                      className="text-[10px] px-2 py-1 rounded bg-cockpit-dark text-cockpit-secondary hover:text-cockpit-primary flex-shrink-0 border border-cockpit"
+                    >
+                      Copier
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -738,7 +768,7 @@ export default function ROIMarketingPage() {
                     <th className="text-right px-4 py-3 font-medium">Google (€)</th>
                   )}
                   <th className="text-right px-4 py-3 font-medium">Dépenses (€)</th>
-                  <th className="text-right px-4 py-3 font-medium">ROI (%)</th>
+                  <th className="text-right px-4 py-3 font-medium">ROAS</th>
                 </tr>
               </thead>
               <tbody>
@@ -765,10 +795,10 @@ export default function ROIMarketingPage() {
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-semibold ${
-                        m.roi >= 0 ? "text-emerald-400" : "text-red-400"
+                        m.roas >= 1 ? "text-emerald-400" : "text-red-400"
                       }`}
                     >
-                      {m.roi.toFixed(1)} %
+                      {m.roas.toFixed(2)}x
                     </td>
                   </tr>
                 ))}
@@ -789,10 +819,10 @@ export default function ROIMarketingPage() {
                   </span>
                   <span
                     className={`text-sm font-bold ${
-                      m.roi >= 0 ? "text-emerald-400" : "text-red-400"
+                      m.roas >= 1 ? "text-emerald-400" : "text-red-400"
                     }`}
                   >
-                    {m.roi.toFixed(1)} %
+                    {m.roas.toFixed(2)}x
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-cockpit-secondary">

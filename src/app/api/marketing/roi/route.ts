@@ -248,9 +248,9 @@ export async function GET(req: NextRequest) {
       const metaSpend = Math.round((metaMonthly[periode] || 0) * 100) / 100;
       const googleSpend = Math.round((googleMonthly[periode] || 0) * 100) / 100;
       const depenses = Math.round((depensesManuellesMois + metaSpend + googleSpend) * 100) / 100;
-      const roi = depenses > 0 ? Math.round(((ca - depenses) / depenses) * 100) : 0;
+      const roas = depenses > 0 ? Math.round((ca / depenses) * 100) / 100 : 0;
 
-      mois.push({ periode, ca, depenses, metaSpend, googleSpend, roi });
+      mois.push({ periode, ca, depenses, metaSpend, googleSpend, roas });
     }
 
     // Totaux
@@ -263,7 +263,7 @@ export async function GET(req: NextRequest) {
       })
       .reduce((s, c) => s + c.montant, 0);
     const totalDepenses = Math.round((totalDepensesManuellesHorsAds + totalMetaSpend + totalGoogleSpend) * 100) / 100;
-    const roiAnnuel = totalDepenses > 0 ? Math.round(((totalCA - totalDepenses) / totalDepenses) * 100) : 0;
+    const roasAnnuel = totalDepenses > 0 ? Math.round((totalCA / totalDepenses) * 100) / 100 : 0;
     const cac = nbOrders > 0 && totalDepenses > 0 ? Math.round(totalDepenses / nbOrders) : 0;
 
     const depensesParTypeManuel: Record<string, number> = {};
@@ -288,7 +288,7 @@ export async function GET(req: NextRequest) {
       kpis: {
         totalCA,
         totalDepenses,
-        roiAnnuel,
+        roasAnnuel,
         cac,
         nbVentes: nbOrders,
         guideDownloads,
