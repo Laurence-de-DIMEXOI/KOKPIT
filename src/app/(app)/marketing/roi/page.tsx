@@ -443,7 +443,7 @@ export default function ROIMarketingPage() {
   const [showDownloads, setShowDownloads] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [catalogueStats, setCatalogueStats] = useState<{ views: number; clicks: number; tauxClic: number; referrers: { domain: string; count: number }[]; sources: { source: string; count: number }[] } | null>(null);
-  const [demandesSources, setDemandesSources] = useState<{ total: number; sources: { source: string; label: string; total: number }[]; tableau: Record<string, number | string>[] } | null>(null);
+  const [demandesSources, setDemandesSources] = useState<{ total: number; sources: { key: string; label: string; total: number }[]; tableau: Record<string, number | string>[] } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -861,7 +861,7 @@ export default function ROIMarketingPage() {
           {/* Totaux par source */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
             {demandesSources.sources.map((s) => (
-              <div key={s.source} className="bg-cockpit-card rounded-xl border border-cockpit p-3">
+              <div key={s.key} className="bg-cockpit-card rounded-xl border border-cockpit p-3">
                 <p className="text-[10px] text-cockpit-secondary font-medium uppercase tracking-wide">{s.label}</p>
                 <p className="text-2xl font-bold text-cockpit-primary">{s.total}</p>
                 <p className="text-[10px] text-cockpit-secondary">{Math.round((s.total / demandesSources.total) * 100)}% du total</p>
@@ -876,7 +876,7 @@ export default function ROIMarketingPage() {
                 <tr className="border-b border-cockpit text-cockpit-secondary text-xs">
                   <th className="text-left px-4 py-3 font-medium">Mois</th>
                   {demandesSources.sources.map((s) => (
-                    <th key={s.source} className="text-right px-4 py-3 font-medium">{s.label}</th>
+                    <th key={s.key} className="text-right px-4 py-3 font-medium">{s.label}</th>
                   ))}
                   <th className="text-right px-4 py-3 font-medium">Total</th>
                 </tr>
@@ -886,8 +886,8 @@ export default function ROIMarketingPage() {
                   <tr key={m.mois as string} className="border-b border-cockpit/50 hover:bg-cockpit-dark/50 transition-colors">
                     <td className="px-4 py-3 text-cockpit-primary font-medium">{formatPeriode(m.mois as string)}</td>
                     {demandesSources.sources.map((s) => (
-                      <td key={s.source} className="px-4 py-3 text-right text-cockpit-secondary">
-                        {(m[s.source] as number) > 0 ? m[s.source] as number : "—"}
+                      <td key={s.key} className="px-4 py-3 text-right text-cockpit-secondary">
+                        {(m[s.key] as number) > 0 ? m[s.key] as number : "—"}
                       </td>
                     ))}
                     <td className="px-4 py-3 text-right font-semibold text-cockpit-primary">{m.total as number}</td>
@@ -906,9 +906,9 @@ export default function ROIMarketingPage() {
                   <span className="text-sm font-bold text-cockpit-primary">{m.total as number} leads</span>
                 </div>
                 <div className="flex gap-3 flex-wrap">
-                  {demandesSources.sources.filter((s) => (m[s.source] as number) > 0).map((s) => (
-                    <span key={s.source} className="text-[10px] text-cockpit-secondary">
-                      {s.label} : <span className="font-semibold text-cockpit-primary">{m[s.source] as number}</span>
+                  {demandesSources.sources.filter((s) => (m[s.key] as number) > 0).map((s) => (
+                    <span key={s.key} className="text-[10px] text-cockpit-secondary">
+                      {s.label} : <span className="font-semibold text-cockpit-primary">{m[s.key] as number}</span>
                     </span>
                   ))}
                 </div>

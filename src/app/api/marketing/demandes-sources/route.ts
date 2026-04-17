@@ -13,6 +13,19 @@ const SOURCE_LABELS: Record<string, string> = {
   GLIDE:      "Glide (app)",
 };
 
+function buildKey(l: { source: string; utmSource: string | null; utmMedium: string | null; utmCampaign: string | null }): string {
+  if (l.utmSource) {
+    const parts = [l.utmSource, l.utmMedium, l.utmCampaign].filter(Boolean);
+    return parts.join(" / ");
+  }
+  return l.source;
+}
+
+function buildLabel(key: string, l: { source: string; utmSource: string | null; utmMedium: string | null; utmCampaign: string | null }): string {
+  if (l.utmSource) return key; // déjà lisible (utm_source / medium / campaign)
+  return SOURCE_LABELS[l.source] || l.source;
+}
+
 // GET /api/marketing/demandes-sources?annee=2026
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -26,47 +39,44 @@ export async function GET(req: NextRequest) {
 
   const leads = await prisma.lead.findMany({
     where: { createdAt: { gte, lt } },
-    select: { source: true, createdAt: true },
+    select: { source: true, utmSource: true, utmMedium: true, utmCampaign: true, createdAt: true },
   });
 
-  // Totaux par source
-  const parSource: Record<string, number> = {};
-  // Par mois par source
+  // Totaux par clé source
+  const parSource: Record<string, { label: string; total: number }> = {};
+  // Par mois par clé source
   const parMois: Record<string, Record<string, number>> = {};
 
   for (const l of leads) {
-    const src = l.source as string;
+    const key = buildKey(l as any);
+    const label = buildLabel(key, l as any);
     const mois = l.createdAt.toISOString().substring(0, 7);
 
-    parSource[src] = (parSource[src] || 0) + 1;
+    if (!parSource[key]) parSource[key] = { label, total: 0 };
+    parSource[key].total++;
+
     if (!parMois[mois]) parMois[mois] = {};
-    parMois[mois][src] = (parMois[mois][src] || 0) + 1;
+    parMois[mois][key] = (parMois[mois][key] || 0) + 1;
   }
 
   // Sources triées par volume
   const sources = Object.entries(parSource)
-    .sort((a, b) => b[1] - a[1])
-    .map(([source, total]) => ({
-      source,
-      label: SOURCE_LABELS[source] || source,
-      total,
-    }));
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([key, { label, total }]) => ({ key, label, total }));
 
-  // Tableau mensuel : un objet par mois avec count par source
+  const total = leads.length;
+
+  // Tableau mensuel
   const moisList = Array.from({ length: 12 }, (_, i) =>
     `${annee}-${String(i + 1).padStart(2, "0")}`
   );
   const tableau = moisList.map((mois) => ({
     mois,
     ...Object.fromEntries(
-      sources.map((s) => [s.source, (parMois[mois] || {})[s.source] || 0])
+      sources.map((s) => [s.key, (parMois[mois] || {})[s.key] || 0])
     ),
-    total: sources.reduce((sum, s) => sum + ((parMois[mois] || {})[s.source] || 0), 0),
+    total: sources.reduce((sum, s) => sum + ((parMois[mois] || {})[s.key] || 0), 0),
   }));
 
-  return NextResponse.json({
-    total: leads.length,
-    sources,
-    tableau,
-  });
+  return NextResponse.json({ total, sources, tableau });
 }
