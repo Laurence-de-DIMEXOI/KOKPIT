@@ -130,7 +130,7 @@ async function fetchMetaMonthlySpend(annee: string): Promise<Record<string, numb
 async function fetchGoogleAdsAccessToken(): Promise<string | null> {
   const clientId     = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN; // nom Vercel : GOOGLE_REFRESH_TOKEN
   if (!clientId || !clientSecret || !refreshToken) return null;
 
   try {
