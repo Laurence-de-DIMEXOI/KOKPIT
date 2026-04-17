@@ -12,55 +12,51 @@ export async function GET(req: NextRequest) {
 
   const annee = req.nextUrl.searchParams.get("annee") || String(new Date().getFullYear());
   const gte = new Date(`${annee}-01-01`);
-  const lt = new Date(`${parseInt(annee) + 1}-01-01`);
+  const lt  = new Date(`${parseInt(annee) + 1}-01-01`);
 
-  const [views, clicks, topReferrers, topSources] = await Promise.all([
-    prisma.catalogueStat.count({ where: { type: "view", createdAt: { gte, lt } } }),
-    prisma.catalogueStat.count({ where: { type: "click", createdAt: { gte, lt } } }),
-    // Top referrers (groupBy non disponible facilement sans raw — on récupère les 200 derniers)
-    prisma.catalogueStat.findMany({
-      where: { type: "view", createdAt: { gte, lt }, referrer: { not: null } },
-      select: { referrer: true },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
-    prisma.catalogueStat.findMany({
-      where: { type: "view", createdAt: { gte, lt }, utmSource: { not: null } },
-      select: { utmSource: true },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
-  ]);
+  const stats = await prisma.catalogueStat.findMany({
+    where: { createdAt: { gte, lt } },
+    select: { type: true, referrer: true, utmSource: true, utmMedium: true, utmCampaign: true, createdAt: true },
+  });
 
-  // Compter les referrers
-  const referrerCount: Record<string, number> = {};
-  for (const r of topReferrers) {
-    if (!r.referrer) continue;
-    try {
-      const domain = new URL(r.referrer).hostname.replace("www.", "");
-      referrerCount[domain] = (referrerCount[domain] || 0) + 1;
-    } catch {
-      referrerCount[r.referrer] = (referrerCount[r.referrer] || 0) + 1;
-    }
+  const views  = stats.filter((s) => s.type === "view").length;
+  const clicks = stats.filter((s) => s.type === "click").length;
+  const tauxClic = views > 0 ? Math.round((clicks / views) * 1000) / 10 : 0;
+
+  // Referrers (domaine uniquement)
+  const referrerMap: Record<string, number> = {};
+  for (const s of stats) {
+    if (!s.referrer) continue;
+    let domain = s.referrer;
+    try { domain = new URL(s.referrer).hostname.replace(/^www\./, ""); } catch {}
+    referrerMap[domain] = (referrerMap[domain] || 0) + 1;
   }
-
-  const sourceCount: Record<string, number> = {};
-  for (const s of topSources) {
-    if (!s.utmSource) continue;
-    sourceCount[s.utmSource] = (sourceCount[s.utmSource] || 0) + 1;
-  }
-
-  const referrers = Object.entries(referrerCount)
+  const referrers = Object.entries(referrerMap)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
     .map(([domain, count]) => ({ domain, count }));
 
-  const sources = Object.entries(sourceCount)
+  // Sources UTM (source / medium / campaign)
+  const sourceMap: Record<string, number> = {};
+  for (const s of stats) {
+    const parts = [s.utmSource, s.utmMedium, s.utmCampaign].filter(Boolean);
+    const key = parts.length > 0 ? parts.join(" / ") : "Direct";
+    sourceMap[key] = (sourceMap[key] || 0) + 1;
+  }
+  const sources = Object.entries(sourceMap)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
     .map(([source, count]) => ({ source, count }));
 
-  const tauxClic = views > 0 ? Math.round((clicks / views) * 100) : 0;
+  // Par mois
+  const moisMap: Record<string, { views: number; clicks: number }> = {};
+  for (const s of stats) {
+    const mois = s.createdAt.toISOString().substring(0, 7);
+    if (!moisMap[mois]) moisMap[mois] = { views: 0, clicks: 0 };
+    if (s.type === "view") moisMap[mois].views++;
+    else moisMap[mois].clicks++;
+  }
+  const parMois = Object.entries(moisMap)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([mois, v]) => ({ mois, ...v }));
 
-  return NextResponse.json({ views, clicks, tauxClic, referrers, sources });
+  return NextResponse.json({ views, clicks, tauxClic, referrers, sources, parMois });
 }
