@@ -38,7 +38,11 @@ export async function GET(req: NextRequest) {
   const lt  = new Date(`${parseInt(annee) + 1}-01-01`);
 
   const leads = await prisma.lead.findMany({
-    where: { createdAt: { gte, lt } },
+    where: {
+      createdAt: { gte, lt },
+      // Exclure les téléchargements de guide PDF — ce sont des leads froids, pas des demandes de prix
+      NOT: { utmMedium: "guide_pdf" },
+    },
     select: { source: true, utmSource: true, utmMedium: true, utmCampaign: true, createdAt: true },
   });
 
