@@ -201,17 +201,19 @@ export async function GET(req: NextRequest) {
       const periode = `${annee}-${String(m).padStart(2, "0")}`;
       const ca = Math.round(caMensuel[periode] || 0);
 
-      // Dépenses manuelles ce mois (sans meta/google si APIs actives)
+      // Dépenses manuelles ce mois (Meta/Google manuels toujours additionnés aux données auto)
       let depensesManuellesMois = 0;
+      let manualMetaMois = 0;
+      let manualGoogleMois = 0;
       for (const c of couts) {
         if (c.periode !== periode) continue;
-        if (c.type === "meta_ads" && totalMetaSpend > 0) continue;
-        if (c.type === "google_ads" && totalGoogleSpend > 0) continue;
+        if (c.type === "meta_ads") { manualMetaMois += c.montant; continue; }
+        if (c.type === "google_ads") { manualGoogleMois += c.montant; continue; }
         depensesManuellesMois += c.montant;
       }
 
-      const metaSpend = Math.round((metaMonthly[periode] || 0) * 100) / 100;
-      const googleSpend = Math.round((googleMonthly[periode] || 0) * 100) / 100;
+      const metaSpend = Math.round(((metaMonthly[periode] || 0) + manualMetaMois) * 100) / 100;
+      const googleSpend = Math.round(((googleMonthly[periode] || 0) + manualGoogleMois) * 100) / 100;
       const depenses = Math.round((depensesManuellesMois + metaSpend + googleSpend) * 100) / 100;
       const roas = depenses > 0 ? Math.round((ca / depenses) * 100) / 100 : 0;
 
@@ -220,14 +222,10 @@ export async function GET(req: NextRequest) {
 
     // Totaux
     const totalCA = Math.round(Object.values(caMensuel).reduce((s, v) => s + v, 0));
-    const totalDepensesManuellesHorsAds = couts
-      .filter((c) => {
-        if (c.type === "meta_ads" && totalMetaSpend > 0) return false;
-        if (c.type === "google_ads" && totalGoogleSpend > 0) return false;
-        return true;
-      })
-      .reduce((s, c) => s + c.montant, 0);
-    const totalDepenses = Math.round((totalDepensesManuellesHorsAds + totalMetaSpend + totalGoogleSpend) * 100) / 100;
+    const totalManuelMeta = couts.filter((c) => c.type === "meta_ads").reduce((s, c) => s + c.montant, 0);
+    const totalManuelGoogle = couts.filter((c) => c.type === "google_ads").reduce((s, c) => s + c.montant, 0);
+    const totalAutres = couts.filter((c) => c.type !== "meta_ads" && c.type !== "google_ads").reduce((s, c) => s + c.montant, 0);
+    const totalDepenses = Math.round((totalAutres + totalMetaSpend + totalManuelMeta + totalGoogleSpend + totalManuelGoogle) * 100) / 100;
     const roasAnnuel = totalDepenses > 0 ? Math.round((totalCA / totalDepenses) * 100) / 100 : 0;
     const cac = nbOrders > 0 && totalDepenses > 0 ? Math.round(totalDepenses / nbOrders) : 0;
 
@@ -239,9 +237,9 @@ export async function GET(req: NextRequest) {
     const depensesParType = TYPES_COUT.map((t) => {
       let montant = 0;
       if (t.value === "meta_ads") {
-        montant = totalMetaSpend > 0 ? totalMetaSpend : (depensesParTypeManuel["meta_ads"] || 0);
+        montant = totalMetaSpend + (depensesParTypeManuel["meta_ads"] || 0);
       } else if (t.value === "google_ads") {
-        montant = totalGoogleSpend > 0 ? totalGoogleSpend : (depensesParTypeManuel["google_ads"] || 0);
+        montant = totalGoogleSpend + (depensesParTypeManuel["google_ads"] || 0);
       } else {
         montant = depensesParTypeManuel[t.value] || 0;
       }
@@ -262,8 +260,8 @@ export async function GET(req: NextRequest) {
       depensesParType,
       couts,
       typesCout: TYPES_COUT,
-      meta: { available: totalMetaSpend > 0 },
-      google: { available: totalGoogleSpend > 0 },
+      meta: { available: totalMetaSpend > 0 || totalManuelMeta > 0 },
+      google: { available: totalGoogleSpend > 0 || totalManuelGoogle > 0 },
     });
   } catch (error: any) {
     console.error("Erreur GET ROI:", error);
