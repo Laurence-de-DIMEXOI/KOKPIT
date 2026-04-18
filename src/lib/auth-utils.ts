@@ -45,7 +45,7 @@ export type Module =
  * COMMERCIAL (Bernard, Daniella, Laurent) : Section commerciale + Général + congés/pointage
  * ACHAT (Elaury) : Commandes + SAV + Catalogue + Général + congés/pointage
  */
-const roleModuleAccess: Record<Role, Module[]> = {
+export const roleModuleAccess: Record<Role, Module[]> = {
   ADMIN: [
     // Tout accès
     "dashboard",

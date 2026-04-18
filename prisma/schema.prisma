@@ -270,6 +270,8 @@ model Lead {
   campagne            Campagne? @relation(fields: [campagneId], references: [id], onDelete: SetNull)
   devis               Devis[]
   evenements          Evenement[]
+  attributionsDevis   AttributionDevis[]
+  attributionsBDC     AttributionBDC[]
   // workflowLogs removed — replaced by WorkflowExecution
 
   @@index([contactId])
@@ -277,6 +279,40 @@ model Lead {
   @@index([statut])
   @@index([campagneId])
   @@index([createdAt])
+}
+
+// Liaison demande (Lead) ↔ devis Sellsy — attribution marketing (fenêtre 7j)
+model AttributionDevis {
+  id          String   @id @default(cuid())
+  demandeId   String
+  demande     Lead     @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  devisId     String   // ID Sellsy du devis
+  devisRef    String   // ex: "DEPI-08017"
+  devisCA     Float    // montant TTC du devis
+  devisDate   DateTime // date création devis dans Sellsy
+  joursApres  Int      // nb de jours entre demande et devis
+  createdAt   DateTime @default(now())
+
+  @@unique([demandeId, devisId])
+  @@index([demandeId])
+  @@index([devisDate])
+}
+
+// Liaison demande (Lead) ↔ BDC Sellsy — attribution vente (fenêtre 30j)
+model AttributionBDC {
+  id          String   @id @default(cuid())
+  demandeId   String
+  demande     Lead     @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  bdcId       String   // ID Sellsy du BDC
+  bdcRef      String   // ex: "BCDI-05676"
+  bdcCA       Float    // montant TTC du BDC
+  bdcDate     DateTime // date création BDC dans Sellsy
+  joursApres  Int      // nb de jours entre demande et BDC
+  createdAt   DateTime @default(now())
+
+  @@unique([demandeId, bdcId])
+  @@index([demandeId])
+  @@index([bdcDate])
 }
 
 model Campagne {

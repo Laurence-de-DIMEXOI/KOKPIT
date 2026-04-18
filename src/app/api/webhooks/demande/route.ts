@@ -395,39 +395,85 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Créer la demande de prix
-    const demande = await prisma.demandePrix.create({
-      data: {
+    // ===== FUSION DEMANDES MULTIPLES =====
+    // Si une demande existe pour ce contact aujourd'hui (Réunion UTC+4) → fusionner
+    // Sinon → créer normalement
+    const nowUtc = new Date();
+    const reunionOffset = 4 * 60 * 60 * 1000;
+    const reunionNow = new Date(nowUtc.getTime() + reunionOffset);
+    const jourStr = reunionNow.toISOString().slice(0, 10); // YYYY-MM-DD en Réunion
+    const jourDebutUtc = new Date(`${jourStr}T00:00:00.000+04:00`);
+    const jourFinUtc = new Date(`${jourStr}T23:59:59.999+04:00`);
+
+    const existingLeadToday = await prisma.lead.findFirst({
+      where: {
         contactId: contact.id,
-        meuble,
-        message,
-        showroom,
-        modePaiement,
-        budget,
-        articles: articles ? (JSON.parse(JSON.stringify(articles)) as object) : undefined,
-        dateDemande: new Date(),
+        createdAt: { gte: jourDebutUtc, lt: jourFinUtc },
       },
+      orderBy: { createdAt: "desc" },
     });
 
-    // Chercher le commercial du showroom
-    const commercial = await findCommercialByShowroom(showroom);
+    let demande;
+    let lead;
+    let commercial = await findCommercialByShowroom(showroom);
 
-    // Créer un Lead avec SLA 72h
-    const slaDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
-    const lead = await prisma.lead.create({
-      data: {
-        contactId: contact.id,
-        source: source,
-        statut: "NOUVEAU",
-        notes: `Demande site web: ${meuble}${message ? ` — ${message}` : ""}${budget ? ` (Budget: ${budget})` : ""}${sourceDetail ? ` [Source: ${sourceDetail}]` : ""}`,
-        commercialId: commercial?.id || null,
-        slaDeadline,
-        // UTM — stockés dans les colonnes dédiées pour analyse dans ROI Marketing
-        ...(utmSource ? { utmSource } : {}),
-        ...(utmMedium ? { utmMedium } : {}),
-        ...(utmCampaign ? { utmCampaign } : {}),
-      },
-    });
+    if (existingLeadToday) {
+      // FUSION — concaténer produits et messages dans le lead existant
+      const newNotesBlock = `Demande site web: ${meuble}${message ? ` — ${message}` : ""}${budget ? ` (Budget: ${budget})` : ""}${sourceDetail ? ` [Source: ${sourceDetail}]` : ""}`;
+      lead = await prisma.lead.update({
+        where: { id: existingLeadToday.id },
+        data: {
+          notes: existingLeadToday.notes
+            ? `${existingLeadToday.notes}\n---\n${newNotesBlock}`
+            : newNotesBlock,
+          updatedAt: new Date(),
+        },
+      });
+      // Créer quand même la demandePrix (historique, estimation IA)
+      demande = await prisma.demandePrix.create({
+        data: {
+          contactId: contact.id,
+          meuble,
+          message: message ? `[Fusion ${jourStr}] ${message}` : `[Fusion ${jourStr}]`,
+          showroom,
+          modePaiement,
+          budget,
+          articles: articles ? (JSON.parse(JSON.stringify(articles)) as object) : undefined,
+          dateDemande: new Date(),
+        },
+      });
+      console.log(`[WEBHOOK] Fusion: lead ${lead.id} (existant) + demande ${demande.id}`);
+    } else {
+      // CRÉATION normale
+      demande = await prisma.demandePrix.create({
+        data: {
+          contactId: contact.id,
+          meuble,
+          message,
+          showroom,
+          modePaiement,
+          budget,
+          articles: articles ? (JSON.parse(JSON.stringify(articles)) as object) : undefined,
+          dateDemande: new Date(),
+        },
+      });
+
+      const slaDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
+      lead = await prisma.lead.create({
+        data: {
+          contactId: contact.id,
+          source: source,
+          statut: "NOUVEAU",
+          notes: `Demande site web: ${meuble}${message ? ` — ${message}` : ""}${budget ? ` (Budget: ${budget})` : ""}${sourceDetail ? ` [Source: ${sourceDetail}]` : ""}`,
+          commercialId: commercial?.id || null,
+          slaDeadline,
+          // UTM — stockés dans les colonnes dédiées pour analyse dans ROI Marketing
+          ...(utmSource ? { utmSource } : {}),
+          ...(utmMedium ? { utmMedium } : {}),
+          ...(utmCampaign ? { utmCampaign } : {}),
+        },
+      });
+    }
 
     // Événement pour traçabilité
     await prisma.evenement.create({

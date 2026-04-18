@@ -54,6 +54,7 @@ export const authOptions: NextAuthOptions = {
             role: true,
             showroomId: true,
             actif: true,
+            moduleAccessOverrides: true,
           },
         });
 
@@ -81,6 +82,7 @@ export const authOptions: NextAuthOptions = {
           prenom: user.prenom,
           role: user.role,
           showroomId: user.showroomId,
+          moduleAccessOverrides: user.moduleAccessOverrides as Record<string, boolean> | null,
         };
       },
     }),

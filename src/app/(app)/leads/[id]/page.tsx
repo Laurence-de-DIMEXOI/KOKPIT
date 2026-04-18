@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Clock, User, Home, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { useUpdateLead } from '@/hooks/use-leads';
+import { LeadAttribution } from '@/components/leads/lead-attribution';
 
 interface LeadDetail {
   id: string;
@@ -214,6 +215,9 @@ export default function LeadDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Attribution marketing (devis 7j + BDC 30j) */}
+          <LeadAttribution leadId={lead.id} />
 
           {/* Contact Card */}
           <div className="bg-white rounded-lg p-6 shadow-sm">

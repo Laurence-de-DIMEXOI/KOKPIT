@@ -11,7 +11,11 @@ import {
   Loader2,
   AlertTriangle,
   Check,
+  RotateCcw,
+  KeyRound,
 } from "lucide-react";
+import { roleModuleAccess, type Role, type Module } from "@/lib/auth-utils";
+import { NAV_CATEGORIES } from "@/lib/nav-config";
 
 // ============================================================================
 // TYPES
@@ -29,6 +33,14 @@ interface UserInfo {
   prenom: string;
   role: string;
   email: string;
+}
+
+interface UserModules {
+  id: string;
+  nom: string;
+  prenom: string;
+  role: Role;
+  moduleAccessOverrides: Record<string, boolean> | null;
 }
 
 // ============================================================================
@@ -80,6 +92,162 @@ export default function ParametresPage() {
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // ===== Permissions par utilisateur =====
+  const [userModules, setUserModules] = useState<UserModules[]>([]);
+  const [permChanges, setPermChanges] = useState<Record<string, Record<string, boolean>>>({});
+  const [loadingPerms, setLoadingPerms] = useState(true);
+  const [savingPerms, setSavingPerms] = useState(false);
+
+  // Liste aplatie de tous les modules (via nav-config) + catégorie d'origine
+  const ALL_MODULES: { module: Module; label: string; category: string; color: string }[] =
+    NAV_CATEGORIES.flatMap((cat) =>
+      cat.items.map((item) => ({
+        module: item.module,
+        label: item.label,
+        category: cat.label,
+        color: cat.color,
+      }))
+    ).filter((m, idx, arr) => arr.findIndex((x) => x.module === m.module) === idx);
+
+  const fetchUserModules = useCallback(async () => {
+    try {
+      setLoadingPerms(true);
+      const res = await fetch("/api/admin/user-modules");
+      if (res.ok) {
+        const data = await res.json();
+        setUserModules(data);
+      }
+    } catch {
+      addToast("Erreur chargement permissions", "error");
+    } finally {
+      setLoadingPerms(false);
+    }
+  }, [addToast]);
+
+  // Calcule l'état effectif (role default + override + changements locaux)
+  const getEffectiveAccess = (user: UserModules, module: Module): boolean => {
+    const localOverrides = permChanges[user.id];
+    if (localOverrides && module in localOverrides) return localOverrides[module];
+    const savedOverrides = user.moduleAccessOverrides;
+    if (savedOverrides && module in savedOverrides) return savedOverrides[module];
+    return roleModuleAccess[user.role]?.includes(module) ?? false;
+  };
+
+  // Indique si la valeur actuelle est un override (diffère du rôle par défaut)
+  const isOverride = (user: UserModules, module: Module): boolean => {
+    const effective = getEffectiveAccess(user, module);
+    const roleDefault = roleModuleAccess[user.role]?.includes(module) ?? false;
+    return effective !== roleDefault;
+  };
+
+  // Indique si cet utilisateur a des changements non sauvegardés
+  const userHasChanges = (userId: string): boolean => {
+    const changes = permChanges[userId];
+    return !!changes && Object.keys(changes).length > 0;
+  };
+
+  const totalPermChanges = Object.values(permChanges).reduce(
+    (sum, c) => sum + Object.keys(c).length,
+    0
+  );
+
+  const toggleModule = (user: UserModules, module: Module) => {
+    const current = getEffectiveAccess(user, module);
+    const newValue = !current;
+    const roleDefault = roleModuleAccess[user.role]?.includes(module) ?? false;
+    const savedOverride = user.moduleAccessOverrides?.[module];
+
+    setPermChanges((prev) => {
+      const userChanges = { ...(prev[user.id] || {}) };
+
+      // Si la nouvelle valeur matche le rôle par défaut ET qu'il n'y avait pas d'override sauvé
+      // → pas de changement local (revert)
+      if (newValue === roleDefault && savedOverride === undefined) {
+        delete userChanges[module];
+      } else if (newValue === savedOverride) {
+        // Revert au sauvegardé
+        delete userChanges[module];
+      } else {
+        userChanges[module] = newValue;
+      }
+
+      const next = { ...prev };
+      if (Object.keys(userChanges).length === 0) {
+        delete next[user.id];
+      } else {
+        next[user.id] = userChanges;
+      }
+      return next;
+    });
+  };
+
+  const resetUserOverrides = async (userId: string) => {
+    if (!confirm("Réinitialiser les permissions aux valeurs par défaut du rôle ?")) return;
+    try {
+      const res = await fetch(`/api/admin/user-modules/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ overrides: null }),
+      });
+      if (res.ok) {
+        addToast("Permissions réinitialisées", "success");
+        setPermChanges((prev) => {
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+        });
+        await fetchUserModules();
+      } else {
+        throw new Error("Erreur");
+      }
+    } catch {
+      addToast("Erreur réinitialisation", "error");
+    }
+  };
+
+  const savePermissions = async () => {
+    setSavingPerms(true);
+    try {
+      // Pour chaque user avec changements, calculer l'override final et envoyer
+      const entries = Object.entries(permChanges);
+      await Promise.all(
+        entries.map(async ([userId, changes]) => {
+          const user = userModules.find((u) => u.id === userId);
+          if (!user) return;
+
+          // Merger saved + local
+          const merged: Record<string, boolean> = {
+            ...(user.moduleAccessOverrides || {}),
+            ...changes,
+          };
+
+          // Nettoyer: retirer les clés qui correspondent au rôle par défaut
+          const cleaned: Record<string, boolean> = {};
+          for (const [mod, val] of Object.entries(merged)) {
+            const roleDefault = roleModuleAccess[user.role]?.includes(mod as Module) ?? false;
+            if (val !== roleDefault) {
+              cleaned[mod] = val;
+            }
+          }
+
+          const body = Object.keys(cleaned).length === 0 ? { overrides: null } : { overrides: cleaned };
+          await fetch(`/api/admin/user-modules/${userId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+        })
+      );
+      addToast(`Permissions mises à jour (${entries.length} utilisateur${entries.length > 1 ? "s" : ""})`, "success");
+      setPermChanges({});
+      await fetchUserModules();
+    } catch {
+      addToast("Erreur sauvegarde permissions", "error");
+    } finally {
+      setSavingPerms(false);
+    }
+  };
+
   const fetchConfig = useCallback(async () => {
     try {
       setLoading(true);
@@ -104,7 +272,8 @@ export default function ParametresPage() {
 
   useEffect(() => {
     fetchConfig();
-  }, [fetchConfig]);
+    fetchUserModules();
+  }, [fetchConfig, fetchUserModules]);
 
   const updateConfig = (key: keyof ConfigData, value: number) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
@@ -333,6 +502,151 @@ export default function ParametresPage() {
               })}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* PERMISSIONS PAR UTILISATEUR — MATRICE */}
+      {/* ================================================================ */}
+      <div className="bg-cockpit-card border border-cockpit rounded-card p-5 sm:p-6 shadow-cockpit-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-base font-bold text-cockpit-heading flex items-center gap-2">
+              <KeyRound className="w-4 h-4" style={{ color: ADMIN_GRADIENT.from }} />
+              Permissions par utilisateur
+            </h2>
+            <p className="text-sm text-cockpit-secondary mt-1">
+              Coche pour donner accès, décoche pour retirer. Les cases grises reflètent l&apos;accès par défaut du rôle, les cases orange un override manuel.
+            </p>
+          </div>
+          {totalPermChanges > 0 && (
+            <button
+              onClick={savePermissions}
+              disabled={savingPerms}
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all"
+              style={{
+                background: `linear-gradient(135deg, ${ADMIN_GRADIENT.from}, ${ADMIN_GRADIENT.to})`,
+                boxShadow: `0 4px 14px ${ADMIN_GRADIENT.shadow}`,
+              }}
+            >
+              {savingPerms ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Enregistrer ({totalPermChanges})
+            </button>
+          )}
+        </div>
+
+        {loadingPerms ? (
+          <div className="h-32 bg-cockpit-dark rounded-lg animate-pulse" />
+        ) : (
+          <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+            <table className="border-separate border-spacing-0 text-xs min-w-full">
+              <thead>
+                <tr>
+                  <th
+                    className="sticky left-0 z-20 bg-cockpit-card text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-cockpit-secondary border-b-2 border-cockpit min-w-[160px]"
+                  >
+                    Utilisateur
+                  </th>
+                  {ALL_MODULES.map((m) => (
+                    <th
+                      key={m.module}
+                      className="px-2 py-2 border-b-2 border-cockpit text-[9px] font-bold uppercase tracking-wider whitespace-nowrap"
+                      style={{ color: m.color, minWidth: "80px" }}
+                      title={`${m.category} — ${m.label}`}
+                    >
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[8px] opacity-70">{m.category.slice(0, 3)}</span>
+                        <span>{m.label.length > 10 ? m.label.slice(0, 10) + "…" : m.label}</span>
+                      </div>
+                    </th>
+                  ))}
+                  <th className="sticky right-0 z-20 bg-cockpit-card px-2 py-2 border-b-2 border-cockpit" />
+                </tr>
+              </thead>
+              <tbody>
+                {userModules.map((user) => {
+                  const rowChanged = userHasChanges(user.id);
+                  const hasSavedOverrides = user.moduleAccessOverrides && Object.keys(user.moduleAccessOverrides).length > 0;
+                  return (
+                    <tr
+                      key={user.id}
+                      className={rowChanged ? "bg-[var(--color-active)]/5" : "hover:bg-cockpit-dark/30 transition-colors"}
+                    >
+                      <td
+                        className={`sticky left-0 z-10 px-3 py-2 border-b border-cockpit/50 text-sm font-medium text-cockpit-heading whitespace-nowrap ${rowChanged ? "bg-[var(--color-active)]/10" : "bg-cockpit-card"}`}
+                      >
+                        <div className="flex flex-col">
+                          <span>{user.prenom} {user.nom}</span>
+                          <span className="text-[10px] text-cockpit-secondary font-normal">{user.role}</span>
+                        </div>
+                      </td>
+                      {ALL_MODULES.map((m) => {
+                        const checked = getEffectiveAccess(user, m.module);
+                        const override = isOverride(user, m.module);
+                        return (
+                          <td
+                            key={m.module}
+                            className="px-2 py-2 border-b border-cockpit/50 text-center"
+                          >
+                            <button
+                              onClick={() => toggleModule(user, m.module)}
+                              className={`w-6 h-6 rounded transition-all flex items-center justify-center ${
+                                checked
+                                  ? override
+                                    ? "bg-[var(--color-active)] text-white shadow-md ring-2 ring-[var(--color-active)]/30"
+                                    : "bg-cockpit-secondary/30 text-cockpit-heading"
+                                  : override
+                                    ? "bg-red-500/20 border-2 border-red-500/50"
+                                    : "bg-cockpit-dark border border-cockpit/40 hover:border-cockpit"
+                              }`}
+                              title={override ? "Override actif (diffère du rôle)" : "Accès par défaut du rôle"}
+                            >
+                              {checked && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                            </button>
+                          </td>
+                        );
+                      })}
+                      <td className={`sticky right-0 z-10 px-2 py-2 border-b border-cockpit/50 ${rowChanged ? "bg-[var(--color-active)]/10" : "bg-cockpit-card"}`}>
+                        {hasSavedOverrides && (
+                          <button
+                            onClick={() => resetUserOverrides(user.id)}
+                            className="p-1.5 rounded-lg text-cockpit-secondary hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            title="Réinitialiser aux permissions du rôle"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Légende */}
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-[11px] text-cockpit-secondary">
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-cockpit-secondary/30 flex items-center justify-center">
+              <Check className="w-2.5 h-2.5 text-cockpit-heading" strokeWidth={3} />
+            </div>
+            Accès par défaut du rôle
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-[var(--color-active)] flex items-center justify-center ring-2 ring-[var(--color-active)]/30">
+              <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+            </div>
+            Override — accès accordé
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-red-500/20 border-2 border-red-500/50" />
+            Override — accès retiré
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-cockpit-dark border border-cockpit/40" />
+            Pas d&apos;accès (rôle par défaut)
+          </div>
         </div>
       </div>
 

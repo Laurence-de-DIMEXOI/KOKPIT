@@ -23,6 +23,7 @@ import {
 import clsx from "clsx";
 import { RechartsLineChart } from "@/components/dashboard/line-chart";
 import { OperationsSemaineWidget } from "@/components/dashboard/operations-semaine";
+import { TunnelMarketing } from "@/components/dashboard/tunnel-marketing";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 
 // ===== TYPES =====
@@ -299,6 +300,9 @@ export default function DashboardPage() {
           Actualiser
         </button>
       </div>
+
+      {/* ===== Tunnel marketing (attribution stricte 7j/30j) ===== */}
+      <TunnelMarketing />
 
       {/* ===== KPI Cards — Funnel Demandes ===== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

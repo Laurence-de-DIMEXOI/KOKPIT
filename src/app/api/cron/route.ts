@@ -13,6 +13,7 @@ import {
   syncClubBrevo,
 } from "@/lib/club-sync";
 import { sendEmail } from "@/lib/resend";
+import { recomputeLeadAttribution } from "@/lib/attribution-tunnel";
 
 const cronSchema = z.object({
   job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club"]),
@@ -444,51 +445,40 @@ async function syncSellsyJob() {
       console.warn("Cron sync-sellsy: orders skipped:", err);
     }
 
-    // ── ÉTAPE 2 : Vérifier statuts leads ──
-    const demandes = await prisma.demandePrix.findMany({
-      where: {
-        contact: {
-          leads: { some: { statut: { in: ["NOUVEAU", "EN_COURS", "DEVIS", "VENTE"] } } },
-        },
-      },
-      select: {
-        id: true, contactId: true, createdAt: true,
-        contact: {
-          select: {
-            leads: {
-              where: { statut: { in: ["NOUVEAU", "EN_COURS", "DEVIS", "VENTE"] } },
-              orderBy: { createdAt: "desc" as const },
-              take: 1,
-              select: { id: true, statut: true },
-            },
-            devis: { select: { id: true, createdAt: true }, orderBy: { createdAt: "desc" as const } },
-            ventes: { select: { id: true, createdAt: true }, orderBy: { createdAt: "desc" as const } },
-          },
-        },
-      },
+    // ── ÉTAPE 2 : Attribution tunnel marketing (règle stricte 7j/30j) ──
+    // Recalcule pour tous les leads créés dans les 35 derniers jours
+    // (couvre toute la fenêtre d'attribution BDC = 30j + marge)
+    const since35j = new Date();
+    since35j.setDate(since35j.getDate() - 35);
+
+    const leadsToCompute = await prisma.lead.findMany({
+      where: { createdAt: { gte: since35j } },
+      select: { id: true },
     });
 
     let statusUpdates = 0;
-    for (const demande of demandes) {
-      const lead = demande.contact.leads[0];
-      if (!lead) continue;
-      const demandeTs = demande.createdAt.getTime();
-      const recentVente = demande.contact.ventes.find((v) => v.createdAt.getTime() >= demandeTs);
-      const recentDevis = demande.contact.devis.find((d) => d.createdAt.getTime() >= demandeTs);
-      const correctStatut = recentVente ? "VENTE" : recentDevis ? "DEVIS" : lead.statut;
-      if (lead.statut !== correctStatut) {
-        await prisma.lead.update({ where: { id: lead.id }, data: { statut: correctStatut } });
-        statusUpdates++;
+    let devisAttribues = 0;
+    let bdcAttribues = 0;
+    let caAttribueTotal = 0;
+    for (const l of leadsToCompute) {
+      try {
+        const r = await recomputeLeadAttribution(l.id);
+        if (r.statutBefore !== r.statutAfter) statusUpdates++;
+        devisAttribues += r.devisCreated;
+        bdcAttribues += r.bdcCreated;
+        caAttribueTotal += r.caAttribue;
+      } catch (err) {
+        console.warn(`[sync-sellsy] Attribution lead ${l.id}:`, err);
       }
     }
 
-    console.log(`Cron sync-sellsy: ${linked} linked, ${freshDevis} devis, ${freshVentes} ventes, ${statusUpdates} statuts mis à jour`);
+    console.log(`Cron sync-sellsy: ${linked} linked, ${freshDevis} devis, ${freshVentes} ventes, ${statusUpdates} statuts, ${devisAttribues} attr.devis, ${bdcAttribues} attr.BDC`);
 
     return NextResponse.json({
       job: "sync-sellsy",
       status: "completed",
-      message: `Sync terminée: ${freshDevis} devis, ${freshVentes} ventes importés, ${statusUpdates} statuts corrigés`,
-      details: { linked, freshDevis, freshVentes, statusUpdates, since: sinceStr },
+      message: `Sync terminée: ${freshDevis} devis, ${freshVentes} ventes importés, ${statusUpdates} statuts corrigés, ${bdcAttribues} BDC attribués (${caAttribueTotal.toFixed(0)}€)`,
+      details: { linked, freshDevis, freshVentes, statusUpdates, devisAttribues, bdcAttribues, caAttribueTotal, since: sinceStr },
     });
   } catch (error) {
     console.error("Cron sync-sellsy error:", error);
