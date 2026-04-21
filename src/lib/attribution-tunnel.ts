@@ -3,13 +3,16 @@ import type { LeadStatut } from "@prisma/client";
 
 /**
  * Attribution TUNNEL MARKETING (devis + BDC liés à une demande)
- * — règles validées 27 mars 2026
+ * — règles validées 27 mars 2026, resserrées 21 avril 2026
  *
  * Devis lié : créé pour le même contact dans les 7j suivant la demande (J0 → J+7)
- * BDC lié   : créé pour le même contact dans les 30j suivant la demande (J0 → J+30)
+ * BDC lié   : issu d'un devis attribué (via LiaisonDevisCommande) — seuls les
+ *             BDC réellement générés depuis un devis de la fenêtre 7j sont
+ *             comptabilisés. Les commandes directes (sans lien devis) ne sont
+ *             PAS attribuées à la demande.
  *
- * Multi-BDC : TOUS les BDC dans la fenêtre sont comptabilisés
- * Le statut Lead devient VENTE dès qu'un BDC est lié, DEVIS dès qu'un devis est lié.
+ * Multi-BDC : TOUS les BDC issus des devis attribués sont comptabilisés.
+ * Statut Lead : VENTE si ≥1 BDC attribué, DEVIS si ≥1 devis attribué, sinon non rétrogradé.
  *
  * ⚠ Distinct du fichier `attribution.ts` qui gère le tracking UTM / last-click.
  */
@@ -38,7 +41,6 @@ export async function recomputeLeadAttribution(leadId: string): Promise<Attribut
 
   const demandeTs = lead.createdAt.getTime();
   const j7End = new Date(demandeTs + 7 * MS_DAY);
-  const j30End = new Date(demandeTs + 30 * MS_DAY);
   const demandeDate = lead.createdAt;
 
   // Devis du même contact créés dans (J0, J+7]
@@ -50,14 +52,34 @@ export async function recomputeLeadAttribution(leadId: string): Promise<Attribut
     select: { id: true, sellsyQuoteId: true, numero: true, montant: true, createdAt: true },
   });
 
-  // BDC (Vente) du même contact créés dans (J0, J+30]
-  const bdcEligibles = await prisma.vente.findMany({
-    where: {
-      contactId: lead.contactId,
-      createdAt: { gt: demandeDate, lte: j30End },
-    },
-    select: { id: true, sellsyInvoiceId: true, montant: true, createdAt: true },
-  });
+  // BDC attribués = BDC liés (via LiaisonDevisCommande) à un devis éligible.
+  // Règle stricte : pas de BDC "orphelin 30j" — seuls les BDC issus d'un
+  // devis de la fenêtre 7j comptent comme vente attribuable à la demande.
+  const devisSellsyIds = devisEligibles
+    .map((d) => d.sellsyQuoteId)
+    .filter((x): x is string => !!x);
+
+  const devisSellsyIdsNumeric = devisSellsyIds
+    .map((id) => parseInt(id, 10))
+    .filter((n) => Number.isFinite(n));
+
+  let bdcEligibles: Array<{ id: string; sellsyInvoiceId: string | null; montant: number; createdAt: Date }> = [];
+  if (devisSellsyIdsNumeric.length > 0) {
+    const liaisons = await prisma.liaisonDevisCommande.findMany({
+      where: { estimateId: { in: devisSellsyIdsNumeric } },
+      select: { orderId: true },
+    });
+    const orderIds = Array.from(new Set(liaisons.map((l) => String(l.orderId))));
+    if (orderIds.length > 0) {
+      bdcEligibles = await prisma.vente.findMany({
+        where: {
+          contactId: lead.contactId,
+          sellsyInvoiceId: { in: orderIds },
+        },
+        select: { id: true, sellsyInvoiceId: true, montant: true, createdAt: true },
+      });
+    }
+  }
 
   let devisCreated = 0;
   let bdcCreated = 0;

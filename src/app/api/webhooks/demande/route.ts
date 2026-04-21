@@ -397,7 +397,7 @@ export async function POST(request: NextRequest) {
 
     // ===== FUSION DEMANDES MULTIPLES =====
     // Si une demande existe pour ce contact aujourd'hui (Réunion UTC+4) → fusionner
-    // Sinon → créer normalement
+    // Sinon → créer normalement (Lead + DemandePrix)
     const nowUtc = new Date();
     const reunionOffset = 4 * 60 * 60 * 1000;
     const reunionNow = new Date(nowUtc.getTime() + reunionOffset);
@@ -413,38 +413,91 @@ export async function POST(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
+    const existingDemandeToday = await prisma.demandePrix.findFirst({
+      where: {
+        contactId: contact.id,
+        createdAt: { gte: jourDebutUtc, lt: jourFinUtc },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
     let demande;
     let lead;
-    let commercial = await findCommercialByShowroom(showroom);
+    const commercial = await findCommercialByShowroom(showroom);
 
-    if (existingLeadToday) {
-      // FUSION — concaténer produits et messages dans le lead existant
+    if (existingLeadToday || existingDemandeToday) {
+      // ===== FUSION =====
+      // 1) Lead : update notes concat, réutiliser si existant, sinon créer (cas rare)
       const newNotesBlock = `Demande site web: ${meuble}${message ? ` — ${message}` : ""}${budget ? ` (Budget: ${budget})` : ""}${sourceDetail ? ` [Source: ${sourceDetail}]` : ""}`;
-      lead = await prisma.lead.update({
-        where: { id: existingLeadToday.id },
-        data: {
-          notes: existingLeadToday.notes
-            ? `${existingLeadToday.notes}\n---\n${newNotesBlock}`
-            : newNotesBlock,
-          updatedAt: new Date(),
-        },
-      });
-      // Créer quand même la demandePrix (historique, estimation IA)
-      demande = await prisma.demandePrix.create({
-        data: {
-          contactId: contact.id,
-          meuble,
-          message: message ? `[Fusion ${jourStr}] ${message}` : `[Fusion ${jourStr}]`,
-          showroom,
-          modePaiement,
-          budget,
-          articles: articles ? (JSON.parse(JSON.stringify(articles)) as object) : undefined,
-          dateDemande: new Date(),
-        },
-      });
-      console.log(`[WEBHOOK] Fusion: lead ${lead.id} (existant) + demande ${demande.id}`);
+      if (existingLeadToday) {
+        lead = await prisma.lead.update({
+          where: { id: existingLeadToday.id },
+          data: {
+            notes: existingLeadToday.notes
+              ? `${existingLeadToday.notes}\n---\n${newNotesBlock}`
+              : newNotesBlock,
+            updatedAt: new Date(),
+          },
+        });
+      } else {
+        const slaDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
+        lead = await prisma.lead.create({
+          data: {
+            contactId: contact.id,
+            source: source,
+            statut: "NOUVEAU",
+            notes: newNotesBlock,
+            commercialId: commercial?.id || null,
+            slaDeadline,
+            ...(utmSource ? { utmSource } : {}),
+            ...(utmMedium ? { utmMedium } : {}),
+            ...(utmCampaign ? { utmCampaign } : {}),
+          },
+        });
+      }
+
+      // 2) DemandePrix : fusion si existante, sinon création
+      if (existingDemandeToday) {
+        // Fusionner articles + meuble + message dans la demande existante
+        const prevArticles = Array.isArray(existingDemandeToday.articles)
+          ? (existingDemandeToday.articles as unknown as Article[])
+          : [];
+        const mergedArticles = articles ? [...prevArticles, ...articles] : prevArticles;
+        const mergedMeuble = [existingDemandeToday.meuble, meuble]
+          .filter((m) => m && m !== "Non spécifié")
+          .join(" + ") || "Non spécifié";
+        const mergedMessage = [existingDemandeToday.message, message]
+          .filter(Boolean)
+          .join("\n---\n") || null;
+
+        demande = await prisma.demandePrix.update({
+          where: { id: existingDemandeToday.id },
+          data: {
+            meuble: mergedMeuble,
+            message: mergedMessage,
+            articles: mergedArticles.length > 0
+              ? (JSON.parse(JSON.stringify(mergedArticles)) as object)
+              : undefined,
+            // On ne touche pas showroom/budget/modePaiement — on garde la première valeur saisie
+          },
+        });
+        console.log(`[WEBHOOK] Fusion: lead ${lead.id} + demande ${demande.id} (mis à jour)`);
+      } else {
+        demande = await prisma.demandePrix.create({
+          data: {
+            contactId: contact.id,
+            meuble,
+            message,
+            showroom,
+            modePaiement,
+            budget,
+            articles: articles ? (JSON.parse(JSON.stringify(articles)) as object) : undefined,
+            dateDemande: new Date(),
+          },
+        });
+      }
     } else {
-      // CRÉATION normale
+      // ===== CRÉATION NORMALE =====
       demande = await prisma.demandePrix.create({
         data: {
           contactId: contact.id,
