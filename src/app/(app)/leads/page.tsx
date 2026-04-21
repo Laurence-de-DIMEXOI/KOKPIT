@@ -122,6 +122,12 @@ export default function LeadsPage() {
   const [relanceLoading, setRelanceLoading] = useState<Record<string, boolean>>({});
   const [relanceResult, setRelanceResult] = useState<Record<string, { success: boolean; message: string }>>({});
 
+  // ── Filtre période ──
+  type PeriodFilter = "all" | "this_month" | "last_month" | "this_year" | "last_year" | "custom";
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");;
+
   const fetchDemandes = useCallback(async (showLoader = true, syncSellsy = false) => {
     if (showLoader) setRefreshing(true);
     try {
@@ -303,13 +309,52 @@ export default function LeadsPage() {
     [demandes]
   );
 
+  // ── Filtre période ──
+  const periodBounds = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case "this_month":
+        return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: null };
+      case "last_month":
+        return {
+          start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+          end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59),
+        };
+      case "this_year":
+        return { start: new Date(now.getFullYear(), 0, 1), end: null };
+      case "last_year":
+        return {
+          start: new Date(now.getFullYear() - 1, 0, 1),
+          end: new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59),
+        };
+      case "custom":
+        return {
+          start: customStart ? new Date(customStart) : null,
+          end: customEnd ? new Date(customEnd + "T23:59:59") : null,
+        };
+      default:
+        return { start: null, end: null };
+    }
+  }, [periodFilter, customStart, customEnd]);
+
+  const periodDemandes = useMemo(() => {
+    const { start, end } = periodBounds;
+    if (!start && !end) return recentDemandes;
+    return recentDemandes.filter((d) => {
+      const date = new Date(d.dateCreation);
+      if (start && date < start) return false;
+      if (end && date > end) return false;
+      return true;
+    });
+  }, [recentDemandes, periodBounds]);
+
   // "Tous" exclut les EN_COURS (sans démarche commerciale = anciennes entrées)
   // Pour voir les EN_COURS, cliquer explicitement sur le filtre "En cours"
   const filteredDemandes = useMemo(() =>
     statutFilter === "ALL"
-      ? recentDemandes.filter((d) => d.statut !== "EN_COURS")
-      : recentDemandes.filter((d) => d.statut === statutFilter),
-    [recentDemandes, statutFilter]);
+      ? periodDemandes.filter((d) => d.statut !== "EN_COURS")
+      : periodDemandes.filter((d) => d.statut === statutFilter),
+    [periodDemandes, statutFilter]);
 
   // ===== RENDER =====
 
@@ -387,6 +432,50 @@ export default function LeadsPage() {
         <span className="text-xs text-cockpit-secondary ml-2">
           {filteredDemandes.length} demande{filteredDemandes.length !== 1 ? "s" : ""}
         </span>
+      </div>
+
+      {/* Filters période */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Calendar className="w-3.5 h-3.5 text-cockpit-secondary flex-shrink-0" />
+        {(
+          [
+            { key: "all",        label: "Toutes les dates" },
+            { key: "this_month", label: "Ce mois-ci" },
+            { key: "last_month", label: "Mois dernier" },
+            { key: "this_year",  label: "Cette année" },
+            { key: "last_year",  label: "Année dernière" },
+            { key: "custom",     label: "Personnalisé" },
+          ] as { key: string; label: string }[]
+        ).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setPeriodFilter(key as any)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              periodFilter === key
+                ? "bg-[var(--color-active)] text-white"
+                : "bg-cockpit-card border border-cockpit text-cockpit-secondary hover:text-cockpit-primary"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        {periodFilter === "custom" && (
+          <div className="flex items-center gap-1.5 ml-1">
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="bg-cockpit-card border border-cockpit rounded-lg px-2 py-1 text-xs text-cockpit-primary focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]"
+            />
+            <span className="text-cockpit-secondary text-xs">→</span>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="bg-cockpit-card border border-cockpit rounded-lg px-2 py-1 text-xs text-cockpit-primary focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]"
+            />
+          </div>
+        )}
       </div>
 
       {/* Demandes list */}
