@@ -82,7 +82,9 @@ export async function POST(req: Request) {
       arrivee,
       now,
       pointage!.debutPause,
-      pointage!.finPause
+      pointage!.finPause,
+      undefined,
+      dateJour
     );
     updateData.heuresTravaillees = heuresTravaillees;
     updateData.heuresSupp = heuresSupp;

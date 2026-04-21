@@ -89,16 +89,33 @@ export function getPointageEtat(pointage: {
   return "JOURNEE_FINIE";
 }
 
-/** Calcule les heures travaillées et supplémentaires */
+/**
+ * Calcule les heures travaillées et supplémentaires.
+ * Règle dimanche (0) / lundi (1) : pas de pause déduite, toutes les heures = heures supp.
+ * @param date  La date du jour (dateJour UTC — ex: résultat de getReunionDateJour).
+ *              Utilisée pour détecter dimanche/lundi. Si absent, on se base sur arrivee.
+ */
 export function calculerHeuresTravaillees(
   arrivee: Date,
   depart: Date,
   debutPause: Date | null,
   finPause: Date | null,
-  pauseDefaut: number = PAUSE_DEFAUT_HEURES
+  pauseDefaut: number = PAUSE_DEFAUT_HEURES,
+  date?: Date
 ): { heuresTravaillees: number; heuresSupp: number } {
   const totalMs = depart.getTime() - arrivee.getTime();
 
+  // Dimanche (0) ou lundi (1) → pas de pause, tout compte en heures supp
+  const refDate = date ?? arrivee;
+  const jourSemaine = refDate.getUTCDay();
+  const isWeekendOuLundi = jourSemaine === 0 || jourSemaine === 1;
+
+  if (isWeekendOuLundi) {
+    const heuresTravaillees = Math.round((totalMs / 3600000) * 100) / 100;
+    return { heuresTravaillees, heuresSupp: heuresTravaillees };
+  }
+
+  // Calcul normal (mardi-samedi)
   let pauseMs: number;
   if (debutPause && finPause) {
     pauseMs = finPause.getTime() - debutPause.getTime();

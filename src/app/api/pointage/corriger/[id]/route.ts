@@ -61,7 +61,9 @@ export async function PUT(
       newArrivee,
       newDepart,
       newDebutPause,
-      newFinPause
+      newFinPause,
+      undefined,
+      pointage.date
     );
     heuresTravaillees = calc.heuresTravaillees;
     heuresSupp = calc.heuresSupp;
