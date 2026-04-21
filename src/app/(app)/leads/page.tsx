@@ -296,13 +296,20 @@ export default function LeadsPage() {
     return new Date(sla) < new Date();
   };
 
-  // "Tous" exclut les EN_COURS (données sans démarche commerciale = anciennes entrées)
+  // Demandes legacy (avant le 7 mars 2026) masquées dans toutes les vues
+  const LEGACY_CUTOFF = new Date("2026-03-07");
+  const recentDemandes = useMemo(
+    () => demandes.filter((d) => new Date(d.dateCreation) >= LEGACY_CUTOFF),
+    [demandes]
+  );
+
+  // "Tous" exclut les EN_COURS (sans démarche commerciale = anciennes entrées)
   // Pour voir les EN_COURS, cliquer explicitement sur le filtre "En cours"
   const filteredDemandes = useMemo(() =>
     statutFilter === "ALL"
-      ? demandes.filter((d) => d.statut !== "EN_COURS")
-      : demandes.filter((d) => d.statut === statutFilter),
-    [demandes, statutFilter]);
+      ? recentDemandes.filter((d) => d.statut !== "EN_COURS")
+      : recentDemandes.filter((d) => d.statut === statutFilter),
+    [recentDemandes, statutFilter]);
 
   // ===== RENDER =====
 
