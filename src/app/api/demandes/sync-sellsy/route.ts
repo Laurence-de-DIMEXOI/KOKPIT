@@ -7,6 +7,7 @@ import {
   listOrders,
   searchIndividuals,
 } from "@/lib/sellsy";
+import { recomputeLeadAttribution } from "@/lib/attribution-tunnel";
 
 /**
  * POST /api/demandes/sync-sellsy
@@ -92,6 +93,7 @@ export async function POST() {
 
     let freshDevis = 0;
     let freshVentes = 0;
+    const contactIdsWithNewVentes = new Set<string>();
 
     // Map sellsyContactId → kokpitContactId pour le matching
     const contactsBySellsyId = new Map<string, string>();
@@ -182,6 +184,7 @@ export async function POST() {
             : undefined);
 
         if (!kokpitContactId) continue;
+        contactIdsWithNewVentes.add(kokpitContactId);
 
         try {
           await prisma.vente.upsert({
@@ -210,6 +213,46 @@ export async function POST() {
     console.log(
       `Micro-refresh: ${freshDevis} devis, ${freshVentes} ventes upserted (since ${sinceStr})`
     );
+
+    // ── ÉTAPE 1b : Attribution BDC → Demandes (lookup rétroactif) ──
+    // Pour chaque contact ayant un nouveau BDC, on cherche ses leads créés
+    // dans les 30j précédant la date du BDC et on recalcule leur attribution.
+    const MS_DAY_LOCAL = 24 * 60 * 60 * 1000;
+    let bdcAttributionLeads = 0;
+
+    for (const contactId of contactIdsWithNewVentes) {
+      // BDCs récents de ce contact
+      const recentVentes = await prisma.vente.findMany({
+        where: { contactId, dateVente: { gte: since14j } },
+        select: { id: true, dateVente: true },
+      });
+
+      for (const v of recentVentes) {
+        const j30Before = new Date(v.dateVente.getTime() - 30 * MS_DAY_LOCAL);
+
+        // Leads créés dans [dateVente − 30j, dateVente]
+        const leadsAAttributer = await prisma.lead.findMany({
+          where: {
+            contactId,
+            createdAt: { gte: j30Before, lte: v.dateVente },
+          },
+          select: { id: true },
+        });
+
+        for (const lead of leadsAAttributer) {
+          try {
+            await recomputeLeadAttribution(lead.id);
+            bdcAttributionLeads++;
+          } catch {
+            // Ne bloque pas la suite
+          }
+        }
+      }
+    }
+
+    if (bdcAttributionLeads > 0) {
+      console.log(`BDC attribution: ${bdcAttributionLeads} lead(s) recomputed`);
+    }
 
     // ── ÉTAPE 2 : Récupérer les demandes avec leads ──
     const demandes = await prisma.demandePrix.findMany({
@@ -339,6 +382,7 @@ export async function POST() {
       stats,
       _preLink: { unlinked: unlinkeds.length, linked },
       _microRefresh: { freshDevis, freshVentes, since: sinceStr },
+      _bdcAttribution: { contactsChecked: contactIdsWithNewVentes.size, leadsRecomputed: bdcAttributionLeads },
       _syncedAt: new Date().toISOString(),
     });
   } catch (error: any) {
