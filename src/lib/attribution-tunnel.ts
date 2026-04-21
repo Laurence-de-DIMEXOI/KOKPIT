@@ -52,33 +52,20 @@ export async function recomputeLeadAttribution(leadId: string): Promise<Attribut
     select: { id: true, sellsyQuoteId: true, numero: true, montant: true, createdAt: true },
   });
 
-  // BDC attribués = BDC liés (via LiaisonDevisCommande) à un devis éligible.
-  // Règle stricte : pas de BDC "orphelin 30j" — seuls les BDC issus d'un
-  // devis de la fenêtre 7j comptent comme vente attribuable à la demande.
-  const devisSellsyIds = devisEligibles
-    .map((d) => d.sellsyQuoteId)
-    .filter((x): x is string => !!x);
+  // BDC attribués = Vente pour le même contact, dateVente dans (J0, J+30],
+  // UNIQUEMENT si au moins 1 devis a été attribué (fenêtre 7j).
+  // Logique : on ne veut pas de BDC "orphelin" sans devis correspondant.
+  const j30End = new Date(demandeTs + 30 * MS_DAY);
 
-  const devisSellsyIdsNumeric = devisSellsyIds
-    .map((id) => parseInt(id, 10))
-    .filter((n) => Number.isFinite(n));
-
-  let bdcEligibles: Array<{ id: string; sellsyInvoiceId: string | null; montant: number; createdAt: Date }> = [];
-  if (devisSellsyIdsNumeric.length > 0) {
-    const liaisons = await prisma.liaisonDevisCommande.findMany({
-      where: { estimateId: { in: devisSellsyIdsNumeric } },
-      select: { orderId: true },
+  let bdcEligibles: Array<{ id: string; sellsyInvoiceId: string | null; numero: string | null; montant: number; dateVente: Date }> = [];
+  if (devisEligibles.length > 0) {
+    bdcEligibles = await prisma.vente.findMany({
+      where: {
+        contactId: lead.contactId,
+        dateVente: { gt: demandeDate, lte: j30End },
+      },
+      select: { id: true, sellsyInvoiceId: true, numero: true, montant: true, dateVente: true },
     });
-    const orderIds = Array.from(new Set(liaisons.map((l) => String(l.orderId))));
-    if (orderIds.length > 0) {
-      bdcEligibles = await prisma.vente.findMany({
-        where: {
-          contactId: lead.contactId,
-          sellsyInvoiceId: { in: orderIds },
-        },
-        select: { id: true, sellsyInvoiceId: true, montant: true, createdAt: true },
-      });
-    }
   }
 
   let devisCreated = 0;
@@ -108,19 +95,20 @@ export async function recomputeLeadAttribution(leadId: string): Promise<Attribut
 
   for (const b of bdcEligibles) {
     const bdcId = b.sellsyInvoiceId || b.id;
-    const joursApres = Math.floor((b.createdAt.getTime() - demandeTs) / MS_DAY);
+    const joursApres = Math.floor((b.dateVente.getTime() - demandeTs) / MS_DAY);
     await prisma.attributionBDC.upsert({
       where: { demandeId_bdcId: { demandeId: lead.id, bdcId } },
       create: {
         demandeId: lead.id,
         bdcId,
-        bdcRef: bdcId,
+        bdcRef: b.numero || bdcId,  // "BCDI-05725" si disponible, sinon ID Sellsy
         bdcCA: b.montant,
-        bdcDate: b.createdAt,
+        bdcDate: b.dateVente,
         joursApres,
       },
       update: {
         bdcCA: b.montant,
+        bdcRef: b.numero || bdcId,
       },
     });
     bdcCreated++;

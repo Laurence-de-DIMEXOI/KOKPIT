@@ -367,6 +367,7 @@ model Vente {
   devisId             String?   @unique
   contactId           String
   sellsyInvoiceId     String?   @unique
+  numero              String?   // Référence lisible ex: "BCDI-05725"
   montant             Float
   dateVente           DateTime
   produits            Json?

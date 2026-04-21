@@ -188,10 +188,12 @@ export async function POST() {
             where: { sellsyInvoiceId: String(ord.id) },
             update: {
               montant: Number(ord.amounts?.total_excl_tax) || 0,
+              numero: ord.number || undefined,
             },
             create: {
               contactId: kokpitContactId,
               sellsyInvoiceId: String(ord.id),
+              numero: ord.number || null,
               montant: Number(ord.amounts?.total_excl_tax) || 0,
               dateVente: new Date(ord.date || ord.created),
             },
