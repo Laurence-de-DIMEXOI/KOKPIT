@@ -296,9 +296,11 @@ export default function LeadsPage() {
     return new Date(sla) < new Date();
   };
 
+  // "Tous" exclut les EN_COURS (données sans démarche commerciale = anciennes entrées)
+  // Pour voir les EN_COURS, cliquer explicitement sur le filtre "En cours"
   const filteredDemandes = useMemo(() =>
     statutFilter === "ALL"
-      ? demandes
+      ? demandes.filter((d) => d.statut !== "EN_COURS")
       : demandes.filter((d) => d.statut === statutFilter),
     [demandes, statutFilter]);
 
@@ -416,6 +418,8 @@ export default function LeadsPage() {
             const articles = demande.articles as Article[] | null;
             const slaExpired = isSlaExpired(demande.slaDeadline);
             const isTraite = demande.statut === "DEVIS" || demande.statut === "VENTE";
+            // SLA masqué pour les demandes avant le 6 mars 2026 inclus (données legacy)
+            const showSla = !!demande.slaDeadline && !isTraite && new Date(demande.dateCreation) >= new Date("2026-03-07");
 
             return (
               <div
@@ -440,7 +444,7 @@ export default function LeadsPage() {
                       <span className="font-semibold text-cockpit-primary text-sm truncate">
                         {nomComplet(demande)}
                       </span>
-                      {slaExpired && !isTraite && (
+                      {showSla && slaExpired && (
                         <span className="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded font-semibold flex-shrink-0">
                           SLA
                         </span>
@@ -793,8 +797,8 @@ export default function LeadsPage() {
                           </div>
                         )}
 
-                        {/* SLA — masqué si traité (DEVIS/VENTE) */}
-                        {demande.slaDeadline && !isTraite && (
+                        {/* SLA — masqué si traité (DEVIS/VENTE) ou demande avant 6 mars 2026 */}
+                        {showSla && (
                           <div>
                             <label className="text-xs text-cockpit-secondary mb-1.5 block">SLA (72h)</label>
                             <div className={`p-3 rounded-lg text-sm font-semibold ${
