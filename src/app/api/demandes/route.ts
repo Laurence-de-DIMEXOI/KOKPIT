@@ -27,31 +27,27 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    // Récupérer les demandes de prix avec contact
+    // Récupérer les demandes de prix avec contact + tous ses leads + attributions strictes
     const [demandesPrix, totalDemandesPrix] = await Promise.all([
       prisma.demandePrix.findMany({
         where: whereClause,
         include: {
           contact: {
             include: {
+              // Tous les leads du contact + attributions (fenêtres 7j/30j)
               leads: {
                 orderBy: { createdAt: "desc" },
-                take: 1,
                 include: {
                   commercial: { select: { id: true, nom: true, email: true } },
+                  attributionsDevis: {
+                    orderBy: { devisDate: "asc" },
+                    select: { devisId: true, devisRef: true, devisCA: true, devisDate: true, joursApres: true },
+                  },
+                  attributionsBDC: {
+                    orderBy: { bdcDate: "asc" },
+                    select: { bdcId: true, bdcRef: true, bdcCA: true, bdcDate: true, joursApres: true },
+                  },
                 },
-              },
-              // Devis via CONTACT (pas via lead — leadId souvent null)
-              devis: {
-                orderBy: { createdAt: "desc" },
-                take: 10,
-                select: { id: true, sellsyQuoteId: true, numero: true, montant: true, statut: true, createdAt: true },
-              },
-              // Ventes/BDC via CONTACT
-              ventes: {
-                orderBy: { createdAt: "desc" },
-                take: 10,
-                select: { id: true, sellsyInvoiceId: true, montant: true, dateVente: true, createdAt: true },
               },
             },
           },
@@ -63,9 +59,26 @@ export async function GET(request: NextRequest) {
       prisma.demandePrix.count({ where: whereClause }),
     ]);
 
-    // Formater les demandes de prix
+    // Pour chaque demande, trouver le lead le plus proche (même jour idéalement)
+    // et ne remonter que les devis/BDC strictement attribués à ce lead.
     const formattedDemandesPrix = demandesPrix.map((demande) => {
-      const lead = demande.contact.leads?.[0] || null;
+      const demandeTs = demande.createdAt.getTime();
+
+      // Choisir le lead le plus proche temporellement (fusion garantit 1 lead/jour/contact)
+      const leadsSorted = [...(demande.contact.leads || [])].sort(
+        (a, b) =>
+          Math.abs(a.createdAt.getTime() - demandeTs) -
+          Math.abs(b.createdAt.getTime() - demandeTs)
+      );
+      const lead = leadsSorted[0] || null;
+
+      // Attributions STRICTES (7j devis / 30j BDC) de ce lead uniquement
+      const attrDevis = lead?.attributionsDevis || [];
+      const attrBDC = lead?.attributionsBDC || [];
+
+      const premierDevis = attrDevis[0] || null;
+      const premierBDC = attrBDC[0] || null;
+
       return {
         id: demande.id,
         type: "DEMANDE_PRIX" as const,
@@ -85,7 +98,7 @@ export async function GET(request: NextRequest) {
         // Estimation IA
         estimationHT: (demande as any).estimationHT || null,
         estimationTTC: (demande as any).estimationTTC || null,
-        // Lead associé
+        // Lead associé (proche de la demande, pas forcément le dernier)
         leadId: lead?.id || null,
         statut: lead?.statut || "NOUVEAU",
         source: lead?.source || "GLIDE",
@@ -96,29 +109,31 @@ export async function GET(request: NextRequest) {
         assigneA: lead?.commercial?.nom || "Non assigné",
         assigneEmail: lead?.commercial?.email || null,
         commercialId: lead?.commercialId || null,
-        // Devis liés au contact (stockés en base via sync-sellsy)
-        devisRef: demande.contact.devis?.[0]?.numero || null,
-        devisId: demande.contact.devis?.[0]?.sellsyQuoteId || null,
-        devisCount: demande.contact.devis?.length || 0,
-        devisMontant: demande.contact.devis?.[0]?.montant || null,
-        // Liste complète des devis (pour vue expandée — plus besoin d'appel Sellsy)
-        devisList: (demande.contact.devis || []).map((d) => ({
-          id: d.sellsyQuoteId,
-          numero: d.numero,
-          montant: d.montant,
-          statut: d.statut,
-          createdAt: d.createdAt?.toISOString() || null,
+        // ==== DEVIS ATTRIBUÉS (fenêtre 7j, via AttributionDevis) ====
+        devisRef: premierDevis?.devisRef || null,
+        devisId: premierDevis?.devisId || null,
+        devisCount: attrDevis.length,
+        devisMontant: premierDevis?.devisCA || null,
+        devisList: attrDevis.map((a) => ({
+          id: a.devisId,
+          numero: a.devisRef,
+          montant: a.devisCA,
+          statut: null as string | null,
+          createdAt: a.devisDate?.toISOString() || null,
+          joursApres: a.joursApres,
         })),
-        // Ventes/BDC liés au contact
-        venteId: demande.contact.ventes?.[0]?.sellsyInvoiceId || null,
-        venteCount: demande.contact.ventes?.length || 0,
-        venteMontant: demande.contact.ventes?.[0]?.montant || null,
-        // Liste complète des ventes (pour vue expandée)
-        ventesList: (demande.contact.ventes || []).map((v) => ({
-          id: v.sellsyInvoiceId,
-          montant: v.montant,
-          dateVente: v.dateVente?.toISOString() || null,
-          createdAt: v.createdAt?.toISOString() || null,
+        // ==== BDC ATTRIBUÉS (fenêtre 30j, via AttributionBDC) ====
+        venteId: premierBDC?.bdcId || null,
+        venteCount: attrBDC.length,
+        venteMontant: premierBDC?.bdcCA || null,
+        venteMontantTotal: attrBDC.reduce((s, a) => s + a.bdcCA, 0),
+        ventesList: attrBDC.map((a) => ({
+          id: a.bdcId,
+          reference: a.bdcRef,
+          montant: a.bdcCA,
+          dateVente: a.bdcDate?.toISOString() || null,
+          createdAt: a.bdcDate?.toISOString() || null,
+          joursApres: a.joursApres,
         })),
         // Dates
         dateCreation: demande.createdAt.toISOString(),
@@ -132,7 +147,12 @@ export async function GET(request: NextRequest) {
       ? formattedDemandesPrix.filter((d) => d.statut === statutFilter)
       : formattedDemandesPrix;
 
-    // Stats
+    // Stats — basés sur le statut Lead (rebuild strict 7j/30j) + CA attribué réel
+    const caAttribueTotal = formattedDemandesPrix.reduce((s, d) => s + (d.venteMontantTotal || 0), 0);
+    const caDevisTotal = formattedDemandesPrix.reduce(
+      (s, d) => s + (d.devisList || []).reduce((ss, dv) => ss + (dv.montant || 0), 0),
+      0
+    );
     const stats = {
       total: totalDemandesPrix,
       nouveau: formattedDemandesPrix.filter((d) => d.statut === "NOUVEAU").length,
@@ -140,6 +160,8 @@ export async function GET(request: NextRequest) {
       devis: formattedDemandesPrix.filter((d) => d.statut === "DEVIS").length,
       vente: formattedDemandesPrix.filter((d) => d.statut === "VENTE").length,
       perdu: formattedDemandesPrix.filter((d) => d.statut === "PERDU").length,
+      caAttribue: Math.round(caAttribueTotal * 100) / 100,
+      caDevis: Math.round(caDevisTotal * 100) / 100,
     };
 
     return NextResponse.json({
