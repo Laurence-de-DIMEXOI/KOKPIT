@@ -903,7 +903,7 @@ export default function LeadsPage() {
                                 : "bg-cockpit-dark text-cockpit-primary"
                             }`}>
                               {slaExpired ? "!! " : ""}
-                              {formatDateTime(demande.slaDeadline)}
+                              {formatDateTime(demande.slaDeadline!)}
                             </div>
                           </div>
                         )}
