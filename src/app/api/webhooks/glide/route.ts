@@ -296,9 +296,9 @@ export async function POST(request: NextRequest) {
     // Chercher le commercial assigné basé sur le showroom
     const commercial = await findCommercialByShowroom(showroom);
 
-    // Calculer la deadline SLA (72h à partir de maintenant)
+    // Calculer la deadline SLA (48h à partir de maintenant)
     const now = new Date();
-    const slaDeadline = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+    const slaDeadline = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
     // Créer automatiquement un Lead depuis la demande de prix
     const lead = await prisma.lead.create({

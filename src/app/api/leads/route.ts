@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       notes: body.notes,
     };
 
-    // Calculate SLA deadline (72 business hours)
+    // Calculate SLA deadline (48 business hours)
     const slaDeadline = calculateSlaDeadline(new Date());
 
     // Auto-route to showroom if not provided

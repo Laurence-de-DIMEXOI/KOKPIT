@@ -440,7 +440,7 @@ export async function POST(request: NextRequest) {
           },
         });
       } else {
-        const slaDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
+        const slaDeadline = new Date(Date.now() + 48 * 60 * 60 * 1000);
         lead = await prisma.lead.create({
           data: {
             contactId: contact.id,

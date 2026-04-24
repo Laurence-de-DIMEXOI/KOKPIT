@@ -7,7 +7,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 let cache: { data: unknown; timestamp: number } | null = null;
 
 interface NotificationItem {
-  type: "token_meta" | "devis_expirant" | "sync_brevo" | "tache_retard" | "sla_72h" | "demande_non_traitee";
+  type: "token_meta" | "devis_expirant" | "sync_brevo" | "tache_retard" | "sla_48h" | "demande_non_traitee";
   message: string;
   severity: "danger" | "warning" | "info";
   href?: string;
@@ -83,9 +83,9 @@ export async function GET() {
       // Silently fail
     }
 
-    // 3. SLA 72h — leads non traités depuis >72h
+    // 3. SLA 48h — leads non traités depuis >48h
     try {
-      const slaDate = new Date(Date.now() - 72 * 60 * 60 * 1000);
+      const slaDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
       const slaLeads = await prisma.contact.count({
         where: {
           lifecycleStage: "LEAD",
@@ -96,8 +96,8 @@ export async function GET() {
       });
       if (slaLeads > 0) {
         items.push({
-          type: "sla_72h",
-          message: `${slaLeads} lead${slaLeads > 1 ? "s" : ""} sans action depuis 72h`,
+          type: "sla_48h",
+          message: `${slaLeads} lead${slaLeads > 1 ? "s" : ""} sans action depuis 48h`,
           severity: "danger",
           href: "/contacts?stage=LEAD",
         });

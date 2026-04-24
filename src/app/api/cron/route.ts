@@ -166,15 +166,33 @@ async function slaCheck() {
             },
           });
 
-          // Email au commercial — une seule fois (guard = pas de tâche existante)
+          // Email de relance — direct au commercial, avec coordonnées client
           if (lead.commercial.email) {
+            const clientEmail = lead.contact?.email || "";
+            const clientTel = lead.contact?.telephone || "";
+            const emailHref = clientEmail ? `mailto:${clientEmail}` : "";
+            const telHref = clientTel ? `tel:${clientTel}` : "";
+
             await sendEmail({
               to: lead.commercial.email,
-              subject: `Relance SLA — ${clientNom}`,
+              subject: `🚨 Relance SLA — ${clientNom} (${heuresRetard}h de retard)`,
               html: `
-                <p>Bonjour ${lead.commercial.prenom},</p>
-                <p>La demande de <strong>${clientNom}</strong> n'a reçu aucune réponse depuis <strong>${heuresRetard}h</strong> (SLA dépassé).</p>
-                <p>Une tâche de relance a été créée dans <a href="https://kokpit.dimexoi.fr/leads">KOKPIT</a>.</p>
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                  <h2 style="color:#dc2626;margin:0 0 15px">⏰ SLA 48h dépassé — relance requise</h2>
+                  <p>Bonjour ${lead.commercial.prenom},</p>
+                  <p>La demande de <strong>${clientNom}</strong> n'a reçu aucune réponse depuis <strong>${heuresRetard}h</strong> après expiration du SLA. Merci de reprendre contact maintenant.</p>
+
+                  <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0;border-radius:4px;">
+                    <p style="margin:4px 0"><strong>Client :</strong> ${clientNom}</p>
+                    ${clientEmail ? `<p style="margin:4px 0"><strong>Email :</strong> <a href="${emailHref}">${clientEmail}</a></p>` : ""}
+                    ${clientTel ? `<p style="margin:4px 0"><strong>Téléphone :</strong> <a href="${telHref}">${clientTel}</a></p>` : ""}
+                  </div>
+
+                  <p style="margin-top:20px">
+                    <a href="https://kokpit.dimexoi.fr/leads/${lead.id}" style="background:#f59e0b;color:white;padding:10px 18px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Ouvrir la demande dans KOKPIT</a>
+                  </p>
+                  <p style="color:#6b7280;font-size:12px;margin-top:24px">Une tâche de relance a été créée automatiquement dans ton espace. Cet email ne sera pas renvoyé tant que la tâche reste ouverte.</p>
+                </div>
               `,
             });
           }

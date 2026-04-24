@@ -85,7 +85,7 @@ export default function ParametresPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<ConfigData>({
-    slaHeures: 72,
+    slaHeures: 48,
     pointageHeuresJour: 7,
     pointagePauseDefaut: 1,
   });
@@ -368,7 +368,7 @@ export default function ParametresPage() {
             <input
               type="number"
               value={config.slaHeures}
-              onChange={(e) => updateConfig("slaHeures", parseInt(e.target.value) || 72)}
+              onChange={(e) => updateConfig("slaHeures", parseInt(e.target.value) || 48)}
               min={1}
               max={168}
               className="w-20 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-active)]/40"

@@ -529,7 +529,7 @@ Accessible depuis **Administration > Parametres**.
 
 ## SLA — Delai de traitement
 
-Le SLA definit le temps maximum pour traiter une demande client. Par defaut : 72 heures.
+Le SLA definit le temps maximum pour traiter une demande client. Par defaut : 48 heures.
 Quand le SLA est depasse, une tache automatique est creee pour le commercial assigne.
 
 Modifiez la valeur et cliquez sur **Enregistrer**.

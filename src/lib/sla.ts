@@ -2,7 +2,7 @@ export type SlaStatus = "OK" | "ATTENTION" | "URGENT";
 
 const BUSINESS_HOURS_START = 8; // 8 AM
 const BUSINESS_HOURS_END = 18; // 6 PM
-const SLA_HOURS = 72;
+const SLA_HOURS = 48;
 
 /**
  * Check if a date is within business hours (Mon-Sat, 8h-18h)
@@ -59,7 +59,7 @@ function addBusinessHours(date: Date, hoursToAdd: number): Date {
 }
 
 /**
- * Calculate the SLA deadline (72 business hours from creation, Mon-Sat 8h-18h)
+ * Calculate the SLA deadline (48 business hours from creation, Mon-Sat 8h-18h)
  */
 export function calculateSlaDeadline(createdAt: Date): Date {
   return addBusinessHours(new Date(createdAt), SLA_HOURS);

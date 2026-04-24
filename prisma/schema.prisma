@@ -948,7 +948,7 @@ model ConfigPointage {
 
 model ConfigApp {
   id                    String   @id @default("default")
-  slaHeures             Int      @default(72)
+  slaHeures             Int      @default(48)
   pointageHeuresJour    Float    @default(7)
   pointagePauseDefaut   Float    @default(1)
   updatedAt             DateTime @updatedAt

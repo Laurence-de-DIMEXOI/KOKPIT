@@ -896,7 +896,7 @@ export default function LeadsPage() {
                         {/* SLA — masqué si traité (DEVIS/VENTE) ou demande avant 6 mars 2026 */}
                         {showSla && (
                           <div>
-                            <label className="text-xs text-cockpit-secondary mb-1.5 block">SLA (72h)</label>
+                            <label className="text-xs text-cockpit-secondary mb-1.5 block">SLA (48h)</label>
                             <div className={`p-3 rounded-lg text-sm font-semibold ${
                               slaExpired
                                 ? "bg-red-500/10 text-red-400"
