@@ -21,96 +21,88 @@ export async function GET() {
 
   type ProbeResult = {
     label: string;
-    request: { url: string; body: unknown };
+    request: { url: string; method: string; body?: unknown };
     ok: boolean;
     error?: string;
-    sampleOrder?: {
-      id: number;
-      number: string;
-      cfArrayCount: number;
-      cfFieldsSample: Array<{ id?: number; cf_id?: number; code?: string; name?: string; label?: string; value?: unknown }>;
-      keys: string[];
-    };
+    response?: unknown;
   };
 
-  const strategies: Array<{ label: string; url: string; body: unknown }> = [
+  // /orders/search ne retourne PAS les custom fields → tester d'autres endpoints
+  // BDC test : 53369099 (BCDI-05741)
+  const orderId = 53369099;
+  const strategies: Array<{ label: string; url: string; method: "GET" | "POST"; body?: unknown }> = [
     {
-      label: "1. embed dans body : ['customfields']",
-      url: "/orders/search?limit=3&order=created&direction=desc",
-      body: { filters: {}, embed: ["customfields"] },
+      label: "A. GET /orders/{id} — détail single order",
+      url: `/orders/${orderId}`,
+      method: "GET",
     },
     {
-      label: "2. embed dans body : ['custom_fields']",
-      url: "/orders/search?limit=3&order=created&direction=desc",
-      body: { filters: {}, embed: ["custom_fields"] },
+      label: "B. GET /orders/{id}/customfields",
+      url: `/orders/${orderId}/customfields`,
+      method: "GET",
     },
     {
-      label: "3. embed dans body : ['custom_field_values']",
-      url: "/orders/search?limit=3&order=created&direction=desc",
-      body: { filters: {}, embed: ["custom_field_values"] },
+      label: "C. GET /orders/{id}/custom-fields",
+      url: `/orders/${orderId}/custom-fields`,
+      method: "GET",
     },
     {
-      label: "4. embed en query string : ?embed[]=customfields",
-      url: "/orders/search?limit=3&order=created&direction=desc&embed[]=customfields",
-      body: { filters: {} },
+      label: "D. GET /orders/{id}?embed[]=customfields",
+      url: `/orders/${orderId}?embed[]=customfields`,
+      method: "GET",
     },
     {
-      label: "5. SANS embed (baseline)",
-      url: "/orders/search?limit=3&order=created&direction=desc",
-      body: { filters: {} },
+      label: "E. GET /custom-fields list",
+      url: `/custom-fields?limit=100`,
+      method: "GET",
+    },
+    {
+      label: "F. POST /custom-fields/values/search par order id",
+      url: `/custom-fields/values/search`,
+      method: "POST",
+      body: { filters: { related: [{ id: orderId, type: "order" }] } },
+    },
+    {
+      label: "G. POST /search/customfields/values par order id",
+      url: `/search/customfields/values`,
+      method: "POST",
+      body: { filters: { related: [{ id: orderId, type: "order" }] } },
     },
   ];
 
-  const results: ProbeResult[] = [];
+  // Truncate response payload pour éviter spam dans le JSON
+  function summarize(payload: unknown): unknown {
+    if (!payload || typeof payload !== "object") return payload;
+    const obj = payload as any;
+    if (Array.isArray(obj.data)) {
+      return {
+        ...obj,
+        data: obj.data.slice(0, 3),
+        pagination: obj.pagination,
+        _truncated: obj.data.length > 3,
+        _itemKeys: obj.data[0] ? Object.keys(obj.data[0]) : [],
+      };
+    }
+    return obj;
+  }
 
+  const results: ProbeResult[] = [];
   for (const s of strategies) {
     try {
-      const res = await sellsyFetch<{ data: any[] }>(s.url, {
-        method: "POST",
-        body: JSON.stringify(s.body),
+      const res = await sellsyFetch<unknown>(s.url, {
+        method: s.method,
+        ...(s.body ? { body: JSON.stringify(s.body) } : {}),
       });
-      const first = (res.data || [])[0];
-      if (first) {
-        const cfArr =
-          (first as any).custom_fields_values ||
-          (first as any).custom_field_values ||
-          (first as any).customfields ||
-          (first as any)._embed?.custom_fields_values ||
-          (first as any)._embed?.customfields ||
-          [];
-        results.push({
-          label: s.label,
-          request: { url: s.url, body: s.body },
-          ok: true,
-          sampleOrder: {
-            id: first.id,
-            number: first.number,
-            cfArrayCount: Array.isArray(cfArr) ? cfArr.length : 0,
-            cfFieldsSample: Array.isArray(cfArr)
-              ? cfArr.slice(0, 5).map((cf: any) => ({
-                  id: cf.id,
-                  cf_id: cf.cf_id,
-                  code: cf.code,
-                  name: cf.name,
-                  label: cf.label,
-                  value: cf.value,
-                }))
-              : [],
-            keys: Object.keys(first),
-          },
-        });
-      } else {
-        results.push({
-          label: s.label,
-          request: { url: s.url, body: s.body },
-          ok: true,
-          error: "Aucun BDC retourné",
-        });
-      }
+      results.push({
+        label: s.label,
+        request: { url: s.url, method: s.method, body: s.body },
+        ok: true,
+        response: summarize(res),
+      });
     } catch (e) {
       results.push({
         label: s.label,
-        request: { url: s.url, body: s.body },
+        request: { url: s.url, method: s.method, body: s.body },
         ok: false,
         error: (e as Error).message,
       });
