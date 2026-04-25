@@ -25,74 +25,55 @@ export async function GET(req: NextRequest) {
   const ref = url.searchParams.get("ref")?.trim() || "EFWS 162R";
 
   try {
-    // ===== 1a. Search par reference (items parents) =====
-    const searchByRef = await sellsyFetch<{ data: any[] }>(
-      `/items/search?limit=20`,
-      {
-        method: "POST",
-        body: JSON.stringify({ filters: { reference: ref } }),
-      }
-    ).catch((e) => ({ data: [], error: (e as Error).message }));
+    // ===== 1. Lister TOUS les items + déclinaisons (cache 1h) =====
+    const { listAllItems, listDeclinations } = await import("@/lib/sellsy");
+    const allItems = await listAllItems();
+    const refUpper = ref.trim().toUpperCase();
+    const refPrefix = refUpper.split(/\s+/)[0]; // "EFWS"
 
-    // ===== 1b. Search par name (au cas où la ref est dans le name) =====
-    const searchByName = await sellsyFetch<{ data: any[] }>(
-      `/items/search?limit=20`,
-      {
-        method: "POST",
-        body: JSON.stringify({ filters: { name: ref } }),
-      }
-    ).catch((e) => ({ data: [], error: (e as Error).message }));
+    // 1a. Cherche dans les items parents : référence OU nom contient la ref complète
+    const itemMatches = allItems.filter((i: any) => {
+      const r = (i.reference || "").toUpperCase();
+      const n = (i.name || "").toUpperCase();
+      return r === refUpper || n === refUpper || r.includes(refUpper) || n.includes(refUpper);
+    });
 
-    // ===== 1c. Search direct côté déclinaisons =====
-    const searchDecl = await sellsyFetch<{ data: any[] }>(
-      `/items/declinations/search?limit=20`,
-      {
-        method: "POST",
-        body: JSON.stringify({ filters: { reference: ref } }),
-      }
-    ).catch((e) => ({ data: [], error: (e as Error).message }));
+    // 1b. Pour les items déclinés dont la ref/nom contient le préfixe ("EFWS"),
+    //     scanner leurs déclinaisons.
+    const declinedCandidates = allItems.filter(
+      (i: any) =>
+        i.is_declined &&
+        ((i.reference || "").toUpperCase().includes(refPrefix) ||
+          (i.name || "").toUpperCase().includes(refPrefix))
+    );
 
-    // Fusionner les résultats : items parents trouvés + parents des déclinaisons
-    const itemIdsToProbe = new Set<number>();
-    for (const it of (searchByRef as any).data || []) itemIdsToProbe.add(it.id);
-    for (const it of (searchByName as any).data || []) itemIdsToProbe.add(it.id);
-    for (const d of (searchDecl as any).data || []) {
-      if (d.item_id) itemIdsToProbe.add(d.item_id);
-    }
-
-    // Si toujours rien, fallback : scanner tous les items déclinés et chercher
-    // une déclinaison qui matche la ref (lent mais exhaustif).
-    let scannedAll = false;
-    if (itemIdsToProbe.size === 0) {
-      scannedAll = true;
+    const declMatches: Array<{ parentId: number; parentName: string | null; decl: any }> = [];
+    for (const parent of declinedCandidates) {
       try {
-        const all = await sellsyFetch<{ data: any[]; pagination?: any }>(
-          `/items/search?limit=100&offset=0`,
-          {
-            method: "POST",
-            body: JSON.stringify({ filters: { is_archived: false, type: ["product"] } }),
+        const declRes = await listDeclinations(parent.id);
+        for (const d of declRes.data || []) {
+          const dRef = (d.reference || "").toUpperCase();
+          const dName = ((d as any).name || "").toUpperCase();
+          if (dRef === refUpper || dName === refUpper || dRef.includes(refUpper)) {
+            declMatches.push({ parentId: parent.id, parentName: parent.name, decl: d });
           }
-        );
-        // Pour optimiser, on ne va pas itérer 1700 items : on cherche d'abord les items
-        // dont la ref ressemble (ex. "EFWS").
-        const refPrefix = ref.split(/\s+/)[0];
-        const candidates = (all.data || []).filter(
-          (i: any) =>
-            (i.reference || "").toUpperCase().includes(refPrefix.toUpperCase()) ||
-            (i.name || "").toUpperCase().includes(refPrefix.toUpperCase())
-        );
-        for (const c of candidates) itemIdsToProbe.add(c.id);
-      } catch (e) {
-        console.warn("Fallback search failed:", e);
+        }
+      } catch {
+        /* skip */
       }
     }
+
+    // Fusionner : items parents qui matchent + parents des déclinaisons matchées
+    const itemIdsToProbe = new Set<number>();
+    for (const it of itemMatches) itemIdsToProbe.add(it.id);
+    for (const m of declMatches) itemIdsToProbe.add(m.parentId);
 
     const searchRes = {
       data: Array.from(itemIdsToProbe).map((id) => ({ id })),
-      _byRef: (searchByRef as any).data?.length || 0,
-      _byName: (searchByName as any).data?.length || 0,
-      _byDecl: (searchDecl as any).data?.length || 0,
-      _scannedAll: scannedAll,
+      _byItem: itemMatches.length,
+      _byDecl: declMatches.length,
+      _scannedDeclinedItems: declinedCandidates.length,
+      _totalCatalogItems: allItems.length,
     };
 
     // ===== 2. Pour chaque match, récupérer ses détails complets =====
@@ -170,10 +151,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ref,
       searchSummary: {
-        byReference: searchRes._byRef,
-        byName: searchRes._byName,
-        byDeclination: searchRes._byDecl,
-        scannedFullCatalog: searchRes._scannedAll,
+        itemMatches: searchRes._byItem,
+        declinationMatches: searchRes._byDecl,
+        scannedDeclinedItems: searchRes._scannedDeclinedItems,
+        totalCatalogItems: searchRes._totalCatalogItems,
         itemsToInspect: searchRes.data.length,
       },
       hint:
