@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
   const ref = url.searchParams.get("ref")?.trim() || "EFWS 162R";
 
   try {
-    // ===== 1. Search items by reference (couvre items + déclinaisons) =====
-    const searchRes = await sellsyFetch<{ data: any[] }>(
+    // ===== 1a. Search par reference (items parents) =====
+    const searchByRef = await sellsyFetch<{ data: any[] }>(
       `/items/search?limit=20`,
       {
         method: "POST",
@@ -34,12 +34,75 @@ export async function GET(req: NextRequest) {
       }
     ).catch((e) => ({ data: [], error: (e as Error).message }));
 
+    // ===== 1b. Search par name (au cas où la ref est dans le name) =====
+    const searchByName = await sellsyFetch<{ data: any[] }>(
+      `/items/search?limit=20`,
+      {
+        method: "POST",
+        body: JSON.stringify({ filters: { name: ref } }),
+      }
+    ).catch((e) => ({ data: [], error: (e as Error).message }));
+
+    // ===== 1c. Search direct côté déclinaisons =====
+    const searchDecl = await sellsyFetch<{ data: any[] }>(
+      `/items/declinations/search?limit=20`,
+      {
+        method: "POST",
+        body: JSON.stringify({ filters: { reference: ref } }),
+      }
+    ).catch((e) => ({ data: [], error: (e as Error).message }));
+
+    // Fusionner les résultats : items parents trouvés + parents des déclinaisons
+    const itemIdsToProbe = new Set<number>();
+    for (const it of (searchByRef as any).data || []) itemIdsToProbe.add(it.id);
+    for (const it of (searchByName as any).data || []) itemIdsToProbe.add(it.id);
+    for (const d of (searchDecl as any).data || []) {
+      if (d.item_id) itemIdsToProbe.add(d.item_id);
+    }
+
+    // Si toujours rien, fallback : scanner tous les items déclinés et chercher
+    // une déclinaison qui matche la ref (lent mais exhaustif).
+    let scannedAll = false;
+    if (itemIdsToProbe.size === 0) {
+      scannedAll = true;
+      try {
+        const all = await sellsyFetch<{ data: any[]; pagination?: any }>(
+          `/items/search?limit=100&offset=0`,
+          {
+            method: "POST",
+            body: JSON.stringify({ filters: { is_archived: false, type: ["product"] } }),
+          }
+        );
+        // Pour optimiser, on ne va pas itérer 1700 items : on cherche d'abord les items
+        // dont la ref ressemble (ex. "EFWS").
+        const refPrefix = ref.split(/\s+/)[0];
+        const candidates = (all.data || []).filter(
+          (i: any) =>
+            (i.reference || "").toUpperCase().includes(refPrefix.toUpperCase()) ||
+            (i.name || "").toUpperCase().includes(refPrefix.toUpperCase())
+        );
+        for (const c of candidates) itemIdsToProbe.add(c.id);
+      } catch (e) {
+        console.warn("Fallback search failed:", e);
+      }
+    }
+
+    const searchRes = {
+      data: Array.from(itemIdsToProbe).map((id) => ({ id })),
+      _byRef: (searchByRef as any).data?.length || 0,
+      _byName: (searchByName as any).data?.length || 0,
+      _byDecl: (searchDecl as any).data?.length || 0,
+      _scannedAll: scannedAll,
+    };
+
     // ===== 2. Pour chaque match, récupérer ses détails complets =====
     const enrichedItems: any[] = [];
-    for (const item of (searchRes as any).data || []) {
-      const detail = await sellsyFetch<{ data: any }>(`/items/${item.id}`).catch(
+    for (const stub of searchRes.data) {
+      const detailRes: any = await sellsyFetch<{ data: any }>(`/items/${stub.id}`).catch(
         (e) => ({ error: (e as Error).message })
       );
+      const item = detailRes?.data || stub;
+      const detail = detailRes;
 
       // Si l'item est décliné, fetch ses déclinaisons V2 + V1
       let declinations: any = null;
@@ -106,7 +169,13 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ref,
-      foundCount: ((searchRes as any).data || []).length,
+      searchSummary: {
+        byReference: searchRes._byRef,
+        byName: searchRes._byName,
+        byDeclination: searchRes._byDecl,
+        scannedFullCatalog: searchRes._scannedAll,
+        itemsToInspect: searchRes.data.length,
+      },
       hint:
         "Comparer les prix dans : item.reference_price_taxes_exc/inc, declinations.data[].reference_price_taxes_exc/inc, v1Declinations[].refPrice/priceInc, priceGrid.data[].price_taxes_exc/inc",
       items: enrichedItems,
