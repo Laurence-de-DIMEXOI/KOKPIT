@@ -6,20 +6,16 @@ import { sellsyFetch } from "@/lib/sellsy";
 import { genererNumeroDossier } from "@/lib/sav-numero";
 
 /**
- * Mapping statuts Sellsy → statuts SAV KOKPIT
- * Règle simplifiée demandée par Laurence (24 avril 2026) :
- * - facturé → TRAITE
- * - annulé → CLOTURE
- * - tout le reste → A_TRAITER
+ * Mapping statuts Sellsy → statuts SAV KOKPIT.
+ * Règle Laurence (24 avril 2026) :
+ *  - facturé → TRAITE
+ *  - annulé  → CLOTURE
+ *  - reste   → A_TRAITER
  */
 function mapSellsyStatut(sellsyStatus: string): string {
   const s = (sellsyStatus || "").toLowerCase();
-  if (["invoiced", "billed", "completed", "partialinvoiced", "advanced"].includes(s)) {
-    return "TRAITE";
-  }
-  if (["cancelled", "canceled", "refused", "rejected", "expired"].includes(s)) {
-    return "CLOTURE";
-  }
+  if (["invoiced", "billed", "completed", "partialinvoiced", "advanced"].includes(s)) return "TRAITE";
+  if (["cancelled", "canceled", "refused", "rejected", "expired"].includes(s)) return "CLOTURE";
   return "A_TRAITER";
 }
 
@@ -28,89 +24,53 @@ interface CustomFieldDef {
   code?: string;
   name?: string;
   label?: string;
-  related_type?: string;
-  related_object_type?: string;
+  type?: string;
+  related_objects?: string[];
+  parameters?: {
+    items?: Array<{ id: number | string; label: string; checked?: boolean; rank?: number }>;
+  };
 }
 
-interface CustomFieldValue {
-  cf_id?: number;
-  id?: number;
+interface CustomFieldOnOrder {
+  id: number;        // cf_id
   code?: string;
   name?: string;
   label?: string;
+  type?: string;
   value: unknown;
-  formatted_value?: unknown;
+  parameters?: { items?: Array<{ id: number | string; label: string }> };
 }
 
-/**
- * Le champ perso identifiant un SAV côté Sellsy s'appelle :
- *   "Etat des produit" (variantes possibles : "État des produits", "Etat produit"…)
- *
- * On match sur n'importe quel CF dont le code/name/label contient "etat" et "produit"
- * (insensible à la casse / aux accents). On garde aussi un fallback "sav".
- *
- * Ce comportement peut être surchargé via le query param `?cfName=...` qui prend
- * un substring (ex: ?cfName=etat).
- */
 function normalize(s: string): string {
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
-function cfMatchesSav(cf: CustomFieldValue, override?: string): boolean {
-  const fields = [cf.code, cf.name, cf.label].filter(Boolean) as string[];
-  if (!fields.length) return false;
-  const normalized = fields.map((v) => normalize(v));
-
-  if (override) {
-    const o = normalize(override);
-    return normalized.some((v) => v.includes(o));
+/** Lit la valeur "humaine" d'un CF — résout les select/radio en label. */
+function readCfValue(cf: CustomFieldOnOrder): string {
+  if (cf.value == null) return "";
+  if (typeof cf.value === "string" || typeof cf.value === "number" || typeof cf.value === "boolean") {
+    const raw = String(cf.value).trim();
+    // Si c'est un select/radio, mapper l'id de l'item vers son label
+    const items = cf.parameters?.items || [];
+    if (items.length > 0) {
+      const matched = items.find((it) => String(it.id) === raw);
+      if (matched) return matched.label;
+    }
+    return raw;
   }
-
-  return normalized.some(
-    (v) =>
-      (v.includes("etat") && v.includes("produit")) ||
-      v === "sav" ||
-      v.includes("sav")
-  );
-}
-
-function valueToString(value: unknown): string {
-  if (value == null) return "";
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map(valueToString).filter(Boolean).join(", ");
-  if (typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    if (typeof obj.value === "string") return obj.value;
-    if (typeof obj.formatted_value === "string") return obj.formatted_value;
-    if (typeof obj.label === "string") return obj.label;
-    return JSON.stringify(value);
+  if (Array.isArray(cf.value)) {
+    return cf.value.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(", ");
   }
-  return "";
-}
-
-function isNonEmpty(v: unknown): boolean {
-  const s = valueToString(v);
-  return s.length > 0 && s !== "null" && s !== "false" && s !== "0";
+  return JSON.stringify(cf.value);
 }
 
 /**
  * POST /api/sav/sync-sellsy
  *
- * Synchronise les BDC Sellsy ayant le champ personnalisé "SAV" rempli
- * vers les dossiers DossierSAV. Pour chaque BDC :
- *  - numero       = valeur du champ SAV (fallback : auto-généré)
- *  - titre        = "BCDI-XXXX — Objet"
- *  - description  = subject (Objet du document Sellsy)
- *  - statut       = mapping facturé/annulé/autre
- *  - sellsyStatut = statut brut Sellsy
- *  - createdAt    = date du document
- *  - assigneId    = user KOKPIT correspondant au owner Sellsy (par email)
- *  - contactId    = contact KOKPIT lié au BDC (via sellsyContactId)
+ * Trouve les BDC Sellsy avec le champ perso "Etat des produit" = "SAV"
+ * et crée/MAJ les dossiers DossierSAV correspondants.
  *
- * Préserve les modifications manuelles : si un dossier existe déjà
- * (par sellsyBdcId), on met à jour uniquement sellsyStatut + sellsyBdcRef
- * sans toucher au statut SAV ni à la description édités.
+ * Optimisation : limite la fenêtre de scan via ?since=YYYY-MM-DD (défaut 24 mois)
  */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -118,20 +78,82 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
   const userId = (session.user as any).id;
+
   const url = new URL(req.url);
-  const cfNameOverride = url.searchParams.get("cfName") || undefined;
-  // On ne garde que les BDC dont la valeur du champ contient "sav" (case/accent insensitive)
-  // override possible via ?value=...
+  const cfNameOverride = url.searchParams.get("cfName") || "etat";
+  const cfNameOverride2 = url.searchParams.get("cfName2") || "produit";
   const cfValueFilter = (url.searchParams.get("value") || "sav").toLowerCase();
+  // Fenêtre temporelle pour limiter le nombre d'appels Sellsy
+  const since = url.searchParams.get("since") || (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 24); // 24 mois par défaut
+    return d.toISOString().slice(0, 10);
+  })();
 
   try {
-    // ====== 1. Mapping users KOKPIT par email (pour assigneId) ======
-    const allUsers = await prisma.user.findMany({
-      select: { id: true, email: true },
+    // ====== ÉTAPE 1 : Découvrir le cf_id "Etat des produit" via /custom-fields ======
+    let allCfs: CustomFieldDef[] = [];
+    let cfOffset = 0;
+    while (true) {
+      const cfRes = await sellsyFetch<{ data: CustomFieldDef[]; pagination?: { total?: number } }>(
+        `/custom-fields?limit=100&offset=${cfOffset}`
+      );
+      const batch = cfRes.data || [];
+      allCfs = allCfs.concat(batch);
+      const total = cfRes.pagination?.total ?? batch.length;
+      cfOffset += batch.length;
+      if (batch.length === 0 || cfOffset >= total) break;
+      if (cfOffset > 1000) break;
+    }
+
+    const targetCfs = allCfs.filter((cf) => {
+      const fields = [cf.code, cf.name, cf.label].filter(Boolean) as string[];
+      const normalized = fields.map(normalize);
+      const tokens = [normalize(cfNameOverride), normalize(cfNameOverride2)].filter(Boolean);
+      return tokens.every((t) => normalized.some((v) => v.includes(t)));
     });
+
+    if (targetCfs.length === 0) {
+      return NextResponse.json(
+        {
+          error: `Aucun champ perso ne contient "${cfNameOverride}" + "${cfNameOverride2}"`,
+          totalCustomFields: allCfs.length,
+          customFieldsSample: allCfs.slice(0, 50).map((cf) => ({
+            id: cf.id,
+            name: cf.name,
+            code: cf.code,
+            label: cf.label,
+            type: cf.type,
+            related: cf.related_objects,
+          })),
+        },
+        { status: 404 }
+      );
+    }
+
+    // Privilégier ceux liés aux documents (orders/BDC)
+    const docTargets = targetCfs.filter((cf) =>
+      (cf.related_objects || []).some((r) => normalize(r).includes("document"))
+    );
+    const finalTargets = docTargets.length > 0 ? docTargets : targetCfs;
+    const targetCfIds = new Set(finalTargets.map((t) => t.id));
+
+    // Identifier l'item id correspondant à la valeur "SAV" dans les options de chaque CF
+    const savItemIdsByCf = new Map<number, Set<string>>();
+    for (const cf of finalTargets) {
+      const items = cf.parameters?.items || [];
+      const matchedItems = items
+        .filter((it) => normalize(String(it.label)).includes(normalize(cfValueFilter)))
+        .map((it) => String(it.id));
+      if (matchedItems.length > 0) {
+        savItemIdsByCf.set(cf.id, new Set(matchedItems));
+      }
+    }
+
+    // ====== ÉTAPE 2 : Mapping users + contacts KOKPIT ======
+    const allUsers = await prisma.user.findMany({ select: { id: true, email: true } });
     const userByEmail = new Map(allUsers.map((u) => [u.email.toLowerCase(), u.id]));
 
-    // Mapping owner staff Sellsy → email (via /staffs)
     const staffByOwnerId = new Map<number, string>();
     try {
       const staffRes = await sellsyFetch<{ data: Array<{ id: number; email?: string }> }>(
@@ -141,10 +163,9 @@ export async function POST(req: NextRequest) {
         if (s.email) staffByOwnerId.set(s.id, s.email.toLowerCase());
       }
     } catch (e) {
-      console.warn("[SAV sync] Liste staffs Sellsy indisponible:", e);
+      console.warn("[SAV sync] /staffs indisponible:", e);
     }
 
-    // Mapping sellsy contact id → kokpit contact id
     const allContacts = await prisma.contact.findMany({
       select: { id: true, sellsyContactId: true },
     });
@@ -157,120 +178,96 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ====== 2. Itération paginée des BDC avec embed customfields + owner + contact ======
-    type ProcessedOrder = {
+    // ====== ÉTAPE 3 : Lister les BDC dans la fenêtre ======
+    type RawOrder = {
       id: number;
       number: string;
       status: string;
-      date: string | null;
-      subject: string | null;
-      company_name: string | null;
+      date?: string;
+      created?: string;
+      subject?: string;
+      company_name?: string;
       contact_id?: number;
+      owner?: { id?: number };
       owner_id?: number;
-      cfValue: string;
-      amounts?: { total_excl_tax?: number };
     };
-    const ordersToImport: ProcessedOrder[] = [];
 
-    // Diagnostic : capter les noms de CF rencontrés + les valeurs prises par "Etat des produit"
-    const seenCfNames = new Set<string>();
-    const seenSavValues = new Set<string>();
-    let totalScanned = 0;
-
-    // Stratégie : appel direct POST /orders/search avec embed dans le body
-    // (format historique qui fonctionnait, contrairement à embed[] en query)
-    let offset = 0;
-    const limit = 100;
-    let useEmbed = true;
-    let firstAttemptError: string | null = null;
-
-    async function fetchOrdersPage(o: number): Promise<any> {
-      const url = `/orders/search?limit=${limit}&offset=${o}&order=created&direction=desc`;
-      const body: Record<string, unknown> = { filters: {} };
-      if (useEmbed) body.embed = ["customfields"];
-      try {
-        return await sellsyFetch<{ data: any[]; pagination?: { total?: number } }>(url, {
-          method: "POST",
-          body: JSON.stringify(body),
-        });
-      } catch (e) {
-        // Si embed dans body refusé, retry sans embed
-        if (useEmbed) {
-          firstAttemptError = (e as Error).message;
-          console.warn("[SAV sync] Embed body refusé, fallback sans embed:", firstAttemptError);
-          useEmbed = false;
-          const fallbackBody = { filters: {} };
-          return await sellsyFetch<{ data: any[]; pagination?: { total?: number } }>(url, {
-            method: "POST",
-            body: JSON.stringify(fallbackBody),
-          });
-        }
-        throw e;
-      }
-    }
-
+    const orders: RawOrder[] = [];
+    let oOffset = 0;
+    const oLimit = 100;
     while (true) {
-      const res = await fetchOrdersPage(offset);
-      const batch = res.data || [];
-      totalScanned += batch.length;
-      for (const order of batch) {
-        const o = order as any;
-        // Sellsy V2 peut renvoyer ces champs sous différents noms selon la version
-        const cfArr: CustomFieldValue[] =
-          (o.custom_fields_values as CustomFieldValue[]) ||
-          (o.custom_field_values as CustomFieldValue[]) ||
-          (o.customFieldValues as CustomFieldValue[]) ||
-          (o.customfields as CustomFieldValue[]) ||
-          (o._embed?.custom_fields_values as CustomFieldValue[]) ||
-          (o._embed?.custom_field_values as CustomFieldValue[]) ||
-          (o._embed?.customfields as CustomFieldValue[]) ||
-          [];
-
-        for (const cf of cfArr) {
-          for (const k of [cf.code, cf.name, cf.label].filter(Boolean) as string[]) {
-            seenCfNames.add(k);
-          }
-          // Capter les valeurs du champ "Etat des produit" (ou override) pour debug
-          if (cfMatchesSav(cf, cfNameOverride)) {
-            const v = valueToString(cf.value);
-            if (v) seenSavValues.add(v);
-          }
+      const res = await sellsyFetch<{ data: RawOrder[]; pagination?: { total?: number } }>(
+        `/orders/search?limit=${oLimit}&offset=${oOffset}&order=created&direction=desc`,
+        {
+          method: "POST",
+          body: JSON.stringify({ filters: { date: { start: since } } }),
         }
-
-        const matched = cfArr.find((cf) => {
-          if (!cfMatchesSav(cf, cfNameOverride)) return false;
-          if (!isNonEmpty(cf.value)) return false;
-          // Filtrer aussi sur la valeur — par défaut "sav"
-          const valStr = normalize(valueToString(cf.value));
-          return valStr.includes(normalize(cfValueFilter));
-        });
-        if (!matched) continue;
-
-        ordersToImport.push({
-          id: order.id,
-          number: order.number,
-          status: order.status,
-          date: (order as any).date || (order as any).created || null,
-          subject: (order as any).subject || null,
-          company_name: order.company_name || null,
-          contact_id: (order as any).contact_id,
-          owner_id: (order as any).owner_id || (order as any).owner?.id,
-          cfValue: valueToString(matched.value),
-          amounts: order.amounts as any,
-        });
-      }
+      );
+      const batch = res.data || [];
+      orders.push(...batch);
       const total = res.pagination?.total ?? batch.length;
-      offset += batch.length;
-      if (batch.length < limit || offset >= total) break;
-      if (offset > 10000) break;
+      oOffset += batch.length;
+      if (batch.length === 0 || oOffset >= total) break;
+      if (oOffset > 5000) break; // safety
     }
 
-    // ====== 4. Upsert DossierSAV ======
+    // ====== ÉTAPE 4 : Pour chaque BDC, fetch ses CFs et filtrer ======
+    type Matched = { order: RawOrder; cfValueLabel: string };
+    const matches: Matched[] = [];
+    let totalCfQueries = 0;
+    let cfErrors = 0;
+
+    // Parallélisation par batch de 10 pour ne pas saturer Sellsy
+    const PARALLEL = 10;
+    for (let i = 0; i < orders.length; i += PARALLEL) {
+      const slice = orders.slice(i, i + PARALLEL);
+      const results = await Promise.allSettled(
+        slice.map(async (order) => {
+          const res = await sellsyFetch<{ data: CustomFieldOnOrder[] }>(
+            `/orders/${order.id}/custom-fields?limit=100`
+          );
+          totalCfQueries++;
+          const list = res.data || [];
+          const target = list.find((cf) => targetCfIds.has(cf.id));
+          if (!target) return null;
+          if (target.value == null || target.value === "") return null;
+
+          // 2 stratégies de matching :
+          //  a) si on a mappé un item id pour "SAV" → vérifier que value === item id
+          //  b) sinon, matcher la valeur lue (label ou texte) sur "sav"
+          const itemIds = savItemIdsByCf.get(target.id);
+          let matched = false;
+          let label = "";
+          if (itemIds && itemIds.has(String(target.value))) {
+            matched = true;
+            label = readCfValue(target);
+          } else {
+            const labelOrText = readCfValue(target);
+            if (normalize(labelOrText).includes(normalize(cfValueFilter))) {
+              matched = true;
+              label = labelOrText;
+            }
+          }
+          if (!matched) return null;
+          return { order, cfValueLabel: label } as Matched;
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          if (r.value) matches.push(r.value);
+        } else {
+          cfErrors++;
+        }
+      }
+    }
+
+    // ====== ÉTAPE 5 : Upsert DossierSAV ======
     let created = 0;
     let updated = 0;
     let assignedFromOwner = 0;
 
-    for (const order of ordersToImport) {
+    for (const m of matches) {
+      const order = m.order;
       const bdcId = String(order.id);
       const bdcRef = order.number || bdcId;
       const sellsyStatus = order.status || "draft";
@@ -279,12 +276,17 @@ export async function POST(req: NextRequest) {
       const contactName = order.company_name || null;
       const titre = subject ? `${bdcRef} — ${subject}` : `BDC ${bdcRef}`;
       const description = subject || null;
-      const dateDoc = order.date ? new Date(order.date) : null;
+      const dateDoc = order.date
+        ? new Date(order.date)
+        : order.created
+          ? new Date(order.created)
+          : null;
 
-      // Résolution assigné
+      // Assigné via owner
       let assigneId: string | null = null;
-      if (order.owner_id) {
-        const ownerEmail = staffByOwnerId.get(order.owner_id);
+      const ownerId = order.owner?.id || order.owner_id;
+      if (ownerId) {
+        const ownerEmail = staffByOwnerId.get(ownerId);
         if (ownerEmail) {
           const matchedUserId = userByEmail.get(ownerEmail);
           if (matchedUserId) {
@@ -294,7 +296,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Résolution contact KOKPIT
       const contactId = order.contact_id
         ? contactBySellsyId.get(String(order.contact_id)) || null
         : null;
@@ -304,7 +305,6 @@ export async function POST(req: NextRequest) {
       });
 
       if (existing) {
-        // Conserver les éventuelles éditions manuelles : on ne touche que sellsyStatut + bdcRef + contactNom (si vide)
         await prisma.dossierSAV.update({
           where: { id: existing.id },
           data: {
@@ -317,23 +317,13 @@ export async function POST(req: NextRequest) {
         });
         updated++;
       } else {
-        // Numéro = valeur SAV ; fallback auto si collision avec un autre dossier
-        let numero = order.cfValue || "";
-        if (numero) {
-          const collide = await prisma.dossierSAV.findUnique({
-            where: { numero },
-            select: { id: true },
-          });
-          if (collide) numero = `${numero}-${bdcRef}`;
-        } else {
-          numero = await genererNumeroDossier();
-        }
-        // Garde-fou : assurer l'unicité finale
-        const stillCollide = await prisma.dossierSAV.findUnique({
+        // Numero du dossier — préfixé par la valeur du CF (ex: "SAV-BCDI-05741")
+        let numero = `${m.cfValueLabel.toUpperCase()}-${bdcRef}`.replace(/\s+/g, "-");
+        const collide = await prisma.dossierSAV.findUnique({
           where: { numero },
           select: { id: true },
         });
-        if (stillCollide) numero = await genererNumeroDossier();
+        if (collide) numero = await genererNumeroDossier();
 
         await prisma.dossierSAV.create({
           data: {
@@ -358,28 +348,26 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      ordersScanned: totalScanned,
-      found: ordersToImport.length,
+      since,
+      ordersScanned: orders.length,
+      cfQueries: totalCfQueries,
+      cfErrors,
+      found: matches.length,
       created,
       updated,
       assignedFromOwner,
-      // Si 0 trouvés : noms des champs perso + valeurs "Etat des produit" rencontrés
-      ...(ordersToImport.length === 0
-        ? {
-            customFieldNamesSeen: Array.from(seenCfNames).sort(),
-            etatProduitValuesSeen: Array.from(seenSavValues).sort(),
-            filterUsed: { cfName: cfNameOverride || "etat des produit / sav", value: cfValueFilter },
-            embedUsed: useEmbed,
-            firstAttemptError,
-          }
-        : {}),
+      cfsTargeted: finalTargets.map((t) => ({
+        id: t.id,
+        name: t.name || t.label || t.code,
+        type: t.type,
+        savItemIds: savItemIdsByCf.get(t.id) ? Array.from(savItemIdsByCf.get(t.id)!) : [],
+      })),
     });
   } catch (error: any) {
     console.error("[SAV sync] Erreur:", error);
     return NextResponse.json(
       {
         error: error.message || "Erreur lors de la synchronisation",
-        // Diagnostic complet pour debug iteratif
         errorName: error.name,
         errorStack: typeof error.stack === "string" ? error.stack.split("\n").slice(0, 5) : undefined,
       },
