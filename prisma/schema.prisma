@@ -1007,6 +1007,7 @@ model CommentaireSAV {
   id        String     @id @default(cuid())
   dossierId String
   contenu   String
+  type      String     @default("NOTE") // NOTE | APPEL | MESSAGE | MAIL | COURRIER
   auteurId  String
   createdAt DateTime   @default(now())
 

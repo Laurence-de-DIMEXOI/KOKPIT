@@ -16,6 +16,8 @@ import {
   Pencil,
   Check,
   X,
+  StickyNote,
+  MessageSquare,
 } from "lucide-react";
 import clsx from "clsx";
 import { Drawer } from "@/components/layout/drawer";
@@ -24,9 +26,11 @@ import {
   TYPES_SAV,
   STATUTS_SAV,
   TYPES_DOCUMENT_SAV,
+  TYPES_COMMENTAIRE_SAV,
   getTypeLabel,
   getStatutConfig,
   getDocTypeConfig,
+  getCommentaireTypeConfig,
 } from "@/data/sav-config";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 
@@ -38,14 +42,15 @@ interface SAVDocument {
   type: string;
   contenu: string | null;
   url: string | null;
-  ajouteParId: string | null;
-  ajoutePar?: { prenom: string; nom: string } | null;
+  ajoutePar: string | null; // userId
+  ajoute?: { prenom: string; nom: string } | null;
   createdAt: string;
 }
 
 interface SAVCommentaire {
   id: string;
   contenu: string;
+  type?: string;
   auteurId: string;
   auteur?: { prenom: string; nom: string } | null;
   createdAt: string;
@@ -85,12 +90,20 @@ const DOC_ICONS: Record<string, React.ElementType> = {
   FileArchive: Archive,
   Image,
   Paperclip,
+  StickyNote,
+  MessageSquare,
 };
 
 function getDocIcon(type: string) {
   const config = getDocTypeConfig(type);
   const IconComponent = DOC_ICONS[config.icone] || Paperclip;
   return { Icon: IconComponent, couleur: config.couleur };
+}
+
+function getCommentIcon(type: string) {
+  const config = getCommentaireTypeConfig(type);
+  const IconComponent = DOC_ICONS[config.icone] || StickyNote;
+  return { Icon: IconComponent, couleur: config.couleur, label: config.label };
 }
 
 // ── Relative time ───────────────────────────────────────────────────
@@ -134,11 +147,12 @@ export default function SAVDrawer({
 
   // New document form
   const [showDocForm, setShowDocForm] = useState(false);
-  const [docForm, setDocForm] = useState<{ nom: string; type: string; contenu: string }>({ nom: "", type: "PDF", contenu: "" });
+  const [docForm, setDocForm] = useState<{ nom: string; type: string; url: string; contenu: string }>({ nom: "", type: "PDF", url: "", contenu: "" });
   const [submittingDoc, setSubmittingDoc] = useState(false);
 
   // New comment
   const [commentValue, setCommentValue] = useState("");
+  const [commentType, setCommentType] = useState<string>("NOTE");
   const [submittingComment, setSubmittingComment] = useState(false);
 
   // ── Fetch dossier detail ────────────────────────────────────────
@@ -229,22 +243,26 @@ export default function SAVDrawer({
         body: JSON.stringify({
           nom: docForm.nom,
           type: docForm.type,
+          url: docForm.url.trim() || null,
           contenu: docForm.contenu || null,
         }),
       });
-      if (!res.ok) throw new Error("Erreur");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erreur");
+      }
       const newDoc = await res.json();
       setDossier((prev) =>
         prev
           ? { ...prev, documents: [...prev.documents, newDoc] }
           : prev
       );
-      setDocForm({ nom: "", type: TYPES_DOCUMENT_SAV[0].value, contenu: "" });
+      setDocForm({ nom: "", type: TYPES_DOCUMENT_SAV[0].value, url: "", contenu: "" });
       setShowDocForm(false);
       addToast("Document ajoute", "success");
       onRefresh();
-    } catch {
-      addToast("Erreur lors de l'ajout du document", "error");
+    } catch (e: any) {
+      addToast(e.message || "Erreur lors de l'ajout du document", "error");
     } finally {
       setSubmittingDoc(false);
     }
@@ -260,7 +278,7 @@ export default function SAVDrawer({
       const res = await fetch(`/api/sav/${dossier.id}/commentaires`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contenu: commentValue }),
+        body: JSON.stringify({ contenu: commentValue, type: commentType }),
       });
       if (!res.ok) throw new Error("Erreur");
       const newComment = await res.json();
@@ -270,6 +288,7 @@ export default function SAVDrawer({
           : prev
       );
       setCommentValue("");
+      setCommentType("NOTE");
       addToast("Commentaire ajoute", "success");
     } catch {
       addToast("Erreur lors de l'ajout du commentaire", "error");
@@ -506,6 +525,15 @@ export default function SAVDrawer({
                     </option>
                   ))}
                 </select>
+                <input
+                  type="url"
+                  value={docForm.url}
+                  onChange={(e) =>
+                    setDocForm((prev) => ({ ...prev, url: e.target.value }))
+                  }
+                  placeholder="Lien (https://...) — optionnel"
+                  className="w-full bg-cockpit-card border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                />
                 <textarea
                   value={docForm.contenu}
                   onChange={(e) =>
@@ -562,22 +590,39 @@ export default function SAVDrawer({
                         <Icon className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-cockpit-primary truncate">
-                          {doc.nom}
-                        </p>
+                        {doc.url ? (
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-teal-600 hover:text-teal-700 hover:underline inline-flex items-center gap-1 truncate max-w-full"
+                          >
+                            <span className="truncate">{doc.nom}</span>
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </a>
+                        ) : (
+                          <p className="text-sm font-medium text-cockpit-primary truncate">
+                            {doc.nom}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 text-xs text-cockpit-secondary">
                           <span>{docTypeConfig.label}</span>
                           <span>-</span>
                           <span>{tempsRelatif(doc.createdAt)}</span>
-                          {doc.ajoutePar && (
+                          {doc.ajoute && (
                             <>
                               <span>-</span>
                               <span>
-                                {doc.ajoutePar.prenom} {doc.ajoutePar.nom}
+                                {doc.ajoute.prenom} {doc.ajoute.nom}
                               </span>
                             </>
                           )}
                         </div>
+                        {doc.contenu && (
+                          <p className="text-xs text-cockpit-secondary mt-1 whitespace-pre-wrap">
+                            {doc.contenu}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -599,52 +644,89 @@ export default function SAVDrawer({
                   Aucun commentaire
                 </p>
               ) : (
-                dossier.commentaires.map((c) => (
-                  <div key={c.id} className="bg-cockpit-dark rounded-lg p-3 border border-cockpit">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold text-cockpit-primary">
-                        {c.auteur?.prenom || "Utilisateur"}
-                      </span>
-                      <span className="text-xs text-cockpit-secondary">
-                        {tempsRelatif(c.createdAt)}
-                      </span>
+                dossier.commentaires.map((c) => {
+                  const { Icon: CIcon, couleur: cCol, label: cLabel } = getCommentIcon(c.type || "NOTE");
+                  return (
+                    <div key={c.id} className="bg-cockpit-dark rounded-lg p-3 border border-cockpit">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span
+                          className={clsx(
+                            "inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/5",
+                            cCol
+                          )}
+                        >
+                          <CIcon className="w-3 h-3" />
+                          {cLabel}
+                        </span>
+                        <span className="text-xs font-semibold text-cockpit-primary">
+                          {c.auteur?.prenom || "Utilisateur"}
+                        </span>
+                        <span className="text-xs text-cockpit-secondary">
+                          {tempsRelatif(c.createdAt)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-cockpit-primary leading-relaxed whitespace-pre-wrap">
+                        {c.contenu}
+                      </p>
                     </div>
-                    <p className="text-sm text-cockpit-primary leading-relaxed">
-                      {c.contenu}
-                    </p>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
             {/* Add comment */}
-            <div className="flex items-end gap-2">
-              <textarea
-                value={commentValue}
-                onChange={(e) => setCommentValue(e.target.value)}
-                placeholder="Ecrire un commentaire..."
-                rows={2}
-                className="flex-1 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-teal-500/40 resize-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    handleAddComment();
-                  }
-                }}
-              />
-              <button
-                onClick={handleAddComment}
-                disabled={submittingComment || !commentValue.trim()}
-                className="p-2.5 rounded-lg text-white transition-all disabled:opacity-40"
-                style={{
-                  background: "linear-gradient(135deg, var(--color-active), #FEEB9C)",
-                }}
-              >
-                {submittingComment ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </button>
+            <div className="space-y-2">
+              {/* Type selector — pills */}
+              <div className="flex flex-wrap gap-1.5">
+                {TYPES_COMMENTAIRE_SAV.map((t) => {
+                  const IconComponent = DOC_ICONS[t.icone] || StickyNote;
+                  const active = commentType === t.value;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setCommentType(t.value)}
+                      className={clsx(
+                        "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-colors",
+                        active
+                          ? "bg-teal-500/15 text-teal-600 border-teal-500/40"
+                          : "bg-cockpit-dark text-cockpit-secondary border-cockpit hover:text-cockpit-primary"
+                      )}
+                    >
+                      <IconComponent className="w-3 h-3" />
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-end gap-2">
+                <textarea
+                  value={commentValue}
+                  onChange={(e) => setCommentValue(e.target.value)}
+                  placeholder="Ecrire un commentaire..."
+                  rows={2}
+                  className="flex-1 bg-cockpit-dark border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-teal-500/40 resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      handleAddComment();
+                    }
+                  }}
+                />
+                <button
+                  onClick={handleAddComment}
+                  disabled={submittingComment || !commentValue.trim()}
+                  className="p-2.5 rounded-lg text-white transition-all disabled:opacity-40"
+                  style={{
+                    background: "linear-gradient(135deg, var(--color-active), #FEEB9C)",
+                  }}
+                >
+                  {submittingComment ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

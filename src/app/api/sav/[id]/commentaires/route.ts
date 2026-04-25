@@ -20,7 +20,7 @@ export async function POST(
     const { id } = await params;
     const userId = (session.user as any).id;
     const body = await req.json();
-    const { contenu } = body;
+    const { contenu, type } = body;
 
     if (!contenu) {
       return NextResponse.json(
@@ -38,10 +38,14 @@ export async function POST(
       return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
     }
 
+    const validTypes = ["NOTE", "APPEL", "MESSAGE", "MAIL", "COURRIER"];
+    const safeType = validTypes.includes(type) ? type : "NOTE";
+
     const commentaire = await prisma.commentaireSAV.create({
       data: {
         dossierId: id,
         contenu,
+        type: safeType,
         auteurId: userId,
       },
       include: {

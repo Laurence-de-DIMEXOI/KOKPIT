@@ -28,6 +28,15 @@ export const TYPES_DOCUMENT_SAV = [
   { value: "AUTRE", label: "Autre", icone: "Paperclip", couleur: "text-gray-500" },
 ] as const;
 
+// Types de commentaires SAV (canal de communication)
+export const TYPES_COMMENTAIRE_SAV = [
+  { value: "NOTE", label: "Note", icone: "StickyNote", couleur: "text-gray-500" },
+  { value: "APPEL", label: "Appel", icone: "Phone", couleur: "text-green-500" },
+  { value: "MESSAGE", label: "Message", icone: "MessageSquare", couleur: "text-blue-500" },
+  { value: "MAIL", label: "Mail", icone: "Mail", couleur: "text-indigo-500" },
+  { value: "COURRIER", label: "Courrier", icone: "FileArchive", couleur: "text-amber-500" },
+] as const;
+
 export function getTypeLabel(type: string): string {
   return TYPES_SAV.find((t) => t.value === type)?.label || type;
 }
@@ -38,4 +47,8 @@ export function getStatutConfig(statut: string) {
 
 export function getDocTypeConfig(type: string) {
   return TYPES_DOCUMENT_SAV.find((t) => t.value === type) || TYPES_DOCUMENT_SAV[5];
+}
+
+export function getCommentaireTypeConfig(type: string) {
+  return TYPES_COMMENTAIRE_SAV.find((t) => t.value === type) || TYPES_COMMENTAIRE_SAV[0];
 }
