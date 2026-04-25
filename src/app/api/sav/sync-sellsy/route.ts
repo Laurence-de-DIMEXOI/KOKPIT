@@ -102,18 +102,32 @@ export async function POST(req: NextRequest) {
       console.warn("[SAV sync] Impossible de lister custom-fields:", e);
     }
 
-    const savCfs = allCfs.filter((cf) => {
-      const matchName =
-        cf.code?.toLowerCase() === "sav" ||
-        cf.name?.toLowerCase() === "sav" ||
-        cf.label?.toLowerCase() === "sav";
-      return matchName;
-    });
+    // Recherche permissive : exact d'abord, puis substring
+    const exact = allCfs.filter((cf) =>
+      [cf.code, cf.name, cf.label]
+        .filter(Boolean)
+        .some((v) => v!.toLowerCase() === "sav")
+    );
+    const fuzzy = allCfs.filter((cf) =>
+      [cf.code, cf.name, cf.label]
+        .filter(Boolean)
+        .some((v) => v!.toLowerCase().includes("sav"))
+    );
+    const savCfs = exact.length > 0 ? exact : fuzzy;
+
     if (savCfs.length === 0) {
       return NextResponse.json(
         {
           error: "Champ perso 'SAV' introuvable côté Sellsy",
-          hint: "Vérifie le code/label exact du custom field",
+          hint: "Aucun custom field n'a 'sav' dans son code/name/label.",
+          totalCustomFields: allCfs.length,
+          customFieldsSample: allCfs.slice(0, 100).map((cf) => ({
+            id: cf.id,
+            code: cf.code,
+            name: cf.name,
+            label: cf.label,
+            related: cf.related_type || cf.related_object_type,
+          })),
         },
         { status: 404 }
       );
