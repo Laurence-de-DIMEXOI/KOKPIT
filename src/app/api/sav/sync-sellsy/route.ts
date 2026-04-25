@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sellsyFetch, searchOrders } from "@/lib/sellsy";
+import { sellsyFetch } from "@/lib/sellsy";
 import { genererNumeroDossier } from "@/lib/sav-numero";
 
 /**
@@ -177,17 +177,40 @@ export async function POST(req: NextRequest) {
     const seenSavValues = new Set<string>();
     let totalScanned = 0;
 
+    // Stratégie : appel direct POST /orders/search avec embed dans le body
+    // (format historique qui fonctionnait, contrairement à embed[] en query)
     let offset = 0;
     const limit = 100;
+    let useEmbed = true;
+    let firstAttemptError: string | null = null;
+
+    async function fetchOrdersPage(o: number): Promise<any> {
+      const url = `/orders/search?limit=${limit}&offset=${o}&order=created&direction=desc`;
+      const body: Record<string, unknown> = { filters: {} };
+      if (useEmbed) body.embed = ["customfields"];
+      try {
+        return await sellsyFetch<{ data: any[]; pagination?: { total?: number } }>(url, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+      } catch (e) {
+        // Si embed dans body refusé, retry sans embed
+        if (useEmbed) {
+          firstAttemptError = (e as Error).message;
+          console.warn("[SAV sync] Embed body refusé, fallback sans embed:", firstAttemptError);
+          useEmbed = false;
+          const fallbackBody = { filters: {} };
+          return await sellsyFetch<{ data: any[]; pagination?: { total?: number } }>(url, {
+            method: "POST",
+            body: JSON.stringify(fallbackBody),
+          });
+        }
+        throw e;
+      }
+    }
+
     while (true) {
-      const res = await searchOrders({
-        filters: {} as any,
-        limit,
-        offset,
-        order: "created",
-        direction: "desc",
-        embed: ["customfields", "contact", "company"],
-      });
+      const res = await fetchOrdersPage(offset);
       const batch = res.data || [];
       totalScanned += batch.length;
       for (const order of batch) {
@@ -346,13 +369,20 @@ export async function POST(req: NextRequest) {
             customFieldNamesSeen: Array.from(seenCfNames).sort(),
             etatProduitValuesSeen: Array.from(seenSavValues).sort(),
             filterUsed: { cfName: cfNameOverride || "etat des produit / sav", value: cfValueFilter },
+            embedUsed: useEmbed,
+            firstAttemptError,
           }
         : {}),
     });
   } catch (error: any) {
     console.error("[SAV sync] Erreur:", error);
     return NextResponse.json(
-      { error: error.message || "Erreur lors de la synchronisation" },
+      {
+        error: error.message || "Erreur lors de la synchronisation",
+        // Diagnostic complet pour debug iteratif
+        errorName: error.name,
+        errorStack: typeof error.stack === "string" ? error.stack.split("\n").slice(0, 5) : undefined,
+      },
       { status: 500 }
     );
   }
