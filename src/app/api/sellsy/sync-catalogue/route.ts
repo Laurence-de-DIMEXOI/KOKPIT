@@ -65,13 +65,39 @@ export async function POST(_req: NextRequest) {
     }
     console.log(`[sync] ${items.length} items upsertés en DB`);
 
-    // 3) Récupère les déclinaisons (v2 pour structure + v1 pour vrais prix) — en batch de 10
-    const declinedItems = items.filter((i) => i.is_declined);
-    console.log(`[sync] ${declinedItems.length} items déclinés à traiter`);
+    // 3) Récupère les déclinaisons (v2 pour structure + v1 pour vrais prix)
+    // Traitement par priorité : items dont les déclinaisons sont les plus anciennes
+    // (permet une exécution progressive si timeout Vercel à 5 min).
+    const declinedItemsAll = items.filter((i) => i.is_declined);
+    // Récupérer le syncedAt min par parent (= déclinaison la plus stale)
+    const declStaleness = await prisma.sellsyDeclinationCache.groupBy({
+      by: ["itemId"],
+      _min: { syncedAt: true },
+    });
+    const stalenessMap = new Map<number, Date>();
+    for (const d of declStaleness) {
+      if (d._min.syncedAt) stalenessMap.set(d.itemId, d._min.syncedAt);
+    }
+    const declinedItems = [...declinedItemsAll].sort((a, b) => {
+      const aTime = stalenessMap.get(a.id)?.getTime() ?? 0; // jamais synced = priorité max
+      const bTime = stalenessMap.get(b.id)?.getTime() ?? 0;
+      return aTime - bTime;
+    });
+    console.log(`[sync] ${declinedItems.length} items déclinés à traiter (oldest-first)`);
+
+    // Time budget : on coupe net à 4min30 pour laisser 30s de finalisation au log
+    const startTs = Date.now();
+    const TIME_BUDGET_MS = 4.5 * 60 * 1000;
 
     let totalDecls = 0;
-    const BATCH = 10;
+    let processedItems = 0;
+    const BATCH = 20;
     for (let i = 0; i < declinedItems.length; i += BATCH) {
+      // Budget temps : si on dépasse, on s'arrête proprement
+      if (Date.now() - startTs > TIME_BUDGET_MS) {
+        console.log(`[sync] TIME BUDGET atteint, arrêt à ${i}/${declinedItems.length} items`);
+        break;
+      }
       const batch = declinedItems.slice(i, i + BATCH);
       const results = await Promise.all(
         batch.map(async (item) => {
@@ -133,26 +159,34 @@ export async function POST(_req: NextRequest) {
         }
       }
 
+      processedItems = Math.min(i + BATCH, declinedItems.length);
       if ((i / BATCH) % 5 === 0) {
-        console.log(`[sync] progress ${i + BATCH}/${declinedItems.length} items déclinés`);
+        console.log(`[sync] progress ${processedItems}/${declinedItems.length} items déclinés (elapsed ${Math.round((Date.now() - startTs) / 1000)}s)`);
       }
     }
 
+    const partial = processedItems < declinedItems.length;
     await prisma.sellsyCatalogueSync.update({
       where: { id: syncLog.id },
       data: {
         finishedAt: new Date(),
         itemCount: items.length,
         declCount: totalDecls,
-        status: "success",
+        status: partial ? "partial" : "success",
       },
     });
 
     return NextResponse.json({
       success: true,
+      partial,
       items: items.length,
+      declinedItemsTotal: declinedItems.length,
+      declinedItemsProcessed: processedItems,
       declinations: totalDecls,
       syncId: syncLog.id,
+      hint: partial
+        ? "Sync partielle (timeout). Relance pour traiter les items restants — l'oldest-first garantit qu'aucun item ne sera ignoré."
+        : "Sync complète",
     });
   } catch (err: any) {
     console.error("[sync-catalogue] error:", err);
