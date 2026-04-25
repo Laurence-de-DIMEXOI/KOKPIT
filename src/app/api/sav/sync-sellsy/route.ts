@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
         offset,
         order: "created",
         direction: "desc",
-        embed: ["customfields", "custom_fields", "custom_field_values", "owner", "contact", "company"],
+        embed: ["customfields", "contact", "company"],
       });
       const batch = res.data || [];
       totalScanned += batch.length;
