@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Loader2,
   X,
+  MinusCircle,
 } from "lucide-react";
 import {
   formatHeure,
@@ -440,6 +441,55 @@ export default function PointageEquipePage() {
     }
   }, [selectedMonth, addToast]);
 
+  // --- Consommer des heures du solde (récup) ---
+  const handleConsumeRecup = useCallback(
+    async (userId: string, prenom: string, nom: string, soldeActuel: number) => {
+      const input = window.prompt(
+        `Combien d'heures consommer du solde de ${prenom} ${nom} ?\nSolde actuel : ${soldeActuel.toFixed(2)}h`,
+        "7"
+      );
+      if (!input) return;
+      const heures = parseFloat(input.replace(",", "."));
+      if (!Number.isFinite(heures) || heures <= 0 || heures > 24) {
+        addToast("Nombre d'heures invalide (entre 0 et 24)", "error");
+        return;
+      }
+      const note = window.prompt(
+        `Note optionnelle (ex: "Rattrapage samedi 25 avr.")`,
+        ""
+      );
+      const dateInput = window.prompt(
+        "Date du pointage de récup (YYYY-MM-DD, vide = aujourd'hui)",
+        ""
+      );
+      try {
+        const res = await fetch("/api/pointage/recup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            heures,
+            note: note?.trim() || undefined,
+            date: dateInput?.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          addToast(data.error || "Erreur consommation", "error");
+          return;
+        }
+        addToast(
+          `✓ ${heures}h déduites du solde de ${prenom} (nouveau : ${data.nouveauSolde}h)`,
+          "success"
+        );
+        fetchRecap();
+      } catch {
+        addToast("Erreur réseau", "error");
+      }
+    },
+    [addToast, fetchRecap]
+  );
+
   useEffect(() => {
     if (!isAdmin) return;
     if (activeTab === "today") {
@@ -834,6 +884,9 @@ export default function PointageEquipePage() {
                     <th className="text-left px-4 py-3 text-cockpit-secondary font-medium">
                       Heures supp
                     </th>
+                    <th className="text-left px-4 py-3 text-cockpit-secondary font-medium">
+                      Solde / Récup
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cockpit">
@@ -844,7 +897,7 @@ export default function PointageEquipePage() {
                   ) : recaps.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="px-4 py-12 text-center text-cockpit-secondary"
                       >
                         Aucune donnée pour ce mois
@@ -890,6 +943,39 @@ export default function PointageEquipePage() {
                           >
                             {formatDuree(r.totalSupp ?? r.heuresSupp ?? 0)}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`font-mono text-sm ${
+                                (r.soldeHeures ?? 0) > 0
+                                  ? "text-emerald-400"
+                                  : (r.soldeHeures ?? 0) < 0
+                                  ? "text-red-400"
+                                  : "text-cockpit-secondary"
+                              }`}
+                              title="Solde cumulé d'heures supp disponibles"
+                            >
+                              {formatDuree(r.soldeHeures ?? 0)}
+                            </span>
+                            {(r.soldeHeures ?? 0) > 0 && (
+                              <button
+                                onClick={() =>
+                                  handleConsumeRecup(
+                                    r.userId,
+                                    r.prenom,
+                                    r.nom,
+                                    r.soldeHeures ?? 0
+                                  )
+                                }
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                                title="Consommer un nombre d'heures du solde (récup)"
+                              >
+                                <MinusCircle className="w-3.5 h-3.5" />
+                                Consommer
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
