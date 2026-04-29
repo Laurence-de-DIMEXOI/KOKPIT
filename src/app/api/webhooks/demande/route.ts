@@ -553,7 +553,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Notification email au commercial — AWAIT obligatoire sur Vercel serverless
-    const notifEmail = commercial?.email || "commercial@dimexoi.fr";
+    // Si pas de commercial auto-assigné, on utilise le fallback du payload (ex: Teck Days devis → contact@dimexoi.fr)
+    // sinon le défaut commercial@dimexoi.fr
+    const notifEmailFallback = (typeof body.notifyEmailFallback === "string" && body.notifyEmailFallback.includes("@"))
+      ? body.notifyEmailFallback
+      : "commercial@dimexoi.fr";
+    const notifEmail = commercial?.email || notifEmailFallback;
     const notifName = commercial?.nom || "Commercial";
 
     let emailSent = false;
