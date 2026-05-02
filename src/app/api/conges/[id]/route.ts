@@ -59,7 +59,7 @@ export async function PATCH(
     const dateDebutFR = new Date(conge.dateDebut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
     const dateFinFR = new Date(conge.dateFin).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: conge.user.email,
       subject: `Votre demande de congé a été ${statut === "approuve" ? "approuvée" : statut === "refuse" ? "refusée" : "modifiée"}`,
       html: `
@@ -69,6 +69,11 @@ export async function PATCH(
         <p>Consultez le détail dans <a href="https://kokpit.dimexoi.fr/conges">Congés &amp; Absences</a>.</p>
       `,
     });
+    if (emailResult.success) {
+      console.log(`[conges/${id}] Email retour ${statut} → ${conge.user.email} OK — messageId=${emailResult.messageId}`);
+    } else {
+      console.error(`[conges/${id}] Email retour ${statut} → ${conge.user.email} ÉCHEC — error=${emailResult.error}`);
+    }
   }
 
   return NextResponse.json({ conge: updated });

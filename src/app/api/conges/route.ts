@@ -158,8 +158,8 @@ export async function POST(req: NextRequest) {
       });
     } catch { /* silencieux si Michelle n'existe pas */ }
 
-    // Email à Michelle
-    await sendEmail({
+    // Email à Michelle — log explicite du résultat pour traçabilité
+    const emailResult = await sendEmail({
       to: MICHELLE_EMAIL,
       subject: `Demande de congé — ${nomDemandeur}`,
       html: `
@@ -173,6 +173,11 @@ export async function POST(req: NextRequest) {
         <p>À valider dans <a href="https://kokpit.dimexoi.fr/conges">Congés &amp; Absences</a>.</p>
       `,
     });
+    if (emailResult.success) {
+      console.log(`[conges] Email Michelle OK pour demande ${nomDemandeur} — messageId=${emailResult.messageId}`);
+    } else {
+      console.error(`[conges] Email Michelle ÉCHEC pour demande ${nomDemandeur} — error=${emailResult.error}`);
+    }
   }
 
   return NextResponse.json({ conges: createdConges }, { status: 201 });
