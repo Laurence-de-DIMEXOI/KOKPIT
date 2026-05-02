@@ -77,12 +77,12 @@ export default function AppLayout({
         <Topbar onOpenMobileMenu={handleOpenMobileMenu} />
 
         {/* Sidebar + Main content sous la banderole + topbar (28+48 = 76px) */}
-        <div className="pt-[84px]">
+        <div className="pt-[76px]">
           <Sidebar
             mobileOpen={mobileOpen}
             onCloseMobile={handleCloseMobileMenu}
           />
-          <main className="flex-1 ml-0 lg:ml-[200px] overflow-y-auto bg-cockpit min-h-[calc(100vh-84px)]">
+          <main className="flex-1 ml-0 lg:ml-[200px] overflow-y-auto bg-cockpit min-h-[calc(100vh-76px)]">
             <div className="p-4 sm:p-6 md:p-8 lg:p-10">
               {children}
             </div>

@@ -52,22 +52,17 @@ export function NewsTicker() {
     items.map((it, i) => (
       <span
         key={`${key}-${i}`}
-        className="inline-flex items-center gap-2 px-7 py-1.5 whitespace-nowrap"
+        className="inline-flex items-center gap-1.5 px-6 py-1 whitespace-nowrap"
       >
-        <span className="text-lg leading-none">{it.icon}</span>
-        <span
-          className="text-[14px] font-semibold tracking-wide text-white"
-          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
-        >
-          {it.text}
-        </span>
-        <span className="text-white/40 select-none px-1.5 text-base">•</span>
+        <span className="text-base leading-none">{it.icon}</span>
+        <span className="text-[12px] font-medium text-white">{it.text}</span>
+        <span className="text-white/30 select-none px-2">•</span>
       </span>
     ));
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-50 h-9 overflow-hidden border-b border-white/15 shadow-md flex items-center"
+      className="fixed top-0 left-0 right-0 z-50 h-7 overflow-hidden border-b border-white/10 shadow-sm flex items-center"
       style={{
         background:
           "linear-gradient(90deg, #0f172a 0%, #1e3a8a 30%, #1e293b 70%, #0f172a 100%)",

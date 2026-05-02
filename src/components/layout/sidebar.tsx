@@ -273,7 +273,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
       <aside
         className={clsx(
           "hidden lg:flex lg:flex-col",
-          "fixed left-0 top-[84px] bottom-0 w-[200px]",
+          "fixed left-0 top-[76px] bottom-0 w-[200px]",
           "bg-white border-r border-gray-200",
           "overflow-hidden"
         )}
