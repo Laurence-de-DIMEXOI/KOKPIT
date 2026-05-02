@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Target, Pencil, Check, X, Loader2 } from "lucide-react";
 import clsx from "clsx";
+import { feriesReunion } from "@/lib/feries";
 
 function formatCurrency(amount: number): string {
   return amount.toLocaleString("fr-FR", {
@@ -11,6 +12,34 @@ function formatCurrency(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
+}
+
+/**
+ * Compte les jours ouvrés DIMEXOI (mardi → samedi, hors fériés Réunion)
+ * dans la fenêtre [from, to] inclusive.
+ */
+function countJoursOuvres(from: Date, to: Date): number {
+  if (from.getTime() > to.getTime()) return 0;
+  const yearsToCheck = new Set<number>();
+  yearsToCheck.add(from.getFullYear());
+  yearsToCheck.add(to.getFullYear());
+  const feriesSet = new Set<string>();
+  for (const y of yearsToCheck) {
+    for (const f of feriesReunion(y)) {
+      feriesSet.add(`${f.date.getFullYear()}-${f.date.getMonth()}-${f.date.getDate()}`);
+    }
+  }
+  let count = 0;
+  const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const endTs = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime();
+  while (cursor.getTime() <= endTs) {
+    const dow = cursor.getDay(); // dim=0, lun=1, mar=2, … sam=6
+    const isWorkDay = dow >= 2 && dow <= 6; // mardi-samedi
+    const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
+    if (isWorkDay && !feriesSet.has(key)) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
 }
 
 const MONTH_NAMES = [
@@ -98,10 +127,12 @@ export function SalesObjective({ currentAmount }: SalesObjectiveProps) {
         ? "text-cockpit-warning"
         : "text-cockpit-danger";
 
-  // Jours restants dans le mois
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const dayOfMonth = now.getDate();
-  const daysLeft = daysInMonth - dayOfMonth;
+  // Jours OUVRÉS DIMEXOI restants (mardi-samedi hors fériés Réunion)
+  // — aujourd'hui inclus si c'est un jour ouvré
+  const finMois = new Date(year, month, 0); // dernier jour du mois
+  const daysLeft = countJoursOuvres(now, finMois);
+  const debutMois = new Date(year, month - 1, 1);
+  const totalJoursOuvres = countJoursOuvres(debutMois, finMois);
 
   return (
     <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
@@ -114,8 +145,8 @@ export function SalesObjective({ currentAmount }: SalesObjectiveProps) {
             <h3 className="text-sm font-bold text-cockpit-heading">
               Objectif {MONTH_NAMES[month - 1]} {year}
             </h3>
-            <p className="text-xs text-cockpit-secondary">
-              {daysLeft} jour{daysLeft > 1 ? "s" : ""} restant{daysLeft > 1 ? "s" : ""}
+            <p className="text-xs text-cockpit-secondary" title="Mardi-samedi, hors jours fériés Réunion">
+              {daysLeft} jour{daysLeft > 1 ? "s" : ""} ouvré{daysLeft > 1 ? "s" : ""} restant{daysLeft > 1 ? "s" : ""} / {totalJoursOuvres}
             </p>
           </div>
         </div>
@@ -202,8 +233,8 @@ export function SalesObjective({ currentAmount }: SalesObjectiveProps) {
               {Math.round(progress)}%
             </span>
             {objective && currentAmount < objective && daysLeft > 0 && (
-              <span className="text-xs text-cockpit-secondary">
-                {formatCurrency(Math.ceil((objective - currentAmount) / daysLeft))}/jour nécessaire
+              <span className="text-xs text-cockpit-secondary" title="Calcul basé sur les jours ouvrés DIMEXOI restants (mardi-samedi hors fériés)">
+                {formatCurrency(Math.ceil((objective - currentAmount) / daysLeft))}/jour ouvré nécessaire
               </span>
             )}
           </div>
