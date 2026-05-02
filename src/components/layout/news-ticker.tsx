@@ -56,10 +56,8 @@ export function NewsTicker() {
       >
         <span className="text-lg leading-none">{it.icon}</span>
         <span
-          className={`text-[14px] font-semibold tracking-wide ${
-            it.color || "text-white"
-          }`}
-          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
+          className="text-[14px] font-semibold tracking-wide text-white"
+          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
         >
           {it.text}
         </span>
