@@ -52,22 +52,27 @@ export function NewsTicker() {
     items.map((it, i) => (
       <span
         key={`${key}-${i}`}
-        className="inline-flex items-center gap-1.5 px-6 py-1 whitespace-nowrap"
+        className="inline-flex items-center gap-2 px-7 py-1.5 whitespace-nowrap"
       >
-        <span className="text-base leading-none">{it.icon}</span>
-        <span className={`text-[12px] font-medium ${it.color || "text-white"}`}>
+        <span className="text-lg leading-none">{it.icon}</span>
+        <span
+          className={`text-[14px] font-semibold tracking-wide ${
+            it.color || "text-white"
+          }`}
+          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
+        >
           {it.text}
         </span>
-        <span className="text-white/30 select-none px-2">•</span>
+        <span className="text-white/40 select-none px-1.5 text-base">•</span>
       </span>
     ));
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-50 h-7 overflow-hidden border-b border-white/10 shadow-sm flex items-center"
+      className="fixed top-0 left-0 right-0 z-50 h-9 overflow-hidden border-b border-white/15 shadow-md flex items-center"
       style={{
         background:
-          "linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%)",
+          "linear-gradient(90deg, #0f172a 0%, #1e3a8a 30%, #1e293b 70%, #0f172a 100%)",
       }}
     >
       <style jsx>{`
@@ -87,10 +92,14 @@ export function NewsTicker() {
         {renderItems("a")}
         {renderItems("b")}
       </div>
-      {/* Close button */}
+      {/* Fade gauche/droite pour faire propre + bouton close */}
+      <div className="absolute left-0 top-0 bottom-0 w-12 pointer-events-none"
+        style={{ background: "linear-gradient(90deg, #0f172a, transparent)" }} />
+      <div className="absolute right-10 top-0 bottom-0 w-12 pointer-events-none"
+        style={{ background: "linear-gradient(-90deg, #0f172a, transparent)" }} />
       <button
         onClick={() => setHidden(true)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-xs px-1.5 leading-none bg-slate-800/80 rounded"
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-sm w-6 h-6 leading-none bg-slate-900/90 hover:bg-slate-800 rounded-full flex items-center justify-center shadow-md"
         title="Masquer la barre d'actus pour cette session"
       >
         ✕

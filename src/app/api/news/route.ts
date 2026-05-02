@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { listAllOrders, sellsyFetch } from "@/lib/sellsy";
-import { STATIC_NEWS, type NewsItem } from "@/lib/news-config";
+import { STATIC_NEWS, CAFE_ROTATION, type NewsItem } from "@/lib/news-config";
 import { prochainFerie, formatFerieFR } from "@/lib/feries";
 
 /**
@@ -42,12 +42,49 @@ function isCancelled(o: any): boolean {
   return s === "cancelled" || s === "annulé" || s === "annule";
 }
 
+/** Numéro de semaine ISO (1-53) pour une date donnée. */
+function isoWeekNumber(d = new Date()): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
 export async function GET() {
   if (cache && Date.now() < cache.expires) {
     return NextResponse.json({ items: cache.data, cached: true });
   }
 
-  const items: NewsItem[] = [...STATIC_NEWS];
+  const items: NewsItem[] = [];
+
+  // ====== 0. Rotation café automatique (par n° de semaine ISO) ======
+  try {
+    let rotation = CAFE_ROTATION;
+    if (rotation.length === 0) {
+      // Fallback : tous les users actifs sauf le compte dev
+      const users = await prisma.user.findMany({
+        where: { actif: true, email: { not: "admin@kokpit.re" } },
+        select: { prenom: true },
+        orderBy: { prenom: "asc" },
+      });
+      rotation = users.map((u) => u.prenom);
+    }
+    if (rotation.length > 0) {
+      const week = isoWeekNumber();
+      const responsable = rotation[week % rotation.length];
+      items.push({
+        icon: "☕",
+        text: `Semaine de ${responsable} pour la machine à café`,
+        color: "text-amber-300",
+      });
+    }
+  } catch (e) {
+    console.warn("[news] Rotation café indisponible:", e);
+  }
+
+  // Items statiques (fixe : Teck Days + container)
+  items.push(...STATIC_NEWS);
 
   // ====== 1. CA des BDC du mois en cours (Sellsy direct) ======
   let ordersThisMonth: any[] = [];

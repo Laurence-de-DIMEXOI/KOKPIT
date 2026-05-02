@@ -16,11 +16,6 @@ export interface NewsItem {
 
 export const STATIC_NEWS: NewsItem[] = [
   {
-    icon: "☕",
-    text: "Semaine de Liliane pour la machine à café", // ← modifie chaque semaine
-    color: "text-amber-300",
-  },
-  {
     icon: "🎉",
     text: "Opération Teck Days en cours du 1er au 10 mai 2026",
     color: "text-rose-300",
@@ -30,4 +25,21 @@ export const STATIC_NEWS: NewsItem[] = [
     text: "Pas de départ container prévu",
     color: "text-sky-300",
   },
+];
+
+/**
+ * Rotation café — l'ordre des prénoms définit la rotation hebdomadaire.
+ * Le prénom de la semaine = rotation[isoWeek % rotation.length].
+ * Édite cette liste si la rotation change ; mettre [] pour utiliser tous les
+ * users actifs (sans compte dev).
+ */
+export const CAFE_ROTATION: string[] = [
+  "Liliane",
+  "Michelle",
+  "Alain",
+  "Laurence",
+  "Bernard",
+  "Daniella",
+  "Laurent",
+  "Elaury",
 ];
