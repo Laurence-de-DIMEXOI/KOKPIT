@@ -27,19 +27,5 @@ export const STATIC_NEWS: NewsItem[] = [
   },
 ];
 
-/**
- * Rotation café — l'ordre des prénoms définit la rotation hebdomadaire.
- * Le prénom de la semaine = rotation[isoWeek % rotation.length].
- * Édite cette liste si la rotation change ; mettre [] pour utiliser tous les
- * users actifs (sans compte dev).
- */
-export const CAFE_ROTATION: string[] = [
-  "Liliane",
-  "Michelle",
-  "Alain",
-  "Laurence",
-  "Bernard",
-  "Daniella",
-  "Laurent",
-  "Elaury",
-];
+// Rotation café : pas besoin de la dupliquer ici — la source de vérité est
+// `src/data/cafe-planning.ts` (utilisée par le pop-up pointage et la banderole).
