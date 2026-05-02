@@ -43,6 +43,23 @@ function isCancelled(o: any): boolean {
   return s === "cancelled" || s === "annulé" || s === "annule";
 }
 
+/**
+ * Whitelist stricte pour "vraie vente" — exclut drafts, envois en attente, etc.
+ */
+const VENTE_STATUTS = new Set([
+  "invoiced",
+  "advanced",
+  "accepted",
+  "partialinvoiced",
+  "paid",
+  "completed",
+]);
+
+function isVenteEffective(o: any): boolean {
+  const s = (o?.status || "").toLowerCase();
+  return VENTE_STATUTS.has(s);
+}
+
 
 export async function GET() {
   if (cache && Date.now() < cache.expires) {
@@ -75,7 +92,8 @@ export async function GET() {
     const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
     const sinceStr = debutMois.toISOString().split("T")[0]; // YYYY-MM-DD
     const allOrders = await listAllOrders(sinceStr);
-    ordersThisMonth = allOrders.filter((o: any) => !isCancelled(o));
+    // Strict : on ne garde que les BDC effectivement vendus (pas les drafts/envois)
+    ordersThisMonth = allOrders.filter((o: any) => isVenteEffective(o));
     const totalCA = ordersThisMonth.reduce((s, o) => s + getOrderAmount(o), 0);
     if (totalCA > 0) {
       const moisLabel = debutMois.toLocaleDateString("fr-FR", { month: "long" });
@@ -103,35 +121,36 @@ export async function GET() {
         const top = [...byOwner.entries()].sort((a, b) => b[1] - a[1])[0];
         const [topOwnerId, topAmount] = top;
 
-        // Resolve owner name : Sellsy staff → email → KOKPIT user
-        let topName = "Top commercial";
+        // Mapping STRICT : owner Sellsy → email → user KOKPIT actif.
+        // Si pas de match côté KOKPIT, on N'AFFICHE PAS l'item (pas de
+        // "michelle.legros" ou autre identifiant Sellsy interne).
+        let topPrenom: string | null = null;
         try {
           const staffRes = await sellsyFetch<{
-            data: Array<{ id: number; email?: string; first_name?: string; last_name?: string }>;
+            data: Array<{ id: number; email?: string }>;
           }>("/staffs?limit=100");
           const staff = (staffRes.data || []).find((s) => s.id === topOwnerId);
-          if (staff) {
-            // Tenter de matcher avec un user KOKPIT par email
-            if (staff.email) {
-              const user = await prisma.user.findFirst({
-                where: { email: staff.email.toLowerCase() },
-                select: { prenom: true },
-              });
-              if (user?.prenom) topName = user.prenom;
-              else topName = staff.first_name || staff.email.split("@")[0];
-            } else if (staff.first_name) {
-              topName = staff.first_name;
-            }
+          if (staff?.email) {
+            const user = await prisma.user.findFirst({
+              where: {
+                email: staff.email.toLowerCase(),
+                actif: true,
+              },
+              select: { prenom: true },
+            });
+            if (user?.prenom) topPrenom = user.prenom;
           }
         } catch {
           /* ignore */
         }
 
-        items.push({
-          icon: "🏆",
-          text: `Top vente : ${topName} ${eur(topAmount)} ce mois`,
-          color: "text-yellow-300",
-        });
+        if (topPrenom) {
+          items.push({
+            icon: "🏆",
+            text: `Top vente : ${topPrenom} ${eur(topAmount)} ce mois`,
+            color: "text-yellow-300",
+          });
+        }
       }
     } catch (e) {
       console.warn("[news] Top vente indisponible:", e);
