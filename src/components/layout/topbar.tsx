@@ -40,7 +40,7 @@ export function Topbar({ onOpenMobileMenu }: TopbarProps) {
   }, []);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 h-12 bg-white border-b border-gray-200 flex items-center px-4">
+    <header className="fixed top-7 left-0 right-0 z-40 h-12 bg-white border-b border-gray-200 flex items-center px-4">
       {/* Left: Hamburger mobile + Logo */}
       <div className="flex items-center gap-3 flex-shrink-0">
         <button

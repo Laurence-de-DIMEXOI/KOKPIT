@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { NewsTicker } from "@/components/layout/news-ticker";
 import { ToastProvider } from "@/components/ui/toast";
 import { useSession } from "next-auth/react";
 import { usePathname, redirect } from "next/navigation";
@@ -70,16 +71,18 @@ export default function AppLayout({
   return (
     <ToastProvider>
       <div className="min-h-screen bg-cockpit" data-espace={espaceId} style={meteoStyles[meteo]}>
-        {/* Topbar fixe — 48px */}
+        {/* Banderole d'actus tout en haut — 28px */}
+        <NewsTicker />
+        {/* Topbar — 48px sous la banderole */}
         <Topbar onOpenMobileMenu={handleOpenMobileMenu} />
 
-        {/* Sidebar + Main content sous la topbar */}
-        <div className="pt-12">
+        {/* Sidebar + Main content sous la banderole + topbar (28+48 = 76px) */}
+        <div className="pt-[76px]">
           <Sidebar
             mobileOpen={mobileOpen}
             onCloseMobile={handleCloseMobileMenu}
           />
-          <main className="flex-1 ml-0 lg:ml-[200px] overflow-y-auto bg-cockpit min-h-[calc(100vh-48px)]">
+          <main className="flex-1 ml-0 lg:ml-[200px] overflow-y-auto bg-cockpit min-h-[calc(100vh-76px)]">
             <div className="p-4 sm:p-6 md:p-8 lg:p-10">
               {children}
             </div>
