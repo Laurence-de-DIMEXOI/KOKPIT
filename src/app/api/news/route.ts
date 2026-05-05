@@ -120,7 +120,7 @@ export async function GET() {
         const labelClient = clientName ? ` — ${clientName}` : "";
         items.push({
           icon: "🥇",
-          text: `Meilleure vente du mois : ${eur(bestAmount)}${labelClient}`,
+          text: `Plus grosse commande : ${eur(bestAmount)}${labelClient}`,
           color: "text-orange-300",
         });
       }
@@ -169,7 +169,7 @@ export async function GET() {
         if (topPrenom) {
           items.push({
             icon: "🏆",
-            text: `Top vente : ${topPrenom} ${eur(topAmount)} ce mois`,
+            text: `Meilleur commercial : ${topPrenom} ${eur(topAmount)} ce mois`,
             color: "text-yellow-300",
           });
         }
