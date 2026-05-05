@@ -287,6 +287,15 @@ export async function POST(request: NextRequest) {
       const auth = request.headers.get("authorization")?.replace("Bearer ", "") ||
         request.headers.get("x-webhook-secret");
       if (auth !== secret) {
+        // Log diagnostic SANS exposer le secret en clair :
+        // on log juste les 4 derniers caractères pour comparer côté serveur
+        const tail = (s: string | null | undefined) => (s && s.length > 4 ? s.slice(-4) : s || "");
+        const ua = request.headers.get("user-agent") || "?";
+        const referer = request.headers.get("referer") || "?";
+        const origin = request.headers.get("origin") || "?";
+        console.warn(
+          `[WEBHOOK demande] 401 — secret envoyé: …${tail(auth)} (longueur ${auth?.length || 0}) | attendu: …${tail(secret)} (longueur ${secret.length}) | UA: ${ua.slice(0, 60)} | origin: ${origin} | referer: ${referer.slice(0, 80)}`
+        );
         return NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401, headers: corsHeaders });
       }
     }
