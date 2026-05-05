@@ -44,7 +44,7 @@ function isCancelled(o: any): boolean {
 }
 
 /**
- * Whitelist stricte pour "vraie vente" — exclut drafts, envois en attente, etc.
+ * On inclut les BDC en cours (drafts compris) — exclut juste les annulés/refusés/expirés.
  */
 const VENTE_STATUTS = new Set([
   "invoiced",
@@ -53,6 +53,9 @@ const VENTE_STATUTS = new Set([
   "partialinvoiced",
   "paid",
   "completed",
+  "draft",
+  "sent",
+  "read",
 ]);
 
 function isVenteEffective(o: any): boolean {
