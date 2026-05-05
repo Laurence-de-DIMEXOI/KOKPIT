@@ -34,8 +34,8 @@ export function NewsTicker() {
       }
     };
     fetchNews();
-    // Refresh toutes les 10 min (suit le TTL serveur)
-    const interval = setInterval(fetchNews, 10 * 60 * 1000);
+    // Refresh toutes les 2 min (suit le TTL serveur)
+    const interval = setInterval(fetchNews, 2 * 60 * 1000);
     return () => {
       alive = false;
       clearInterval(interval);

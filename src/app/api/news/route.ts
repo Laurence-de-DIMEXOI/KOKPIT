@@ -20,7 +20,7 @@ import { prochainFerie, formatFerieFR } from "@/lib/feries";
  */
 
 let cache: { data: NewsItem[]; expires: number } | null = null;
-const TTL_MS = 10 * 60 * 1000;
+const TTL_MS = 2 * 60 * 1000; // 2 min — refresh assez fréquent pour suivre les nouvelles ventes
 
 function eur(n: number): string {
   return new Intl.NumberFormat("fr-FR", {
@@ -105,6 +105,28 @@ export async function GET() {
     }
   } catch (e) {
     console.warn("[news] CA Sellsy indisponible:", e);
+  }
+
+  // ====== 1bis. Meilleure vente du mois (plus grosse commande individuelle) ======
+  if (ordersThisMonth.length > 0) {
+    try {
+      const sorted = [...ordersThisMonth].sort(
+        (a, b) => getOrderAmount(b) - getOrderAmount(a)
+      );
+      const best = sorted[0];
+      const bestAmount = getOrderAmount(best);
+      if (bestAmount > 0) {
+        const clientName = (best?.company_name || "").trim();
+        const labelClient = clientName ? ` — ${clientName}` : "";
+        items.push({
+          icon: "🥇",
+          text: `Meilleure vente du mois : ${eur(bestAmount)}${labelClient}`,
+          color: "text-orange-300",
+        });
+      }
+    } catch (e) {
+      console.warn("[news] Meilleure vente indisponible:", e);
+    }
   }
 
   // ====== 2. Top vente du mois (par owner Sellsy → user KOKPIT) ======
