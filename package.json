@@ -15,6 +15,7 @@
     "db:import-glide": "npx tsx prisma/import-glide-excel.ts"
   },
   "dependencies": {
+    "@google-analytics/data": "^5.2.2",
     "@prisma/client": "^5.7.0",
     "@react-pdf/renderer": "^4.4.1",
     "@supabase/supabase-js": "^2.99.3",

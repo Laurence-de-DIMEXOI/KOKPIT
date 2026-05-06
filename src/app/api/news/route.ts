@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { listAllOrders, sellsyFetch } from "@/lib/sellsy";
 import { STATIC_NEWS, type NewsItem } from "@/lib/news-config";
 import { getResponsableCafe } from "@/data/cafe-planning";
+import { getPageViewsByPath } from "@/lib/ga4";
 import { prochainFerie, formatFerieFR } from "@/lib/feries";
 
 /**
@@ -180,6 +181,20 @@ export async function GET() {
     } catch (e) {
       console.warn("[news] Top vente indisponible:", e);
     }
+  }
+
+  // ====== 2bis. Vues page Teck Days (GA4) ======
+  try {
+    const pv = await getPageViewsByPath("teckdays", "2026-04-15", "today");
+    if (pv && pv.total > 0) {
+      items.push({
+        icon: "📊",
+        text: `${pv.total.toLocaleString("fr-FR")} vues page Teck Days (${pv.users} utilisateurs uniques)`,
+        color: "text-cyan-300",
+      });
+    }
+  } catch (e) {
+    console.warn("[news] GA4 vues Teck Days indisponible:", e);
   }
 
   // ====== 3. Prochain jour férié Réunion ======
