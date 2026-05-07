@@ -1405,7 +1405,7 @@ export async function fetchCompanyDetails(
 
 const SELLSY_V1_URL = "https://apifeed.sellsy.com/0/";
 
-export async function sellsyV1Call(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
+export async function sellsyV1Call(method: string, params: Record<string, unknown> = {}, timeoutMs = 20000): Promise<unknown> {
   const token = await getAccessToken();
 
   const doIn = JSON.stringify({ method, params });
@@ -1414,13 +1414,26 @@ export async function sellsyV1Call(method: string, params: Record<string, unknow
   formData.append("io_mode", "json");
   formData.append("do_in", doIn);
 
-  const response = await fetch(SELLSY_V1_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(SELLSY_V1_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if ((e as Error).name === "AbortError") {
+      throw new Error(`Sellsy V1 ${method} timeout (${timeoutMs}ms)`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
 
   if (!response.ok) {
     const err = await response.text();

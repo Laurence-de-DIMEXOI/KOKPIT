@@ -98,11 +98,18 @@ async function runCatalogueSync() {
         break;
       }
       const batch = declinedItems.slice(i, i + BATCH);
+      // Timeout par item (25s) pour ne pas qu'un appel Sellsy bloqué fige tout le batch
+      const ITEM_TIMEOUT_MS = 25000;
+      const withTimeout = <T,>(p: Promise<T>, fallback: T): Promise<T> =>
+        Promise.race([
+          p,
+          new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ITEM_TIMEOUT_MS)),
+        ]);
       const results = await Promise.all(
         batch.map(async (item) => {
           const [v2, v1] = await Promise.all([
-            listDeclinations(item.id).catch(() => ({ data: [] as any[] })),
-            getItemV1Declinations(item.id),
+            withTimeout(listDeclinations(item.id).catch(() => ({ data: [] as any[] })), { data: [] as any[] }),
+            withTimeout(getItemV1Declinations(item.id), [] as any[]),
           ]);
           return { itemId: item.id, parent: item, v2: v2.data, v1 };
         })
