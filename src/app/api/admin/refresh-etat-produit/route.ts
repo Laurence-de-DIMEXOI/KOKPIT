@@ -126,11 +126,20 @@ async function runRefresh(req: NextRequest) {
           stats.orders.scanned++;
           try {
             const { etatProduit, statutSellsy } = await fetchEtatAndStatus("order", v.sellsyInvoiceId);
+            // Si fetch échoue (les 2 nulls), on ne touche PAS la DB pour
+            // éviter d'écraser des valeurs déjà connues.
+            if (etatProduit === null && statutSellsy === null) {
+              stats.orders.errors++;
+              return;
+            }
             await prisma.vente.update({
               where: { id: v.id },
-              data: { etatProduit, statutSellsy },
+              data: {
+                ...(etatProduit !== null ? { etatProduit } : {}),
+                ...(statutSellsy !== null ? { statutSellsy } : {}),
+              },
             });
-            if (etatProduit || statutSellsy) stats.orders.updated++;
+            stats.orders.updated++;
           } catch (e) {
             stats.orders.errors++;
             console.warn(`[refresh-etat] BDC ${v.sellsyInvoiceId}:`, (e as Error).message);
@@ -161,11 +170,18 @@ async function runRefresh(req: NextRequest) {
           stats.estimates.scanned++;
           try {
             const { etatProduit, statutSellsy } = await fetchEtatAndStatus("estimate", d.sellsyQuoteId);
+            if (etatProduit === null && statutSellsy === null) {
+              stats.estimates.errors++;
+              return;
+            }
             await prisma.devis.update({
               where: { id: d.id },
-              data: { etatProduit, statutSellsy },
+              data: {
+                ...(etatProduit !== null ? { etatProduit } : {}),
+                ...(statutSellsy !== null ? { statutSellsy } : {}),
+              },
             });
-            if (etatProduit || statutSellsy) stats.estimates.updated++;
+            stats.estimates.updated++;
           } catch (e) {
             stats.estimates.errors++;
             console.warn(`[refresh-etat] Devis ${d.sellsyQuoteId}:`, (e as Error).message);
