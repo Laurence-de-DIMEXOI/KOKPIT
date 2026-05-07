@@ -30,7 +30,7 @@ interface PerformanceData {
   totals: Totals;
 }
 
-type Period = "week" | "month" | "year";
+type Period = "today" | "week" | "month" | "month_prev" | "year";
 type SortKey = "ownerName" | "devisCount" | "devisTotal" | "commandesCount" | "commandesTotal" | "conversionRate";
 
 const formatEuro = (val: number) =>
@@ -42,13 +42,22 @@ const formatEuro = (val: number) =>
   }).format(val);
 
 const periodLabels: Record<Period, string> = {
+  today: "Aujourd'hui",
   week: "Semaine",
-  month: "Mois",
+  month: "Ce mois-ci",
+  month_prev: "Mois dernier",
   year: "Année",
 };
 
-export function PerformanceTable() {
-  const [period, setPeriod] = useState<Period>("month");
+interface PerformanceTableProps {
+  /** Période contrôlée par le parent (dashboard commercial). */
+  period?: Period;
+}
+
+export function PerformanceTable({ period: controlledPeriod }: PerformanceTableProps = {}) {
+  const [internalPeriod, setInternalPeriod] = useState<Period>("month");
+  const period = controlledPeriod ?? internalPeriod;
+  const setPeriod = setInternalPeriod;
   const [data, setData] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,23 +136,25 @@ export function PerformanceTable() {
           )}
         </div>
 
-        {/* Period selector */}
-        <div className="flex gap-1 bg-cockpit rounded-lg p-1">
-          {(["week", "month", "year"] as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={clsx(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition",
-                period === p
-                  ? "bg-cockpit-yellow text-black"
-                  : "text-cockpit-secondary hover:text-cockpit-heading hover:bg-cockpit-border/30"
-              )}
-            >
-              {periodLabels[p]}
-            </button>
-          ))}
-        </div>
+        {/* Period selector — caché si contrôlé par le parent (dashboard commercial) */}
+        {!controlledPeriod && (
+          <div className="flex gap-1 bg-cockpit rounded-lg p-1">
+            {(["week", "month", "month_prev", "year"] as Period[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={clsx(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition",
+                  period === p
+                    ? "bg-cockpit-yellow text-black"
+                    : "text-cockpit-secondary hover:text-cockpit-heading hover:bg-cockpit-border/30"
+                )}
+              >
+                {periodLabels[p]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Loading */}

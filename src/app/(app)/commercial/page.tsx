@@ -11,7 +11,6 @@ import { ConversionTime } from "@/components/dashboard/conversion-time";
 import {
   FileText,
   ShoppingCart,
-  Package,
   TrendingUp,
   RefreshCw,
   Loader2,
@@ -20,14 +19,13 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Hammer,
 } from "lucide-react";
 import clsx from "clsx";
-import { getSellsyUrl } from "@/lib/sellsy-urls";
-import { traduireStatut } from "@/lib/sellsy-statuts";
 
 // ===== TYPES =====
 
-type Period = "today" | "week" | "month" | "year";
+type Period = "today" | "week" | "month" | "month_prev" | "year";
 
 interface SellsyAmounts {
   total?: string;
@@ -75,6 +73,7 @@ function getPeriodDates(period: Period): { start: string; end: string } {
   end.setHours(23, 59, 59, 999);
 
   let start: Date;
+  let customEnd: Date | null = null;
 
   switch (period) {
     case "today":
@@ -92,6 +91,12 @@ function getPeriodDates(period: Period): { start: string; end: string } {
     case "month":
       start = new Date(now.getFullYear(), now.getMonth(), 1);
       break;
+    case "month_prev": {
+      // 1er du mois précédent → dernier jour du mois précédent
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      customEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      break;
+    }
     case "year":
       start = new Date(now.getFullYear(), 0, 1);
       break;
@@ -99,7 +104,7 @@ function getPeriodDates(period: Period): { start: string; end: string } {
 
   return {
     start: start.toISOString(),
-    end: end.toISOString(),
+    end: (customEnd || end).toISOString(),
   };
 }
 
@@ -144,6 +149,12 @@ function getPreviousPeriodDates(period: Period): {
     case "month": {
       const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+    case "month_prev": {
+      // Période précédente = avant-dernier mois (M-2)
+      const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      const end = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59, 999);
       return { start: start.toISOString(), end: end.toISOString() };
     }
     case "year": {
@@ -193,6 +204,7 @@ const PERIOD_LABELS: Record<Period, string> = {
   today: "Aujourd'hui",
   week: "Cette semaine",
   month: "Ce mois-ci",
+  month_prev: "Mois dernier",
   year: "Cette année",
 };
 
@@ -263,7 +275,19 @@ export default function CommercialDashboardPage() {
   const [allEstimates, setAllEstimates] = useState<EstimateRow[]>([]);
   const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
   const [staffMap, setStaffMap] = useState<Map<number, string>>(new Map());
-  const [totalProducts, setTotalProducts] = useState(0);
+
+  // Sur-mesure stats (DB locale Vente/Devis, custom field Sellsy)
+  type SmBreakdown = {
+    total: number;
+    surMesure: { count: number; amount: number };
+    standard: { count: number; amount: number };
+    unknown: { count: number; amount: number };
+  };
+  const [smStats, setSmStats] = useState<{
+    orders: SmBreakdown | null;
+    estimates: SmBreakdown | null;
+    coverage: { orders: number; estimates: number };
+  }>({ orders: null, estimates: null, coverage: { orders: 0, estimates: 0 } });
   const [monthlyEvolution, setMonthlyEvolution] = useState<Array<{
     month: string;
     label: string;
@@ -280,26 +304,23 @@ export default function CommercialDashboardPage() {
       // Use year start as created_start to get recent data (API sorts desc)
       const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
 
-      // Fetch estimates with date filter, orders sorted desc, products count, and funnel for charts
-      const [estRes, ordRes, itemsRes, funnelRes, staffRes] = await Promise.all([
+      // Fetch estimates with date filter, orders sorted desc, funnel for charts
+      const [estRes, ordRes, funnelRes, staffRes] = await Promise.all([
         fetch(
           `/api/sellsy/estimates?limit=100&created_start=${encodeURIComponent(yearStart)}`
         ),
         fetch("/api/sellsy/orders?limit=100"),
-        fetch("/api/sellsy/items?limit=1"),
         fetch("/api/sellsy/funnel?months=12"),
         fetch("/api/sellsy/staffs"),
       ]);
 
       const estData = await estRes.json();
       const ordData = await ordRes.json();
-      const itemsData = await itemsRes.json();
       const funnelData = await funnelRes.json();
       const staffData = await staffRes.json();
 
       setAllEstimates(estData.estimates || []);
       setAllOrders(ordData.orders || []);
-      setTotalProducts(itemsData.pagination?.total || 0);
 
       const map = new Map<number, string>();
       (staffData.staffs || []).forEach((s: { id: number; name: string }) => {
@@ -327,6 +348,24 @@ export default function CommercialDashboardPage() {
 
   // Computed stats filtered by period — memoized to avoid recalc on every render
   const { start, end } = useMemo(() => getPeriodDates(period), [period]);
+
+  // Sur-mesure stats : refetch dès que la période change
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    fetch(`/api/commercial/sur-mesure-stats?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.success) return;
+        setSmStats({
+          orders: data.orders,
+          estimates: data.estimates,
+          coverage: data.coverage,
+        });
+      })
+      .catch(() => { /* silencieux */ });
+    return () => { cancelled = true; };
+  }, [session, start, end]);
   const { start: prevStart, end: prevEnd } = useMemo(() => getPreviousPeriodDates(period), [period]);
 
   const periodEstimates = useMemo(() => filterByPeriod(allEstimates, start, end), [allEstimates, start, end]);
@@ -353,29 +392,6 @@ export default function CommercialDashboardPage() {
     prevActiveEstimates.length > 0
       ? Math.round((prevActiveOrders.length / prevActiveEstimates.length) * 100)
       : 0, [prevActiveEstimates.length, prevActiveOrders.length]);
-
-  // Global totals (all time, from pagination)
-  const totalEstimatesAllTime = allEstimates.length;
-  const totalOrdersAllTime = allOrders.length;
-
-  // Top 5 for lists (also exclude cancelled) — memoized sort+slice
-  const recentEstimates = useMemo(() =>
-    [...activeEstimates]
-      .sort(
-        (a, b) =>
-          new Date(b.date || b.created || "").getTime() -
-          new Date(a.date || a.created || "").getTime()
-      )
-      .slice(0, 5), [activeEstimates]);
-
-  const recentOrders = useMemo(() =>
-    [...activeOrders]
-      .sort(
-        (a, b) =>
-          new Date(b.date || b.created || "").getTime() -
-          new Date(a.date || a.created || "").getTime()
-      )
-      .slice(0, 5), [activeOrders]);
 
   if (loading) {
     return (
@@ -435,7 +451,7 @@ export default function CommercialDashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
           <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
           <div className="p-4 sm:p-5">
@@ -452,6 +468,24 @@ export default function CommercialDashboardPage() {
               current={activeEstimates.length}
               previous={prevActiveEstimates.length}
             />
+            {smStats.estimates && (
+              <div className="mt-2 pt-2 border-t border-cockpit/40 text-[11px] space-y-0.5">
+                <div className="flex items-center justify-between text-cockpit-secondary">
+                  <span className="flex items-center gap-1"><Hammer className="w-3 h-3" /> Sur-mesure</span>
+                  <span className="font-semibold text-cockpit-primary">{smStats.estimates.surMesure.count}</span>
+                </div>
+                <div className="flex items-center justify-between text-cockpit-secondary">
+                  <span>Standard</span>
+                  <span className="font-semibold text-cockpit-primary">{smStats.estimates.standard.count}</span>
+                </div>
+                {smStats.estimates.unknown.count > 0 && (
+                  <div className="flex items-center justify-between text-cockpit-secondary/70 italic">
+                    <span>Non renseigné</span>
+                    <span>{smStats.estimates.unknown.count}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -471,22 +505,24 @@ export default function CommercialDashboardPage() {
               current={activeOrders.length}
               previous={prevActiveOrders.length}
             />
-          </div>
-        </div>
-
-        <div className="rounded-xl overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 bg-white border border-cockpit">
-          <div className="h-1.5" style={{ background: 'linear-gradient(90deg, var(--color-active), #FEEB9C)' }} />
-          <div className="p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs sm:text-sm font-semibold text-cockpit-secondary">
-                Produits
-              </p>
-              <Package className="w-5 h-5" style={{ color: 'var(--color-active)' }} />
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-active)' }}>
-              {totalProducts}
-            </p>
-            <span className="text-xs text-cockpit-secondary">Catalogue</span>
+            {smStats.orders && (
+              <div className="mt-2 pt-2 border-t border-cockpit/40 text-[11px] space-y-0.5">
+                <div className="flex items-center justify-between text-cockpit-secondary">
+                  <span className="flex items-center gap-1"><Hammer className="w-3 h-3" /> Sur-mesure</span>
+                  <span className="font-semibold text-cockpit-primary">{smStats.orders.surMesure.count}</span>
+                </div>
+                <div className="flex items-center justify-between text-cockpit-secondary">
+                  <span>Standard</span>
+                  <span className="font-semibold text-cockpit-primary">{smStats.orders.standard.count}</span>
+                </div>
+                {smStats.orders.unknown.count > 0 && (
+                  <div className="flex items-center justify-between text-cockpit-secondary/70 italic">
+                    <span>Non renseigné</span>
+                    <span>{smStats.orders.unknown.count}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -510,9 +546,9 @@ export default function CommercialDashboardPage() {
         </div>
 
         <ConversionTime
-          estimates={periodEstimates}
+          estimates={allEstimates}
           orders={periodOrders}
-          previousEstimates={prevEstimates}
+          previousEstimates={allEstimates}
           previousOrders={prevOrders}
         />
       </div>
@@ -582,114 +618,7 @@ export default function CommercialDashboardPage() {
       <EvolutionCharts data={monthlyEvolution} loading={evolutionLoading} />
 
       {/* Tableau performance commerciaux */}
-      <PerformanceTable />
-
-      {/* Recent data */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-        {/* Recent Estimates */}
-        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-cockpit-heading">
-              Derniers devis
-            </h3>
-            <span className="text-xs bg-cockpit-info/10 text-cockpit-info px-2 py-1 rounded-full font-semibold">
-              {activeEstimates.length} sur la période
-            </span>
-          </div>
-          {recentEstimates.length > 0 ? (
-            <div className="space-y-3">
-              {recentEstimates.map((est) => (
-                <a
-                  key={est.id}
-                  href={getSellsyUrl('estimate', est.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit hover:border-cockpit-info/40 transition-colors block"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-cockpit-primary truncate">
-                      {est.number || est.subject || `Devis #${est.id}`}
-                    </p>
-                    <p className="text-xs text-cockpit-secondary">
-                      {est.company_name || "—"}
-                      {est.status && ` • ${traduireStatut(est.status)}`}
-                      {est.date &&
-                        ` • ${new Date(est.date).toLocaleDateString("fr-FR")}`}
-                    </p>
-                    {(() => {
-                      const ownerId = est.owner?.id || est.assigned_staff_id;
-                      const ownerName = ownerId ? staffMap.get(ownerId) : undefined;
-                      return ownerName ? (
-                        <p className="text-[10px] text-cockpit-info mt-0.5">{ownerName}</p>
-                      ) : null;
-                    })()}
-                  </div>
-                  <span className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
-                    {formatCurrency(getAmount(est))}
-                  </span>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="text-cockpit-secondary text-sm py-4 text-center">
-              Aucun devis sur cette période
-            </p>
-          )}
-        </div>
-
-        {/* Recent Orders */}
-        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-cockpit-heading">
-              Dernières commandes
-            </h3>
-            <span className="text-xs bg-cockpit-success/10 text-cockpit-success px-2 py-1 rounded-full font-semibold">
-              {activeOrders.length} sur la période
-            </span>
-          </div>
-          {recentOrders.length > 0 ? (
-            <div className="space-y-3">
-              {recentOrders.map((order) => (
-                <a
-                  key={order.id}
-                  href={getSellsyUrl('order', order.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-lg bg-cockpit-dark/50 border border-cockpit hover:border-cockpit-info/40 transition-colors block"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-cockpit-primary truncate">
-                      {order.number ||
-                        order.subject ||
-                        `Commande #${order.id}`}
-                    </p>
-                    <p className="text-xs text-cockpit-secondary">
-                      {order.company_name || "—"}
-                      {order.status && ` • ${traduireStatut(order.status)}`}
-                      {order.date &&
-                        ` • ${new Date(order.date).toLocaleDateString("fr-FR")}`}
-                    </p>
-                    {(() => {
-                      const ownerId = order.owner?.id || order.assigned_staff_id;
-                      const ownerName = ownerId ? staffMap.get(ownerId) : undefined;
-                      return ownerName ? (
-                        <p className="text-[10px] text-cockpit-info mt-0.5">{ownerName}</p>
-                      ) : null;
-                    })()}
-                  </div>
-                  <span className="text-sm font-semibold text-cockpit-heading ml-3 whitespace-nowrap">
-                    {formatCurrency(getAmount(order))}
-                  </span>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="text-cockpit-secondary text-sm py-4 text-center">
-              Aucune commande sur cette période
-            </p>
-          )}
-        </div>
-      </div>
+      <PerformanceTable period={period} />
 
     </div>
   );

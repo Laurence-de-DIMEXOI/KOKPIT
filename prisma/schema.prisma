@@ -349,6 +349,7 @@ model Devis {
   statut              DevisStatut @default(EN_ATTENTE)
   statutSellsy        String?   // status brut Sellsy (draft, sent, accepted, refused, expired…)
   etatProduit         String?   // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
+  surMesure           Boolean?  // Custom field "Sur-mesure" Sellsy
   dateEnvoi           DateTime?
   dateRelance         DateTime?
   createdAt           DateTime  @default(now())
@@ -375,6 +376,7 @@ model Vente {
   produits            Json?
   statutSellsy        String?   // status brut Sellsy (invoiced, advanced, accepted, sent, draft, cancelled, refused, expired…)
   etatProduit         String?   // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
+  surMesure           Boolean?  // Custom field "Sur-mesure" Sellsy
   createdAt           DateTime  @default(now())
 
   // Relations

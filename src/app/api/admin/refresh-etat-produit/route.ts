@@ -42,6 +42,31 @@ function isEtatProduit(cf: CustomFieldOnDoc): boolean {
   });
 }
 
+function isSurMesure(cf: CustomFieldOnDoc): boolean {
+  const fields = [cf.code, cf.name, cf.label].filter(Boolean) as string[];
+  return fields.some((v) => {
+    const n = normalize(v);
+    return n.includes("sur") && n.includes("mesure");
+  });
+}
+
+function readBoolValue(cf: CustomFieldOnDoc): boolean | null {
+  if (cf.value == null || cf.value === "") return null;
+  if (typeof cf.value === "boolean") return cf.value;
+  const raw = String(cf.value).trim().toLowerCase();
+  if (["true", "1", "oui", "yes", "y"].includes(raw)) return true;
+  if (["false", "0", "non", "no", "n"].includes(raw)) return false;
+  // Si c'est un select avec items (true/false labels), on tente de mapper
+  const items = cf.parameters?.items || [];
+  const matched = items.find((it) => String(it.id) === raw);
+  if (matched) {
+    const lab = matched.label.toLowerCase();
+    if (["oui", "yes", "true"].includes(lab)) return true;
+    if (["non", "no", "false"].includes(lab)) return false;
+  }
+  return null;
+}
+
 function readValueLabel(cf: CustomFieldOnDoc): string | null {
   if (cf.value == null || cf.value === "") return null;
   if (typeof cf.value === "string" || typeof cf.value === "number" || typeof cf.value === "boolean") {
@@ -56,7 +81,7 @@ function readValueLabel(cf: CustomFieldOnDoc): string | null {
 async function fetchEtatAndStatus(
   type: "order" | "estimate",
   sellsyId: string
-): Promise<{ etatProduit: string | null; statutSellsy: string | null }> {
+): Promise<{ etatProduit: string | null; statutSellsy: string | null; surMesure: boolean | null }> {
   const path = type === "order" ? `/orders/${sellsyId}` : `/estimates/${sellsyId}`;
   const cfPath = `${path}/custom-fields?limit=100`;
   // Important : Sellsy `/orders/{id}` ne renvoie PAS le champ `status`.
@@ -81,8 +106,10 @@ async function fetchEtatAndStatus(
   const cfList = cfRes.data || [];
   const target = cfList.find(isEtatProduit);
   const etatProduit = target ? readValueLabel(target) : null;
+  const sm = cfList.find(isSurMesure);
+  const surMesure = sm ? readBoolValue(sm) : null;
 
-  return { etatProduit, statutSellsy };
+  return { etatProduit, statutSellsy, surMesure };
 }
 
 async function runRefresh(req: NextRequest) {
@@ -137,10 +164,9 @@ async function runRefresh(req: NextRequest) {
           if (!v.sellsyInvoiceId) return;
           stats.orders.scanned++;
           try {
-            const { etatProduit, statutSellsy } = await fetchEtatAndStatus("order", v.sellsyInvoiceId);
-            // Si fetch échoue (les 2 nulls), on ne touche PAS la DB pour
-            // éviter d'écraser des valeurs déjà connues.
-            if (etatProduit === null && statutSellsy === null) {
+            const { etatProduit, statutSellsy, surMesure } = await fetchEtatAndStatus("order", v.sellsyInvoiceId);
+            // Si fetch échoue complet (3 null), on ne touche PAS la DB
+            if (etatProduit === null && statutSellsy === null && surMesure === null) {
               stats.orders.errors++;
               return;
             }
@@ -149,6 +175,7 @@ async function runRefresh(req: NextRequest) {
               data: {
                 ...(etatProduit !== null ? { etatProduit } : {}),
                 ...(statutSellsy !== null ? { statutSellsy } : {}),
+                ...(surMesure !== null ? { surMesure } : {}),
               },
             });
             stats.orders.updated++;
@@ -181,8 +208,8 @@ async function runRefresh(req: NextRequest) {
           if (!d.sellsyQuoteId) return;
           stats.estimates.scanned++;
           try {
-            const { etatProduit, statutSellsy } = await fetchEtatAndStatus("estimate", d.sellsyQuoteId);
-            if (etatProduit === null && statutSellsy === null) {
+            const { etatProduit, statutSellsy, surMesure } = await fetchEtatAndStatus("estimate", d.sellsyQuoteId);
+            if (etatProduit === null && statutSellsy === null && surMesure === null) {
               stats.estimates.errors++;
               return;
             }
@@ -191,6 +218,7 @@ async function runRefresh(req: NextRequest) {
               data: {
                 ...(etatProduit !== null ? { etatProduit } : {}),
                 ...(statutSellsy !== null ? { statutSellsy } : {}),
+                ...(surMesure !== null ? { surMesure } : {}),
               },
             });
             stats.estimates.updated++;

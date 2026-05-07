@@ -6,7 +6,7 @@ import { listAllEstimates, listAllOrders, listStaffs } from "@/lib/sellsy";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const period = (searchParams.get("period") || "month") as "week" | "month" | "year";
+    const period = (searchParams.get("period") || "month") as "today" | "week" | "month" | "month_prev" | "year";
     const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()), 10);
 
     // Calculer la plage de dates selon la période
@@ -14,8 +14,16 @@ export async function GET(request: NextRequest) {
     let startDate: string;
     let endDate: string;
     let periodLabel: string;
+    const monthNames = [
+      "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+      "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+    ];
 
-    if (period === "week") {
+    if (period === "today") {
+      startDate = now.toISOString().split("T")[0];
+      endDate = startDate;
+      periodLabel = `Aujourd'hui (${now.toLocaleDateString("fr-FR")})`;
+    } else if (period === "week") {
       // Semaine en cours (lundi → dimanche)
       const dayOfWeek = now.getDay() || 7; // Dimanche = 7
       const monday = new Date(now);
@@ -33,11 +41,14 @@ export async function GET(request: NextRequest) {
       const lastDay = new Date(year, now.getMonth() + 1, 0);
       startDate = firstDay.toISOString().split("T")[0];
       endDate = lastDay.toISOString().split("T")[0];
-      const monthNames = [
-        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
-      ];
       periodLabel = `${monthNames[now.getMonth()]} ${year}`;
+    } else if (period === "month_prev") {
+      // Mois précédent
+      const firstDay = new Date(year, now.getMonth() - 1, 1);
+      const lastDay = new Date(year, now.getMonth(), 0);
+      startDate = firstDay.toISOString().split("T")[0];
+      endDate = lastDay.toISOString().split("T")[0];
+      periodLabel = `${monthNames[firstDay.getMonth()]} ${firstDay.getFullYear()}`;
     } else {
       // Année complète
       startDate = `${year}-01-01`;
