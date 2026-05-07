@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 7 mai 2026 (v25 — Reporting marketing)
-**Mis à jour par** : Session Claude Code (sprint mai — reporting + sync élargi)
+**Dernière mise à jour** : 7 mai 2026 (v26 — Vercel Pro + filtre Laurence + sync catalogue 12 min)
+**Mis à jour par** : Session Claude Code (sprint mai — reporting + automatisation Pro)
 
 ---
 
@@ -41,18 +41,44 @@ Pour les chiffres CA / volumes BDC + Devis du rapport mensuel :
 - `etatProduit String?` — la valeur du custom field résolue en label
 - `statutSellsy String?` — le status brut Sellsy
 
-→ **Backfill manuel** : `POST /api/admin/refresh-etat-produit?since=2024-01-01&onlyMissing=true` (5 min Vercel, paginé) — auth ADMIN/DIRECTION ou Bearer CRON_API_SECRET.
+→ **Backfill** : automatique (cron quotidien 3h15 sur `onlyMissing=true&limit=500`) + manuel `GET/POST /api/admin/refresh-etat-produit?since=2024-01-01&onlyMissing=true&limit=2000` — auth ADMIN/DIRECTION, Bearer CRON_API_SECRET, ou UA `vercel-cron`.
+
+→ **Helper centralisé** : `src/lib/reporting-filter.ts` exporte `reportingFilterVente()`, `reportingFilterDevis()` + variantes strict. À utiliser partout où un chiffre Sellsy doit matcher l'extract Laurence.
+
+→ **Endpoints qui appliquent le filtre** :
+- `/api/news` — banderole CA mois + plus grosse commande (DB locale, plus de live Sellsy)
+- `/api/dashboard/stats` (vue direction) — CA mensuel + tendance 12 mois
+- `/api/marketing/roi` — fallback Prisma
+
+→ **Vérification avril 2026** (post-backfill) : 42 BDC bruts → **37 BDC / 55 189,99 €** avec le filtre. Match exact sur le total avec l'extract Sellsy de Laurence (l'écart d'1 BDC est un BDC à 0 € exclu par `montant > 1`).
 
 ### Tracking GA4 — bloqué
 - Code GA4 prêt (`src/lib/ga4.ts`, `/api/marketing/ga4-pageviews`, intégré banderole)
 - Service Account créé (`kokpit-ga4@kokpit-ga4-reader.iam.gserviceaccount.com`)
 - **Bloqué** : GA4 refuse d'ajouter le SA "n'est pas un compte Google" même après activation Analytics Data API + 24h. Solution Plan B = OAuth refresh token.
 
-### Vercel Hobby quotas dépassés (mai 2026)
-- Fast Data Transfer 297 GB / 100 GB
-- Fluid Active CPU 5h14 / 4h
-- Function Invocations 517K / 1M (encore OK)
-- → Risque throttling. Plan Pro 20$/mois en perspective.
+### Vercel Pro (upgrade effectué mai 2026)
+- `maxDuration` max = **800s** (PAS 900 — cause des erreurs de deploy si dépassé). Toutes les routes longues sont à 800.
+- Cron jobs : jusqu'à 100 sur Pro. Tous les crons sont configurés dans `vercel.json`.
+- **Cron Vercel envoie GET (pas POST)** + UA `vercel-cron`. Toute route déclenchée par cron doit avoir un handler GET ET accepter l'UA `vercel-cron` en bypass auth (même logique que Bearer `CRON_API_SECRET`).
+
+### Crons Vercel actifs (`vercel.json`)
+| Path | Schedule | Rôle |
+|---|---|---|
+| `/api/cron?job=sync-sellsy` | `0 */2 * * *` | Sync BDC + Devis + etatProduit + statutSellsy |
+| `/api/sellsy/sync-catalogue` | `0 */4 * * *` | Items + déclinaisons (prix, refs) |
+| `/api/sellsy/tracabilite?fresh=true` | `30 */6 * * *` | LiaisonDevisCommande (matching BDC↔devis) |
+| `/api/admin/refresh-etat-produit?onlyMissing=true&limit=500` | `15 3 * * *` | Backfill custom field "Etat des produit" |
+| `/api/cron?job=sla-check` | `0 8-18 * * 1-6` | Alertes SLA 48h (exclut PERDU + leads avant 7 mars 2026) |
+| `/api/cron?job=sync-club` | `5 6 * * *` | Sync Club Pro |
+| `/api/cron?job=relance` | `0 9 * * *` | Relances clients |
+| `/api/cron?job=cross-sell` | `30 9 * * *` | Cross-sell |
+| `/api/recap-hebdo` | `57 8 * * 2` | Récap hebdo direction |
+
+### Sync catalogue — TIME_BUDGET (correctif 7 mai 2026)
+- `src/app/api/sellsy/sync-catalogue/route.ts` : `TIME_BUDGET_MS = 12 * 60 * 1000` (avant : 4.5 min, héritage Hobby).
+- Symptôme avant fix : déclinaisons (1700+) bloquées au 2026-04-15. Le loop coupait avant d'attaquer les déclinaisons après l'upsert des items.
+- Mode **oldest-first** — chaque cron progresse sur les déclinaisons les plus anciennes en stock. Aucune perte si un run est partiel.
 
 ### Modèles supprimés (avril–mai 2026, ne pas tenter de réintroduire)
 - Stock ABC, Alertes stock, Arrivages (`Arrivage`, `LigneArrivage`, `BdcArrivage`)
