@@ -87,20 +87,47 @@ async function sendPrixRecuEmail(np: any, demandeur: { prenom: string; nom: stri
 </td></tr></table>
 </body></html>`;
 
+  // Le mail va au demandeur + en copie aux commerciaux clés
+  // (pour qu'ils puissent enchaîner sur le devis sans attendre)
+  const ccPrenoms = ["Bernard", "Michelle", "Daniella"];
+  const cc: Array<{ email: string; name: string }> = [];
+  try {
+    const ccUsers = await prisma.user.findMany({
+      where: {
+        actif: true,
+        prenom: { in: ccPrenoms },
+        // Évite de doublonner si le demandeur est déjà l'un d'eux
+        NOT: { email: demandeur.email.toLowerCase() },
+      },
+      select: { email: true, prenom: true, nom: true },
+    });
+    for (const u of ccUsers) {
+      if (u.email) cc.push({ email: u.email, name: `${u.prenom} ${u.nom}` });
+    }
+  } catch (e) {
+    console.warn("[NeedPrice email] CC commerciaux indisponibles:", e);
+  }
+
+  const payload: Record<string, unknown> = {
+    sender: SENDER,
+    to: [{ email: demandeur.email, name: `${demandeur.prenom} ${demandeur.nom}` }],
+    subject: `💰 Prix reçu — ${ref} — ${np.nomClient || ""}`.trim(),
+    htmlContent: html,
+  };
+  if (cc.length > 0) payload.cc = cc;
+
   const res = await fetch(BREVO_API_URL, {
     method: "POST",
     headers: { "accept": "application/json", "content-type": "application/json", "api-key": apiKey },
-    body: JSON.stringify({
-      sender: SENDER,
-      to: [{ email: demandeur.email, name: `${demandeur.prenom} ${demandeur.nom}` }],
-      subject: `💰 Prix reçu — ${ref} — ${np.nomClient || ""}`.trim(),
-      htmlContent: html,
-    }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Brevo error: ${res.status} ${err}`);
   }
+  console.log(
+    `[NeedPrice email] Envoyé à ${demandeur.email}${cc.length > 0 ? ` + CC ${cc.map((c) => c.email).join(", ")}` : ""}`
+  );
 }
 
 // GET - Return single NeedPrice by id
