@@ -14,27 +14,26 @@ export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 /**
- * Webhook Sellsy — point d'entrée unique pour la sync quasi-instantanée.
+ * Webhook Sellsy V1 — point d'entrée unique pour la sync quasi-temps réel.
  *
- * Sellsy push chaque événement → on re-fetch la donnée canonique depuis
+ * Sellsy push chaque modification → on re-fetch la donnée canonique depuis
  * l'API v2 (au lieu de croire le payload) puis on upsert en DB.
  *
- * Events traités :
- *  - item.created / item.updated / item.deleted          → SellsyItemCache + déclinaisons
- *  - order.created / order.updated / order.deleted        → Vente (BDC) + etatProduit
- *  - estimate.created / estimate.updated / estimate.deleted → Devis + etatProduit
- *  - invoice.created (legacy) → Vente
- *
- * Configuration côté Sellsy (Paramètres → Webhooks) :
- *  URL : https://kokpit-kappa.vercel.app/api/webhooks/sellsy
- *  Events à activer : item.*, order.*, estimate.*, invoice.created
- *  Secret : variable SELLSY_WEBHOOK_SECRET
+ * Format Sellsy v1 (configuration via UI Sellsy → Webhooks) :
+ *   - Content-type : application/json (recommandé) OU x-www-form-urlencoded
+ *   - "Retourne l'objet dans le payload" : coché
+ *   - Signature : HMAC SHA1 du body avec la clé de signature
+ *   - Body :
+ *     {
+ *       "notif": "created" | "updated" | "deleted" | "step" | ...,
+ *       "relatedtype": "Item" | "Client" | "Prospect" | "People" |
+ *                      "Document" | "Invoice" | ...,
+ *       "relatedid": "12345",
+ *       "eventDate": "2026-05-07 10:30:00",
+ *       "ownerid": "123",
+ *       "object": { ... }    // si "Retourne l'objet" coché
+ *     }
  */
-
-function validateSellsySignature(payload: string, signature: string, secret: string): boolean {
-  const hash = crypto.createHmac("sha256", secret).update(payload).digest("hex");
-  return hash === signature;
-}
 
 interface CustomFieldOnDoc {
   code?: string;
@@ -47,6 +46,7 @@ interface CustomFieldOnDoc {
 function normalize(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
+
 function isEtatProduit(cf: CustomFieldOnDoc): boolean {
   const fields = [cf.code, cf.name, cf.label].filter(Boolean) as string[];
   return fields.some((v) => {
@@ -54,6 +54,7 @@ function isEtatProduit(cf: CustomFieldOnDoc): boolean {
     return n.includes("etat") && n.includes("produit");
   });
 }
+
 function readValueLabel(cf: CustomFieldOnDoc): string | null {
   if (cf.value == null || cf.value === "") return null;
   if (typeof cf.value === "string" || typeof cf.value === "number" || typeof cf.value === "boolean") {
@@ -66,10 +67,13 @@ function readValueLabel(cf: CustomFieldOnDoc): string | null {
 }
 
 async function fetchEtatAndStatus(
-  type: "order" | "estimate",
+  type: "order" | "estimate" | "invoice",
   sellsyId: string
 ): Promise<{ etatProduit: string | null; statutSellsy: string | null }> {
-  const path = type === "order" ? `/orders/${sellsyId}` : `/estimates/${sellsyId}`;
+  const path =
+    type === "order" ? `/orders/${sellsyId}` :
+    type === "estimate" ? `/estimates/${sellsyId}` :
+    `/invoices/${sellsyId}`;
   const cfPath = `${path}/custom-fields?limit=100`;
   const [docRes, cfRes] = await Promise.all([
     sellsyFetch<{ data: any }>(path).catch(() => ({ data: null })),
@@ -89,12 +93,68 @@ function parseNum(v: string | number | null | undefined): number | null {
 }
 
 // ============================================================
+// SIGNATURE — Sellsy v1 utilise HMAC SHA1 du body avec la clé
+// On essaie plusieurs schémas pour rester compatible.
+// ============================================================
+function verifySignature(rawBody: string, headers: Headers, secret: string): boolean {
+  // Sellsy v1 envoie potentiellement la signature dans un de ces headers
+  const candidates = [
+    headers.get("webhooks_signature"),
+    headers.get("x-sellsy-signature"),
+    headers.get("x-webhooks-signature"),
+    headers.get("x-signature"),
+  ].filter(Boolean) as string[];
+
+  if (candidates.length === 0) {
+    console.warn("[webhook sellsy] aucun header de signature trouvé");
+    return false;
+  }
+
+  // Calcul HMAC-SHA1 + HMAC-SHA256 — on accepte les 2
+  const hmacSha1 = crypto.createHmac("sha1", secret).update(rawBody).digest("hex");
+  const hmacSha256 = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+
+  for (const sig of candidates) {
+    const cleaned = sig.replace(/^sha1=|^sha256=/i, "").trim();
+    if (cleaned === hmacSha1 || cleaned === hmacSha256) return true;
+  }
+  return false;
+}
+
+// ============================================================
+// PARSE BODY — accepte JSON ou form-urlencoded
+// ============================================================
+function parseBody(rawBody: string, contentType: string): any {
+  try {
+    if (contentType.includes("json")) {
+      return JSON.parse(rawBody);
+    }
+    // form-urlencoded
+    const params = new URLSearchParams(rawBody);
+    const out: any = {};
+    for (const [k, v] of params.entries()) {
+      // Sellsy peut imbriquer un objet json sous le champ "object"
+      if ((k === "object" || k === "details") && v.startsWith("{")) {
+        try { out[k] = JSON.parse(v); } catch { out[k] = v; }
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  } catch (e) {
+    console.error("[webhook sellsy] parse body:", (e as Error).message);
+    return null;
+  }
+}
+
+// ============================================================
 // HANDLER PRINCIPAL
 // ============================================================
 export async function POST(request: NextRequest) {
+  const t0 = Date.now();
   try {
-    const payload = await request.text();
-    const signature = request.headers.get("x-sellsy-signature") || "";
+    const rawBody = await request.text();
+    const contentType = request.headers.get("content-type") || "";
 
     const sellsyWebhookSecret = process.env.SELLSY_WEBHOOK_SECRET;
     if (!sellsyWebhookSecret) {
@@ -102,35 +162,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Secret non configuré" }, { status: 400 });
     }
 
-    if (!validateSellsySignature(payload, signature, sellsyWebhookSecret)) {
-      return NextResponse.json({ error: "Signature invalide" }, { status: 401 });
+    // En mode debug (pas de signature header), on log mais on continue
+    // pour faciliter le 1er paramétrage Sellsy.
+    const sigOk = verifySignature(rawBody, request.headers, sellsyWebhookSecret);
+    if (!sigOk) {
+      console.warn("[webhook sellsy] signature invalide. Headers:", Array.from(request.headers.entries()).map(([k, v]) => `${k}=${v.slice(0, 30)}`).join(", "));
+      // On garde 401 mais en logguant pour pouvoir adapter si Sellsy
+      // utilise un autre nom de header
+      if (process.env.SELLSY_WEBHOOK_STRICT !== "false") {
+        return NextResponse.json({ error: "Signature invalide" }, { status: 401 });
+      }
     }
 
-    const data = JSON.parse(payload);
-    const event: string = data.event || data.event_type || "";
-    const t0 = Date.now();
-    console.log(`[webhook sellsy] event=${event}`);
-
-    // Item events
-    if (event.startsWith("item.")) {
-      await handleItemEvent(event, data);
-    }
-    // Order events (BDC)
-    else if (event.startsWith("order.")) {
-      await handleOrderEvent(event, data);
-    }
-    // Estimate events (devis)
-    else if (event.startsWith("estimate.") || event.startsWith("quote.")) {
-      await handleEstimateEvent(event, data);
-    }
-    // Invoice events (legacy)
-    else if (event === "invoice.created" || event === "invoice.updated") {
-      await handleInvoiceEvent(data);
-    } else {
-      console.log(`[webhook sellsy] event ignoré: ${event}`);
+    const data = parseBody(rawBody, contentType);
+    if (!data) {
+      return NextResponse.json({ error: "Payload illisible" }, { status: 400 });
     }
 
-    console.log(`[webhook sellsy] ${event} traité en ${Date.now() - t0}ms`);
+    const notif: string = (data.notif || data.event || "").toLowerCase();
+    const relatedType: string = (data.relatedtype || data.relatedType || data.entity || "").toLowerCase();
+    const relatedId: string = String(data.relatedid || data.relatedId || data.entityId || data.id || "");
+
+    if (!notif || !relatedType) {
+      console.warn("[webhook sellsy] payload sans notif/relatedtype:", JSON.stringify(data).slice(0, 300));
+      return NextResponse.json({ status: "ignored", reason: "no event" }, { status: 200 });
+    }
+
+    console.log(`[webhook sellsy] ${relatedType}.${notif} id=${relatedId}`);
+
+    // ===== Routing =====
+    if (relatedType === "item" || relatedType === "produit") {
+      await handleItemEvent(notif, relatedId, data);
+    }
+    else if (relatedType === "client" || relatedType === "prospect" || relatedType === "people" || relatedType === "contact" || relatedType === "third") {
+      await handleContactEvent(notif, relatedId, data, relatedType);
+    }
+    // Documents : Document redactor envoie relatedtype=document avec un subtype
+    else if (relatedType === "document" || relatedType === "estimate" || relatedType === "order" || relatedType === "invoice" || relatedType === "delivery") {
+      await handleDocumentEvent(notif, relatedId, data, relatedType);
+    }
+    else {
+      console.log(`[webhook sellsy] type ignoré: ${relatedType}`);
+    }
+
+    console.log(`[webhook sellsy] ${relatedType}.${notif} traité en ${Date.now() - t0}ms`);
     return NextResponse.json({ status: "ok" }, { status: 200 });
   } catch (error) {
     console.error("[webhook sellsy] erreur:", error);
@@ -140,28 +215,26 @@ export async function POST(request: NextRequest) {
 }
 
 // ============================================================
-// ITEM (catalogue produits)
+// ITEM (Produit)
 // ============================================================
-async function handleItemEvent(event: string, data: any) {
-  const itemId: number | undefined = data.item?.id || data.id || data.resource_id;
-  if (!itemId) {
-    console.warn("[webhook sellsy] item event sans id");
-    return;
-  }
+async function handleItemEvent(notif: string, itemId: string, data: any) {
+  if (!itemId) return;
+  const id = Number(itemId);
+  if (!id || isNaN(id)) return;
 
-  if (event === "item.deleted") {
+  if (notif === "deleted") {
     await prisma.sellsyItemCache.update({
-      where: { id: itemId },
+      where: { id },
       data: { isArchived: true, syncedAt: new Date() },
     }).catch(() => {});
-    await prisma.sellsyDeclinationCache.deleteMany({ where: { itemId } }).catch(() => {});
+    await prisma.sellsyDeclinationCache.deleteMany({ where: { itemId: id } }).catch(() => {});
     return;
   }
 
-  // Fetch canonique
-  const itemRes = await getItem(itemId).catch(() => null);
+  // Re-fetch canonique depuis Sellsy v2
+  const itemRes = await getItem(id).catch(() => null);
   if (!itemRes?.data) {
-    console.warn(`[webhook sellsy] item ${itemId} introuvable`);
+    console.warn(`[webhook sellsy] item ${id} introuvable v2`);
     return;
   }
   const item = itemRes.data as any;
@@ -203,7 +276,6 @@ async function handleItemEvent(event: string, data: any) {
     },
   });
 
-  // Si déclinés, on rafraîchit les déclinaisons aussi
   if (item.is_declined) {
     const [v2, v1] = await Promise.all([
       listDeclinations(item.id).catch(() => ({ data: [] as any[] })),
@@ -254,33 +326,106 @@ async function handleItemEvent(event: string, data: any) {
 }
 
 // ============================================================
-// ORDER (BDC)
+// CONTACT (Client / Prospect / Contact / People)
 // ============================================================
-async function handleOrderEvent(event: string, data: any) {
-  const orderId: number | string | undefined =
-    data.order?.id || data.id || data.resource_id;
-  if (!orderId) return;
+async function handleContactEvent(notif: string, contactId: string, data: any, type: string) {
+  if (!contactId || notif === "deleted") return; // pas de delete contact pour l'instant
 
-  if (event === "order.deleted") {
-    await prisma.vente.updateMany({
-      where: { sellsyInvoiceId: String(orderId) },
-      data: { statutSellsy: "deleted" },
-    }).catch(() => {});
+  // On re-fetch depuis l'API v2
+  const path = type === "client" || type === "prospect" || type === "third"
+    ? `/companies/${contactId}`
+    : `/individuals/${contactId}`;
+  const res = await sellsyFetch<{ data: any }>(path).catch(() => ({ data: null }));
+  if (!res?.data) return;
+  const c = res.data as any;
+
+  const email = (c.email || c.emails?.[0]?.email || "").toLowerCase();
+  if (!email) {
+    console.log(`[webhook sellsy] contact ${contactId} sans email — skip`);
     return;
   }
 
-  // Fetch canonique
+  const nom = c.name || c.last_name || c.lastname || c.corporation_name || "Contact Sellsy";
+  const prenom = c.first_name || c.firstname || "";
+
+  await prisma.contact.upsert({
+    where: { sellsyContactId: String(contactId) },
+    create: {
+      sellsyContactId: String(contactId),
+      email,
+      nom,
+      prenom,
+      telephone: c.phone_number || c.mobile_number || null,
+      lifecycleStage: type === "client" ? "CLIENT" : "PROSPECT",
+      sourcePremiere: "SHOWROOM",
+    },
+    update: {
+      email,
+      nom,
+      prenom,
+      telephone: c.phone_number || c.mobile_number || undefined,
+      lifecycleStage: type === "client" ? "CLIENT" : undefined,
+    },
+  });
+}
+
+// ============================================================
+// DOCUMENT (BDC, Devis, Facture)
+// ============================================================
+async function handleDocumentEvent(notif: string, docId: string, data: any, relatedType: string) {
+  if (!docId) return;
+
+  // Sellsy "Document redactor" envoie un subtype dans data.object.type ou data.doctype
+  const obj = data.object || {};
+  const subtype: string = (
+    obj.type ||
+    obj.doctype ||
+    data.doctype ||
+    data.subtype ||
+    relatedType ||
+    ""
+  ).toLowerCase();
+
+  if (notif === "deleted") {
+    if (subtype.includes("estimate") || subtype.includes("devis")) {
+      await prisma.devis.updateMany({
+        where: { sellsyQuoteId: String(docId) },
+        data: { statutSellsy: "deleted" },
+      }).catch(() => {});
+    } else if (subtype.includes("order") || subtype.includes("commande")) {
+      await prisma.vente.updateMany({
+        where: { sellsyInvoiceId: String(docId) },
+        data: { statutSellsy: "deleted" },
+      }).catch(() => {});
+    }
+    return;
+  }
+
+  // Devis (estimate)
+  if (subtype.includes("estimate") || subtype.includes("devis")) {
+    await syncEstimate(docId);
+  }
+  // BDC (order)
+  else if (subtype.includes("order") || subtype.includes("commande")) {
+    await syncOrder(docId);
+  }
+  // Facture (invoice)
+  else if (subtype.includes("invoice") || subtype.includes("facture")) {
+    await syncInvoice(docId);
+  } else {
+    console.log(`[webhook sellsy] document subtype inconnu: ${subtype}`);
+  }
+}
+
+async function syncOrder(orderId: string) {
   const orderRes = await getOrder(Number(orderId)).catch(() => null);
   if (!orderRes?.data) return;
   const o = orderRes.data as any;
 
   const amount = parseNum(o.amounts?.total_excl_tax ?? o.amounts?.total_raw_excl_tax) || 0;
   const dateVente = o.date ? new Date(o.date) : new Date();
-
-  // Custom field "Etat des produit" + statut
   const { etatProduit, statutSellsy } = await fetchEtatAndStatus("order", String(orderId));
 
-  // Contact lookup ou création placeholder
   const contactSellsyId = o.related?.find((r: any) => r.type === "individual" || r.type === "company")?.id;
   let contact = null;
   if (contactSellsyId) {
@@ -323,22 +468,7 @@ async function handleOrderEvent(event: string, data: any) {
   checkAndNotifyScoring(contact.id).catch(() => {});
 }
 
-// ============================================================
-// ESTIMATE (devis)
-// ============================================================
-async function handleEstimateEvent(event: string, data: any) {
-  const estimateId: number | string | undefined =
-    data.estimate?.id || data.quote?.id || data.id || data.resource_id;
-  if (!estimateId) return;
-
-  if (event === "estimate.deleted" || event === "quote.deleted") {
-    await prisma.devis.updateMany({
-      where: { sellsyQuoteId: String(estimateId) },
-      data: { statutSellsy: "deleted" },
-    }).catch(() => {});
-    return;
-  }
-
+async function syncEstimate(estimateId: string) {
   const estRes = await sellsyFetch<{ data: any }>(`/estimates/${estimateId}`).catch(() => ({ data: null }));
   if (!estRes?.data) return;
   const e = estRes.data as any;
@@ -396,70 +526,67 @@ async function handleEstimateEvent(event: string, data: any) {
   checkAndNotifyScoring(contact.id).catch(() => {});
 }
 
-// ============================================================
-// INVOICE (legacy — facture émise)
-// ============================================================
-async function handleInvoiceEvent(data: any) {
-  try {
-    const invoiceId = data.invoice?.id;
-    const contactId = data.invoice?.contactId;
-    const amount = data.invoice?.amount;
-    const invoiceDate = data.invoice?.date;
+async function syncInvoice(invoiceId: string) {
+  // Pour l'instant on traite la facture comme une Vente (sellsyInvoiceId)
+  // La table Vente stocke historiquement BDC ; à termes on séparera.
+  const invRes = await sellsyFetch<{ data: any }>(`/invoices/${invoiceId}`).catch(() => ({ data: null }));
+  if (!invRes?.data) return;
+  const inv = invRes.data as any;
 
-    if (!invoiceId || !contactId) return;
+  const amount = parseNum(inv.amounts?.total_excl_tax ?? inv.amounts?.total_raw_excl_tax) || 0;
+  const dateVente = inv.date ? new Date(inv.date) : new Date();
+  const { etatProduit, statutSellsy } = await fetchEtatAndStatus("invoice", String(invoiceId));
 
-    const contact = await prisma.contact.findUnique({
-      where: { sellsyContactId: contactId },
+  const contactSellsyId = inv.related?.find((r: any) => r.type === "individual" || r.type === "company")?.id;
+  let contact = null;
+  if (contactSellsyId) {
+    contact = await prisma.contact.findFirst({
+      where: { sellsyContactId: String(contactSellsyId) },
     });
-    if (!contact) return;
-
-    const existingVente = await prisma.vente.findUnique({
-      where: { sellsyInvoiceId: invoiceId },
-    });
-    if (existingVente) return;
-
-    const devis = await prisma.devis.findFirst({
-      where: { contactId: contact.id },
-      orderBy: { createdAt: "desc" },
-    });
-
-    await prisma.vente.create({
-      data: {
-        contactId: contact.id,
-        devisId: devis?.id,
-        sellsyInvoiceId: invoiceId,
-        montant: amount || 0,
-        dateVente: invoiceDate ? new Date(invoiceDate) : new Date(),
-      },
-    });
-
-    if (devis?.leadId) {
-      await prisma.lead.update({
-        where: { id: devis.leadId },
-        data: { statut: "VENTE" },
-      });
-    }
-    await prisma.contact.update({
-      where: { id: contact.id },
-      data: { lifecycleStage: "CLIENT" },
-    });
-
-    checkAndNotifyScoring(contact.id).catch(() => {});
-  } catch (error) {
-    console.error("[webhook sellsy] invoice:", error);
   }
+  if (!contact) {
+    contact = await prisma.contact.upsert({
+      where: { email: `sellsy-fact-${invoiceId}@placeholder.dimexoi.fr` },
+      create: {
+        nom: `Sellsy Facture ${invoiceId}`,
+        prenom: "",
+        email: `sellsy-fact-${invoiceId}@placeholder.dimexoi.fr`,
+        lifecycleStage: "CLIENT",
+        sourcePremiere: "SHOWROOM",
+      },
+      update: {},
+    });
+  }
+
+  await prisma.vente.upsert({
+    where: { sellsyInvoiceId: String(invoiceId) },
+    create: {
+      contactId: contact.id,
+      sellsyInvoiceId: String(invoiceId),
+      montant: amount,
+      dateVente,
+      etatProduit,
+      statutSellsy,
+    },
+    update: {
+      montant: amount,
+      dateVente,
+      etatProduit,
+      statutSellsy,
+    },
+  });
+
+  checkAndNotifyScoring(contact.id).catch(() => {});
 }
 
-// GET — endpoint de healthcheck pour vérifier que le webhook répond
+// GET — healthcheck
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    info: "Webhook Sellsy KOKPIT actif. Configure côté Sellsy avec SELLSY_WEBHOOK_SECRET.",
-    events: [
-      "item.created", "item.updated", "item.deleted",
-      "order.created", "order.updated", "order.deleted",
-      "estimate.created", "estimate.updated", "estimate.deleted",
-      "invoice.created",
-    ],
+    info: "Webhook Sellsy v1 KOKPIT actif.",
+    expectedTypes: ["Item", "Client", "Prospect", "People", "Document"],
+    expectedNotifs: ["created", "updated", "deleted", "step", "linked", "unlinked"],
+    headersChecked: ["webhooks_signature", "x-sellsy-signature"],
+    contentTypes: ["application/json", "application/x-www-form-urlencoded"],
   });
 }
