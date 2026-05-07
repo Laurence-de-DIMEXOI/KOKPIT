@@ -373,9 +373,11 @@ async function syncSellsyJob() {
       } catch { /* Skip rate limit */ }
     }
 
-    // ── ÉTAPE 1 : Micro-refresh devis + BDC (14 derniers jours) ──
+    // ── ÉTAPE 1 : Refresh devis + BDC (60 derniers jours) ──
+    // Fenêtre élargie pour rattraper les BDC modifiés tardivement (drafts → invoiced)
+    // qui sortent de la fenêtre 14j originale.
     const since14j = new Date();
-    since14j.setDate(since14j.getDate() - 14);
+    since14j.setDate(since14j.getDate() - 60);
     const sinceStr = since14j.toISOString().split("T")[0];
 
     let freshDevis = 0;
@@ -431,18 +433,32 @@ async function syncSellsyJob() {
       console.warn("Cron sync-sellsy: estimates skipped:", err);
     }
 
-    // Fetch recent orders
+    // Fetch recent orders — paginé pour couvrir 60j même avec >100 BDC
     try {
-      const ordRes = await listOrders({
-        limit: 100, offset: 0, order: "created", direction: "desc",
-      });
-      const recentOrders = (ordRes.data || []).filter(
-        (o) => new Date(o.created) >= since14j
+      const allFetched: any[] = [];
+      let offset = 0;
+      const PAGE = 100;
+      const MAX_PAGES = 5; // safety : 500 BDC max scannés
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const res = await listOrders({
+          limit: PAGE, offset, order: "created", direction: "desc",
+        });
+        const batch = res.data || [];
+        allFetched.push(...batch);
+        // Si la page contient des BDC plus vieux que la fenêtre, on arrête
+        const oldestInBatch = batch.length > 0
+          ? new Date(batch[batch.length - 1].created || batch[batch.length - 1].date)
+          : null;
+        if (batch.length < PAGE || (oldestInBatch && oldestInBatch < since14j)) break;
+        offset += PAGE;
+      }
+      const recentOrders = allFetched.filter(
+        (o) => new Date(o.created || o.date) >= since14j
       );
       for (const ord of recentOrders) {
-        const relatedIds = (ord.related || []).map((r) => String(r.id));
+        const relatedIds = (ord.related || []).map((r: { id: number }) => String(r.id));
         const kokpitContactId =
-          relatedIds.map((rid) => contactsBySellsyId.get(rid)).find(Boolean) ||
+          relatedIds.map((rid: string) => contactsBySellsyId.get(rid)).find(Boolean) ||
           (ord.contact_id ? contactsBySellsyId.get(String(ord.contact_id)) : undefined);
         if (!kokpitContactId) continue;
         try {
