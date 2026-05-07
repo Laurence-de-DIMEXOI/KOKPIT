@@ -4,7 +4,8 @@ import { STATIC_NEWS, type NewsItem } from "@/lib/news-config";
 import { getResponsableCafe } from "@/data/cafe-planning";
 import { getPageViewsByPath } from "@/lib/ga4";
 import { prochainFerie, formatFerieFR } from "@/lib/feries";
-import { reportingFilterVente } from "@/lib/reporting-filter";
+import { reportingFilterVente, STATUTS_SELLSY_EXCLUS } from "@/lib/reporting-filter";
+import { sellsyFetch } from "@/lib/sellsy";
 
 /**
  * GET /api/news
@@ -62,6 +63,44 @@ export async function GET() {
   const now = new Date();
   const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
   const finMois = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  // Refresh ciblé : uniquement les BDC du mois sans statutSellsy connu.
+  // → assure que les annulés ne passent pas faute de statut connu.
+  try {
+    const ventesNullStatut = await prisma.vente.findMany({
+      where: {
+        dateVente: { gte: debutMois, lt: finMois },
+        statutSellsy: null,
+        sellsyInvoiceId: { not: null },
+      },
+      select: { id: true, sellsyInvoiceId: true },
+      take: 50, // safety cap
+    });
+    if (ventesNullStatut.length > 0) {
+      const refreshes = ventesNullStatut.map(async (v) => {
+        try {
+          const res = await sellsyFetch<{ data: { status?: string } }>(
+            `/orders/${v.sellsyInvoiceId}`
+          );
+          const statut = res.data?.status || null;
+          await prisma.vente.update({
+            where: { id: v.id },
+            data: { statutSellsy: statut },
+          });
+        } catch {
+          /* ignore */
+        }
+      });
+      // Cap à 20s pour ne pas bloquer la banderole
+      await Promise.race([
+        Promise.all(refreshes),
+        new Promise((r) => setTimeout(r, 20000)),
+      ]);
+    }
+  } catch (e) {
+    console.warn("[news] refresh statut NULL:", e);
+  }
+
   let ventesThisMonth: Array<{
     id: string;
     montant: number;
@@ -69,9 +108,13 @@ export async function GET() {
     contact: { nom: string; prenom: string | null } | null;
   }> = [];
   try {
+    // Filtre strict pour la banderole : on exige `statutSellsy` connu et non-annulé
+    // (plus tolérant que reportingFilterVente qui accepte NULL pour les vieux backfills).
     ventesThisMonth = await prisma.vente.findMany({
       where: {
         dateVente: { gte: debutMois, lt: finMois },
+        montant: { gt: 1 },
+        statutSellsy: { not: null, notIn: STATUTS_SELLSY_EXCLUS },
         ...reportingFilterVente(),
       },
       select: {
