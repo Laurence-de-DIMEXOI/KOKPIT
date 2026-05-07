@@ -513,8 +513,8 @@ export default function LeadsPage() {
             const sellsyIsLoading = sellsyLoading[demande.id];
             const articles = demande.articles as Article[] | null;
             const slaExpired = isSlaExpired(demande.slaDeadline);
-            const isTraite = demande.statut === "DEVIS" || demande.statut === "VENTE";
-            // SLA masqué pour les demandes avant le 6 mars 2026 inclus (données legacy)
+            // SLA masqué si : déjà traité (DEVIS/VENTE), perdu (PERDU), ou legacy (< 7 mars 2026)
+            const isTraite = ["DEVIS", "VENTE", "PERDU"].includes(demande.statut);
             const showSla = !!demande.slaDeadline && !isTraite && new Date(demande.dateCreation) >= new Date("2026-03-07");
 
             return (

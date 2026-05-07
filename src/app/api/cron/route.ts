@@ -5,6 +5,7 @@ import {
   searchEstimates,
   listOrders,
   searchIndividuals,
+  sellsyFetch,
 } from "@/lib/sellsy";
 import {
   syncClubCommandes,
@@ -15,9 +16,49 @@ import {
 import { sendEmail } from "@/lib/resend";
 import { recomputeLeadAttribution } from "@/lib/attribution-tunnel";
 
+// Long-running cron : autorisé jusqu'à 15 min sur Vercel Pro
+export const maxDuration = 900;
+
 const cronSchema = z.object({
   job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club"]),
 });
+
+// Helper : récupère l'état produit + statut brut depuis Sellsy pour 1 doc
+function normalizeStr(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+async function fetchEtatProduit(
+  type: "order" | "estimate",
+  sellsyId: string
+): Promise<{ etatProduit: string | null; statutSellsy: string | null }> {
+  try {
+    const path = type === "order" ? `/orders/${sellsyId}` : `/estimates/${sellsyId}`;
+    const [docRes, cfRes] = await Promise.all([
+      sellsyFetch<{ data: { status?: string } }>(path).catch(() => ({ data: null as any })),
+      sellsyFetch<{ data: any[] }>(`${path}/custom-fields?limit=100`).catch(() => ({ data: [] })),
+    ]);
+    const statutSellsy = (docRes.data?.status as string | undefined) || null;
+    const cfs = cfRes.data || [];
+    const target = cfs.find((cf: any) => {
+      const fields = [cf.code, cf.name, cf.label].filter(Boolean) as string[];
+      return fields.some((v) => {
+        const n = normalizeStr(v);
+        return n.includes("etat") && n.includes("produit");
+      });
+    });
+    let etatProduit: string | null = null;
+    if (target?.value != null && target.value !== "") {
+      const raw = String(target.value).trim();
+      const items = (target.parameters?.items || []) as Array<{ id: number | string; label: string }>;
+      const matched = items.find((it) => String(it.id) === raw);
+      etatProduit = matched?.label || raw;
+    }
+    return { etatProduit, statutSellsy };
+  } catch {
+    return { etatProduit: null, statutSellsy: null };
+  }
+}
 
 // POST - Execute scheduled jobs
 export async function POST(request: NextRequest) {
@@ -95,17 +136,24 @@ export async function POST(request: NextRequest) {
 }
 
 // SLA Check: Find leads past deadline without action
+// Demandes legacy : on n'alerte plus pour les leads créés avant cette date
+const SLA_LEGACY_CUTOFF = new Date("2026-03-07T00:00:00+04:00");
+
 async function slaCheck() {
   try {
     const now = new Date();
 
-    // Find leads past SLA deadline without first action
+    // Find leads past SLA deadline without first action.
+    // Exclusions :
+    //   - statut PERDU (la demande est close, pas d'action utile)
+    //   - statut DEVIS / VENTE (la démarche commerciale est lancée)
+    //   - leads créés avant le 7 mars 2026 (données legacy non actionnables)
     const slaExceeded = await prisma.lead.findMany({
       where: {
-        slaDeadline: {
-          lt: now,
-        },
+        slaDeadline: { lt: now },
         premiereActionAt: null,
+        statut: { notIn: ["PERDU", "DEVIS", "VENTE"] },
+        createdAt: { gte: SLA_LEGACY_CUTOFF },
       },
       include: {
         contact: true,
@@ -408,11 +456,15 @@ async function syncSellsyJob() {
           relatedIds.map((rid) => contactsBySellsyId.get(rid)).find(Boolean) ||
           (est.contact_id ? contactsBySellsyId.get(String(est.contact_id)) : undefined);
         if (!kokpitContactId) continue;
+        // Récupère etatProduit + statut brut Sellsy (1 appel API par devis)
+        const { etatProduit, statutSellsy } = await fetchEtatProduit("estimate", String(est.id));
         try {
           await prisma.devis.upsert({
             where: { sellsyQuoteId: String(est.id) },
             update: {
               statut: mapEstimateStatus(est.status),
+              statutSellsy: statutSellsy || est.status || null,
+              etatProduit,
               montant: Number(est.amounts?.total_excl_tax) || 0,
               numero: est.number || undefined,
               dateEnvoi: est.status === "sent" ? new Date(est.date) : undefined,
@@ -423,6 +475,8 @@ async function syncSellsyJob() {
               numero: est.number || null,
               montant: Number(est.amounts?.total_excl_tax) || 0,
               statut: mapEstimateStatus(est.status),
+              statutSellsy: statutSellsy || est.status || null,
+              etatProduit,
               dateEnvoi: est.status === "sent" ? new Date(est.date) : undefined,
             },
           });
@@ -497,15 +551,25 @@ async function syncSellsyJob() {
             continue;
           }
         }
+        // Récupère etatProduit + statut brut Sellsy (1 appel API par BDC)
+        const { etatProduit, statutSellsy } = await fetchEtatProduit("order", String(ord.id));
         try {
           await prisma.vente.upsert({
             where: { sellsyInvoiceId: String(ord.id) },
-            update: { montant: Number(ord.amounts?.total_excl_tax) || 0 },
+            update: {
+              montant: Number(ord.amounts?.total_excl_tax) || 0,
+              numero: ord.number || undefined,
+              statutSellsy: statutSellsy || ord.status || null,
+              etatProduit,
+            },
             create: {
-              contactId: kokpitContactId,
+              contactId: kokpitContactId!,
               sellsyInvoiceId: String(ord.id),
+              numero: ord.number || null,
               montant: Number(ord.amounts?.total_excl_tax) || 0,
               dateVente: new Date(ord.date || ord.created),
+              statutSellsy: statutSellsy || ord.status || null,
+              etatProduit,
             },
           });
           freshVentes++;

@@ -117,12 +117,14 @@ export async function GET() {
     }
 
     // ===== 3. Leads SLA 48h — MES leads (commercial assigné = user connecté) =====
+    // Exclusions : statut PERDU + données legacy avant le 7 mars 2026.
     try {
       const slaDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      const SLA_LEGACY_CUTOFF = new Date("2026-03-07T00:00:00+04:00");
       const slaLeads = await prisma.lead.count({
         where: {
           statut: { in: ["NOUVEAU", "EN_COURS"] },
-          createdAt: { lt: slaDate },
+          createdAt: { lt: slaDate, gte: SLA_LEGACY_CUTOFF },
           premiereActionAt: null,
           ...(isFullScope ? {} : { commercialId: userId }),
         },

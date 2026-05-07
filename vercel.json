@@ -2,15 +2,35 @@
   "crons": [
     {
       "path": "/api/cron?job=sync-sellsy",
-      "schedule": "0 6 * * *"
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/sellsy/sync-catalogue",
+      "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/sellsy/tracabilite?fresh=true",
+      "schedule": "30 */6 * * *"
+    },
+    {
+      "path": "/api/admin/refresh-etat-produit?onlyMissing=true&limit=500",
+      "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron?job=sla-check",
+      "schedule": "0 8-18 * * 1-6"
     },
     {
       "path": "/api/cron?job=sync-club",
       "schedule": "5 6 * * *"
     },
     {
-      "path": "/api/cron?job=sla-check",
-      "schedule": "0 7 * * *"
+      "path": "/api/cron?job=relance",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron?job=cross-sell",
+      "schedule": "30 9 * * *"
     },
     {
       "path": "/api/recap-hebdo",

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { listAllItems, listDeclinations, getItemV1Declinations } from "@/lib/sellsy";
 
-export const maxDuration = 300; // 5 min max (Vercel Pro)
+export const maxDuration = 900; // 15 min (Vercel Pro)
 export const dynamic = "force-dynamic";
 
 // POST /api/sellsy/sync-catalogue
