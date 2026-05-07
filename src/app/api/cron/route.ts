@@ -17,7 +17,7 @@ import { sendEmail } from "@/lib/resend";
 import { recomputeLeadAttribution } from "@/lib/attribution-tunnel";
 
 // Long-running cron : autorisé jusqu'à 15 min sur Vercel Pro
-export const maxDuration = 900;
+export const maxDuration = 800; // Vercel Pro max
 
 const cronSchema = z.object({
   job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club"]),

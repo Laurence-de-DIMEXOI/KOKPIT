@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { listAllItems, listDeclinations, getItemV1Declinations } from "@/lib/sellsy";
 
-export const maxDuration = 900; // 15 min (Vercel Pro)
+export const maxDuration = 800; // Vercel Pro max
 export const dynamic = "force-dynamic";
 
 // Logique de sync extraite pour être appelable depuis POST (manuel) et GET (Vercel cron)

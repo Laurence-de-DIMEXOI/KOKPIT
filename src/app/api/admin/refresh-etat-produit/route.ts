@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sellsyFetch } from "@/lib/sellsy";
 
-export const maxDuration = 900; // 15 min (Vercel Pro)
+export const maxDuration = 800; // Vercel Pro max
 
 /**
  * POST /api/admin/refresh-etat-produit?since=YYYY-MM-DD&onlyMissing=true&type=both|orders|estimates&limit=200
