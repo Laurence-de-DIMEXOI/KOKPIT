@@ -176,13 +176,14 @@ async function syncOrders(
           ord.amounts?.total_excl_tax ?? ord.amounts?.total_raw_excl_tax ?? 0
         ) || 0;
 
+        // Update : on n'écrase JAMAIS un etatProduit/statutSellsy déjà valides avec null
         await prisma.vente.upsert({
           where: { sellsyInvoiceId: String(ord.id) },
           update: {
             montant: amount,
             dateVente: ord.date ? new Date(ord.date) : new Date(),
-            etatProduit,
-            statutSellsy,
+            ...(etatProduit !== null ? { etatProduit } : {}),
+            ...(statutSellsy !== null ? { statutSellsy } : {}),
           },
           create: {
             contactId: kokpitContactId,
@@ -280,12 +281,13 @@ async function syncEstimates(
           est.amounts?.total_excl_tax ?? est.amounts?.total_raw_excl_tax ?? 0
         ) || 0;
 
+        const finalStatutSellsy = statutSellsy || est.status || null;
         await prisma.devis.upsert({
           where: { sellsyQuoteId: String(est.id) },
           update: {
             statut: mapEstimateStatus(est.status),
-            statutSellsy: statutSellsy || est.status || null,
-            etatProduit,
+            ...(finalStatutSellsy !== null ? { statutSellsy: finalStatutSellsy } : {}),
+            ...(etatProduit !== null ? { etatProduit } : {}),
             montant: amount,
             numero: est.number || undefined,
             dateEnvoi: est.status === "sent" ? new Date(est.date) : undefined,
@@ -296,7 +298,7 @@ async function syncEstimates(
             numero: est.number || null,
             montant: amount,
             statut: mapEstimateStatus(est.status),
-            statutSellsy: statutSellsy || est.status || null,
+            statutSellsy: finalStatutSellsy,
             etatProduit,
             dateEnvoi: est.status === "sent" ? new Date(est.date) : undefined,
           },
