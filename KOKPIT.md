@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 7 mai 2026 (v26 — Vercel Pro + filtre Laurence + sync catalogue 12 min)
-**Mis à jour par** : Session Claude Code (sprint mai — reporting + automatisation Pro)
+**Dernière mise à jour** : 7 mai 2026 (v27 — webhook Sellsy v1 + SLA off + cron catalogue 2x/sem)
+**Mis à jour par** : Session Claude Code (sprint mai — temps réel Sellsy + nettoyage)
 
 ---
 
@@ -18,7 +18,7 @@
 - **Banderole actus** — fixe top 28px, items via `/api/news` (cache 2 min) : café auto · Teck Days · container · CA mois · plus grosse commande · meilleur commercial · prochain férié.
 - **Need Price** (`/achat/need-price`) — quand Elaury passe en PRIX_RECU, email au demandeur **avec CC Bernard + Michelle + Daniella**.
 - **Notifications cloche** filtrées par user assigné (sauf ADMIN/DIRECTION qui voient tout).
-- **SLA** : 48h (au lieu de 72h). Email relance enrichi : coordonnées client + lien direct vers la demande.
+- **SLA** : 48h, mais **relances automatiques DÉSACTIVÉES** (mai 2026, demande Laurence). Plus aucun email auto ni création de tâche. Le calcul du dépassement reste affiché en UI (badge sur `/leads`). Le job `sla-check` retourne juste un compteur (`status: "disabled"`).
 
 ### Flow email
 - Tous les `sendEmail()` (`src/lib/resend.ts`) passent désormais par **Brevo** (key déjà configurée). Resend abandonné — clé `RESEND_API_KEY` jamais configurée sur Vercel.
@@ -66,14 +66,41 @@ Pour les chiffres CA / volumes BDC + Devis du rapport mensuel :
 | Path | Schedule | Rôle |
 |---|---|---|
 | `/api/cron?job=sync-sellsy` | `0 */2 * * *` | Sync BDC + Devis + etatProduit + statutSellsy |
-| `/api/sellsy/sync-catalogue` | `0 */4 * * *` | Items + déclinaisons (prix, refs) |
+| `/api/sellsy/sync-catalogue` | `0 4 * * 1,4` | Items + déclinaisons — **lundi + jeudi 4h** (filet de sécurité, le webhook Sellsy gère le temps réel) |
 | `/api/sellsy/tracabilite?fresh=true` | `30 */6 * * *` | LiaisonDevisCommande (matching BDC↔devis) |
 | `/api/admin/refresh-etat-produit?onlyMissing=true&limit=500` | `15 3 * * *` | Backfill custom field "Etat des produit" |
-| `/api/cron?job=sla-check` | `0 8-18 * * 1-6` | Alertes SLA 48h (exclut PERDU + leads avant 7 mars 2026) |
 | `/api/cron?job=sync-club` | `5 6 * * *` | Sync Club Pro |
 | `/api/cron?job=relance` | `0 9 * * *` | Relances clients |
 | `/api/cron?job=cross-sell` | `30 9 * * *` | Cross-sell |
 | `/api/recap-hebdo` | `57 8 * * 2` | Récap hebdo direction |
+
+⚠️ **Cron `sla-check` retiré** — voir section "SLA" ci-dessus. Code de la fonction conservé mais retourne `status: "disabled"` sans envoyer d'email.
+
+### Webhook Sellsy v1 — temps réel (mai 2026)
+**Endpoint** : `POST /api/webhooks/sellsy` (et `GET` healthcheck).
+
+Configuré côté **interface Sellsy** (Préférences → Connecteurs/API → Webhooks) :
+- URL : `https://kokpit-kappa.vercel.app/api/webhooks/sellsy`
+- Content-type : `application/json`
+- "Retourne l'objet dans le payload" : ✅
+- Signature : variable Vercel `SELLSY_WEBHOOK_SECRET`
+- Events activés : `created` / `updated` / `deleted` (+ `step` / `linked` / `unlinked` pour les documents) sur les catégories : Client, Prospect, Contact, Produit, Document redactor, Facture.
+
+**Format payload Sellsy v1** (différent de v2) :
+```json
+{ "notif": "created", "relatedtype": "Item", "relatedid": "12345", "object": {...} }
+```
+
+Le handler :
+- Parse JSON OU form-urlencoded
+- Vérifie HMAC SHA1 OU SHA256 sur les headers `webhooks_signature` / `x-sellsy-signature`
+- Ignore le payload et **re-fetch la donnée canonique depuis l'API v2** (puis upsert)
+- Routing par `relatedtype` : item / client / prospect / people / document
+- Subtype document : estimate / order / invoice (déduit de `data.object.type`)
+
+**Bypass debug** : variable `SELLSY_WEBHOOK_STRICT=false` permet d'accepter sans signature pour le 1er paramétrage.
+
+**Le webhook NE remplace PAS le cron** — les crons sont conservés comme filet de sécurité (recovery si un webhook est manqué).
 
 ### Sync catalogue — TIME_BUDGET (correctif 7 mai 2026)
 - `src/app/api/sellsy/sync-catalogue/route.ts` : `TIME_BUDGET_MS = 12 * 60 * 1000` (avant : 4.5 min, héritage Hobby).
