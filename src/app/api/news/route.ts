@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { listAllOrders, sellsyFetch } from "@/lib/sellsy";
 import { STATIC_NEWS, type NewsItem } from "@/lib/news-config";
 import { getResponsableCafe } from "@/data/cafe-planning";
 import { getPageViewsByPath } from "@/lib/ga4";
 import { prochainFerie, formatFerieFR } from "@/lib/feries";
+import { reportingFilterVente } from "@/lib/reporting-filter";
 
 /**
  * GET /api/news
@@ -29,39 +29,6 @@ function eur(n: number): string {
     currency: "EUR",
     maximumFractionDigits: 0,
   }).format(n);
-}
-
-function getOrderAmount(o: any): number {
-  const a = o?.amounts || {};
-  const val =
-    a.total ?? a.total_incl_tax ?? a.total_excl_tax ?? a.total_raw_excl_tax ?? 0;
-  const n = Number(val);
-  return isNaN(n) ? 0 : n;
-}
-
-function isCancelled(o: any): boolean {
-  const s = (o?.status || "").toLowerCase();
-  return s === "cancelled" || s === "annulé" || s === "annule";
-}
-
-/**
- * On inclut les BDC en cours (drafts compris) — exclut juste les annulés/refusés/expirés.
- */
-const VENTE_STATUTS = new Set([
-  "invoiced",
-  "advanced",
-  "accepted",
-  "partialinvoiced",
-  "paid",
-  "completed",
-  "draft",
-  "sent",
-  "read",
-]);
-
-function isVenteEffective(o: any): boolean {
-  const s = (o?.status || "").toLowerCase();
-  return VENTE_STATUTS.has(s);
 }
 
 
@@ -89,99 +56,64 @@ export async function GET() {
   // Items statiques (fixe : Teck Days + container)
   items.push(...STATIC_NEWS);
 
-  // ====== 1. CA des BDC du mois en cours (Sellsy direct) ======
-  let ordersThisMonth: any[] = [];
+  // ====== 1. CA des BDC du mois en cours (KOKPIT base + filtre Laurence) ======
+  // On query Vente locale (sync 2h) avec filtre standard (etatProduit + statutSellsy)
+  // → cohérent avec les chiffres officiels que Laurence extrait de Sellsy.
+  const now = new Date();
+  const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+  const finMois = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  let ventesThisMonth: Array<{
+    id: string;
+    montant: number;
+    contactId: string;
+    contact: { nom: string; prenom: string | null } | null;
+  }> = [];
   try {
-    const now = new Date();
-    const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
-    const sinceStr = debutMois.toISOString().split("T")[0]; // YYYY-MM-DD
-    const allOrders = await listAllOrders(sinceStr);
-    // Strict : on ne garde que les BDC effectivement vendus (pas les drafts/envois)
-    ordersThisMonth = allOrders.filter((o: any) => isVenteEffective(o));
-    const totalCA = ordersThisMonth.reduce((s, o) => s + getOrderAmount(o), 0);
+    ventesThisMonth = await prisma.vente.findMany({
+      where: {
+        dateVente: { gte: debutMois, lt: finMois },
+        ...reportingFilterVente(),
+      },
+      select: {
+        id: true,
+        montant: true,
+        contactId: true,
+        contact: { select: { nom: true, prenom: true } },
+      },
+    });
+    const totalCA = ventesThisMonth.reduce((s, v) => s + v.montant, 0);
     if (totalCA > 0) {
       const moisLabel = debutMois.toLocaleDateString("fr-FR", { month: "long" });
       items.push({
         icon: "💶",
-        text: `${eur(totalCA)} de BDC en ${moisLabel} (${ordersThisMonth.length} commandes)`,
+        text: `${eur(totalCA)} de BDC en ${moisLabel} (${ventesThisMonth.length} commandes)`,
         color: "text-emerald-300",
       });
     }
   } catch (e) {
-    console.warn("[news] CA Sellsy indisponible:", e);
+    console.warn("[news] CA local indisponible:", e);
   }
 
-  // ====== 1bis. Meilleure vente du mois (plus grosse commande individuelle) ======
-  if (ordersThisMonth.length > 0) {
-    try {
-      const sorted = [...ordersThisMonth].sort(
-        (a, b) => getOrderAmount(b) - getOrderAmount(a)
-      );
-      const best = sorted[0];
-      const bestAmount = getOrderAmount(best);
-      if (bestAmount > 0) {
-        const clientName = (best?.company_name || "").trim();
-        const labelClient = clientName ? ` — ${clientName}` : "";
-        items.push({
-          icon: "🥇",
-          text: `Plus grosse commande : ${eur(bestAmount)}${labelClient}`,
-          color: "text-orange-300",
-        });
-      }
-    } catch (e) {
-      console.warn("[news] Meilleure vente indisponible:", e);
+  // ====== 1bis. Plus grosse commande du mois ======
+  if (ventesThisMonth.length > 0) {
+    const sorted = [...ventesThisMonth].sort((a, b) => b.montant - a.montant);
+    const best = sorted[0];
+    if (best && best.montant > 1) {
+      const clientName = best.contact
+        ? `${best.contact.prenom || ""} ${best.contact.nom}`.trim()
+        : "";
+      const labelClient = clientName ? ` — ${clientName}` : "";
+      items.push({
+        icon: "🥇",
+        text: `Plus grosse commande : ${eur(best.montant)}${labelClient}`,
+        color: "text-orange-300",
+      });
     }
   }
 
-  // ====== 2. Top vente du mois (par owner Sellsy → user KOKPIT) ======
-  if (ordersThisMonth.length > 0) {
-    try {
-      // Group by owner_id Sellsy
-      const byOwner = new Map<number, number>();
-      for (const o of ordersThisMonth) {
-        const ownerId = o?.owner?.id || o?.owner_id;
-        if (!ownerId) continue;
-        byOwner.set(ownerId, (byOwner.get(ownerId) || 0) + getOrderAmount(o));
-      }
-      if (byOwner.size > 0) {
-        const top = [...byOwner.entries()].sort((a, b) => b[1] - a[1])[0];
-        const [topOwnerId, topAmount] = top;
-
-        // Mapping STRICT : owner Sellsy → email → user KOKPIT actif.
-        // Si pas de match côté KOKPIT, on N'AFFICHE PAS l'item (pas de
-        // "michelle.legros" ou autre identifiant Sellsy interne).
-        let topPrenom: string | null = null;
-        try {
-          const staffRes = await sellsyFetch<{
-            data: Array<{ id: number; email?: string }>;
-          }>("/staffs?limit=100");
-          const staff = (staffRes.data || []).find((s) => s.id === topOwnerId);
-          if (staff?.email) {
-            const user = await prisma.user.findFirst({
-              where: {
-                email: staff.email.toLowerCase(),
-                actif: true,
-              },
-              select: { prenom: true },
-            });
-            if (user?.prenom) topPrenom = user.prenom;
-          }
-        } catch {
-          /* ignore */
-        }
-
-        if (topPrenom) {
-          items.push({
-            icon: "🏆",
-            text: `Meilleur commercial : ${topPrenom} ${eur(topAmount)} ce mois`,
-            color: "text-yellow-300",
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("[news] Top vente indisponible:", e);
-    }
-  }
+  // (Le top commercial Sellsy/owner reste basé sur Sellsy live — désactivé pour l'instant
+  // car la table Vente n'a pas encore le owner_id. À ré-implémenter via mapping Devis.commercialId
+  // si besoin futur.)
 
   // ====== 2bis. Vues page Teck Days (GA4) ======
   try {

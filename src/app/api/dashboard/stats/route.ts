@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { reportingFilterVente } from "@/lib/reporting-filter";
 
 const statsFilterSchema = z.object({
   vue: z.enum(["marketing", "commercial", "direction"]).optional(),
@@ -310,6 +311,7 @@ export async function GET(request: NextRequest) {
           dateVente: {
             gte: monthStart,
           },
+          ...reportingFilterVente(),
         },
         include: {
           devis: {
@@ -419,6 +421,7 @@ export async function GET(request: NextRequest) {
               gte: monthStart,
               lte: monthEnd,
             },
+            ...reportingFilterVente(),
           },
         });
 

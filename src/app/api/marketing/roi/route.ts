@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listAllOrders } from "@/lib/sellsy";
+import { reportingFilterVente } from "@/lib/reporting-filter";
 
 const TYPES_COUT = [
   { value: "meta_ads", label: "Meta Ads" },
@@ -69,6 +70,7 @@ async function fetchCaSellsy(annee: string): Promise<{ caMensuel: Record<string,
           gte: new Date(`${annee}-01-01`),
           lt: new Date(`${parseInt(annee) + 1}-01-01`),
         },
+        ...reportingFilterVente(),
       },
       select: { montant: true, createdAt: true },
     });
