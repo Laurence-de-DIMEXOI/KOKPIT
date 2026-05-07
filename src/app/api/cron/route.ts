@@ -457,10 +457,46 @@ async function syncSellsyJob() {
       );
       for (const ord of recentOrders) {
         const relatedIds = (ord.related || []).map((r: { id: number }) => String(r.id));
-        const kokpitContactId =
+        let kokpitContactId =
           relatedIds.map((rid: string) => contactsBySellsyId.get(rid)).find(Boolean) ||
           (ord.contact_id ? contactsBySellsyId.get(String(ord.contact_id)) : undefined);
-        if (!kokpitContactId) continue;
+
+        // Si pas de Contact KOKPIT — créer un placeholder pour pouvoir enregistrer le BDC
+        // (ces clients viennent généralement du showroom walk-in, jamais passés par le web)
+        if (!kokpitContactId) {
+          const sellsyId = String(ord.contact_id || relatedIds[relatedIds.length - 1] || ord.id);
+          const companyName = (ord.company_name || "Client Sellsy").trim();
+          const placeholderEmail = `sellsy-${sellsyId}@placeholder.dimexoi.fr`;
+
+          // Heuristique parse "M/Mme Prenom NOM" / "SOCIETE..." (best effort)
+          const m = companyName.match(/^(?:M|Mme|Mlle|Mr|Mrs)\s+(.+?)\s+([A-ZÀ-Ý][A-ZÀ-Ý\-' ]+)$/);
+          const prenom = m ? m[1].trim() : "—";
+          const nom = m ? m[2].trim() : companyName;
+
+          try {
+            const placeholder = await prisma.contact.upsert({
+              where: { email: placeholderEmail },
+              create: {
+                email: placeholderEmail,
+                nom,
+                prenom,
+                sellsyContactId: sellsyId,
+                sourcePremiere: "SHOWROOM",
+                lifecycleStage: "CLIENT",
+                notes: `[Auto-créé depuis Sellsy ${sellsyId}] Client non passé par le web`,
+              },
+              update: {},
+              select: { id: true },
+            });
+            kokpitContactId = placeholder.id;
+            // mettre à jour le map en mémoire pour les BDC suivants du même contact
+            for (const rid of relatedIds) contactsBySellsyId.set(rid, placeholder.id);
+            contactsBySellsyId.set(sellsyId, placeholder.id);
+          } catch (e) {
+            console.warn(`[sync] Placeholder Contact échec pour ${sellsyId}:`, (e as Error).message);
+            continue;
+          }
+        }
         try {
           await prisma.vente.upsert({
             where: { sellsyInvoiceId: String(ord.id) },
