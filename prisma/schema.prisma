@@ -347,6 +347,8 @@ model Devis {
   numero              String?   // Ex: "DEPI-08028" — numéro lisible Sellsy
   montant             Float
   statut              DevisStatut @default(EN_ATTENTE)
+  statutSellsy        String?   // status brut Sellsy (draft, sent, accepted, refused, expired…)
+  etatProduit         String?   // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
   dateEnvoi           DateTime?
   dateRelance         DateTime?
   createdAt           DateTime  @default(now())
@@ -371,6 +373,8 @@ model Vente {
   montant             Float
   dateVente           DateTime
   produits            Json?
+  statutSellsy        String?   // status brut Sellsy (invoiced, advanced, accepted, sent, draft, cancelled, refused, expired…)
+  etatProduit         String?   // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
   createdAt           DateTime  @default(now())
 
   // Relations
