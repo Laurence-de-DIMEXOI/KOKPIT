@@ -74,10 +74,13 @@ async function fetchEtatAndStatus(
 }
 
 async function runRefresh(req: NextRequest) {
+  // Auth : Vercel cron (UA vercel-cron) OU Bearer CRON_API_SECRET OU session admin
   const auth = req.headers.get("authorization");
+  const ua = req.headers.get("user-agent") || "";
   const cronSecret = process.env.CRON_API_SECRET;
-  const isCron = !!cronSecret && auth === `Bearer ${cronSecret}`;
-  if (!isCron) {
+  const isVercelCron = ua.includes("vercel-cron");
+  const isBearerOk = !!cronSecret && auth === `Bearer ${cronSecret}`;
+  if (!isVercelCron && !isBearerOk) {
     const session = await getServerSession(authOptions);
     const role = (session?.user as any)?.role;
     const email = session?.user?.email;
