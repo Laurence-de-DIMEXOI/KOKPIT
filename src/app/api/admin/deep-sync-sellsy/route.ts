@@ -123,6 +123,8 @@ async function syncOrders(
       limit: PAGE,
       offset,
       embed: ["contact", "company"],
+      order: "date",
+      direction: "asc", // oldest first
     }).catch(() => null);
     if (!res) break;
     total = res.pagination?.total || total;
@@ -226,6 +228,8 @@ async function syncEstimates(
       limit: PAGE,
       offset,
       embed: ["contact", "company"],
+      order: "date",
+      direction: "asc", // oldest first
     }).catch(() => null);
     if (!res) break;
     total = res.pagination?.total || total;
