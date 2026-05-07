@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 7 mai 2026 (v27 — webhook Sellsy v1 + SLA off + cron catalogue 2x/sem)
-**Mis à jour par** : Session Claude Code (sprint mai — temps réel Sellsy + nettoyage)
+**Dernière mise à jour** : 7 mai 2026 (v28 — historique complet + filtre étendu + /dashboard→/marketing)
+**Mis à jour par** : Session Claude Code (sprint mai — reconstruction DB)
 
 ---
 
@@ -11,7 +11,7 @@
 
 ### Modules en place
 - **Demandes** (`/leads`, `/api/demandes`) — lecture des `Lead` + `DemandePrix` avec attribution stricte 7j/30j (devis liés en 7j, BDC liés en 30j via `LiaisonDevisCommande`).
-- **Tunnel marketing** (`/dashboard` + `/api/marketing/tunnel`) — KPI conversion + ROAS basé sur `AttributionDevis` / `AttributionBDC`.
+- **Tunnel marketing** (`/marketing` + `/api/marketing/tunnel`) — renommage `/dashboard` → `/marketing` (mai 2026, redirect legacy en place) — KPI conversion + ROAS basé sur `AttributionDevis` / `AttributionBDC`.
 - **SAV** (`/commercial/sav`) — sync depuis Sellsy via custom field "Etat des produit = SAV", endpoint `GET /orders/{id}/custom-fields` (le `embed=customfields` ne marche PAS sur `/orders/search`). Types commentaires : NOTE / APPEL / MESSAGE / MAIL / COURRIER.
 - **Pointage** — solde heures supp + bouton "Consommer Xh" (montant custom) + rotation café auto via `src/data/cafe-planning.ts` (popup pointage + banderole partagent la même source).
 - **Permissions par utilisateur** — matrice dans `/administration/parametres` (champ `User.moduleAccessOverrides Json?`).
@@ -49,8 +49,21 @@ Pour les chiffres CA / volumes BDC + Devis du rapport mensuel :
 - `/api/news` — banderole CA mois + plus grosse commande (DB locale, plus de live Sellsy)
 - `/api/dashboard/stats` (vue direction) — CA mensuel + tendance 12 mois
 - `/api/marketing/roi` — fallback Prisma
+- `/api/campagnes` — comptage devis/ventes + caTotal par campagne (vue liste + détail)
 
-→ **Vérification avril 2026** (post-backfill) : 42 BDC bruts → **37 BDC / 55 189,99 €** avec le filtre. Match exact sur le total avec l'extract Sellsy de Laurence (l'écart d'1 BDC est un BDC à 0 € exclu par `montant > 1`).
+→ **Vérifications validées** :
+- Avril 2026 : 42 BDC bruts → **37 BDC / 55 189,99 €** ✅ match Sellsy
+- Avril 2024 : 61 BDC bruts → **54 BDC / 59 165,19 €** ✅ match Sellsy
+
+### Reconstruction DB historique (mai 2026)
+- Endpoint `/api/admin/deep-sync-sellsy?since=YYYY-MM-DD&type=both` : sync paginée TOUS BDC + Devis Sellsy, sans limite de fenêtre. Resumable via `nextOffset`.
+- Lancé année par année 2019→2026 → **2 810 BDC** + **7 053 Devis** importés depuis Sellsy.
+- ⚠️ `Devis.createdAt` est le timestamp Prisma (pas la date Sellsy). Pour requêter par date du devis, il faudra ajouter un champ dédié si besoin (`dateDevisSellsy`).
+
+### Bug critique fix (mai 2026)
+- `Sellsy /orders/{id}` ne renvoie **PAS** le champ `status`.
+- `fetchEtatAndStatus` dans `/api/admin/refresh-etat-produit` interroge maintenant aussi `/orders/search?ids[]={id}` pour récupérer le statut.
+- `refresh-etat-produit` ne **jamais écraser** une valeur existante avec NULL — guard `if (etatProduit === null && statutSellsy === null) return`.
 
 ### Tracking GA4 — bloqué
 - Code GA4 prêt (`src/lib/ga4.ts`, `/api/marketing/ga4-pageviews`, intégré banderole)

@@ -67,7 +67,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Marketing",
     color: "#E36887",
     items: [
-      { label: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard, module: "dashboard" },
+      { label: "Tableau de bord", href: "/marketing", icon: LayoutDashboard, module: "dashboard" },
       { label: "Campagnes", href: "/campagnes", icon: Megaphone, module: "campagnes" },
       { label: "Emailing", href: "/emailing", icon: Mail, module: "emailing" },
       { label: "Planning", href: "/planning", icon: CalendarDays, module: "planning" },

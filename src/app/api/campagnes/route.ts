@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { campagneSchema } from "@/lib/validators";
+import { reportingFilterVente } from "@/lib/reporting-filter";
 import { z } from "zod";
 
 const filterSchema = z.object({
@@ -86,10 +87,11 @@ export async function GET(request: NextRequest) {
                 campagneId: campagne.id,
               },
             },
+            ...reportingFilterVente(),
           },
         });
 
-        // Get total sales revenue
+        // Get total sales revenue (filtre Laurence : etatProduit + statutSellsy + montant > 1)
         const ventes = await prisma.vente.findMany({
           where: {
             devis: {
@@ -97,6 +99,7 @@ export async function GET(request: NextRequest) {
                 campagneId: campagne.id,
               },
             },
+            ...reportingFilterVente(),
           },
           select: { montant: true },
         });
@@ -282,6 +285,7 @@ export async function PATCH(request: NextRequest) {
             campagneId: campagne.id,
           },
         },
+        ...reportingFilterVente(),
       },
       select: { montant: true },
     });

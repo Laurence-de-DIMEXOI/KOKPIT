@@ -102,7 +102,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
   // Helper: lien actif ?
   const isNavActive = (href: string): boolean => {
-    if (href === "/commercial" || href === "/administration" || href === "/dashboard") {
+    if (href === "/commercial" || href === "/administration" || href === "/marketing") {
       return pathname === href;
     }
     return pathname.startsWith(href);

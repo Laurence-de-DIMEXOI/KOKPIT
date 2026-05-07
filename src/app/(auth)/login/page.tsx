@@ -40,7 +40,7 @@ export default function LoginPage() {
             ADMIN: "/commercial",
             DIRECTION: "/commercial",
             COMMERCIAL: "/commercial",
-            MARKETING: "/dashboard",
+            MARKETING: "/marketing",
             ACHAT: "/commercial",
           };
           router.push(redirectMap[role] || "/commercial");
