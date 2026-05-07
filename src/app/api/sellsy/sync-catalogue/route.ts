@@ -83,9 +83,10 @@ async function runCatalogueSync() {
     });
     console.log(`[sync] ${declinedItems.length} items déclinés à traiter (oldest-first)`);
 
-    // Time budget : on coupe net à 4min30 pour laisser 30s de finalisation au log
+    // Time budget : Vercel Pro maxDuration=800s → on garde 30s pour la finalisation log
+    // 12 min suffit largement pour traiter 1700 items déclinés en oldest-first.
     const startTs = Date.now();
-    const TIME_BUDGET_MS = 4.5 * 60 * 1000;
+    const TIME_BUDGET_MS = 12 * 60 * 1000;
 
     let totalDecls = 0;
     let processedItems = 0;
