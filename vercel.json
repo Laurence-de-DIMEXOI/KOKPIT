@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/sellsy/sync-catalogue",
-      "schedule": "0 */4 * * *"
+      "schedule": "0 4 * * 1,4"
     },
     {
       "path": "/api/sellsy/tracabilite?fresh=true",
