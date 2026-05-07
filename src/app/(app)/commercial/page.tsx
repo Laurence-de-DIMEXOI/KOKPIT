@@ -19,7 +19,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
-  Hammer,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -276,18 +275,19 @@ export default function CommercialDashboardPage() {
   const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
   const [staffMap, setStaffMap] = useState<Map<number, string>>(new Map());
 
-  // Sur-mesure stats (DB locale Vente/Devis, custom field Sellsy)
-  type SmBreakdown = {
+  // Stats Etat-stock (DB locale Vente/Devis, custom field "Etat des produit")
+  type StockBreakdown = {
     total: number;
-    surMesure: { count: number; amount: number };
-    standard: { count: number; amount: number };
-    unknown: { count: number; amount: number };
+    enStock: { count: number; amount: number };
+    surCommande: { count: number; amount: number };
+    mixte: { count: number; amount: number };
+    autre: { count: number; amount: number };
+    nonRenseigne: { count: number; amount: number };
   };
-  const [smStats, setSmStats] = useState<{
-    orders: SmBreakdown | null;
-    estimates: SmBreakdown | null;
-    coverage: { orders: number; estimates: number };
-  }>({ orders: null, estimates: null, coverage: { orders: 0, estimates: 0 } });
+  const [stockStats, setStockStats] = useState<{
+    orders: StockBreakdown | null;
+    estimates: StockBreakdown | null;
+  }>({ orders: null, estimates: null });
   const [monthlyEvolution, setMonthlyEvolution] = useState<Array<{
     month: string;
     label: string;
@@ -349,18 +349,17 @@ export default function CommercialDashboardPage() {
   // Computed stats filtered by period — memoized to avoid recalc on every render
   const { start, end } = useMemo(() => getPeriodDates(period), [period]);
 
-  // Sur-mesure stats : refetch dès que la période change
+  // Stats Etat-stock (En stock / Sur commande / Mixte) : refetch quand la période change
   useEffect(() => {
     if (!session?.user) return;
     let cancelled = false;
-    fetch(`/api/commercial/sur-mesure-stats?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`)
+    fetch(`/api/commercial/etat-stock-stats?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data?.success) return;
-        setSmStats({
+        setStockStats({
           orders: data.orders,
           estimates: data.estimates,
-          coverage: data.coverage,
         });
       })
       .catch(() => { /* silencieux */ });
@@ -468,20 +467,26 @@ export default function CommercialDashboardPage() {
               current={activeEstimates.length}
               previous={prevActiveEstimates.length}
             />
-            {smStats.estimates && (
+            {stockStats.estimates && (
               <div className="mt-2 pt-2 border-t border-cockpit/40 text-[11px] space-y-0.5">
                 <div className="flex items-center justify-between text-cockpit-secondary">
-                  <span className="flex items-center gap-1"><Hammer className="w-3 h-3" /> Sur-mesure</span>
-                  <span className="font-semibold text-cockpit-primary">{smStats.estimates.surMesure.count}</span>
+                  <span className="flex items-center gap-1">📦 En stock</span>
+                  <span className="font-semibold text-cockpit-primary">{stockStats.estimates.enStock.count}</span>
                 </div>
                 <div className="flex items-center justify-between text-cockpit-secondary">
-                  <span>Standard</span>
-                  <span className="font-semibold text-cockpit-primary">{smStats.estimates.standard.count}</span>
+                  <span className="flex items-center gap-1">⏳ Sur commande</span>
+                  <span className="font-semibold text-cockpit-primary">{stockStats.estimates.surCommande.count}</span>
                 </div>
-                {smStats.estimates.unknown.count > 0 && (
+                {stockStats.estimates.mixte.count > 0 && (
+                  <div className="flex items-center justify-between text-cockpit-secondary">
+                    <span>Mixte</span>
+                    <span className="font-semibold text-cockpit-primary">{stockStats.estimates.mixte.count}</span>
+                  </div>
+                )}
+                {stockStats.estimates.nonRenseigne.count > 0 && (
                   <div className="flex items-center justify-between text-cockpit-secondary/70 italic">
                     <span>Non renseigné</span>
-                    <span>{smStats.estimates.unknown.count}</span>
+                    <span>{stockStats.estimates.nonRenseigne.count}</span>
                   </div>
                 )}
               </div>
@@ -505,20 +510,26 @@ export default function CommercialDashboardPage() {
               current={activeOrders.length}
               previous={prevActiveOrders.length}
             />
-            {smStats.orders && (
+            {stockStats.orders && (
               <div className="mt-2 pt-2 border-t border-cockpit/40 text-[11px] space-y-0.5">
                 <div className="flex items-center justify-between text-cockpit-secondary">
-                  <span className="flex items-center gap-1"><Hammer className="w-3 h-3" /> Sur-mesure</span>
-                  <span className="font-semibold text-cockpit-primary">{smStats.orders.surMesure.count}</span>
+                  <span className="flex items-center gap-1">📦 En stock</span>
+                  <span className="font-semibold text-cockpit-primary">{stockStats.orders.enStock.count}</span>
                 </div>
                 <div className="flex items-center justify-between text-cockpit-secondary">
-                  <span>Standard</span>
-                  <span className="font-semibold text-cockpit-primary">{smStats.orders.standard.count}</span>
+                  <span className="flex items-center gap-1">⏳ Sur commande</span>
+                  <span className="font-semibold text-cockpit-primary">{stockStats.orders.surCommande.count}</span>
                 </div>
-                {smStats.orders.unknown.count > 0 && (
+                {stockStats.orders.mixte.count > 0 && (
+                  <div className="flex items-center justify-between text-cockpit-secondary">
+                    <span>Mixte</span>
+                    <span className="font-semibold text-cockpit-primary">{stockStats.orders.mixte.count}</span>
+                  </div>
+                )}
+                {stockStats.orders.nonRenseigne.count > 0 && (
                   <div className="flex items-center justify-between text-cockpit-secondary/70 italic">
                     <span>Non renseigné</span>
-                    <span>{smStats.orders.unknown.count}</span>
+                    <span>{stockStats.orders.nonRenseigne.count}</span>
                   </div>
                 )}
               </div>
