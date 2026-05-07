@@ -5,10 +5,8 @@ import { listAllItems, listDeclinations, getItemV1Declinations } from "@/lib/sel
 export const maxDuration = 900; // 15 min (Vercel Pro)
 export const dynamic = "force-dynamic";
 
-// POST /api/sellsy/sync-catalogue
-// Sync complet Sellsy → Supabase : items + déclinaisons avec leurs prix propres (v1).
-// Peut être déclenché manuellement (bouton Rafraîchir) ou via cron.
-export async function POST(_req: NextRequest) {
+// Logique de sync extraite pour être appelable depuis POST (manuel) et GET (Vercel cron)
+async function runCatalogueSync() {
   const syncLog = await prisma.sellsyCatalogueSync.create({
     data: { status: "running" },
   });
@@ -205,14 +203,23 @@ export async function POST(_req: NextRequest) {
   }
 }
 
-// GET /api/sellsy/sync-catalogue — renvoie le dernier sync
-export async function GET() {
-  const latest = await prisma.sellsyCatalogueSync.findFirst({
-    orderBy: { startedAt: "desc" },
-  });
-  const itemCount = await prisma.sellsyItemCache.count();
-  const declCount = await prisma.sellsyDeclinationCache.count();
-  return NextResponse.json({ latest, itemCount, declCount });
+// POST /api/sellsy/sync-catalogue — lancement manuel (bouton, curl)
+export async function POST(_req: NextRequest) {
+  return runCatalogueSync();
+}
+
+// GET /api/sellsy/sync-catalogue — Vercel cron OR ?status=true pour lecture seule
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  if (url.searchParams.get("status") === "true") {
+    const latest = await prisma.sellsyCatalogueSync.findFirst({
+      orderBy: { startedAt: "desc" },
+    });
+    const itemCount = await prisma.sellsyItemCache.count();
+    const declCount = await prisma.sellsyDeclinationCache.count();
+    return NextResponse.json({ latest, itemCount, declCount });
+  }
+  return runCatalogueSync();
 }
 
 function parseNum(v: string | number | null | undefined): number | null {

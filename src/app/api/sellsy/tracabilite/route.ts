@@ -52,12 +52,19 @@ function normalizeContactName(name: string | undefined | null): string {
 
 // GET — Traçabilité via matching numéro + contact/montant (instantané)
 export async function GET(request: NextRequest) {
+  // Auth : session OU Bearer CRON_API_SECRET (pour Vercel cron) OU User-Agent vercel-cron/1.0
   const session = await getServerSession(authOptions);
-  if (!session) {
+  const auth = request.headers.get("authorization");
+  const ua = request.headers.get("user-agent") || "";
+  const cronSecret = process.env.CRON_API_SECRET;
+  const isCron =
+    ua.includes("vercel-cron") ||
+    (!!cronSecret && auth === `Bearer ${cronSecret}`);
+  if (!session && !isCron) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const userId = (session.user as any).id as string;
+  const userId = (session?.user as any)?.id || "system-cron";
 
   const { searchParams } = new URL(request.url);
   const fresh = searchParams.get("fresh") === "true";

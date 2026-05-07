@@ -708,9 +708,12 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Auth check (Vercel Cron envoie CRON_SECRET)
+  // Auth check : Vercel Cron envoie automatiquement l'auth si CRON_SECRET est set
+  // sur Vercel. On accepte aussi le header User-Agent "vercel-cron" en fallback.
   const cronSecret = process.env.CRON_SECRET || process.env.CRON_API_SECRET;
-  if (cronSecret) {
+  const ua = request.headers.get("user-agent") || "";
+  const isVercelCron = ua.includes("vercel-cron");
+  if (cronSecret && !isVercelCron) {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });

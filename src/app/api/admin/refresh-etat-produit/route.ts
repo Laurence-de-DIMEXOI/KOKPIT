@@ -73,7 +73,7 @@ async function fetchEtatAndStatus(
   return { etatProduit, statutSellsy };
 }
 
-export async function POST(req: NextRequest) {
+async function runRefresh(req: NextRequest) {
   const auth = req.headers.get("authorization");
   const cronSecret = process.env.CRON_API_SECRET;
   const isCron = !!cronSecret && auth === `Bearer ${cronSecret}`;
@@ -177,4 +177,12 @@ export async function POST(req: NextRequest) {
     params: { since, onlyMissing, type, limit },
     ...stats,
   });
+}
+
+// POST manuel + GET pour Vercel cron
+export async function POST(req: NextRequest) {
+  return runRefresh(req);
+}
+export async function GET(req: NextRequest) {
+  return runRefresh(req);
 }
