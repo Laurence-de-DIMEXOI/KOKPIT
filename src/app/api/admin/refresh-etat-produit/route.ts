@@ -59,13 +59,25 @@ async function fetchEtatAndStatus(
 ): Promise<{ etatProduit: string | null; statutSellsy: string | null }> {
   const path = type === "order" ? `/orders/${sellsyId}` : `/estimates/${sellsyId}`;
   const cfPath = `${path}/custom-fields?limit=100`;
+  // Important : Sellsy `/orders/{id}` ne renvoie PAS le champ `status`.
+  // Il faut passer par /orders/search ou /estimates/search pour l'obtenir.
+  const searchEndpoint = type === "order" ? "/orders/search" : "/estimates/search";
 
-  const [docRes, cfRes] = await Promise.all([
+  const [docRes, cfRes, searchRes] = await Promise.all([
     sellsyFetch<{ data: any }>(path).catch(() => ({ data: null })),
     sellsyFetch<{ data: CustomFieldOnDoc[] }>(cfPath).catch(() => ({ data: [] })),
+    sellsyFetch<{ data: any[] }>(`${searchEndpoint}?limit=1`, {
+      method: "POST",
+      body: JSON.stringify({ filters: { ids: [Number(sellsyId)] } }),
+    }).catch(() => ({ data: [] })),
   ]);
 
-  const statutSellsy = (docRes.data?.status as string | undefined) || null;
+  const searchHit = (searchRes.data || []).find((d: any) => String(d.id) === String(sellsyId));
+  const statutSellsy =
+    (searchHit?.status as string | undefined) ||
+    (searchHit?.order_status as string | undefined) ||
+    (docRes.data?.status as string | undefined) ||
+    null;
   const cfList = cfRes.data || [];
   const target = cfList.find(isEtatProduit);
   const etatProduit = target ? readValueLabel(target) : null;
