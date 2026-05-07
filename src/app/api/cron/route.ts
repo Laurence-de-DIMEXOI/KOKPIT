@@ -139,6 +139,12 @@ export async function POST(request: NextRequest) {
 // Demandes legacy : on n'alerte plus pour les leads créés avant cette date
 const SLA_LEGACY_CUTOFF = new Date("2026-03-07T00:00:00+04:00");
 
+// ⚠️ Relances SLA automatiques DÉSACTIVÉES (mai 2026, demande Laurence)
+// La fonction reste en place pour debug / appel manuel mais :
+//  - le cron Vercel a été retiré de vercel.json
+//  - aucun email n'est envoyé
+//  - aucune tâche n'est créée
+//  - on retourne juste le compte des SLA dépassés (pour stats)
 async function slaCheck() {
   try {
     const now = new Date();
@@ -165,95 +171,15 @@ async function slaCheck() {
     // Create alerts for each exceeded SLA
     const alertCount = slaExceeded.length;
 
-    for (const lead of slaExceeded) {
-      // Create alert event
-      await prisma.evenement.create({
-        data: {
-          leadId: lead.id,
-          contactId: lead.contactId,
-          type: "NOTE",
-          description: `SLA dépassé - Aucune action depuis ${Math.floor(
-            (now.getTime() - lead.slaDeadline.getTime()) / (1000 * 60 * 60)
-          )} heures`,
-          metadata: {
-            alertType: "SLA_EXCEEDED",
-            slaDeadline: lead.slaDeadline,
-            hoursOverdue: Math.floor(
-              (now.getTime() - lead.slaDeadline.getTime()) / (1000 * 60 * 60)
-            ),
-          },
-        },
-      });
-
-      // Auto-tâche pour le commercial assigné
-      if (lead.commercial?.id) {
-        const clientNom = lead.contact
-          ? `${lead.contact.prenom || ""} ${lead.contact.nom}`.trim()
-          : "Client inconnu";
-        const heuresRetard = Math.floor(
-          (now.getTime() - lead.slaDeadline.getTime()) / (1000 * 60 * 60)
-        );
-
-        // Vérifier qu'une tâche de relance n'existe pas déjà pour ce lead
-        const existingTask = await prisma.task.findFirst({
-          where: {
-            assigneAId: lead.commercial.id,
-            titre: { contains: clientNom },
-            statut: { not: "TERMINEE" },
-          },
-        });
-
-        if (!existingTask) {
-          await prisma.task.create({
-            data: {
-              titre: `Relancer ${clientNom}`,
-              description: `SLA dépassé de ${heuresRetard}h — demande sans réponse. Contacter le client en priorité.`,
-              assigneAId: lead.commercial.id,
-              createdById: lead.commercial.id,
-              echeance: new Date(),
-            },
-          });
-
-          // Email de relance — direct au commercial, avec coordonnées client
-          if (lead.commercial.email) {
-            const clientEmail = lead.contact?.email || "";
-            const clientTel = lead.contact?.telephone || "";
-            const emailHref = clientEmail ? `mailto:${clientEmail}` : "";
-            const telHref = clientTel ? `tel:${clientTel}` : "";
-
-            await sendEmail({
-              to: lead.commercial.email,
-              subject: `🚨 Relance SLA — ${clientNom} (${heuresRetard}h de retard)`,
-              html: `
-                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                  <h2 style="color:#dc2626;margin:0 0 15px">⏰ SLA 48h dépassé — relance requise</h2>
-                  <p>Bonjour ${lead.commercial.prenom},</p>
-                  <p>La demande de <strong>${clientNom}</strong> n'a reçu aucune réponse depuis <strong>${heuresRetard}h</strong> après expiration du SLA. Merci de reprendre contact maintenant.</p>
-
-                  <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0;border-radius:4px;">
-                    <p style="margin:4px 0"><strong>Client :</strong> ${clientNom}</p>
-                    ${clientEmail ? `<p style="margin:4px 0"><strong>Email :</strong> <a href="${emailHref}">${clientEmail}</a></p>` : ""}
-                    ${clientTel ? `<p style="margin:4px 0"><strong>Téléphone :</strong> <a href="${telHref}">${clientTel}</a></p>` : ""}
-                  </div>
-
-                  <p style="margin-top:20px">
-                    <a href="https://kokpit.dimexoi.fr/leads/${lead.id}" style="background:#f59e0b;color:white;padding:10px 18px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Ouvrir la demande dans KOKPIT</a>
-                  </p>
-                  <p style="color:#6b7280;font-size:12px;margin-top:24px">Une tâche de relance a été créée automatiquement dans ton espace. Cet email ne sera pas renvoyé tant que la tâche reste ouverte.</p>
-                </div>
-              `,
-            });
-          }
-        }
-      }
-    }
-
+    // ⚠️ Relances auto désactivées — on sort sans envoyer d'email ni créer de tâche.
+    // Retour rapide pour stats uniquement.
     return NextResponse.json({
       job: "sla-check",
-      status: "completed",
+      status: "disabled",
       alertCount,
-      message: `${alertCount} SLA dépassés détectés`,
+      message: `${alertCount} SLA dépassés (relances auto désactivées)`,
     });
+
   } catch (error) {
     console.error("Erreur lors du SLA check:", error);
     return NextResponse.json(
