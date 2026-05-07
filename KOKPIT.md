@@ -2,8 +2,78 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 16 avril 2026 (v24 — Stock catalogue)
-**Mis à jour par** : Session Claude Code (Sprint 16 avril — Stock catalogue)
+**Dernière mise à jour** : 7 mai 2026 (v25 — Reporting marketing)
+**Mis à jour par** : Session Claude Code (sprint mai — reporting + sync élargi)
+
+---
+
+## ÉTAT ACTUEL — MAI 2026 (à lire avant tout)
+
+### Modules en place
+- **Demandes** (`/leads`, `/api/demandes`) — lecture des `Lead` + `DemandePrix` avec attribution stricte 7j/30j (devis liés en 7j, BDC liés en 30j via `LiaisonDevisCommande`).
+- **Tunnel marketing** (`/dashboard` + `/api/marketing/tunnel`) — KPI conversion + ROAS basé sur `AttributionDevis` / `AttributionBDC`.
+- **SAV** (`/commercial/sav`) — sync depuis Sellsy via custom field "Etat des produit = SAV", endpoint `GET /orders/{id}/custom-fields` (le `embed=customfields` ne marche PAS sur `/orders/search`). Types commentaires : NOTE / APPEL / MESSAGE / MAIL / COURRIER.
+- **Pointage** — solde heures supp + bouton "Consommer Xh" (montant custom) + rotation café auto via `src/data/cafe-planning.ts` (popup pointage + banderole partagent la même source).
+- **Permissions par utilisateur** — matrice dans `/administration/parametres` (champ `User.moduleAccessOverrides Json?`).
+- **Banderole actus** — fixe top 28px, items via `/api/news` (cache 2 min) : café auto · Teck Days · container · CA mois · plus grosse commande · meilleur commercial · prochain férié.
+- **Need Price** (`/achat/need-price`) — quand Elaury passe en PRIX_RECU, email au demandeur **avec CC Bernard + Michelle + Daniella**.
+- **Notifications cloche** filtrées par user assigné (sauf ADMIN/DIRECTION qui voient tout).
+- **SLA** : 48h (au lieu de 72h). Email relance enrichi : coordonnées client + lien direct vers la demande.
+
+### Flow email
+- Tous les `sendEmail()` (`src/lib/resend.ts`) passent désormais par **Brevo** (key déjà configurée). Resend abandonné — clé `RESEND_API_KEY` jamais configurée sur Vercel.
+- Sender par défaut : `BREVO_SENDER_EMAIL` (à ajouter sur Vercel) sinon fallback hardcodé `laurence.payet@dimexoi.fr`.
+
+### Sync Sellsy actuel (cron `sync-sellsy`)
+- Fenêtre **60 jours** (élargi de 14j le 7 mai pour rattraper les drafts → invoiced tardifs).
+- Pagination jusqu'à 500 BDC (5 pages × 100).
+- Si BDC sans Contact KOKPIT → **création auto d'un Contact placeholder** (`sellsy-{id}@placeholder.dimexoi.fr`, `lifecycleStage = CLIENT`, `sourcePremiere = SHOWROOM`, parsing prénom/nom heuristique). Permet de capturer les ventes walk-in showroom.
+- Recompute attribution sur 35j à chaque exécution.
+
+### Reporting commercial — règle de filtrage Laurence (validée mai 2026)
+Pour les chiffres CA / volumes BDC + Devis du rapport mensuel :
+- statut Sellsy ≠ `cancelled` ET ≠ `refused` ET ≠ `expired`
+- montant > 1 €
+- **Custom field "Etat des produit"** IN : `EN STOCK`, `SUR COMMANDE`, `ARRIVAGE M+1/2/3`, `1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE`
+- Exclus : `SAV`, `RETOUR`, valeurs vides
+
+→ Champs dédiés ajoutés sur `Vente` et `Devis` (mai 2026) :
+- `etatProduit String?` — la valeur du custom field résolue en label
+- `statutSellsy String?` — le status brut Sellsy
+
+→ **Backfill manuel** : `POST /api/admin/refresh-etat-produit?since=2024-01-01&onlyMissing=true` (5 min Vercel, paginé) — auth ADMIN/DIRECTION ou Bearer CRON_API_SECRET.
+
+### Tracking GA4 — bloqué
+- Code GA4 prêt (`src/lib/ga4.ts`, `/api/marketing/ga4-pageviews`, intégré banderole)
+- Service Account créé (`kokpit-ga4@kokpit-ga4-reader.iam.gserviceaccount.com`)
+- **Bloqué** : GA4 refuse d'ajouter le SA "n'est pas un compte Google" même après activation Analytics Data API + 24h. Solution Plan B = OAuth refresh token.
+
+### Vercel Hobby quotas dépassés (mai 2026)
+- Fast Data Transfer 297 GB / 100 GB
+- Fluid Active CPU 5h14 / 4h
+- Function Invocations 517K / 1M (encore OK)
+- → Risque throttling. Plan Pro 20$/mois en perspective.
+
+### Modèles supprimés (avril–mai 2026, ne pas tenter de réintroduire)
+- Stock ABC, Alertes stock, Arrivages (`Arrivage`, `LigneArrivage`, `BdcArrivage`)
+- Prévisionnel achat/commercial
+- Nos Réseaux (Instagram feed)
+- Automatisations / Workflows (`Workflow`, `WorkflowExecution`, `EmailTemplate`)
+- Veille concurrentielle (entièrement)
+- `META_APP_ID` / `META_APP_SECRET` (env vars Vercel à supprimer aussi)
+
+### Fichiers à connaître absolument
+- `src/lib/attribution-tunnel.ts` — `recomputeLeadAttribution(leadId)` règle stricte 7j/30j, **utilise `LiaisonDevisCommande`** (page Traçabilité) pour matcher BDC → devis → demande.
+- `src/lib/feries.ts` — jours fériés Réunion (Pâques mobile + 20/12 abolition esclavage)
+- `src/data/cafe-planning.ts` — `getResponsableCafe()` source unique du tour de café
+- `src/lib/news-config.ts` — items statiques banderole (Teck Days, container)
+
+### Modèles avec relations critiques (avant migration)
+- `Lead` ⇄ `AttributionDevis[]` ⇄ `AttributionBDC[]` (cascade onDelete)
+- `Vente.contactId` est NOT NULL → toute import sans contact KOKPIT crée un placeholder
+- `CatalogueStat` est mappé `@@map("catalogue_stat")` (snake_case obligatoire en DB)
+
+---
 
 ---
 
