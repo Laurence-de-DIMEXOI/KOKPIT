@@ -108,13 +108,17 @@ export async function GET() {
     contact: { nom: string; prenom: string | null } | null;
   }> = [];
   try {
-    // Filtre strict pour la banderole : on exige `statutSellsy` connu et non-annulé
-    // (plus tolérant que reportingFilterVente qui accepte NULL pour les vieux backfills).
+    // Le refresh éclair ci-dessus a tenté de remplir les statutSellsy NULL.
+    // Filtre standard : on exclut explicitement les annulés/refusés/expirés ;
+    // les NULL restants sont acceptés (BDC ultra-récents pas encore typés).
     ventesThisMonth = await prisma.vente.findMany({
       where: {
         dateVente: { gte: debutMois, lt: finMois },
         montant: { gt: 1 },
-        statutSellsy: { not: null, notIn: STATUTS_SELLSY_EXCLUS },
+        OR: [
+          { statutSellsy: null },
+          { statutSellsy: { notIn: STATUTS_SELLSY_EXCLUS } },
+        ],
         ...reportingFilterVente(),
       },
       select: {
