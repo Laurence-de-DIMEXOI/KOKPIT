@@ -331,6 +331,11 @@ export default function CommercialDashboardPage() {
       if (funnelData.success && funnelData.monthlyFunnel) {
         setMonthlyEvolution(funnelData.monthlyFunnel);
       }
+
+      // Synchroniser la banderole : on force /api/news?fresh=true via event global
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("kokpit:refresh-news"));
+      }
     } catch (error) {
       console.error("Erreur chargement données Sellsy:", error);
     } finally {
@@ -483,12 +488,6 @@ export default function CommercialDashboardPage() {
                     <span className="font-semibold text-cockpit-primary">{stockStats.estimates.mixte.count}</span>
                   </div>
                 )}
-                {stockStats.estimates.nonRenseigne.count > 0 && (
-                  <div className="flex items-center justify-between text-cockpit-secondary/70 italic">
-                    <span>Non renseigné</span>
-                    <span>{stockStats.estimates.nonRenseigne.count}</span>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -524,12 +523,6 @@ export default function CommercialDashboardPage() {
                   <div className="flex items-center justify-between text-cockpit-secondary">
                     <span>Mixte</span>
                     <span className="font-semibold text-cockpit-primary">{stockStats.orders.mixte.count}</span>
-                  </div>
-                )}
-                {stockStats.orders.nonRenseigne.count > 0 && (
-                  <div className="flex items-center justify-between text-cockpit-secondary/70 italic">
-                    <span>Non renseigné</span>
-                    <span>{stockStats.orders.nonRenseigne.count}</span>
                   </div>
                 )}
               </div>

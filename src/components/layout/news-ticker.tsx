@@ -21,9 +21,10 @@ export function NewsTicker() {
 
   useEffect(() => {
     let alive = true;
-    const fetchNews = async () => {
+    const fetchNews = async (forceFresh = false) => {
       try {
-        const res = await fetch("/api/news");
+        const url = forceFresh ? "/api/news?fresh=true" : "/api/news";
+        const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
         if (alive && Array.isArray(data.items)) {
@@ -35,10 +36,14 @@ export function NewsTicker() {
     };
     fetchNews();
     // Refresh toutes les 2 min (suit le TTL serveur)
-    const interval = setInterval(fetchNews, 2 * 60 * 1000);
+    const interval = setInterval(() => fetchNews(false), 2 * 60 * 1000);
+    // Force refresh quand le dashboard ou autre page émet un événement global
+    const handler = () => fetchNews(true);
+    window.addEventListener("kokpit:refresh-news", handler);
     return () => {
       alive = false;
       clearInterval(interval);
+      window.removeEventListener("kokpit:refresh-news", handler);
     };
   }, []);
 

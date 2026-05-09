@@ -33,10 +33,13 @@ function eur(n: number): string {
 }
 
 
-export async function GET() {
-  if (cache && Date.now() < cache.expires) {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const fresh = url.searchParams.get("fresh") === "true";
+  if (!fresh && cache && Date.now() < cache.expires) {
     return NextResponse.json({ items: cache.data, cached: true });
   }
+  if (fresh) cache = null;
 
   const items: NewsItem[] = [];
 
