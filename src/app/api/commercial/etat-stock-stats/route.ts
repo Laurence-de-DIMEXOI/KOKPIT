@@ -94,12 +94,13 @@ export async function GET(request: NextRequest) {
       orderStats[b].amount += v.montant;
     }
 
-    // Devis sur la période — par dateEnvoi sinon createdAt
+    // Devis sur la période — priorité dateDevisSellsy, fallback dateEnvoi, sinon createdAt.
     const devis = await prisma.devis.findMany({
       where: {
         OR: [
-          { dateEnvoi: { gte: startDate, lte: endDate } },
-          { AND: [{ dateEnvoi: null }, { createdAt: { gte: startDate, lte: endDate } }] },
+          { dateDevisSellsy: { gte: startDate, lte: endDate } },
+          { AND: [{ dateDevisSellsy: null }, { dateEnvoi: { gte: startDate, lte: endDate } }] },
+          { AND: [{ dateDevisSellsy: null }, { dateEnvoi: null }, { createdAt: { gte: startDate, lte: endDate } }] },
         ],
       },
       select: { montant: true, etatProduit: true, statutSellsy: true },

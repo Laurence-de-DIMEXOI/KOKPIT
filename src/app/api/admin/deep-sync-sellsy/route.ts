@@ -282,12 +282,14 @@ async function syncEstimates(
         ) || 0;
 
         const finalStatutSellsy = statutSellsy || est.status || null;
+        const dateDevisSellsy = est.date ? new Date(est.date) : null;
         await prisma.devis.upsert({
           where: { sellsyQuoteId: String(est.id) },
           update: {
             statut: mapEstimateStatus(est.status),
             ...(finalStatutSellsy !== null ? { statutSellsy: finalStatutSellsy } : {}),
             ...(etatProduit !== null ? { etatProduit } : {}),
+            ...(dateDevisSellsy !== null ? { dateDevisSellsy } : {}),
             montant: amount,
             numero: est.number || undefined,
             dateEnvoi: est.status === "sent" ? new Date(est.date) : undefined,
@@ -300,6 +302,7 @@ async function syncEstimates(
             statut: mapEstimateStatus(est.status),
             statutSellsy: finalStatutSellsy,
             etatProduit,
+            dateDevisSellsy,
             dateEnvoi: est.status === "sent" ? new Date(est.date) : undefined,
           },
         });

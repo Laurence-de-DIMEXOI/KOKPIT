@@ -91,20 +91,7 @@ enum TaskStatut {
   TERMINEE
 }
 
-enum EmailStatut {
-  ENVOYE
-  OUVERT
-  CLIQUE
-  BOUNCE
-  ERREUR
-}
-
-enum CampagneEmailStatut {
-  BROUILLON
-  PLANIFIE
-  EN_COURS
-  TERMINE
-}
+// Enums EmailStatut / CampagneEmailStatut supprimés mai 2026 — voir cleanup.
 
 enum CoutType {
   SALON
@@ -118,120 +105,113 @@ enum CoutType {
 // ============================================================================
 
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
-  nom             String
-  prenom          String
-  passwordHash    String
-  totpSecret      String?
-  resetToken      String?   @unique
-  resetTokenExpiry DateTime?
-  role            Role
-  titre           String?
-  telephone       String?
-  showroomId      String?
-  actif           Boolean   @default(true)
-  couleur         String?   // couleur hex pour calendrier congés (#FF6B6B)
-  pointageActif   Boolean   @default(true) // false = pas de pointage (Liliane, Alain)
-  pointageDelegueId String? // userId de la personne qui peut pointer pour ce user
-  soldeHeures     Float     @default(0) // solde cumulé heures supp (positif = récup dispo, négatif = à rattraper)
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  nom                   String
+  prenom                String
+  passwordHash          String
+  totpSecret            String?
+  resetToken            String?   @unique
+  resetTokenExpiry      DateTime?
+  role                  Role
+  titre                 String?
+  telephone             String?
+  showroomId            String?
+  actif                 Boolean   @default(true)
+  couleur               String? // couleur hex pour calendrier congés (#FF6B6B)
+  pointageActif         Boolean   @default(true) // false = pas de pointage (Liliane, Alain)
+  pointageDelegueId     String? // userId de la personne qui peut pointer pour ce user
+  soldeHeures           Float     @default(0) // solde cumulé heures supp (positif = récup dispo, négatif = à rattraper)
   moduleAccessOverrides Json? // {"module": true/false} — overrides par utilisateur
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   // Relations
-  showroom        Showroom? @relation(fields: [showroomId], references: [id], onDelete: SetNull)
-  leadsAssignes   Lead[]    @relation("LeadCommercial")
-  evenements      Evenement[] @relation("EvenementAuteur")
-  auditLogs       AuditLog[] @relation("AuditLogUser")
-  postPlannings   PostPlanning[] @relation("PostPlanningAuteur")
-  liaisons        LiaisonDevisCommande[]
-  brevoSyncLogs   BrevoSyncLog[]
-  tasksAssignees  Task[]         @relation("TaskAssignee")
-  tasksCreees     Task[]         @relation("TaskCreator")
-  tasksCollab     Task[]         @relation("TaskCollaborateur")
-  clientsBdoVerifies ClientBoisDOrient[] @relation("ClientBdoVerifie")
-  conges               Conge[]        @relation("CongeUser")
-  congesApprouves      Conge[]        @relation("CongeApprobateur")
-  pointages            Pointage[]     @relation("PointageUser")
-  pointagesCorrections Pointage[]     @relation("PointageCorrecteur")
-  savAssignes          DossierSAV[]   @relation("SAVAssigne")
-  savCrees             DossierSAV[]   @relation("SAVCreateur")
+  showroom             Showroom?              @relation(fields: [showroomId], references: [id], onDelete: SetNull)
+  leadsAssignes        Lead[]                 @relation("LeadCommercial")
+  evenements           Evenement[]            @relation("EvenementAuteur")
+  postPlannings        PostPlanning[]         @relation("PostPlanningAuteur")
+  liaisons             LiaisonDevisCommande[]
+  brevoSyncLogs        BrevoSyncLog[]
+  tasksAssignees       Task[]                 @relation("TaskAssignee")
+  tasksCreees          Task[]                 @relation("TaskCreator")
+  tasksCollab          Task[]                 @relation("TaskCollaborateur")
+  clientsBdoVerifies   ClientBoisDOrient[]    @relation("ClientBdoVerifie")
+  conges               Conge[]                @relation("CongeUser")
+  congesApprouves      Conge[]                @relation("CongeApprobateur")
+  pointages            Pointage[]             @relation("PointageUser")
+  pointagesCorrections Pointage[]             @relation("PointageCorrecteur")
+  savAssignes          DossierSAV[]           @relation("SAVAssigne")
+  savCrees             DossierSAV[]           @relation("SAVCreateur")
   documentsSav         DocumentSAV[]
   commentairesSav      CommentaireSAV[]
   coutsMarketing       CoutMarketing[]
   canaux               CanalMembre[]
-  messagesSent         MessageChat[]  @relation("MessageChatExpediteur")
-  reactionsMessages    ReactionMessage[] @relation("ReactionsUser")
-  needPrices           NeedPrice[]    @relation("NeedPriceCreator")
-  prixBackups          PrixBackup[]   @relation("PrixBackupCreator")
-  sessionsTarif        SessionTarif[] @relation("SessionTarifCreator")
+  messagesSent         MessageChat[]          @relation("MessageChatExpediteur")
+  reactionsMessages    ReactionMessage[]      @relation("ReactionsUser")
+  needPrices           NeedPrice[]            @relation("NeedPriceCreator")
 
   @@index([showroomId])
 }
 
 model Showroom {
-  id              String    @id @default(cuid())
-  nom             String
-  adresse         String?
-  emailNotif      String?
-  createdAt       DateTime  @default(now())
+  id         String   @id @default(cuid())
+  nom        String
+  adresse    String?
+  emailNotif String?
+  createdAt  DateTime @default(now())
 
   // Relations
-  users           User[]
-  contacts        Contact[]
-  leads           Lead[]
+  users    User[]
+  contacts Contact[]
+  leads    Lead[]
 
   @@index([nom])
 }
 
 model Contact {
-  id                  String    @id @default(cuid())
-  email               String    @unique
-  telephone           String?
-  nom                 String
-  prenom              String
-  adresse             String?
-  ville               String?
-  codePostal          String?
-  showroomId          String?
-  sourcePremiere      String?
-  lifecycleStage      LifecycleStage @default(PROSPECT)
-  rgpdEmailConsent    Boolean   @default(false)
-  rgpdSmsConsent      Boolean   @default(false)
-  rgpdConsentDate     DateTime?
-  rgpdConsentSource   String?
+  id                String         @id @default(cuid())
+  email             String         @unique
+  telephone         String?
+  nom               String
+  prenom            String
+  adresse           String?
+  ville             String?
+  codePostal        String?
+  showroomId        String?
+  sourcePremiere    String?
+  lifecycleStage    LifecycleStage @default(PROSPECT)
+  rgpdEmailConsent  Boolean        @default(false)
+  rgpdSmsConsent    Boolean        @default(false)
+  rgpdConsentDate   DateTime?
+  rgpdConsentSource String?
   // Consentements Glideapps
-  consentOffre        Boolean   @default(false)
-  consentNewsletter   Boolean   @default(false)
-  consentInvitation   Boolean   @default(false)
-  consentDevis        Boolean   @default(false)
+  consentOffre      Boolean        @default(false)
+  consentNewsletter Boolean        @default(false)
+  consentInvitation Boolean        @default(false)
+  consentDevis      Boolean        @default(false)
   // Glideapps sync
-  glideRowId          String?   @unique
-  sellsyContactId     String?   @unique
-  scoreRfm            Int?
-  recence             Int?
-  frequence           Int?
-  montant             Float?
-  notes               String?
-  lastScoringLevel    String?   // "cold" | "warm" | "hot" | "burning" — mis à jour par le cron scoring-alerts
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  glideRowId        String?        @unique
+  sellsyContactId   String?        @unique
+  scoreRfm          Int?
+  recence           Int?
+  frequence         Int?
+  montant           Float?
+  notes             String?
+  lastScoringLevel  String? // "cold" | "warm" | "hot" | "burning" — mis à jour par le cron scoring-alerts
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   // Relations
-  showroom            Showroom? @relation(fields: [showroomId], references: [id], onDelete: SetNull)
-  leads               Lead[]
-  devis               Devis[]
-  ventes              Vente[]
-  evenements          Evenement[]
-  clickEvents         ClickEvent[]
-  emailLogs           EmailLog[]
-  smsLogs             SmsLog[]
-  // workflowLogs removed — replaced by WorkflowExecution
-  demandesPrix        DemandePrix[]
-  tasks               Task[]
-  dossiersSav         DossierSAV[]
-  rendezVous          RendezVous[]
+  showroom     Showroom?     @relation(fields: [showroomId], references: [id], onDelete: SetNull)
+  leads        Lead[]
+  devis        Devis[]
+  ventes       Vente[]
+  evenements   Evenement[]
+  demandesPrix DemandePrix[]
+  tasks        Task[]
+  dossiersSav  DossierSAV[]
+  rendezVous   RendezVous[]
 
   @@index([telephone])
   @@index([sellsyContactId])
@@ -240,38 +220,38 @@ model Contact {
 }
 
 model Lead {
-  id                  String    @id @default(cuid())
-  contactId           String
-  showroomId          String?
-  commercialId        String?
-  statut              LeadStatut @default(NOUVEAU)
-  source              LeadSource
-  campagneId          String?
-  produitsDemandes    Json?
-  utmSource           String?
-  utmMedium           String?
-  utmCampaign         String?
-  utmContent          String?
-  utmTerm             String?
-  gclid               String?
-  metaClickId         String?
-  attributionDate     DateTime?
-  slaDeadline         DateTime
-  premiereActionAt    DateTime?
-  priorite            LeadPriorite @default(NORMALE)
-  notes               String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id               String       @id @default(cuid())
+  contactId        String
+  showroomId       String?
+  commercialId     String?
+  statut           LeadStatut   @default(NOUVEAU)
+  source           LeadSource
+  campagneId       String?
+  produitsDemandes Json?
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+  utmContent       String?
+  utmTerm          String?
+  gclid            String?
+  metaClickId      String?
+  attributionDate  DateTime?
+  slaDeadline      DateTime
+  premiereActionAt DateTime?
+  priorite         LeadPriorite @default(NORMALE)
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   // Relations
-  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  showroom            Showroom? @relation(fields: [showroomId], references: [id], onDelete: SetNull)
-  commercial          User?     @relation("LeadCommercial", fields: [commercialId], references: [id], onDelete: SetNull)
-  campagne            Campagne? @relation(fields: [campagneId], references: [id], onDelete: SetNull)
-  devis               Devis[]
-  evenements          Evenement[]
-  attributionsDevis   AttributionDevis[]
-  attributionsBDC     AttributionBDC[]
+  contact           Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  showroom          Showroom?          @relation(fields: [showroomId], references: [id], onDelete: SetNull)
+  commercial        User?              @relation("LeadCommercial", fields: [commercialId], references: [id], onDelete: SetNull)
+  campagne          Campagne?          @relation(fields: [campagneId], references: [id], onDelete: SetNull)
+  devis             Devis[]
+  evenements        Evenement[]
+  attributionsDevis AttributionDevis[]
+  attributionsBDC   AttributionBDC[]
   // workflowLogs removed — replaced by WorkflowExecution
 
   @@index([contactId])
@@ -283,15 +263,15 @@ model Lead {
 
 // Liaison demande (Lead) ↔ devis Sellsy — attribution marketing (fenêtre 7j)
 model AttributionDevis {
-  id          String   @id @default(cuid())
-  demandeId   String
-  demande     Lead     @relation(fields: [demandeId], references: [id], onDelete: Cascade)
-  devisId     String   // ID Sellsy du devis
-  devisRef    String   // ex: "DEPI-08017"
-  devisCA     Float    // montant TTC du devis
-  devisDate   DateTime // date création devis dans Sellsy
-  joursApres  Int      // nb de jours entre demande et devis
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  demandeId  String
+  demande    Lead     @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  devisId    String // ID Sellsy du devis
+  devisRef   String // ex: "DEPI-08017"
+  devisCA    Float // montant TTC du devis
+  devisDate  DateTime // date création devis dans Sellsy
+  joursApres Int // nb de jours entre demande et devis
+  createdAt  DateTime @default(now())
 
   @@unique([demandeId, devisId])
   @@index([demandeId])
@@ -300,15 +280,15 @@ model AttributionDevis {
 
 // Liaison demande (Lead) ↔ BDC Sellsy — attribution vente (fenêtre 30j)
 model AttributionBDC {
-  id          String   @id @default(cuid())
-  demandeId   String
-  demande     Lead     @relation(fields: [demandeId], references: [id], onDelete: Cascade)
-  bdcId       String   // ID Sellsy du BDC
-  bdcRef      String   // ex: "BCDI-05676"
-  bdcCA       Float    // montant TTC du BDC
-  bdcDate     DateTime // date création BDC dans Sellsy
-  joursApres  Int      // nb de jours entre demande et BDC
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  demandeId  String
+  demande    Lead     @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  bdcId      String // ID Sellsy du BDC
+  bdcRef     String // ex: "BCDI-05676"
+  bdcCA      Float // montant TTC du BDC
+  bdcDate    DateTime // date création BDC dans Sellsy
+  joursApres Int // nb de jours entre demande et BDC
+  createdAt  DateTime @default(now())
 
   @@unique([demandeId, bdcId])
   @@index([demandeId])
@@ -316,49 +296,50 @@ model AttributionBDC {
 }
 
 model Campagne {
-  id                  String    @id @default(cuid())
-  nom                 String
-  plateforme          Plateforme
-  coutTotal           Float     @default(0)
-  dateDebut           DateTime?
-  dateFin             DateTime?
-  metaCampaignId      String?
-  metaAdsetId         String?
-  metaAdId            String?
-  googleCampaignId    String?
-  actif               Boolean   @default(true)
-  metaInsights        Json?     // Cache des métriques Meta (impressions, clicks, ctr, cpc, roas, conversions)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id               String     @id @default(cuid())
+  nom              String
+  plateforme       Plateforme
+  coutTotal        Float      @default(0)
+  dateDebut        DateTime?
+  dateFin          DateTime?
+  metaCampaignId   String?
+  metaAdsetId      String?
+  metaAdId         String?
+  googleCampaignId String?
+  actif            Boolean    @default(true)
+  metaInsights     Json? // Cache des métriques Meta (impressions, clicks, ctr, cpc, roas, conversions)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   // Relations
-  leads               Lead[]
-  coutsOffline        CoutOffline[]
+  leads        Lead[]
+  coutsOffline CoutOffline[]
 
   @@index([nom])
   @@index([plateforme])
 }
 
 model Devis {
-  id                  String    @id @default(cuid())
-  leadId              String?
-  contactId           String
-  sellsyQuoteId       String?   @unique
-  numero              String?   // Ex: "DEPI-08028" — numéro lisible Sellsy
-  montant             Float
-  statut              DevisStatut @default(EN_ATTENTE)
-  statutSellsy        String?   // status brut Sellsy (draft, sent, accepted, refused, expired…)
-  etatProduit         String?   // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
-  surMesure           Boolean?  // Custom field "Sur-mesure" Sellsy
-  dateEnvoi           DateTime?
-  dateRelance         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id            String      @id @default(cuid())
+  leadId        String?
+  contactId     String
+  sellsyQuoteId String?     @unique
+  numero        String? // Ex: "DEPI-08028" — numéro lisible Sellsy
+  montant       Float
+  statut        DevisStatut @default(EN_ATTENTE)
+  statutSellsy  String? // status brut Sellsy (draft, sent, accepted, refused, expired…)
+  etatProduit   String? // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
+  surMesure     Boolean? // Custom field "Sur-mesure" Sellsy
+  dateDevisSellsy DateTime? // Date du devis côté Sellsy (≠ createdAt Prisma qui est l'import KOKPIT)
+  dateEnvoi     DateTime?
+  dateRelance   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   // Relations
-  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  vente               Vente?
+  lead    Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  vente   Vente?
 
   @@index([leadId])
   @@index([contactId])
@@ -366,177 +347,88 @@ model Devis {
 }
 
 model Vente {
-  id                  String    @id @default(cuid())
-  devisId             String?   @unique
-  contactId           String
-  sellsyInvoiceId     String?   @unique
-  numero              String?   // Référence lisible ex: "BCDI-05725"
-  montant             Float
-  dateVente           DateTime
-  produits            Json?
-  statutSellsy        String?   // status brut Sellsy (invoiced, advanced, accepted, sent, draft, cancelled, refused, expired…)
-  etatProduit         String?   // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
-  surMesure           Boolean?  // Custom field "Sur-mesure" Sellsy
-  createdAt           DateTime  @default(now())
+  id              String   @id @default(cuid())
+  devisId         String?  @unique
+  contactId       String
+  sellsyInvoiceId String?  @unique
+  numero          String? // Référence lisible ex: "BCDI-05725"
+  montant         Float
+  dateVente       DateTime
+  produits        Json?
+  statutSellsy    String? // status brut Sellsy (invoiced, advanced, accepted, sent, draft, cancelled, refused, expired…)
+  etatProduit     String? // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
+  surMesure       Boolean? // Custom field "Sur-mesure" Sellsy
+  createdAt       DateTime @default(now())
 
   // Relations
-  devis               Devis?    @relation(fields: [devisId], references: [id], onDelete: SetNull)
-  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  devis   Devis?  @relation(fields: [devisId], references: [id], onDelete: SetNull)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([contactId])
   @@index([dateVente])
 }
 
 model Evenement {
-  id                  String    @id @default(cuid())
-  contactId           String?
-  leadId              String?
-  type                EvenementType
-  description         String
-  metadata            Json?
-  auteurId            String?
-  createdAt           DateTime  @default(now())
+  id          String        @id @default(cuid())
+  contactId   String?
+  leadId      String?
+  type        EvenementType
+  description String
+  metadata    Json?
+  auteurId    String?
+  createdAt   DateTime      @default(now())
 
   // Relations
-  contact             Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  lead                Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  auteur              User?     @relation("EvenementAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  lead    Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  auteur  User?    @relation("EvenementAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
 
   @@index([contactId])
   @@index([leadId])
   @@index([createdAt])
 }
 
-model ClickEvent {
-  id                  String    @id @default(cuid())
-  contactId           String?
-  utmSource           String?
-  utmMedium           String?
-  utmCampaign         String?
-  utmContent          String?
-  utmTerm             String?
-  gclid               String?
-  metaClickId         String?
-  pageUrl             String?
-  referrer            String?
-  ipHash              String?
-  createdAt           DateTime  @default(now())
-
-  // Relations
-  contact             Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-
-  @@index([contactId])
-  @@index([createdAt])
-}
-
-// Old Workflow/WorkflowAction/WorkflowLog models replaced by new ones at end of file
-
-model EmailCampaign {
-  id                  String    @id @default(cuid())
-  nom                 String
-  objet               String
-  contenuHtml         String
-  segmentFilter       Json?
-  statut              CampagneEmailStatut @default(BROUILLON)
-  dateEnvoiPlanifie   DateTime?
-  nbEnvoyes           Int       @default(0)
-  nbOuverts           Int       @default(0)
-  nbClics             Int       @default(0)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  // Relations
-  emailLogs           EmailLog[] @relation("EmailCampaignLog")
-
-  @@index([statut])
-}
-
-model EmailLog {
-  id                  String    @id @default(cuid())
-  contactId           String
-  campaignId          String?
-  objet               String
-  statut              EmailStatut
-  resendId            String?
-  sentAt              DateTime
-  createdAt           DateTime  @default(now())
-
-  // Relations
-  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  campaign            EmailCampaign? @relation("EmailCampaignLog", fields: [campaignId], references: [id], onDelete: SetNull)
-
-  @@index([contactId])
-  @@index([campaignId])
-  @@index([sentAt])
-}
-
-model SmsLog {
-  id                  String    @id @default(cuid())
-  contactId           String
-  message             String
-  statut              String
-  twilioSid           String?
-  sentAt              DateTime
-  createdAt           DateTime  @default(now())
-
-  // Relations
-  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  @@index([contactId])
-  @@index([sentAt])
-}
-
-model AuditLog {
-  id                  String    @id @default(cuid())
-  userId              String?
-  action              String
-  entite              String
-  entiteId            String?
-  details             Json?
-  ipAddress           String?
-  createdAt           DateTime  @default(now())
-
-  // Relations
-  user                User?     @relation("AuditLogUser", fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([createdAt])
-}
+// Modèles supprimés mai 2026 (cleanup) :
+// - ClickEvent : last-click UTM jamais branché, attribution-tunnel.ts gère tout
+// - EmailCampaign + EmailLog : éditeur email retiré, Brevo gère tout
+// - SmsLog : Twilio retiré
+// - AuditLog : jamais alimenté
+// - Workflow/WorkflowAction/WorkflowLog : retirés en mars 2026 (vocabulaire banni)
 
 model CoutOffline {
-  id                  String    @id @default(cuid())
-  campagneId          String
-  description         String
-  montant             Float
-  type                CoutType
-  date                DateTime
-  createdAt           DateTime  @default(now())
+  id          String   @id @default(cuid())
+  campagneId  String
+  description String
+  montant     Float
+  type        CoutType
+  date        DateTime
+  createdAt   DateTime @default(now())
 
   // Relations
-  campagne            Campagne  @relation(fields: [campagneId], references: [id], onDelete: Cascade)
+  campagne Campagne @relation(fields: [campagneId], references: [id], onDelete: Cascade)
 
   @@index([campagneId])
   @@index([date])
 }
 
 model DemandePrix {
-  id                  String    @id @default(cuid())
-  contactId           String
-  meuble              String
-  message             String?
-  glideRowId          String?   @unique
-  showroom            String?
-  modePaiement        String?
-  budget              String?
-  articles            Json?     // [{nom, categorie, finition, quantite}]
-  estimationHT        Float?
-  estimationTTC       Float?
-  estimationDetails   Json?     // Résultat du matching IA Sellsy
-  dateDemande         DateTime?
-  createdAt           DateTime  @default(now())
+  id                String    @id @default(cuid())
+  contactId         String
+  meuble            String
+  message           String?
+  glideRowId        String?   @unique
+  showroom          String?
+  modePaiement      String?
+  budget            String?
+  articles          Json? // [{nom, categorie, finition, quantite}]
+  estimationHT      Float?
+  estimationTTC     Float?
+  estimationDetails Json? // Résultat du matching IA Sellsy
+  dateDemande       DateTime?
+  createdAt         DateTime  @default(now())
 
   // Relations
-  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([contactId])
   @@index([dateDemande])
@@ -582,21 +474,21 @@ enum PostLabel {
 }
 
 model PostPlanning {
-  id          String      @id @default(cuid())
-  title       String
-  description String?
-  statut      PostStatut  @default(IDEE)
-  position    Int         @default(0)
+  id            String      @id @default(cuid())
+  title         String
+  description   String?
+  statut        PostStatut  @default(IDEE)
+  position      Int         @default(0)
   dueDate       DateTime?
   scheduledDate DateTime?
   labels        PostLabel[] @default([])
   coverImage    String?
-  createdById String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   // Relations
-  createdBy   User        @relation("PostPlanningAuteur", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User             @relation("PostPlanningAuteur", fields: [createdById], references: [id], onDelete: SetNull)
   checklist   PostChecklist[]
   attachments PostAttachment[]
 
@@ -615,7 +507,7 @@ model PostChecklist {
   createdAt DateTime @default(now())
 
   // Relations
-  post      PostPlanning @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post PostPlanning @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId])
 }
@@ -629,7 +521,7 @@ model PostAttachment {
   createdAt DateTime @default(now())
 
   // Relations
-  post      PostPlanning @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post PostPlanning @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId])
 }
@@ -640,9 +532,9 @@ model PostAttachment {
 
 model ObjectifCommercial {
   id        String   @id @default(cuid())
-  month     Int      // 1-12
+  month     Int // 1-12
   year      Int
-  amount    Float    // Objectif CA mensuel en EUR (HT)
+  amount    Float // Objectif CA mensuel en EUR (HT)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -658,8 +550,8 @@ model LienUtile {
   nom         String
   url         String
   description String?
-  categorie   String   // ex: "CRM", "Réseaux", "CMS", "Outils internes"
-  iconeUrl    String?  // URL favicon ou icône custom
+  categorie   String // ex: "CRM", "Réseaux", "CMS", "Outils internes"
+  iconeUrl    String? // URL favicon ou icône custom
   position    Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -673,12 +565,12 @@ model LienUtile {
 
 model LiaisonDevisCommande {
   id          String   @id @default(cuid())
-  estimateId  Int      // ID Sellsy du devis
-  orderId     Int      // ID Sellsy de la commande
+  estimateId  Int // ID Sellsy du devis
+  orderId     Int // ID Sellsy de la commande
   createdById String
   createdAt   DateTime @default(now())
 
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdBy User @relation(fields: [createdById], references: [id])
 
   @@unique([estimateId, orderId])
   @@index([estimateId])
@@ -690,15 +582,15 @@ model LiaisonDevisCommande {
 // ============================================================================
 
 model LiaisonDocumentaire {
-  id              String   @id @default(cuid())
-  enfantType      String   // "order" | "invoice" | "delivery"
-  enfantSellsyId  String
-  enfantNumero    String
-  parentType      String   // "estimate" | "order" | "delivery"
-  parentSellsyId  String
-  parentNumero    String
-  confirmeManuel  Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  enfantType     String // "order" | "invoice" | "delivery"
+  enfantSellsyId String
+  enfantNumero   String
+  parentType     String // "estimate" | "order" | "delivery"
+  parentSellsyId String
+  parentNumero   String
+  confirmeManuel Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   @@unique([enfantType, enfantSellsyId])
   @@index([parentSellsyId])
@@ -709,15 +601,15 @@ model LiaisonDocumentaire {
 // ============================================================================
 
 model BrevoSyncLog {
-  id           String   @id @default(cuid())
-  segmentNom   String
-  nbContacts   Int
-  statut       String   // "success" | "error"
-  erreur       String?
-  createdAt    DateTime @default(now())
-  createdById  String
+  id          String   @id @default(cuid())
+  segmentNom  String
+  nbContacts  Int
+  statut      String // "success" | "error"
+  erreur      String?
+  createdAt   DateTime @default(now())
+  createdById String
 
-  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdBy User @relation(fields: [createdById], references: [id])
 
   @@index([createdAt])
 }
@@ -728,7 +620,7 @@ model BrevoSyncLog {
 
 model BrevoWebhookEvent {
   id        String   @id @default(cuid())
-  event     String   // delivered, opened, clicked, soft_bounce, hard_bounce, unsubscribed, spam
+  event     String // delivered, opened, clicked, soft_bounce, hard_bounce, unsubscribed, spam
   email     String
   messageId String?
   subject   String?
@@ -749,7 +641,7 @@ model DocArticle {
   id        String   @id @default(cuid())
   titre     String
   slug      String   @unique
-  contenu   String   // Markdown
+  contenu   String // Markdown
   categorie String
   position  Int      @default(0)
   publie    Boolean  @default(true)
@@ -765,24 +657,24 @@ model DocArticle {
 // ============================================================================
 
 model Task {
-  id                    String     @id @default(cuid())
-  titre                 String
-  description           String?
-  echeance              DateTime?
-  statut                TaskStatut @default(A_FAIRE)
-  contactId             String?
-  assigneAId            String
-  createdById           String
-  collaborateurId       String?
-  collaborationStatut   String?    // INVITE | ACCEPTE | REFUSE
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
+  id                  String     @id @default(cuid())
+  titre               String
+  description         String?
+  echeance            DateTime?
+  statut              TaskStatut @default(A_FAIRE)
+  contactId           String?
+  assigneAId          String
+  createdById         String
+  collaborateurId     String?
+  collaborationStatut String? // INVITE | ACCEPTE | REFUSE
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   // Relations
-  contact       Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  assigneA      User       @relation("TaskAssignee", fields: [assigneAId], references: [id])
-  createdBy     User       @relation("TaskCreator", fields: [createdById], references: [id])
-  collaborateur User?      @relation("TaskCollaborateur", fields: [collaborateurId], references: [id])
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assigneA      User     @relation("TaskAssignee", fields: [assigneAId], references: [id])
+  createdBy     User     @relation("TaskCreator", fields: [createdById], references: [id])
+  collaborateur User?    @relation("TaskCollaborateur", fields: [collaborateurId], references: [id])
 
   @@index([assigneAId])
   @@index([collaborateurId])
@@ -795,27 +687,27 @@ model Task {
 // ============================================================================
 
 model ClubMembre {
-  id              String   @id @default(cuid())
-  sellsyContactId String   @unique
-  email           String
-  nom             String
-  prenom          String
-  niveau          Int      @default(1)   // 1-5
-  totalCommandes  Int      @default(0)
-  totalMontant    Float    @default(0)
-  origine         String   @default("DIMEXOI") // "DIMEXOI" | "BDO" | "LES_DEUX"
-  dateEntree      DateTime @default(now())
-  dernierSync     DateTime?
-  brevoSynced     Boolean  @default(false)
-  sellsySynced    Boolean  @default(false)
-  exclu           Boolean  @default(false)  // soft-delete : retiré du programme
-  codePromo       String?                  // code promo unique (ex: CLUB-III-A7K9)
-  bonUtilise      Boolean  @default(false) // le client a utilisé son bon de remise
-  dateBonUtilise  DateTime?                // date d'utilisation du bon
-  niveauEmailEnvoye Int?                   // dernier niveau pour lequel un email a été envoyé
-  dernierEmailDate  DateTime?              // date du dernier email envoyé
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String    @id @default(cuid())
+  sellsyContactId   String    @unique
+  email             String
+  nom               String
+  prenom            String
+  niveau            Int       @default(1) // 1-5
+  totalCommandes    Int       @default(0)
+  totalMontant      Float     @default(0)
+  origine           String    @default("DIMEXOI") // "DIMEXOI" | "BDO" | "LES_DEUX"
+  dateEntree        DateTime  @default(now())
+  dernierSync       DateTime?
+  brevoSynced       Boolean   @default(false)
+  sellsySynced      Boolean   @default(false)
+  exclu             Boolean   @default(false) // soft-delete : retiré du programme
+  codePromo         String? // code promo unique (ex: CLUB-III-A7K9)
+  bonUtilise        Boolean   @default(false) // le client a utilisé son bon de remise
+  dateBonUtilise    DateTime? // date d'utilisation du bon
+  niveauEmailEnvoye Int? // dernier niveau pour lequel un email a été envoyé
+  dernierEmailDate  DateTime? // date du dernier email envoyé
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([niveau])
   @@index([email])
@@ -826,52 +718,52 @@ model ClubMembre {
 // ============================================================================
 
 model ClientBoisDOrient {
-  id                String    @id @default(cuid())
-  sellsyIdBdo       String?   @unique  // ID dans Sellsy Bois d'Orient
-  nom               String
-  prenom            String?
-  email             String?
-  telephone         String?
-  adresse           String?
-  ville             String?
-  nbCommandes       Int       @default(0)
-  nbFactures        Int       @default(0)
-  nbDevis           Int       @default(0)
-  totalCA           Float     @default(0)  // CA TTC total des FACTURES (pour fidélité)
-  premiereFacture   DateTime?
-  derniereFacture   DateTime?
-  commandesDetail   Json?     // [{date, montant, ref, type}]
-  statut            String    @default("NOUVEAU") // NOUVEAU | MATCH_EMAIL | MATCH_MANUEL | A_VERIFIER
-  contactDimexoiId  String?   // sellsyContactId DIMEXOI si matché
-  verifieLeAt       DateTime?
-  verifieParId      String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  sellsyIdBdo      String?   @unique // ID dans Sellsy Bois d'Orient
+  nom              String
+  prenom           String?
+  email            String?
+  telephone        String?
+  adresse          String?
+  ville            String?
+  nbCommandes      Int       @default(0)
+  nbFactures       Int       @default(0)
+  nbDevis          Int       @default(0)
+  totalCA          Float     @default(0) // CA TTC total des FACTURES (pour fidélité)
+  premiereFacture  DateTime?
+  derniereFacture  DateTime?
+  commandesDetail  Json? // [{date, montant, ref, type}]
+  statut           String    @default("NOUVEAU") // NOUVEAU | MATCH_EMAIL | MATCH_MANUEL | A_VERIFIER
+  contactDimexoiId String? // sellsyContactId DIMEXOI si matché
+  verifieLeAt      DateTime?
+  verifieParId     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Relations
-  verifiePar        User?     @relation("ClientBdoVerifie", fields: [verifieParId], references: [id], onDelete: SetNull)
-  documents         DocumentBoisDOrient[]
+  verifiePar User?                 @relation("ClientBdoVerifie", fields: [verifieParId], references: [id], onDelete: SetNull)
+  documents  DocumentBoisDOrient[]
 
   @@index([email])
   @@index([statut])
 }
 
 model DocumentBoisDOrient {
-  id              String   @id @default(cuid())
-  sellsyDocId     String   @unique  // ID document Sellsy BDO
-  clientBdoId     String
-  type            String   // "FACTURE" | "COMMANDE" | "DEVIS"
-  reference       String?  // numéro du document
-  date            DateTime
-  montantTTC      Float    @default(0)
-  montantHT       Float    @default(0)
-  statut          String?  // statut Sellsy (payée, envoyée, etc.)
-  pdfUrl          String?  // URL publique Supabase Storage
-  pdfPath         String?  // path dans le bucket Supabase
-  createdAt       DateTime @default(now())
+  id          String   @id @default(cuid())
+  sellsyDocId String   @unique // ID document Sellsy BDO
+  clientBdoId String
+  type        String // "FACTURE" | "COMMANDE" | "DEVIS"
+  reference   String? // numéro du document
+  date        DateTime
+  montantTTC  Float    @default(0)
+  montantHT   Float    @default(0)
+  statut      String? // statut Sellsy (payée, envoyée, etc.)
+  pdfUrl      String? // URL publique Supabase Storage
+  pdfPath     String? // path dans le bucket Supabase
+  createdAt   DateTime @default(now())
 
   // Relations
-  clientBdo       ClientBoisDOrient @relation(fields: [clientBdoId], references: [id], onDelete: Cascade)
+  clientBdo ClientBoisDOrient @relation(fields: [clientBdoId], references: [id], onDelete: Cascade)
 
   @@index([clientBdoId])
   @@index([type])
@@ -902,14 +794,14 @@ model Conge {
   nbJours       Float     @default(1)
   statut        String    @default("en_attente") // en_attente | approuve | modifie | refuse
   notes         String?
-  commentaire   String?   // commentaire du responsable
+  commentaire   String? // commentaire du responsable
   approuveParId String?
   approuveLe    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  user          User      @relation("CongeUser", fields: [userId], references: [id], onDelete: Cascade)
-  approuvePar   User?     @relation("CongeApprobateur", fields: [approuveParId], references: [id], onDelete: SetNull)
+  user        User  @relation("CongeUser", fields: [userId], references: [id], onDelete: Cascade)
+  approuvePar User? @relation("CongeApprobateur", fields: [approuveParId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([dateDebut])
@@ -936,8 +828,8 @@ model Pointage {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  user              User      @relation("PointageUser", fields: [userId], references: [id], onDelete: Cascade)
-  corrigePar        User?     @relation("PointageCorrecteur", fields: [corrigeParId], references: [id], onDelete: SetNull)
+  user       User  @relation("PointageUser", fields: [userId], references: [id], onDelete: Cascade)
+  corrigePar User? @relation("PointageCorrecteur", fields: [corrigeParId], references: [id], onDelete: SetNull)
 
   @@unique([userId, date])
   @@index([userId])
@@ -945,19 +837,19 @@ model Pointage {
 }
 
 model ConfigPointage {
-  id                    String   @id @default(cuid())
-  heuresTheoriquesJour  Float    @default(7)
-  heurePauseDefaut      Float    @default(1)
-  seuilRecup            Float    @default(4) // heures cumulées nécessaires pour déclencher une demi-journée de récup
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  heuresTheoriquesJour Float    @default(7)
+  heurePauseDefaut     Float    @default(1)
+  seuilRecup           Float    @default(4) // heures cumulées nécessaires pour déclencher une demi-journée de récup
+  updatedAt            DateTime @updatedAt
 }
 
 model ConfigApp {
-  id                    String   @id @default("default")
-  slaHeures             Int      @default(48)
-  pointageHeuresJour    Float    @default(7)
-  pointagePauseDefaut   Float    @default(1)
-  updatedAt             DateTime @updatedAt
+  id                  String   @id @default("default")
+  slaHeures           Int      @default(48)
+  pointageHeuresJour  Float    @default(7)
+  pointagePauseDefaut Float    @default(1)
+  updatedAt           DateTime @updatedAt
 }
 
 // ============================================================================
@@ -965,14 +857,14 @@ model ConfigApp {
 // ============================================================================
 
 model DossierSAV {
-  id              String           @id @default(cuid())
-  numero          String           @unique
+  id              String    @id @default(cuid())
+  numero          String    @unique
   titre           String
   type            String
-  statut          String           @default("A_TRAITER")
+  statut          String    @default("A_TRAITER")
   sellsyBdcId     String?
   sellsyBdcRef    String?
-  sellsyStatut    String?   // Statut brut de l'ordre Sellsy (ex: "confirmed", "invoiced")
+  sellsyStatut    String? // Statut brut de l'ordre Sellsy (ex: "confirmed", "invoiced")
   sellsyContactId String?
   contactNom      String?
   contactId       String?
@@ -980,14 +872,14 @@ model DossierSAV {
   creePar         String
   description     String?
   deletedAt       DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  contact         Contact?         @relation(fields: [contactId], references: [id])
-  assigne         User?            @relation("SAVAssigne", fields: [assigneId], references: [id])
-  creeParUser     User             @relation("SAVCreateur", fields: [creePar], references: [id])
-  documents       DocumentSAV[]
-  commentaires    CommentaireSAV[]
+  contact      Contact?         @relation(fields: [contactId], references: [id])
+  assigne      User?            @relation("SAVAssigne", fields: [assigneId], references: [id])
+  creeParUser  User             @relation("SAVCreateur", fields: [creePar], references: [id])
+  documents    DocumentSAV[]
+  commentaires CommentaireSAV[]
 
   @@index([statut])
   @@index([contactId])
@@ -995,7 +887,7 @@ model DossierSAV {
 }
 
 model DocumentSAV {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   dossierId String
   nom       String
   type      String
@@ -1003,22 +895,22 @@ model DocumentSAV {
   contenu   String?
   taille    Int?
   ajoutePar String
-  createdAt DateTime   @default(now())
+  createdAt DateTime @default(now())
 
-  dossier   DossierSAV @relation(fields: [dossierId], references: [id], onDelete: Cascade)
-  ajoute    User       @relation(fields: [ajoutePar], references: [id])
+  dossier DossierSAV @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  ajoute  User       @relation(fields: [ajoutePar], references: [id])
 }
 
 model CommentaireSAV {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   dossierId String
   contenu   String
-  type      String     @default("NOTE") // NOTE | APPEL | MESSAGE | MAIL | COURRIER
+  type      String   @default("NOTE") // NOTE | APPEL | MESSAGE | MAIL | COURRIER
   auteurId  String
-  createdAt DateTime   @default(now())
+  createdAt DateTime @default(now())
 
-  dossier   DossierSAV @relation(fields: [dossierId], references: [id], onDelete: Cascade)
-  auteur    User       @relation(fields: [auteurId], references: [id])
+  dossier DossierSAV @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  auteur  User       @relation(fields: [auteurId], references: [id])
 }
 
 // ============================================================================
@@ -1027,8 +919,8 @@ model CommentaireSAV {
 
 model CoutMarketing {
   id          String   @id @default(cuid())
-  periode     String   // "2026-03"
-  type        String   // "meta_ads" | "google_ads" | "salon" | "agence" | "print" | "autre"
+  periode     String // "2026-03"
+  type        String // "meta_ads" | "google_ads" | "salon" | "agence" | "print" | "autre"
   libelle     String
   montant     Float
   createdAt   DateTime @default(now())
@@ -1044,14 +936,14 @@ model CoutMarketing {
 // ============================================================================
 
 model Canal {
-  id          String         @id @default(cuid())
-  nom         String         @unique
+  id          String   @id @default(cuid())
+  nom         String   @unique
   description String?
-  type        String         @default("PUBLIC") // "PUBLIC" | "DM"
-  createdAt   DateTime       @default(now())
+  type        String   @default("PUBLIC") // "PUBLIC" | "DM"
+  createdAt   DateTime @default(now())
 
-  messages    MessageChat[]
-  membres     CanalMembre[]
+  messages MessageChat[]
+  membres  CanalMembre[]
 
   @@index([type])
 }
@@ -1063,8 +955,8 @@ model CanalMembre {
   dernierLu DateTime @default(now())
   createdAt DateTime @default(now())
 
-  canal     Canal    @relation(fields: [canalId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  canal Canal @relation(fields: [canalId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([canalId, userId])
   @@index([userId])
@@ -1079,9 +971,9 @@ model MessageChat {
   fichierNom   String?
   createdAt    DateTime @default(now())
 
-  canal        Canal    @relation(fields: [canalId], references: [id], onDelete: Cascade)
-  expediteur   User     @relation("MessageChatExpediteur", fields: [expediteurId], references: [id])
-  reactions    ReactionMessage[]
+  canal      Canal             @relation(fields: [canalId], references: [id], onDelete: Cascade)
+  expediteur User              @relation("MessageChatExpediteur", fields: [expediteurId], references: [id])
+  reactions  ReactionMessage[]
 
   @@index([canalId, createdAt])
   @@index([expediteurId])
@@ -1091,11 +983,11 @@ model ReactionMessage {
   id        String   @id @default(cuid())
   messageId String
   userId    String
-  emoji     String   // ex: "👍", "❤️", "😂"
+  emoji     String // ex: "👍", "❤️", "😂"
   createdAt DateTime @default(now())
 
-  message   MessageChat @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user      User        @relation("ReactionsUser", fields: [userId], references: [id])
+  message MessageChat @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation("ReactionsUser", fields: [userId], references: [id])
 
   @@unique([messageId, userId, emoji])
   @@index([messageId])
@@ -1106,71 +998,45 @@ model ReactionMessage {
 // ============================================================================
 
 model NeedPrice {
-  id              String    @id @default(cuid())
-  reference       String    @unique // Auto : "NP-2026-001"
-  refDevis        String?   // Référence DEPI- associée
-  nomClient       String?   // Nom du client
-  denomination    String?   // Legacy — alimenté depuis lignes[0] en back-compat
-  dimensions      String?   // Legacy — alimenté depuis lignes[0]
-  finitions       String?   // Legacy — alimenté depuis lignes[0]
-  photoUrl        String?   // Legacy — alimenté depuis attachments[0]
-  lignes          Json?     // Array of { denomination, dimensions, finitions } (1+)
-  attachments     Json?     // Array of { url, type, filename, size }
-  statut          String    @default("DEMANDE") // "DEMANDE" | "PRIX_RECU" | "ANNULE"
-  prixFournisseur Float?    // Base fournisseur en IDR
-  prixVente       Float?    // Prix de vente calculé (Arrondi ou Cuisine)
-  prixMinimum     Float?    // Prix minimum (tarif minimum)
-  typePrix        String?   // "MINIMUM_ARRONDI" | "CUISINE"
+  id              String   @id @default(cuid())
+  reference       String   @unique // Auto : "NP-2026-001"
+  refDevis        String? // Référence DEPI- associée
+  nomClient       String? // Nom du client
+  denomination    String? // Legacy — alimenté depuis lignes[0] en back-compat
+  dimensions      String? // Legacy — alimenté depuis lignes[0]
+  finitions       String? // Legacy — alimenté depuis lignes[0]
+  photoUrl        String? // Legacy — alimenté depuis attachments[0]
+  lignes          Json? // Array of { denomination, dimensions, finitions } (1+)
+  attachments     Json? // Array of { url, type, filename, size }
+  statut          String   @default("DEMANDE") // "DEMANDE" | "PRIX_RECU" | "ANNULE"
+  prixFournisseur Float? // Base fournisseur en IDR
+  prixVente       Float? // Prix de vente calculé (Arrondi ou Cuisine)
+  prixMinimum     Float? // Prix minimum (tarif minimum)
+  typePrix        String? // "MINIMUM_ARRONDI" | "CUISINE"
   notes           String?
   createdById     String
-  createdBy       User      @relation("NeedPriceCreator", fields: [createdById], references: [id])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdBy       User     @relation("NeedPriceCreator", fields: [createdById], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([statut])
   @@index([createdAt])
 }
 
 model ConfigCalculateur {
-  id            String   @id @default(cuid())
-  changeIndo    Float    @default(15)
-  coeffRevient  Float    @default(1.6)
-  coeffMarge    Float    @default(2.5)
-  updatedAt     DateTime @updatedAt
-  updatedById   String?
+  id           String   @id @default(cuid())
+  changeIndo   Float    @default(15)
+  coeffRevient Float    @default(1.6)
+  coeffMarge   Float    @default(2.5)
+  updatedAt    DateTime @updatedAt
+  updatedById  String?
 }
 
 // ============================================================================
 // TARIFS CATALOGUE SELLSY
 // ============================================================================
 
-model PrixBackup {
-  id            String   @id @default(cuid())
-  sessionId     String
-  sellsyItemId  Int
-  reference     String
-  designation   String
-  prixAvant     Float
-  prixApres     Float?
-  applique      Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  createdById   String
-  createdBy     User     @relation("PrixBackupCreator", fields: [createdById], references: [id])
-
-  @@index([sessionId])
-}
-
-model SessionTarif {
-  id              String    @id @default(cuid())
-  coefficient     Float
-  nbReferences    Int
-  statut          String    @default("SIMULE")
-  appliqueLeAt    DateTime?
-  annuleLeAt      DateTime?
-  createdAt       DateTime  @default(now())
-  createdById     String
-  createdBy       User      @relation("SessionTarifCreator", fields: [createdById], references: [id])
-}
+// PrixBackup + SessionTarif supprimés mai 2026 — calculateur de tarifs retiré.
 
 // ============================================================================
 // CACHE STOCK SELLSY (partagé entre toutes les instances Vercel)
@@ -1191,19 +1057,19 @@ model StockCache {
 // ============================================================================
 
 model RendezVous {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   contactId       String
-  contact         Contact   @relation(fields: [contactId], references: [id])
-  calendlyEventId String?   @unique   // URI Calendly pour dédoublonnage
-  dateDebut       DateTime            // Date et heure du RDV
-  dateFin         DateTime            // Fin du créneau
-  statut          String    @default("CONFIRME")  // CONFIRME | HONORE | ANNULE
-  source          String    @default("calendly")  // calendly_contact | calendly_fiche_produit | calendly_vente_privee | calendly_guide_sdb
-  productSlug     String?             // Slug produit si RDV pris depuis fiche produit
-  utm             String?             // JSON stringifié des UTM
-  notes           String?             // Notes libres du commercial
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  contact         Contact  @relation(fields: [contactId], references: [id])
+  calendlyEventId String?  @unique // URI Calendly pour dédoublonnage
+  dateDebut       DateTime // Date et heure du RDV
+  dateFin         DateTime // Fin du créneau
+  statut          String   @default("CONFIRME") // CONFIRME | HONORE | ANNULE
+  source          String   @default("calendly") // calendly_contact | calendly_fiche_produit | calendly_vente_privee | calendly_guide_sdb
+  productSlug     String? // Slug produit si RDV pris depuis fiche produit
+  utm             String? // JSON stringifié des UTM
+  notes           String? // Notes libres du commercial
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([contactId])
   @@index([statut])
@@ -1216,14 +1082,14 @@ model RendezVous {
 // ============================================================================
 
 model CatalogueStat {
-  id        String   @id @default(cuid())
-  type      String   // "view" | "click"
-  referrer  String?  // document.referrer
-  utmSource String?
-  utmMedium String?
+  id          String   @id @default(cuid())
+  type        String // "view" | "click"
+  referrer    String? // document.referrer
+  utmSource   String?
+  utmMedium   String?
   utmCampaign String?
-  page      String?  // pathname de la page où le popup a été vu
-  createdAt DateTime @default(now())
+  page        String? // pathname de la page où le popup a été vu
+  createdAt   DateTime @default(now())
 
   @@index([type])
   @@index([createdAt])
@@ -1260,22 +1126,22 @@ enum StatutOp {
 }
 
 model OperationMarketing {
-  id          String            @id @default(cuid())
+  id          String          @id @default(cuid())
   date        DateTime
   titre       String
   type        OpMarketingType
-  description String?           @db.Text
+  description String?         @db.Text
   canalId     String?
-  canal       CanalMarketing?   @relation(fields: [canalId], references: [id])
+  canal       CanalMarketing? @relation(fields: [canalId], references: [id])
 
-  fichiers    OperationFichier[]
+  fichiers OperationFichier[]
 
-  notes       String?           @db.Text
-  statut      StatutOp          @default(PLANIFIE)
+  notes  String?  @db.Text
+  statut StatutOp @default(PLANIFIE)
 
-  createdBy   String
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([date])
   @@index([type])
@@ -1311,27 +1177,27 @@ model CanalMarketing {
 // ============================================================================
 
 model SellsyItemCache {
-  id              Int      @id // Sellsy item id
-  type            String   // "product" | "service"
+  id              Int       @id // Sellsy item id
+  type            String // "product" | "service"
   reference       String
   name            String?
-  description     String?  @db.Text
-  priceHT         Decimal? @db.Decimal(12, 4)
-  priceTTC        Decimal? @db.Decimal(12, 4)
-  purchaseAmount  Decimal? @db.Decimal(12, 4)
+  description     String?   @db.Text
+  priceHT         Decimal?  @db.Decimal(12, 4)
+  priceTTC        Decimal?  @db.Decimal(12, 4)
+  purchaseAmount  Decimal?  @db.Decimal(12, 4)
   currency        String?
   categoryId      Int?
-  standardQty     Decimal? @db.Decimal(12, 4)
-  isArchived      Boolean  @default(false)
-  isDeclined      Boolean  @default(false)
+  standardQty     Decimal?  @db.Decimal(12, 4)
+  isArchived      Boolean   @default(false)
+  isDeclined      Boolean   @default(false)
   createdAtSellsy DateTime?
   updatedAtSellsy DateTime?
-  syncedAt        DateTime @default(now())
+  syncedAt        DateTime  @default(now())
   declSyncedAt    DateTime? // null = déclinaisons pas encore sync pour cet item
 
-  stockPhysical    Decimal? @db.Decimal(14, 3)
-  stockReserved    Decimal? @db.Decimal(14, 3)
-  stockAvailable   Decimal? @db.Decimal(14, 3)
+  stockPhysical    Decimal?  @db.Decimal(14, 3)
+  stockReserved    Decimal?  @db.Decimal(14, 3)
+  stockAvailable   Decimal?  @db.Decimal(14, 3)
   stockByWarehouse Json?
   stockSyncedAt    DateTime?
 
@@ -1344,15 +1210,15 @@ model SellsyItemCache {
 }
 
 model SellsyDeclinationCache {
-  id             Int      @id // Sellsy declination id
+  id             Int             @id // Sellsy declination id
   itemId         Int
   item           SellsyItemCache @relation(fields: [itemId], references: [id], onDelete: Cascade)
   reference      String
   name           String?
-  priceHT        Decimal? @db.Decimal(12, 4)
-  priceTTC       Decimal? @db.Decimal(12, 4)
-  purchaseAmount Decimal? @db.Decimal(12, 4)
-  syncedAt       DateTime @default(now())
+  priceHT        Decimal?        @db.Decimal(12, 4)
+  priceTTC       Decimal?        @db.Decimal(12, 4)
+  purchaseAmount Decimal?        @db.Decimal(12, 4)
+  syncedAt       DateTime        @default(now())
 
   stockPhysical    Decimal? @db.Decimal(14, 3)
   stockReserved    Decimal? @db.Decimal(14, 3)
@@ -1375,4 +1241,3 @@ model SellsyCatalogueSync {
 
   @@map("sellsy_catalogue_sync")
 }
-

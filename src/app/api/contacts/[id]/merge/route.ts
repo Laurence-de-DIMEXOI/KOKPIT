@@ -82,9 +82,6 @@ export async function POST(
       await tx.devis.updateMany({ where: { contactId: secondaryContactId }, data: toP });
       await tx.vente.updateMany({ where: { contactId: secondaryContactId }, data: toP });
       await tx.evenement.updateMany({ where: { contactId: secondaryContactId }, data: toP });
-      await tx.clickEvent.updateMany({ where: { contactId: secondaryContactId }, data: toP });
-      await tx.emailLog.updateMany({ where: { contactId: secondaryContactId }, data: toP });
-      await tx.smsLog.updateMany({ where: { contactId: secondaryContactId }, data: toP });
       await tx.demandePrix.updateMany({ where: { contactId: secondaryContactId }, data: toP });
       await tx.task.updateMany({ where: { contactId: secondaryContactId }, data: toP });
       await tx.dossierSAV.updateMany({ where: { contactId: secondaryContactId }, data: toP });
