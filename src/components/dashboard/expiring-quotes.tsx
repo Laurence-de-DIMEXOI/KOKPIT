@@ -3,6 +3,7 @@
 import { AlertTriangle, CheckCircle, ExternalLink } from "lucide-react";
 import clsx from "clsx";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
+import { getAmountHT as getAmount } from "@/lib/sellsy-amounts";
 
 interface EstimateRow {
   id: number;
@@ -32,19 +33,7 @@ function formatCurrency(amount: number): string {
   });
 }
 
-// Montants en HT (cohérent avec le dashboard commercial — mai 2026).
-function getAmount(row: EstimateRow): number {
-  if (!row.amounts) return 0;
-  const a = row.amounts as Record<string, any>;
-  const val =
-    a.total_excl_tax ??
-    a.total_raw_excl_tax ??
-    a.total_after_discount_excl_tax ??
-    a.total ??
-    a.total_incl_tax ??
-    "0";
-  return isNaN(Number(val)) ? 0 : Number(val);
-}
+// Montants en HT — voir src/lib/sellsy-amounts.ts
 
 function getDaysUntilExpiry(expiryDate: string): number {
   const now = new Date();

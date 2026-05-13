@@ -12,6 +12,7 @@ import {
 import { getStatutConfig as getSavStatutConfig } from "@/data/sav-config";
 import Link from "next/link";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
+import { getAmountHTFromAmounts } from "@/lib/sellsy-amounts";
 import MergeContactModal from "@/components/contacts/MergeContactModal";
 
 interface ContactData {
@@ -108,11 +109,8 @@ function formatRelative(dateStr: string): string {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function getAmount(amounts?: Record<string, any>): number {
-  if (!amounts) return 0;
-  const val = amounts.total ?? amounts.total_excl_tax ?? 0;
-  return typeof val === "number" ? val : parseFloat(val) || 0;
-}
+// Montants HT — voir src/lib/sellsy-amounts.ts
+const getAmount = getAmountHTFromAmounts;
 
 function statusLabel(status?: string): string {
   const map: Record<string, string> = {

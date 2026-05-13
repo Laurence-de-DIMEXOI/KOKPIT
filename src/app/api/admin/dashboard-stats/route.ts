@@ -8,6 +8,11 @@ export async function GET() {
   if (!session?.user) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
+  // KPIs RH (effectif, congés, pointage) → ADMIN/DIRECTION seulement
+  const role = (session.user as { role?: string }).role;
+  if (!["ADMIN", "DIRECTION"].includes(role || "")) {
+    return NextResponse.json({ error: "Autorisation insuffisante" }, { status: 403 });
+  }
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

@@ -21,6 +21,7 @@ import {
   Minus,
 } from "lucide-react";
 import clsx from "clsx";
+import { getAmountHT } from "@/lib/sellsy-amounts";
 
 // ===== TYPES =====
 
@@ -164,22 +165,8 @@ function getPreviousPeriodDates(period: Period): {
   }
 }
 
-// Dashboard commercial : tous les montants en HT (demande Laurence — mai 2026).
-// On priorise total_excl_tax / total_raw_excl_tax. `total_incl_tax` (TTC) reste
-// un fallback pour les BDC anciens où Sellsy ne renvoie que le TTC.
-function getAmount(row: { amounts?: SellsyAmounts }): number {
-  if (!row.amounts) return 0;
-  const a = row.amounts as Record<string, any>;
-  const val =
-    a.total_excl_tax ??
-    a.total_raw_excl_tax ??
-    a.total_after_discount_excl_tax ??
-    a.total ??
-    a.total_incl_tax ??
-    "0";
-  const num = Number(val);
-  return isNaN(num) ? 0 : num;
-}
+// Tous montants en HT — voir src/lib/sellsy-amounts.ts.
+const getAmount = getAmountHT;
 
 function isCancelled(row: { status?: string }): boolean {
   const s = (row.status || "").toLowerCase();

@@ -3,17 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listAllEstimates, listAllOrders, invalidateSellsyCache } from "@/lib/sellsy";
+import { getAmountHTFromAmounts } from "@/lib/sellsy-amounts";
 
 // Cache dédié traçabilité — 5 min fresh, 1h stale-while-revalidate
 const CACHE_TTL = 5 * 60 * 1000;
 const STALE_TTL = 60 * 60 * 1000; // 1h — retourne stale data plutôt que rien
 let traceCache: { data: unknown; timestamp: number } | null = null;
 
-function getAmountHT(amounts?: Record<string, any>): number {
-  if (!amounts) return 0;
-  const val = amounts.total_excl_tax ?? amounts.total ?? 0;
-  return typeof val === "number" ? val : parseFloat(val) || 0;
-}
+const getAmountHT = getAmountHTFromAmounts;
 
 function daysBetween(dateStr: string): number {
   const d = new Date(dateStr);

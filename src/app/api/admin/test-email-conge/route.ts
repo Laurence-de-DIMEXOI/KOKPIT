@@ -9,6 +9,10 @@ import { sendEmail } from "@/lib/resend";
  * OU header Authorization: Bearer CRON_API_SECRET
  */
 export async function GET(req: NextRequest) {
+  // Endpoint de test — désactivé en production sauf flag ALLOW_TEST_EMAILS=true
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_TEST_EMAILS !== "true") {
+    return NextResponse.json({ error: "Endpoint de test désactivé en production" }, { status: 403 });
+  }
   const auth = req.headers.get("authorization");
   const secret = process.env.CRON_API_SECRET;
   const isCron = !!secret && auth === `Bearer ${secret}`;

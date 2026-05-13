@@ -18,6 +18,7 @@ import { FreshnessIndicator } from "@/components/ui/freshness-indicator";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 import clsx from "clsx";
 import { traduireStatut } from "@/lib/sellsy-statuts";
+import { getAmountHTFromAmounts } from "@/lib/sellsy-amounts";
 
 type Period = "week" | "month" | "year" | "all";
 
@@ -106,10 +107,7 @@ function formatCurrency(val: number): string {
   }).format(val);
 }
 
-function getAmountHT(amounts?: Amounts): number {
-  if (!amounts) return 0;
-  return parseFloat(amounts.total_excl_tax || amounts.total || "0") || 0;
-}
+const getAmountHT = (amounts?: Amounts) => getAmountHTFromAmounts(amounts as never);
 
 function AgeBadge({ jours }: { jours: number }) {
   const color =
