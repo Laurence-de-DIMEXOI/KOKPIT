@@ -122,6 +122,7 @@ model User {
   pointageActif         Boolean   @default(true) // false = pas de pointage (Liliane, Alain)
   pointageDelegueId     String? // userId de la personne qui peut pointer pour ce user
   soldeHeures           Float     @default(0) // solde cumulé heures supp (positif = récup dispo, négatif = à rattraper)
+  dailyBriefingEligible Boolean   @default(false) // accès page /aujourd-hui (Bernard, Daniella)
   moduleAccessOverrides Json? // {"module": true/false} — overrides par utilisateur
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -155,11 +156,12 @@ model User {
 }
 
 model Showroom {
-  id         String   @id @default(cuid())
-  nom        String
-  adresse    String?
-  emailNotif String?
-  createdAt  DateTime @default(now())
+  id                 String   @id @default(cuid())
+  nom                String
+  adresse            String?
+  emailNotif         String?
+  objectifMensuelHT  Float?   // Objectif mensuel CA HT — utilisé par Daily Briefing (mood mensuel)
+  createdAt          DateTime @default(now())
 
   // Relations
   users    User[]

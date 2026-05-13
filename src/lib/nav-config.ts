@@ -24,6 +24,7 @@ import {
   Calculator,
   Truck,
   Sparkles,
+  Sunrise,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -103,6 +104,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Général",
     color: "#F4B400",
     items: [
+      { label: "Aujourd'hui", href: "/aujourd-hui", icon: Sunrise, module: "daily-briefing" },
       { label: "Messagerie", href: "/messagerie", icon: MessageSquare, module: "messagerie" },
       { label: "Mes Tâches", href: "/commercial/taches", icon: ClipboardList, module: "taches" },
       { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
