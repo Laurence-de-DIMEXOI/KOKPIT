@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 9 mai 2026 (v29 — dashboard commercial HT + sur-mesure→etat-stock + sync banderole)
-**Mis à jour par** : Session Claude Code (sprint mai — polish dashboard + crons nocturnes)
+**Dernière mise à jour** : 9 mai 2026 (v30 — cleanup massif : -60 fichiers, -10 modèles Prisma)
+**Mis à jour par** : Session Claude Code (sprint mai — audit + nettoyage profond)
 
 ---
 
@@ -180,6 +180,52 @@ Le handler :
 - Automatisations / Workflows (`Workflow`, `WorkflowExecution`, `EmailTemplate`)
 - Veille concurrentielle (entièrement)
 - `META_APP_ID` / `META_APP_SECRET` (env vars Vercel à supprimer aussi)
+- **Cleanup 9 mai 2026** : `ClickEvent`, `EmailCampaign`, `EmailLog`, `SmsLog`, `AuditLog`, `PrixBackup`, `SessionTarif` (migration `drop_dead_models_may_2026`). Enums `EmailStatut`, `CampagneEmailStatut`.
+
+### Cleanup massif — 9 mai 2026 (v30)
+**Score** : -60 fichiers, -68 000 lignes, +1 helper centralisé, +1 champ Devis.
+
+#### Routes API supprimées (orphelines / debug)
+- `/api/sms` (jamais branché), `/api/cron/scoring-alerts` (pas dans vercel.json)
+- `/api/webhooks/glide`, `/api/webhooks/newsletter` (legacy Glideapps)
+- `/api/contacts/import-legacy` (migration faite), `/api/leads/import` (pas d'UI)
+- `/api/demandes/estimate-all`, `/api/demandes/[id]/match-sellsy`
+- `/api/sellsy/liaison`, `/api/sellsy/orders-by-customfield` (remplacés)
+- `/api/sav/sync-sellsy/probe`, `/api/sellsy/debug-stock`, `/api/sellsy/items/debug-price`, `/api/marketing/brevo/debug`
+- `/api/emailing` (UI emailing utilise Brevo directement)
+- `src/workers/` (5 workers BullMQ, pas de Redis)
+- `src/lib/queue.ts`, `src/lib/twilio.ts`, `src/lib/attribution.ts`, `src/lib/calcul-prix-achat.ts`, `src/lib/empty-messages.ts`, `src/lib/sync-utils.ts`
+
+#### Composants/hooks orphelins supprimés
+- `components/ui/empty-state`, `error-state`
+- `components/chat/chatbot-widget`
+- `components/leads/lead-{table,form,pipeline}`
+- `components/contacts/contact-{drawer,preview-drawer}`
+- `components/dashboard/{leads-chart,conversion-funnel}`
+- `components/common/{source-badge,sla-badge,date-relative}`
+- `hooks/use-{active-space,dashboard}`
+- `data/contacts.ts`, `data/contact-details.ts`, `data/contact-data.json` (legacy Glide, 65k lignes)
+
+#### Sécurité fix
+- `/api/admin/dashboard-stats` : check ADMIN/DIRECTION ajouté (KPIs RH étaient visibles à tout user loggé)
+- `/api/admin/test-email-conge` : désactivé en production sauf flag `ALLOW_TEST_EMAILS=true`
+- `SELLSY_WEBHOOK_STRICT` : valeur prod attendue `true` (à vérifier sur Vercel)
+
+#### Factorisation `getAmount` → `src/lib/sellsy-amounts.ts`
+- 5 implémentations divergentes (commercial/page, expiring-quotes, contacts/[id], 2× tracabilite) remplacées par `getAmountHT(row)` / `getAmountHTFromAmounts(amounts)` / `getAmountTTC(row)`
+- Convention KOKPIT : **tout en HT**, fallback TTC seulement si HT absent
+- Bug fix bonus : `contacts/[id]/page.tsx` qui prenait TTC en priorité (`total ?? total_excl_tax`) → maintenant HT
+
+#### Nouveau champ `Devis.dateDevisSellsy DateTime?`
+- Migration `add_date_devis_sellsy` appliquée
+- `deep-sync-sellsy` le populate depuis `est.date` Sellsy
+- `/api/commercial/etat-stock-stats` priorise `dateDevisSellsy > dateEnvoi > createdAt`
+- ⚠️ **Backfill historique à lancer** : `curl POST /api/admin/deep-sync-sellsy?since=2019-01-01&type=estimates&withEtat=false` année par année (re-passer pour remplir le nouveau champ)
+
+#### Docs racine archivées dans `docs/archive/`
+- `BRIEFING-KOKPIT.md`, `BRIEF_SESSION_17_MARS_2026.md`, `RAPPORT_AUDIT_12/14_MARS_2026.md`, `DEPLOY-NOW.md`, `README-DEPLOYMENT.md`, `plan.md`, `Rapport_KOKPIT_Mars2026.docx`
+- Supprimés : `deploy.sh`, `quick-deploy.sh`, `docker-compose.yml` (Vercel auto-deploy), `kokpit-archive-planning.tar.gz`
+- Scripts one-shots déjà appliqués : `debug-sellsy-efws283.ts`, `seed-planning-mars.ts`, `seed-conges-2026.ts`
 
 ### Fichiers à connaître absolument
 - `src/lib/attribution-tunnel.ts` — `recomputeLeadAttribution(leadId)` règle stricte 7j/30j, **utilise `LiaisonDevisCommande`** (page Traçabilité) pour matcher BDC → devis → demande.
