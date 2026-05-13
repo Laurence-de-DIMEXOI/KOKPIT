@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 7 mai 2026 (v28 — historique complet + filtre étendu + /dashboard→/marketing)
-**Mis à jour par** : Session Claude Code (sprint mai — reconstruction DB)
+**Dernière mise à jour** : 9 mai 2026 (v29 — dashboard commercial HT + sur-mesure→etat-stock + sync banderole)
+**Mis à jour par** : Session Claude Code (sprint mai — polish dashboard + crons nocturnes)
 
 ---
 
@@ -15,7 +15,7 @@
 - **SAV** (`/commercial/sav`) — sync depuis Sellsy via custom field "Etat des produit = SAV", endpoint `GET /orders/{id}/custom-fields` (le `embed=customfields` ne marche PAS sur `/orders/search`). Types commentaires : NOTE / APPEL / MESSAGE / MAIL / COURRIER.
 - **Pointage** — solde heures supp + bouton "Consommer Xh" (montant custom) + rotation café auto via `src/data/cafe-planning.ts` (popup pointage + banderole partagent la même source).
 - **Permissions par utilisateur** — matrice dans `/administration/parametres` (champ `User.moduleAccessOverrides Json?`).
-- **Banderole actus** — fixe top 28px, items via `/api/news` (cache 2 min) : café auto · Teck Days · container · CA mois · plus grosse commande · meilleur commercial · prochain férié.
+- **Banderole actus** — fixe top 28px, items via `/api/news` (cache 2 min) : café auto · Teck Days · container · CA mois · plus grosse commande · prochain férié. Accepte `?fresh=true` pour bypasser le cache. Écoute l'event global `kokpit:refresh-news` côté client → se synchronise avec le bouton Actualiser du dashboard commercial. **Refresh éclair** : à chaque calcul, re-fetch du `statutSellsy` des BDC du mois où il est NULL (max 50, cap 20s) → garantit que les BDC annulés récents sont exclus.
 - **Need Price** (`/achat/need-price`) — quand Elaury passe en PRIX_RECU, email au demandeur **avec CC Bernard + Michelle + Daniella**.
 - **Notifications cloche** filtrées par user assigné (sauf ADMIN/DIRECTION qui voient tout).
 - **SLA** : 48h, mais **relances automatiques DÉSACTIVÉES** (mai 2026, demande Laurence). Plus aucun email auto ni création de tâche. Le calcul du dépassement reste affiché en UI (badge sur `/leads`). Le job `sla-check` retourne juste un compteur (`status: "disabled"`).
@@ -54,6 +54,43 @@ Pour les chiffres CA / volumes BDC + Devis du rapport mensuel :
 → **Vérifications validées** :
 - Avril 2026 : 42 BDC bruts → **37 BDC / 55 189,99 €** ✅ match Sellsy
 - Avril 2024 : 61 BDC bruts → **54 BDC / 59 165,19 €** ✅ match Sellsy
+- Mai 2026 (au 9 mai) : 12 BDC filtrés / **17 035,11 €** ✅ identique entre banderole et dashboard
+
+### Dashboard commercial (`/commercial`) — refonte 9 mai 2026
+**Tous les montants sont en HT** (priorité `total_excl_tax` / `total_raw_excl_tax`, fallback TTC seulement pour les BDC anciens sans HT explicite).
+- Fichier : `src/app/(app)/commercial/page.tsx`, fonction `getAmount`.
+- Labels mis à jour : "CA Devis (HT)", "CA Commandes (HT)".
+- Composants déjà HT auparavant : `EvolutionCharts`, `PerformanceTable` (API `total_excl_tax`), `SalesObjective`, `expiring-quotes` (corrigé).
+
+**Filtres période** : Aujourd'hui · Cette semaine · Ce mois-ci · **Mois dernier (M-1)** · Cette année.
+- `getPeriodDates` ajoute `month_prev` : 1er du mois précédent → dernier jour du mois précédent.
+- `getPreviousPeriodDates("month_prev")` = M-2 (pour les variations).
+- `/api/sellsy/performance` accepte aussi `today` et `month_prev`.
+- La `PerformanceTable` est désormais **contrôlée par le parent** quand `period` est passé en prop → un seul sélecteur partagé.
+
+**KPI cards** :
+- KPI "Produits" supprimée (catalogue accessible via `/commercial/catalogue`)
+- Grille passée de 5 à 4 cartes
+- Sections "Derniers devis" et "Dernières commandes" supprimées (la `PerformanceTable` couvre déjà la perf détaillée)
+
+**Breakdown Etat des produits sur Devis + Commandes** :
+- Affiche 📦 En stock · ⏳ Sur commande · Mixte (si > 0)
+- Source : DB locale `Vente.etatProduit` / `Devis.etatProduit`
+- Endpoint : `GET /api/commercial/etat-stock-stats?start=ISO&end=ISO`
+- Buckets :
+  - `enStock` = `EN STOCK` + `ARRIVAGE M+1/2/3` (+ `M+1`, `M+2`, `M+3`)
+  - `surCommande` = `SUR COMMANDE`
+  - `mixte` = `1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE`
+  - `autre` = SAV / RETOUR / COMMANDE MAGASIN / ...
+  - `nonRenseigne` = etatProduit NULL (non affiché côté UI)
+
+**ConversionTime fix** :
+- Avant : ne trouvait pas les conversions devis pré-période → commande dans la période.
+- Après : reçoit `allEstimates` (toute la fenêtre chargée), `orders` filtrés par période → calcul cross-période correct.
+
+**Champ `surMesure` Boolean? ajouté sur Vente + Devis** (migration `add_sur_mesure_devis_vente` appliquée Supabase).
+- Pas affiché actuellement (pivot vers Etat des produits demandé).
+- Conservé pour usage futur — déjà alimenté par `fetchEtatAndStatus` quand le custom field "Sur-mesure" est présent côté Sellsy.
 
 ### Reconstruction DB historique (mai 2026)
 - Endpoint `/api/admin/deep-sync-sellsy?since=YYYY-MM-DD&type=both` : sync paginée TOUS BDC + Devis Sellsy, sans limite de fenêtre. Resumable via `nextOffset`.
@@ -76,16 +113,24 @@ Pour les chiffres CA / volumes BDC + Devis du rapport mensuel :
 - **Cron Vercel envoie GET (pas POST)** + UA `vercel-cron`. Toute route déclenchée par cron doit avoir un handler GET ET accepter l'UA `vercel-cron` en bypass auth (même logique que Bearer `CRON_API_SECRET`).
 
 ### Crons Vercel actifs (`vercel.json`)
-| Path | Schedule | Rôle |
-|---|---|---|
-| `/api/cron?job=sync-sellsy` | `0 */2 * * *` | Sync BDC + Devis + etatProduit + statutSellsy |
-| `/api/sellsy/sync-catalogue` | `0 4 * * 1,4` | Items + déclinaisons — **lundi + jeudi 4h** (filet de sécurité, le webhook Sellsy gère le temps réel) |
-| `/api/sellsy/tracabilite?fresh=true` | `30 */6 * * *` | LiaisonDevisCommande (matching BDC↔devis) |
-| `/api/admin/refresh-etat-produit?onlyMissing=true&limit=500` | `15 3 * * *` | Backfill custom field "Etat des produit" |
-| `/api/cron?job=sync-club` | `5 6 * * *` | Sync Club Pro |
-| `/api/cron?job=relance` | `0 9 * * *` | Relances clients |
-| `/api/cron?job=cross-sell` | `30 9 * * *` | Cross-sell |
-| `/api/recap-hebdo` | `57 8 * * 2` | Récap hebdo direction |
+**Note** : toutes les heures sont **UTC** (Réunion = UTC+4).
+
+| Path | Schedule (UTC) | Heure Réunion | Rôle |
+|---|---|---|---|
+| `/api/cron?job=sync-sellsy` | `0 */2 * * *` | toutes les 2h | Sync BDC + Devis + etatProduit + statutSellsy |
+| `/api/sellsy/sync-catalogue` | `0 4 * * 1,4` | Lun + Jeu 8h | Items + déclinaisons (filet — le webhook gère le temps réel) |
+| `/api/sellsy/tracabilite?fresh=true` | `30 */6 * * *` | toutes les 6h | LiaisonDevisCommande (matching BDC↔devis) |
+| `/api/admin/refresh-etat-produit?type=orders&limit=2000` | `0 21 * * *` | 01h00 | Backfill BDC nuit (passe 1) |
+| `/api/admin/refresh-etat-produit?type=orders&limit=2000` | `30 21 * * *` | 01h30 | Backfill BDC nuit (passe 2) |
+| `/api/admin/refresh-etat-produit?type=orders&limit=2000` | `0 22 * * *` | 02h00 | Backfill BDC nuit (passe 3) |
+| `/api/admin/refresh-etat-produit?type=estimates&limit=2000` | `30 22 * * *` | 02h30 | Backfill Devis nuit |
+| `/api/admin/refresh-etat-produit?limit=2000` | `15 23 * * *` | 03h15 | Filet quotidien (both types) |
+| `/api/cron?job=sync-club` | `5 6 * * *` | 10h05 | Sync Club Pro |
+| `/api/cron?job=relance` | `0 9 * * *` | 13h00 | Relances clients |
+| `/api/cron?job=cross-sell` | `30 9 * * *` | 13h30 | Cross-sell |
+| `/api/recap-hebdo` | `57 8 * * 2` | Mardi 12h57 | Récap hebdo direction |
+
+Toutes les routes ont `onlyMissing=true` quand absent — donc inoffensif une fois l'historique rempli (0 résultat scannable).
 
 ⚠️ **Cron `sla-check` retiré** — voir section "SLA" ci-dessus. Code de la fonction conservé mais retourne `status: "disabled"` sans envoyer d'email.
 
@@ -119,6 +164,14 @@ Le handler :
 - `src/app/api/sellsy/sync-catalogue/route.ts` : `TIME_BUDGET_MS = 12 * 60 * 1000` (avant : 4.5 min, héritage Hobby).
 - Symptôme avant fix : déclinaisons (1700+) bloquées au 2026-04-15. Le loop coupait avant d'attaquer les déclinaisons après l'upsert des items.
 - Mode **oldest-first** — chaque cron progresse sur les déclinaisons les plus anciennes en stock. Aucune perte si un run est partiel.
+
+### Fichiers nouveaux importants (mai 2026)
+- `src/lib/reporting-filter.ts` — helper centralisé pour le filtre Laurence
+- `src/app/api/admin/deep-sync-sellsy/route.ts` — sync historique BDC + Devis
+- `src/app/api/admin/refresh-etat-produit/route.ts` — backfill `etatProduit` + `statutSellsy` + `surMesure`
+- `src/app/api/commercial/etat-stock-stats/route.ts` — breakdown En stock/Sur commande pour dashboard
+- `src/app/api/webhooks/sellsy/route.ts` — webhook Sellsy v1 temps réel
+- `src/app/dashboard/page.tsx` — redirect legacy `/dashboard` → `/marketing`
 
 ### Modèles supprimés (avril–mai 2026, ne pas tenter de réintroduire)
 - Stock ABC, Alertes stock, Arrivages (`Arrivage`, `LigneArrivage`, `BdcArrivage`)
