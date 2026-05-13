@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 9 mai 2026 (v30 — cleanup massif : -60 fichiers, -10 modèles Prisma)
-**Mis à jour par** : Session Claude Code (sprint mai — audit + nettoyage profond)
+**Dernière mise à jour** : 13 mai 2026 (v31 — Daily Briefing `/aujourd-hui`)
+**Mis à jour par** : Session Claude Code (sprint mai — page matinale Bernard/Daniella)
 
 ---
 
@@ -18,6 +18,7 @@
 - **Banderole actus** — fixe top 28px, items via `/api/news` (cache 2 min) : café auto · Teck Days · container · CA mois · plus grosse commande · prochain férié. Accepte `?fresh=true` pour bypasser le cache. Écoute l'event global `kokpit:refresh-news` côté client → se synchronise avec le bouton Actualiser du dashboard commercial. **Refresh éclair** : à chaque calcul, re-fetch du `statutSellsy` des BDC du mois où il est NULL (max 50, cap 20s) → garantit que les BDC annulés récents sont exclus.
 - **Need Price** (`/achat/need-price`) — quand Elaury passe en PRIX_RECU, email au demandeur **avec CC Bernard + Michelle + Daniella**.
 - **Notifications cloche** filtrées par user assigné (sauf ADMIN/DIRECTION qui voient tout).
+- **Daily Briefing** (`/aujourd-hui`) — page matinale Bernard + Daniella : 4 blocs (leads brûlants 48h, devis expirants <5j, mood mensuel par showroom, tâches du jour). Accès via flag `User.dailyBriefingEligible`. ADMIN/DIRECTION/MARKETING en vue agrégée avec toggle "Tous / Bernard / Daniella". Admin UI : `/administration/daily-briefing`.
 - **SLA** : 48h, mais **relances automatiques DÉSACTIVÉES** (mai 2026, demande Laurence). Plus aucun email auto ni création de tâche. Le calcul du dépassement reste affiché en UI (badge sur `/leads`). Le job `sla-check` retourne juste un compteur (`status: "disabled"`).
 
 ### Flow email
@@ -485,6 +486,7 @@ Fichiers : `src/components/layout/sidebar.tsx` · `src/lib/nav-config.ts` · `sr
 
 | Sprint | Détails | Statut |
 |---|---|---|
+| **v31 — Daily Briefing `/aujourd-hui`** | Page matinale Bernard/Daniella (4 cards : leads brûlants/devis expirants/mood mensuel/tâches jour). Endpoint unique cache 5min, accès via `User.dailyBriefingEligible`, toggle agrégé pour ADMIN/DIRECTION/MARKETING. Page admin dédiée `/administration/daily-briefing` | ✅ 13 mai |
 | **v30 — Cleanup massif** | -60 fichiers (routes mortes, composants orphelins, 7 modèles Prisma droppés), refacto `getAmount`, sécurité dashboard-stats, doc archivée | ✅ 9 mai |
 | **v29 — Dashboard commercial HT** | Tous montants en HT, filtre "Mois dernier", breakdown En stock/Sur commande, fix ConversionTime cross-période | ✅ 9 mai |
 | **v28 — Reconstruction DB historique** | Deep-sync BDC + Devis depuis 2019 (2 813 BDC + 7 071 Devis), `/dashboard` → `/marketing` | ✅ 8 mai |
@@ -597,7 +599,8 @@ Pour l'**historique complet des features** (janvier → avril 2026 : Club Tecton
 
 ### Modèles métier
 
-- **User** — collaborateurs DIMEXOI (rôles : ADMIN, MARKETING, COMMERCIAL, DIRECTION, ACHAT). Champs : `pointageActif`, `pointageDelegueId`, `soldeHeures`, `moduleAccessOverrides` (JSON granulaire).
+- **User** — collaborateurs DIMEXOI (rôles : ADMIN, MARKETING, COMMERCIAL, DIRECTION, ACHAT). Champs : `pointageActif`, `pointageDelegueId`, `soldeHeures`, `moduleAccessOverrides` (JSON granulaire), `dailyBriefingEligible` (flag accès `/aujourd-hui`).
+- **Showroom** — `nom`, `adresse`, `emailNotif`, `objectifMensuelHT Float?` (objectif CA HT mensuel, utilisé par le mood Daily Briefing).
 - **Contact** — `email` unique, `sellsyContactId` (CSV pour multi-IDs Sellsy individuals/companies), `lifecycleStage`, `showroomId`, RGPD/consentements, scoring (calculé à la volée — `scoreRfm`/`recence`/`frequence`/`montant` stockés pour Last Click historique seulement)
 - **Devis** — champs Sellsy : `sellsyQuoteId` unique, `numero`, `statut` (mappé KOKPIT), `statutSellsy` (brut), `etatProduit` (custom field), `surMesure` (custom field), `dateDevisSellsy` (date Sellsy ≠ Prisma createdAt), `dateEnvoi`, `dateRelance`
 - **Vente** — BDC Sellsy : `sellsyInvoiceId` unique, `numero`, `montant` HT, `dateVente`, `statutSellsy`, `etatProduit`, `surMesure`, `produits` JSON
@@ -1014,4 +1017,4 @@ model ClubMembre {
 
 ---
 
-*KOKPIT.md — feuille de route DIMEXOI — v30 — 9 mai 2026*
+*KOKPIT.md — feuille de route DIMEXOI — v31 — 13 mai 2026*
