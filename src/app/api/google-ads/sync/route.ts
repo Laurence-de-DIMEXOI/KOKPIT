@@ -8,10 +8,18 @@ export const maxDuration = 60;
 // ─── Env vars requis ───────────────────────────────────────────────────────
 // GOOGLE_ADS_DEVELOPER_TOKEN  : Google Ads → Outils → Centre API
 // GOOGLE_ADS_CUSTOMER_ID      : ID compte sans tirets (ex: 1234567890)
-// GOOGLE_CLIENT_ID            : Google Cloud Console → OAuth 2.0
-// GOOGLE_CLIENT_SECRET        : idem
-// GOOGLE_REFRESH_TOKEN        : via OAuth Playground (accounts.google.com/o/oauth2/playground)
+// GOOGLE_ADS_CLIENT_ID        : Google Cloud Console → OAuth 2.0  (alias GOOGLE_CLIENT_ID accepté)
+// GOOGLE_ADS_CLIENT_SECRET    : idem                              (alias GOOGLE_CLIENT_SECRET accepté)
+// GOOGLE_ADS_REFRESH_TOKEN    : via OAuth Playground               (alias GOOGLE_REFRESH_TOKEN accepté)
 // ──────────────────────────────────────────────────────────────────────────
+
+function envOAuth(): { clientId?: string; clientSecret?: string; refreshToken?: string } {
+  return {
+    clientId: process.env.GOOGLE_ADS_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_ADS_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+    refreshToken: process.env.GOOGLE_ADS_REFRESH_TOKEN || process.env.GOOGLE_REFRESH_TOKEN,
+  };
+}
 
 const GADS_BASE = "https://googleads.googleapis.com/v20";
 
@@ -28,13 +36,19 @@ const PERIOD_MAP: Record<string, string> = {
 };
 
 async function getAccessToken(): Promise<string> {
+  const { clientId, clientSecret, refreshToken } = envOAuth();
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(
+      "OAuth Google Ads incomplet — vérifier GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET / GOOGLE_ADS_REFRESH_TOKEN sur Vercel"
+    );
+  }
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN!,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
   });
