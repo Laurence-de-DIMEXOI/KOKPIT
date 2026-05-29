@@ -476,7 +476,6 @@ model DemandePrix {
 
   // Relations
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  projetsSurMesure ProjetSurMesure[]
 
   @@index([contactId])
   @@index([dateDemande])
@@ -932,9 +931,9 @@ model ProjetSurMesure {
   // Assigné au dessin (Laurent par défaut)
   assigneId String?
   assigne   User?   @relation("ProjetAssigne", fields: [assigneId], references: [id])
-  // Lien Need Price (réutilise DemandePrix) — un projet PEUT déclencher un Need Price
-  demandePrixId String?
-  demandePrix   DemandePrix? @relation(fields: [demandePrixId], references: [id])
+  // Lien Need Price (modèle NeedPrice — envoi à Elaury) — déclenchable à tout moment
+  needPriceId String?
+  needPrice   NeedPrice? @relation("ProjetNeedPrice", fields: [needPriceId], references: [id])
   // Relations
   documents    DocumentProjetSurMesure[]
   commentaires CommentaireProjetSurMesure[]
@@ -1144,6 +1143,7 @@ model NeedPrice {
   notes           String?
   createdById     String
   createdBy       User     @relation("NeedPriceCreator", fields: [createdById], references: [id])
+  projetsSurMesure ProjetSurMesure[] @relation("ProjetNeedPrice")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
