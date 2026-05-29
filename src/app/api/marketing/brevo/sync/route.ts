@@ -80,8 +80,20 @@ async function brevoFetch(path: string, options?: RequestInit) {
   return res.json();
 }
 
+// Brevo n'accepte pas <, >, €, () dans les noms de listes
+function sanitizeBrevoListName(name: string): string {
+  return name
+    .replace(/>/g, "sup.")
+    .replace(/</g, "inf.")
+    .replace(/€/g, "EUR")
+    .replace(/[()]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // Créer ou récupérer une liste Brevo par nom
 async function getOrCreateBrevoList(name: string): Promise<number> {
+  name = sanitizeBrevoListName(name);
   // Chercher la liste existante
   try {
     const listsRes = await brevoFetch("/contacts/lists?limit=50&offset=0");

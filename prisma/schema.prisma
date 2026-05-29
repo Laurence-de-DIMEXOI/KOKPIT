@@ -83,6 +83,46 @@ enum EvenementType {
   VISITE_WEB
   RDV_PRIS
   RDV_ANNULE
+  // Module Sur-Mesure
+  PROJET_CREE
+  DESSIN_AJOUTE
+  NEED_PRICE_ENVOYE
+  PRIX_RECU
+  PROJET_GAGNE
+  PROJET_PERDU
+}
+
+// ===== Module Sur-Mesure =====
+enum TypeProjetSurMesure {
+  CUISINE
+  DRESSING
+  SDB
+  MOBILIER
+  AMENAGEMENT_COLLECTIVITE
+  AUTRE
+}
+
+enum StatutProjetSurMesure {
+  DEMANDE
+  DESSIN_DEMANDE
+  RDV_CLIENT
+  DESSIN_EN_COURS
+  PLANS_PRETS
+  NEED_PRICE
+  PRIX_RECU
+  PRESENTE_CLIENT
+  GAGNE
+  PERDU
+}
+
+enum PrioriteProjet {
+  NORMAL
+  URGENT
+}
+
+enum TypeDocSellsy {
+  DEVIS // DEPI
+  BON_COMMANDE // BCDI
 }
 
 enum TaskStatut {
@@ -151,6 +191,10 @@ model User {
   messagesSent         MessageChat[]          @relation("MessageChatExpediteur")
   reactionsMessages    ReactionMessage[]      @relation("ReactionsUser")
   needPrices           NeedPrice[]            @relation("NeedPriceCreator")
+  projetsSurMesure     ProjetSurMesure[]      @relation("ProjetProprietaire")
+  projetsAssignes      ProjetSurMesure[]      @relation("ProjetAssigne")
+  docsProjetSurMesure  DocumentProjetSurMesure[] @relation("DocProjetUploader")
+  commentairesProjet   CommentaireProjetSurMesure[] @relation("CommentProjetAuteur")
 
   @@index([showroomId])
 }
@@ -214,6 +258,7 @@ model Contact {
   tasks        Task[]
   dossiersSav  DossierSAV[]
   rendezVous   RendezVous[]
+  projetsSurMesure ProjetSurMesure[]
 
   @@index([telephone])
   @@index([sellsyContactId])
@@ -858,6 +903,86 @@ model ConfigApp {
 // SAV / LITIGES
 // ============================================================================
 
+// ============================================================================
+// MODULE SUR-MESURE (remplace le board Trello "Dimexoi Equipe")
+// ============================================================================
+
+model ProjetSurMesure {
+  id          String                @id @default(cuid())
+  numero      String                @unique // SM-2026-XXXX
+  titre       String
+  typeProjet  TypeProjetSurMesure
+  statut      StatutProjetSurMesure @default(DEMANDE)
+  priorite    PrioriteProjet        @default(NORMAL)
+  // Brief technique de Laurent (texte riche, semi-libre)
+  briefTechnique String? @db.Text
+  // Lien client
+  contactId   String?
+  contact     Contact?              @relation(fields: [contactId], references: [id])
+  // Lien Sellsy (devis OU bon de commande) — lecture seule
+  numeroSellsy     String? // DEPI-XXXXX ou BCDI-XXXXX
+  typeSellsy       TypeDocSellsy?
+  montantSellsy    Float?
+  statutConversion String?
+  montantSyncedAt  DateTime?
+  // Propriétaire (commercial créateur)
+  proprietaireId String
+  proprietaire   User   @relation("ProjetProprietaire", fields: [proprietaireId], references: [id])
+  // Assigné au dessin (Laurent par défaut)
+  assigneId String?
+  assigne   User?   @relation("ProjetAssigne", fields: [assigneId], references: [id])
+  // Lien Need Price (modèle NeedPrice — envoi à Elaury) — déclenchable à tout moment
+  needPriceId String?
+  needPrice   NeedPrice? @relation("ProjetNeedPrice", fields: [needPriceId], references: [id])
+  // Relations
+  documents    DocumentProjetSurMesure[]
+  commentaires CommentaireProjetSurMesure[]
+  rendezVous   RendezVous[]
+  echeance     DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([statut])
+  @@index([typeProjet])
+  @@index([proprietaireId])
+  @@index([assigneId])
+}
+
+model DocumentProjetSurMesure {
+  id            String          @id @default(cuid())
+  projetId      String
+  projet        ProjetSurMesure @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  nom           String
+  type          String // photo | croquis | inspiration | plan_3d | autre
+  url           String
+  path          String
+  estCouverture Boolean         @default(false)
+  uploadedById  String
+  uploadedBy    User            @relation("DocProjetUploader", fields: [uploadedById], references: [id])
+  createdAt     DateTime        @default(now())
+  deletedAt     DateTime?
+
+  @@index([projetId])
+}
+
+model CommentaireProjetSurMesure {
+  id        String          @id @default(cuid())
+  projetId  String
+  projet    ProjetSurMesure @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  auteurId  String
+  auteur    User            @relation("CommentProjetAuteur", fields: [auteurId], references: [id])
+  contenu   String          @db.Text
+  createdAt DateTime        @default(now())
+  deletedAt DateTime?
+
+  @@index([projetId])
+}
+
+// ============================================================================
+// SAV / LITIGES
+// ============================================================================
+
 model DossierSAV {
   id              String    @id @default(cuid())
   numero          String    @unique
@@ -1018,6 +1143,7 @@ model NeedPrice {
   notes           String?
   createdById     String
   createdBy       User     @relation("NeedPriceCreator", fields: [createdById], references: [id])
+  projetsSurMesure ProjetSurMesure[] @relation("ProjetNeedPrice")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1070,6 +1196,8 @@ model RendezVous {
   productSlug     String? // Slug produit si RDV pris depuis fiche produit
   utm             String? // JSON stringifié des UTM
   notes           String? // Notes libres du commercial
+  projetSurMesureId String?
+  projetSurMesure   ProjetSurMesure? @relation(fields: [projetSurMesureId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1077,6 +1205,7 @@ model RendezVous {
   @@index([statut])
   @@index([dateDebut])
   @@index([source])
+  @@index([projetSurMesureId])
 }
 
 // ============================================================================
