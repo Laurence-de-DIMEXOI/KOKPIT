@@ -36,6 +36,7 @@ export type Module =
   | "parametres-achat"
   | "operations-marketing"
   | "daily-briefing"
+  | "sur-mesure"
 ;
 
 /**
@@ -74,6 +75,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "pointage",
     "pointage-equipe",
     "sav",
+    "sur-mesure",
     "messagerie",
     "need-price",
     "calculateur",
@@ -99,6 +101,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "liens-utiles",
     "pointage",
     "sav",
+    "sur-mesure",
     "conges",
     // Commercial
     "dashboard-commercial",
@@ -124,6 +127,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "leads",
     "contacts",
     "sav",
+    "sur-mesure",
     // Général
     "docs",
     "club-tectona",
@@ -165,6 +169,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "pointage",
     "pointage-equipe",
     "sav",
+    "sur-mesure",
     "messagerie",
     "need-price",
     "calculateur",
@@ -180,6 +185,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "dashboard-commercial",
     "commandes",
     "sav",
+    "sur-mesure",
     "catalogue",
     "contacts",
     // Général

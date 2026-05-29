@@ -25,6 +25,7 @@ import {
   Truck,
   Sparkles,
   Sunrise,
+  Ruler,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -60,6 +61,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
+      { label: "Sur-Mesure", href: "/commercial/sur-mesure", icon: Ruler, module: "sur-mesure" },
       { label: "Catalogue", href: "/commercial/catalogue", icon: Package, module: "catalogue" },
     ],
   },
