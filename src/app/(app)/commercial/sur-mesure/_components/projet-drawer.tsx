@@ -117,7 +117,7 @@ export function ProjetDrawer({ projetId, onClose, onChange }: Props) {
             </div>
 
             <div className="p-4">
-              {tab === "demande" && <TabDemande projet={projet} patch={patch} busy={busy} />}
+              {tab === "demande" && <TabDemande projet={projet} patch={patch} busy={busy} reload={load} />}
               {tab === "plans" && <TabPlans projet={projet} reload={load} />}
               {tab === "needprice" && <TabNeedPrice projet={projet} projetId={projetId} reload={() => { load(); onChange(); }} />}
               {tab === "sellsy" && <TabSellsy projet={projet} patch={patch} refresh={refreshSellsy} busy={busy} />}
@@ -135,10 +135,12 @@ export function ProjetDrawer({ projetId, onClose, onChange }: Props) {
   );
 }
 
-function TabDemande({ projet, patch, busy }: any) {
+function TabDemande({ projet, patch, busy, reload }: any) {
   const [brief, setBrief] = useState(projet.briefTechnique || "");
+  // Images de contexte = tout sauf les plans 3D
+  const images = (projet.documents || []).filter((d: any) => d.type !== "plan_3d");
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {projet.contact && (
         <div className="text-sm">
           <span className="text-cockpit-secondary">Client : </span>
@@ -149,8 +151,24 @@ function TabDemande({ projet, patch, busy }: any) {
       <div className="text-sm"><span className="text-cockpit-secondary">Propriétaire : </span>{projet.proprietaire?.prenom} {projet.proprietaire?.nom}</div>
       <div>
         <label className="block text-xs font-semibold text-cockpit-secondary mb-1">Brief technique</label>
-        <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={8} className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm" placeholder="Mesures, dimensions, configuration, références produits..." />
+        <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={6} className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm" placeholder="Mesures, dimensions, configuration, références produits..." />
         <button onClick={() => patch({ briefTechnique: brief })} disabled={busy} className="mt-2 px-3 py-1.5 rounded-lg text-sm font-semibold text-white" style={{ background: TEAL }}>Enregistrer le brief</button>
+      </div>
+
+      {/* Images de contexte */}
+      <div>
+        <label className="block text-xs font-semibold text-cockpit-secondary mb-2">Images (modèle, pièce, inspiration, croquis)</label>
+        <UploadZone projetId={projet.id} type="photo" reload={reload} label="Ajouter une image" accept="image/*" />
+        {images.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mt-2">
+            {images.map((d: any) => (
+              <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="group relative block aspect-square rounded-lg overflow-hidden border border-cockpit bg-cockpit-dark/30">
+                <span className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${d.url})` }} />
+                <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[9px] px-1 py-0.5 truncate">{d.nom}</span>
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -160,8 +178,8 @@ function TabPlans({ projet, reload }: any) {
   const plans = projet.documents.filter((d: any) => d.type === "plan_3d");
   return (
     <div className="space-y-3">
-      <p className="text-xs text-cockpit-secondary">Les plans 3D ajoutés notifient automatiquement l'équipe.</p>
-      <UploadZone projetId={projet.id} type="plan_3d" reload={reload} label="Ajouter un plan 3D (PDF/image)" />
+      <p className="text-xs text-cockpit-secondary">Le plan 3D final (PDF) sera celui envoyé en Need Price. L'ajout notifie l'équipe.</p>
+      <UploadZone projetId={projet.id} type="plan_3d" reload={reload} label="Ajouter le plan 3D final (PDF)" accept="application/pdf" />
       {plans.length === 0 ? <p className="text-sm text-cockpit-secondary py-4 text-center">Aucun plan pour le moment.</p> : (
         <ul className="space-y-2">
           {plans.map((d: any) => (
@@ -176,16 +194,16 @@ function TabPlans({ projet, reload }: any) {
 }
 
 function TabNeedPrice({ projet, projetId, reload }: any) {
-  const [lignes, setLignes] = useState([{ denomination: "", dimensions: "", finitions: "" }]);
-  const [notes, setNotes] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Déjà envoyé → on affiche le récap + prix reçu
   if (projet.needPrice) {
     const np = projet.needPrice;
     return (
       <div className="space-y-2 text-sm">
         <div className="p-3 rounded-lg bg-cockpit-dark/30 border border-cockpit">
           <p className="font-semibold">{np.reference} <span className="text-xs font-normal text-cockpit-secondary">· {np.statut}</span></p>
+          {np.refDevis && <p className="text-xs text-cockpit-secondary mt-0.5">Devis : {np.refDevis}</p>}
           {np.prixVente != null && <p className="mt-1">Prix de vente : <strong>{eur(np.prixVente)}</strong></p>}
           {np.prixMinimum != null && <p>Prix minimum : {eur(np.prixMinimum)}</p>}
           {np.statut === "DEMANDE" && <p className="text-xs text-cockpit-secondary mt-1">En attente du prix d'Elaury.</p>}
@@ -194,33 +212,52 @@ function TabNeedPrice({ projet, projetId, reload }: any) {
     );
   }
 
+  // Pré-requis : DEPI + un plan 3D
+  const refDevis = (projet.numeroSellsy || "").trim();
+  const hasDepi = refDevis.toUpperCase().startsWith("DEPI");
+  const plan3d = (projet.documents || []).find((d: any) => d.type === "plan_3d");
+  const pret = hasDepi && plan3d;
+
   const send = async () => {
-    const valides = lignes.filter((l) => l.denomination.trim() && l.dimensions.trim());
-    if (valides.length === 0) { alert("Au moins un meuble (dénomination + dimensions)"); return; }
     setSending(true);
     try {
-      const res = await fetch(`/api/sur-mesure/${projetId}/need-price`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lignes: valides, notes: notes || null }),
-      });
+      const res = await fetch(`/api/sur-mesure/${projetId}/need-price`, { method: "POST" });
       if (res.ok) reload();
       else { const d = await res.json(); alert(d.error); }
     } finally { setSending(false); }
   };
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-cockpit-secondary">Envoie une demande de prix à Elaury (Achat). Déclenchable à tout moment.</p>
-      {lignes.map((l, i) => (
-        <div key={i} className="grid grid-cols-3 gap-2">
-          <input value={l.denomination} onChange={(e) => { const n = [...lignes]; n[i].denomination = e.target.value; setLignes(n); }} placeholder="Dénomination" className="px-2 py-1.5 rounded border border-cockpit bg-white text-sm" />
-          <input value={l.dimensions} onChange={(e) => { const n = [...lignes]; n[i].dimensions = e.target.value; setLignes(n); }} placeholder="Dimensions" className="px-2 py-1.5 rounded border border-cockpit bg-white text-sm" />
-          <input value={l.finitions} onChange={(e) => { const n = [...lignes]; n[i].finitions = e.target.value; setLignes(n); }} placeholder="Finition" className="px-2 py-1.5 rounded border border-cockpit bg-white text-sm" />
-        </div>
-      ))}
-      <button onClick={() => setLignes([...lignes, { denomination: "", dimensions: "", finitions: "" }])} className="text-xs text-cockpit-secondary">+ Ajouter une ligne</button>
-      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Notes (optionnel)" className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm" />
-      <button onClick={send} disabled={sending} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: TEAL }}>{sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Envoyer le Need Price</button>
+    <div className="space-y-3 text-sm">
+      <p className="text-xs text-cockpit-secondary">
+        Envoie une demande de prix à Elaury selon la structure Need Price : référence DEPI + plan 3D PDF. Suffisant pour les sur-mesure de Laurent.
+      </p>
+
+      {/* Récap de ce qui sera envoyé */}
+      <div className="p-3 rounded-lg bg-cockpit-dark/30 border border-cockpit space-y-1.5">
+        <p className="text-xs font-semibold text-cockpit-secondary uppercase mb-1">Sera envoyé à Elaury</p>
+        <p className="flex items-center gap-2">
+          <span className={hasDepi ? "text-green-700" : "text-red-600"}>{hasDepi ? "✓" : "✗"}</span>
+          Devis : <strong>{hasDepi ? refDevis : "DEPI manquant (onglet Sellsy)"}</strong>
+        </p>
+        <p className="flex items-center gap-2">
+          <span className={plan3d ? "text-green-700" : "text-red-600"}>{plan3d ? "✓" : "✗"}</span>
+          Plan 3D : <strong>{plan3d ? plan3d.nom : "aucun PDF (onglet Plans 3D)"}</strong>
+        </p>
+      </div>
+
+      <button
+        onClick={send}
+        disabled={sending || !pret}
+        className={clsx(
+          "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white",
+          !pret && "opacity-50 cursor-not-allowed"
+        )}
+        style={{ background: TEAL }}
+      >
+        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Envoyer en Need Price
+      </button>
+      {!pret && <p className="text-xs text-cockpit-secondary">Renseigne le devis DEPI (onglet Sellsy) et ajoute le plan 3D PDF (onglet Plans 3D) pour activer l'envoi.</p>}
     </div>
   );
 }
@@ -301,14 +338,13 @@ function TabCommentaires({ projet, projetId, reload }: any) {
 }
 
 // Upload Supabase + register
-function UploadZone({ projetId, type, reload, label }: { projetId: string; type: string; reload: () => void; label: string }) {
+function UploadZone({ projetId, type, reload, label, accept }: { projetId: string; type: string; reload: () => void; label: string; accept?: string }) {
   const [uploading, setUploading] = useState(false);
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     try {
-      // Upload via endpoint générique de media (multipart) — réutilise /api/upload si dispo
       const fd = new FormData();
       fd.append("file", file);
       fd.append("folder", "sur-mesure");
@@ -326,7 +362,7 @@ function UploadZone({ projetId, type, reload, label }: { projetId: string; type:
     <label className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-cockpit text-sm text-cockpit-secondary cursor-pointer hover:border-cockpit-info/40">
       {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
       {uploading ? "Upload..." : label}
-      <input type="file" className="hidden" onChange={handleFile} accept="image/*,application/pdf" />
+      <input type="file" className="hidden" onChange={handleFile} accept={accept || "image/*,application/pdf"} />
     </label>
   );
 }

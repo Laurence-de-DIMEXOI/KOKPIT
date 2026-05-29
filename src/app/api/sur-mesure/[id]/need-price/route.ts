@@ -4,55 +4,53 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/resend";
 import { notifierTransitionProjet } from "@/lib/sur-mesure-notifications";
-import { z } from "zod";
-
-const ligneSchema = z.object({
-  denomination: z.string().min(1),
-  dimensions: z.string().min(1),
-  finitions: z.string().optional().nullable(),
-});
-
-const schema = z.object({
-  lignes: z.array(ligneSchema).min(1),
-  notes: z.string().optional().nullable(),
-});
-
-// Destinataires Need Price (équipe achat + CC, comme le module need-price existant)
-const NEED_PRICE_DESTINATAIRES = [
-  "dimexoidepi@gmail.com", // Elaury
-];
-const NEED_PRICE_CC = ["bernard@dimexoi.fr", "michelle.perrot@dimexoi.fr", "commercial@dimexoi.fr"];
 
 /**
  * POST /api/sur-mesure/[id]/need-price
- * Crée un NeedPrice (NP-2026-XXX) pré-rempli depuis le projet, le lie au projet,
- * notifie Elaury + équipe, et passe le projet en statut NEED_PRICE.
- * Déclenchable à tout moment (pas verrouillé à une étape).
+ *
+ * Need Price simplifié pour les sur-mesure de Laurent : on envoie juste
+ *   - la référence DEPI- (numeroSellsy du projet)
+ *   - le dernier PDF plan 3D uploadé
+ * à Elaury (structure du webhook Need Price existant).
+ *
+ * Crée un NeedPrice (NP-2026-XXX) lié au projet + email Elaury/CC + passe en NEED_PRICE.
+ * Déclenchable à tout moment.
  */
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+
+const NEED_PRICE_DESTINATAIRES = ["dimexoidepi@gmail.com"]; // Elaury
+const NEED_PRICE_CC = ["bernard@dimexoi.fr", "michelle.perrot@dimexoi.fr", "commercial@dimexoi.fr"];
+
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const userId = (session.user as { id?: string }).id;
   if (!userId) return NextResponse.json({ error: "Session invalide" }, { status: 401 });
   const { id } = await params;
 
-  const body = await req.json().catch(() => null);
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Au moins un meuble (dénomination + dimensions) requis" }, { status: 400 });
-  }
-  const { lignes, notes } = parsed.data;
-
   const projet = await prisma.projetSurMesure.findFirst({
     where: { id, deletedAt: null },
     include: {
       contact: { select: { nom: true, prenom: true } },
       proprietaire: { select: { email: true } },
+      documents: {
+        where: { deletedAt: null, type: "plan_3d" },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
   if (!projet) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  // Génère la référence NP-YYYY-XXX
+  // Pré-requis : DEPI + au moins un plan 3D
+  const refDevis = projet.numeroSellsy?.trim() || "";
+  if (!refDevis.toUpperCase().startsWith("DEPI")) {
+    return NextResponse.json({ error: "Un numéro de devis DEPI- est requis (onglet Sellsy)." }, { status: 400 });
+  }
+  const plan3d = projet.documents[0];
+  if (!plan3d) {
+    return NextResponse.json({ error: "Aucun plan 3D PDF n'a été ajouté (onglet Plans 3D)." }, { status: 400 });
+  }
+
+  // Génère NP-YYYY-XXX
   const year = new Date().getFullYear();
   const last = await prisma.needPrice.findFirst({
     where: { reference: { startsWith: `NP-${year}-` } },
@@ -68,49 +66,45 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const nomClient = projet.contact
     ? `${projet.contact.prenom || ""} ${projet.contact.nom || ""}`.trim()
     : projet.titre;
-  const refDevis = projet.numeroSellsy || "";
-  const first = lignes[0];
+
+  const attachments = [
+    { url: plan3d.url, type: "application/pdf", filename: plan3d.nom, size: 0 },
+  ];
 
   const needPrice = await prisma.needPrice.create({
     data: {
       reference,
       refDevis,
       nomClient,
-      denomination: first.denomination,
-      dimensions: first.dimensions,
-      finitions: first.finitions || null,
-      lignes: lignes as never,
-      notes: notes || `Généré depuis le projet sur-mesure ${projet.numero}`,
+      denomination: projet.titre, // libellé projet (sur-mesure Laurent)
+      attachments: attachments as never,
+      notes: `Sur-mesure ${projet.numero} — plan 3D joint : ${plan3d.nom}`,
       createdById: userId,
     },
   });
 
-  // Lier au projet + passer en NEED_PRICE
+  // Lier + passer en NEED_PRICE
   await prisma.projetSurMesure.update({
     where: { id },
     data: { needPriceId: needPrice.id, statut: "NEED_PRICE" },
   });
 
-  // Email à Elaury + CC (texte, pas de pièces jointes ici — ajout possible dans /achat/need-price)
+  // Email Elaury + CC (lien vers le PDF plan 3D)
   if (process.env.BREVO_API_KEY) {
-    const lignesText = lignes
-      .map((l, i) => `${i + 1}. ${l.denomination} — ${l.dimensions}${l.finitions ? ` — ${l.finitions}` : ""}`)
-      .join("<br>");
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-        <h2 style="color:#0E6973">Need Price ${reference}${refDevis ? ` — ${refDevis}` : ""}</h2>
+        <h2 style="color:#0E6973">Need Price ${reference} — ${refDevis}</h2>
         <p><strong>Client :</strong> ${nomClient}</p>
         <p><strong>Projet sur-mesure :</strong> ${projet.numero} — ${projet.titre}</p>
-        <div style="background:#f8fafc;border-left:4px solid #0E6973;padding:12px 16px;margin:16px 0;border-radius:4px">
-          ${lignesText}
-        </div>
-        ${notes ? `<p><strong>Notes :</strong> ${notes}</p>` : ""}
+        <p style="margin:16px 0">
+          <a href="${plan3d.url}" target="_blank" style="background:#0E6973;color:#fff;padding:10px 18px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">📐 Voir le plan 3D (${plan3d.nom})</a>
+        </p>
         <p style="color:#94a3b8;font-size:12px;margin-top:24px">Demande de prix générée depuis le module Sur-Mesure KOKPIT.</p>
       </div>`;
     try {
       await sendEmail({
         to: [...NEED_PRICE_DESTINATAIRES, ...NEED_PRICE_CC],
-        subject: `Need Price ${reference} — ${nomClient}`,
+        subject: `Need Price ${reference} — ${refDevis} — ${nomClient}`,
         html,
       });
     } catch (e) {
@@ -118,7 +112,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // Notif équipe sur-mesure + journal
+  // Notif équipe + journal
   notifierTransitionProjet({
     projetId: projet.id,
     numero: projet.numero,
@@ -132,8 +126,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       data: {
         contactId: projet.contactId,
         type: "NEED_PRICE_ENVOYE",
-        description: `Need Price ${reference} envoyé pour ${projet.numero}`,
-        metadata: { projetId: projet.id, needPriceRef: reference },
+        description: `Need Price ${reference} envoyé pour ${projet.numero} (plan 3D : ${plan3d.nom})`,
+        metadata: { projetId: projet.id, needPriceRef: reference, refDevis },
       },
     }).catch(() => {});
   }
