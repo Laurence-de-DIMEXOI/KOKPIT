@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, RefreshCw, Send, Trash2, ExternalLink } from "lucide-react";
+import { X, Loader2, RefreshCw, Send, Trash2, ExternalLink, Pencil } from "lucide-react";
 import clsx from "clsx";
 import { getSellsyUrl } from "@/lib/sellsy-urls";
 import type { UserLite } from "./sur-mesure-client";
@@ -136,9 +136,16 @@ export function ProjetDrawer({ projetId, onClose, onChange }: Props) {
 }
 
 function TabDemande({ projet, patch, busy, reload }: any) {
+  const [editBrief, setEditBrief] = useState(false);
   const [brief, setBrief] = useState(projet.briefTechnique || "");
   // Images de contexte = tout sauf les plans 3D
   const images = (projet.documents || []).filter((d: any) => d.type !== "plan_3d");
+
+  const saveBrief = async () => {
+    await patch({ briefTechnique: brief });
+    setEditBrief(false);
+  };
+
   return (
     <div className="space-y-4">
       {projet.contact && (
@@ -149,25 +156,49 @@ function TabDemande({ projet, patch, busy, reload }: any) {
         </div>
       )}
       <div className="text-sm"><span className="text-cockpit-secondary">Propriétaire : </span>{projet.proprietaire?.prenom} {projet.proprietaire?.nom}</div>
+
+      {/* Brief : lecture seule + icône édition */}
       <div>
-        <label className="block text-xs font-semibold text-cockpit-secondary mb-1">Brief technique</label>
-        <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={6} className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm" placeholder="Mesures, dimensions, configuration, références produits..." />
-        <button onClick={() => patch({ briefTechnique: brief })} disabled={busy} className="mt-2 px-3 py-1.5 rounded-lg text-sm font-semibold text-white" style={{ background: TEAL }}>Enregistrer le brief</button>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-semibold text-cockpit-secondary">Brief technique</label>
+          {!editBrief && (
+            <button onClick={() => { setBrief(projet.briefTechnique || ""); setEditBrief(true); }} className="text-cockpit-secondary hover:text-cockpit-primary" title="Modifier le brief">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {editBrief ? (
+          <div>
+            <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={6} autoFocus className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm" placeholder="Mesures, dimensions, configuration, références produits..." />
+            <div className="flex gap-2 mt-2">
+              <button onClick={saveBrief} disabled={busy} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white" style={{ background: TEAL }}>Enregistrer</button>
+              <button onClick={() => setEditBrief(false)} className="px-3 py-1.5 rounded-lg text-sm border border-cockpit">Annuler</button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-3 py-2.5 rounded-lg bg-cockpit-dark/30 border border-cockpit text-sm whitespace-pre-wrap min-h-[3rem]">
+            {projet.briefTechnique
+              ? projet.briefTechnique
+              : <span className="text-cockpit-secondary/60 italic">Aucun brief. Cliquer sur le crayon pour en ajouter un.</span>}
+          </div>
+        )}
       </div>
 
       {/* Images de contexte */}
       <div>
-        <label className="block text-xs font-semibold text-cockpit-secondary mb-2">Images (modèle, pièce, inspiration, croquis)</label>
+        <label className="block text-xs font-semibold text-cockpit-secondary mb-2">Images de la demande (modèle, pièce, inspiration, croquis)</label>
         <UploadZone projetId={projet.id} type="photo" reload={reload} label="Ajouter une image" accept="image/*" />
-        {images.length > 0 && (
+        {images.length > 0 ? (
           <div className="grid grid-cols-3 gap-2 mt-2">
             {images.map((d: any) => (
               <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="group relative block aspect-square rounded-lg overflow-hidden border border-cockpit bg-cockpit-dark/30">
-                <span className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${d.url})` }} />
+                <span className="absolute inset-0 bg-cover bg-center transition group-hover:scale-105" style={{ backgroundImage: `url(${d.url})` }} />
                 <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[9px] px-1 py-0.5 truncate">{d.nom}</span>
               </a>
             ))}
           </div>
+        ) : (
+          <p className="text-xs text-cockpit-secondary/60 italic mt-2">Aucune image pour le moment.</p>
         )}
       </div>
     </div>

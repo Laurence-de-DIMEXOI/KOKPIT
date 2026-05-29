@@ -13,6 +13,10 @@
       "schedule": "30 */6 * * *"
     },
     {
+      "path": "/api/cron/sur-mesure-sellsy",
+      "schedule": "45 */6 * * *"
+    },
+    {
       "path": "/api/admin/refresh-etat-produit?onlyMissing=true&type=orders&limit=2000",
       "schedule": "0 21 * * *"
     },
