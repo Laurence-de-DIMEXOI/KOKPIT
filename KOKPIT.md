@@ -2,8 +2,8 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 13 mai 2026 (v31 — Daily Briefing `/aujourd-hui`)
-**Mis à jour par** : Session Claude Code (sprint mai — page matinale Bernard/Daniella)
+**Dernière mise à jour** : 21 mai 2026 (v32 — Module Sur-Mesure)
+**Mis à jour par** : Session Claude Code (sprint mai — Sur-Mesure remplace Trello)
 
 ---
 
@@ -19,6 +19,7 @@
 - **Need Price** (`/achat/need-price`) — quand Elaury passe en PRIX_RECU, email au demandeur **avec CC Bernard + Michelle + Daniella**.
 - **Notifications cloche** filtrées par user assigné (sauf ADMIN/DIRECTION qui voient tout).
 - **Daily Briefing** (`/aujourd-hui`) — page matinale Bernard + Daniella : 4 blocs (leads brûlants 48h, devis expirants <5j, mood mensuel par showroom, tâches du jour). Accès via flag `User.dailyBriefingEligible`. ADMIN/DIRECTION/MARKETING en vue agrégée avec toggle "Tous / Bernard / Daniella". Admin UI : `/administration/daily-briefing`.
+- **Sur-Mesure** (`/commercial/sur-mesure`) — remplace le board Trello "Dimexoi Equipe". Objet pivot `ProjetSurMesure` (SM-2026-XXXX) : pipeline 9 statuts (kanban/liste), demande dessin pour Laurent, plans 3D, Need Price (crée un `NeedPrice` → Elaury), lien Sellsy DEPI/BCDI (lecture seule, montant + conversion via DB locale), RDV Calendly rattachés, commentaires. Notifs mail à chaque transition → **Michelle + Laurent + propriétaire**. Vue par défaut : Laurent → dessin, Elaury → need price. ⚠️ ProjetSurMesure → `NeedPrice` (PAS `DemandePrix` : ce sont 2 objets distincts, le brief s'était trompé).
 - **SLA** : 48h, mais **relances automatiques DÉSACTIVÉES** (mai 2026, demande Laurence). Plus aucun email auto ni création de tâche. Le calcul du dépassement reste affiché en UI (badge sur `/leads`). Le job `sla-check` retourne juste un compteur (`status: "disabled"`).
 
 ### Flow email
@@ -486,6 +487,7 @@ Fichiers : `src/components/layout/sidebar.tsx` · `src/lib/nav-config.ts` · `sr
 
 | Sprint | Détails | Statut |
 |---|---|---|
+| **v32 — Module Sur-Mesure** | `/commercial/sur-mesure` remplace Trello. ProjetSurMesure (SM-2026-XXXX) + pipeline kanban 9 statuts + 6 onglets (demande dessin, plans 3D, Need Price→Elaury, Sellsy lecture seule, RDV, commentaires). Notifs Michelle+Laurent+propriétaire. Endpoint /api/upload générique. 3 modèles Prisma + migration | ✅ 21 mai |
 | **v31 — Daily Briefing `/aujourd-hui`** | Page matinale Bernard/Daniella (4 cards : leads brûlants/devis expirants/mood mensuel/tâches jour). Endpoint unique cache 5min, accès via `User.dailyBriefingEligible`, toggle agrégé pour ADMIN/DIRECTION/MARKETING. Page admin dédiée `/administration/daily-briefing` | ✅ 13 mai |
 | **v30 — Cleanup massif** | -60 fichiers (routes mortes, composants orphelins, 7 modèles Prisma droppés), refacto `getAmount`, sécurité dashboard-stats, doc archivée | ✅ 9 mai |
 | **v29 — Dashboard commercial HT** | Tous montants en HT, filtre "Mois dernier", breakdown En stock/Sur commande, fix ConversionTime cross-période | ✅ 9 mai |
@@ -1017,4 +1019,4 @@ model ClubMembre {
 
 ---
 
-*KOKPIT.md — feuille de route DIMEXOI — v31 — 13 mai 2026*
+*KOKPIT.md — feuille de route DIMEXOI — v32 — 21 mai 2026*
