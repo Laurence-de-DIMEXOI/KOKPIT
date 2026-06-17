@@ -68,7 +68,7 @@ export function NewsTicker() {
         className="inline-flex items-center gap-1.5 px-6 py-1 whitespace-nowrap"
       >
         <span className="text-base leading-none">{it.icon}</span>
-        <span className={`text-[12px] font-medium ${it.color || "text-white"}`}>
+        <span className="text-[12px] font-medium text-white">
           {it.text}
         </span>
         {it.action && (
