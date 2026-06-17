@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Search, Loader2, Package, Truck } from "lucide-react";
+import { ContainerBanner } from "@/components/layout/container-banner";
 
 interface TrelloCard {
   id: string;
@@ -68,6 +69,9 @@ export default function SuiviCommandesPage() {
           Recherchez une commande par nom client ou référence BCDI
         </p>
       </div>
+
+      {/* Container en transit */}
+      <ContainerBanner />
 
       {/* Légende statuts */}
       <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg p-4">
