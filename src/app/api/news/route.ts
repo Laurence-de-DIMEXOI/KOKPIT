@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { STATIC_NEWS, type NewsItem } from "@/lib/news-config";
 import { getResponsableCafe } from "@/data/cafe-planning";
-import { getPageViewsByPath } from "@/lib/ga4";
 import { prochainFerie, formatFerieFR } from "@/lib/feries";
 import { reportingFilterVente, STATUTS_SELLSY_EXCLUS } from "@/lib/reporting-filter";
 import { sellsyFetch } from "@/lib/sellsy";
@@ -57,7 +56,7 @@ export async function GET(request: Request) {
     console.warn("[news] Rotation café indisponible:", e);
   }
 
-  // Items statiques (fixe : Teck Days + container)
+  // Items statiques (cf. src/lib/news-config.ts)
   items.push(...STATIC_NEWS);
 
   // ====== 1. CA des BDC du mois en cours (KOKPIT base + filtre Laurence) ======
@@ -164,20 +163,6 @@ export async function GET(request: Request) {
   // (Le top commercial Sellsy/owner reste basé sur Sellsy live — désactivé pour l'instant
   // car la table Vente n'a pas encore le owner_id. À ré-implémenter via mapping Devis.commercialId
   // si besoin futur.)
-
-  // ====== 2bis. Vues page Teck Days (GA4) ======
-  try {
-    const pv = await getPageViewsByPath("teckdays", "2026-04-15", "today");
-    if (pv && pv.total > 0) {
-      items.push({
-        icon: "📊",
-        text: `${pv.total.toLocaleString("fr-FR")} vues page Teck Days (${pv.users} utilisateurs uniques)`,
-        color: "text-cyan-300",
-      });
-    }
-  } catch (e) {
-    console.warn("[news] GA4 vues Teck Days indisponible:", e);
-  }
 
   // ====== 3. Prochain jour férié Réunion ======
   try {
