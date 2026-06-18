@@ -1,30 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  sellsyFetch,
-  sellsyV1Call,
-  listStaffs,
-  type SellsyOrder,
-} from "@/lib/sellsy";
 import { IMPORTS } from "@/lib/imports-config";
 
 /**
- * GET /api/achat/previsionnel?imp=IMP-618
+ * GET /api/achat/previsionnel?imp=IMP-618[&fresh=true]
  *
- * Renvoie, pour l'arrivage demandé :
- *  - meta du container (CONT NO, dates, source)
- *  - lignes regroupées par BCDI avec :
- *      client, commercial (owner), nbMeubles (Σ qty),
- *      totalHT (BDC Sellsy), restePayerHT (calculé via paiements),
- *      potentielCommercial (Σ qty × prix HT cache, pour STOCK)
+ * Page de projection trésorerie : lecture pure DB (snapshot Sellsy par BCDI
+ * + overrides utilisateur + prix HT catalogue). Aucun appel Sellsy live.
  *
- * Stratégie prix HT :
- *  1) SellsyDeclinationCache.reference == ref → priceHT
- *  2) sinon, une autre décli du même itemId avec priceHT non-null
- *  3) sinon, SellsyItemCache parent priceHT
- *  4) sinon, null (affiché « — »)
+ * Le snapshot `bcdi_sellsy_snapshot` est rafraîchi par le cron
+ * `/api/cron/previsionnel-refresh` (Vercel cron toutes les 30 min) :
+ * → la page s'affiche instantanément (~50 ms), même sur cold start.
  *
- * Cache mémoire 15 min.
+ * `fresh=true` vide le cache mémoire ; il ne déclenche pas de fetch Sellsy
+ * (réservé au cron). Pour forcer un refetch immédiat, taper le cron avec
+ * `?force=true`.
  */
 
 interface PackingItem {
@@ -33,46 +23,12 @@ interface PackingItem {
   description: string;
   qty: number;
   note?: string;
-  /** Override manuel du prix HT (utile pour les refs absentes du catalogue Sellsy) */
   priceHTOverride?: number;
 }
 
 interface PackingFile {
   meta: Record<string, string>;
   items: PackingItem[];
-}
-
-function normalizeStr(s: string): string {
-  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-}
-
-/**
- * Récupère le custom field "Etat des produits" d'un BDC Sellsy.
- *  - "SAV" / "RETOUR" → on flag pour badge UI + reste à payer = 0
- */
-async function fetchEtatProduit(sellsyOrderId: number | string): Promise<string | null> {
-  try {
-    const cfRes = await sellsyFetch<{ data: Array<{ code?: string; name?: string; label?: string; value?: unknown; parameters?: { items?: Array<{ id: number | string; label: string }> } }> }>(
-      `/orders/${sellsyOrderId}/custom-fields?limit=100`
-    );
-    const cfs = cfRes.data || [];
-    const target = cfs.find((cf) => {
-      const fields = [cf.code, cf.name, cf.label].filter(Boolean) as string[];
-      return fields.some((v) => {
-        const n = normalizeStr(v);
-        return n.includes("etat") && n.includes("produit");
-      });
-    });
-    if (target?.value != null && target.value !== "") {
-      const raw = String(target.value).trim();
-      const items = target.parameters?.items || [];
-      const matched = items.find((it) => String(it.id) === raw);
-      return matched?.label || raw;
-    }
-  } catch {
-    /* tolère */
-  }
-  return null;
 }
 
 interface RowItem {
@@ -86,9 +42,7 @@ interface RowItem {
 interface Row {
   bcdi: string;
   isStock: boolean;
-  /** true si convertit manuellement depuis un BCDI client (override "to-stock") */
   convertedFromBcdi: boolean;
-  /** Référence métier réelle (avant conversion, pour l'affichage) */
   originalBcdi?: string;
   overrideNote?: string | null;
   client: string | null;
@@ -101,389 +55,122 @@ interface Row {
   paidPct: number | null;
   etatProduit: string | null;
   isSav: boolean;
-  /** note libre (visible discrètement sur la ligne) */
   note: string | null;
-  /** flags pour savoir si une valeur vient d'une saisie manuelle */
   hasManualRestePayer: boolean;
   hasManualTotalHT: boolean;
   items: RowItem[];
 }
 
 const cache = new Map<string, { data: unknown; expires: number }>();
-const TTL_MS = 15 * 60 * 1000;
+const TTL_MS = 5 * 60 * 1000; // cache mémoire 5 min (la BDD est déjà la source de vérité)
+
+// ────────────────────────────────────────────────────────────
+// PRIX HT CATALOGUE (pour les lignes STOCK) — batch DB pur
+// ────────────────────────────────────────────────────────────
 
 /**
- * Cherche le prix HT live sur Sellsy pour un item / déclinaison + écrit dans le cache.
- *  - Tente d'abord /items/{id}/declinations/{declId}/prices (référence_price_taxes_exc)
- *  - Sinon retourne null
+ * Charge en une passe le prix HT de toutes les refs nécessaires
+ * (déclinaisons + items). Renvoie une Map case-insensitive `ref → priceHT`.
+ * Pas d'appel Sellsy live — uniquement la BDD locale (catalogue cache).
+ * Les refs sans prix retournent null.
  */
-async function fetchPriceHTLive(opts: {
-  itemId?: number | null;
-  declinationId?: number | null;
-  ref?: string;
-}): Promise<number | null> {
-  const { itemId, declinationId, ref } = opts;
-  try {
-    if (itemId && declinationId) {
-      const res = await sellsyFetch<{
-        data: { data?: Array<{ unit_amount?: string }> } & {
-          unit_amount?: string;
-        };
-      }>(`/items/${itemId}/declinations/${declinationId}/prices?limit=20`);
-      const list: Array<{ unit_amount?: string }> =
-        (res as unknown as { data: Array<{ unit_amount?: string }> }).data || [];
-      for (const p of list) {
-        if (p.unit_amount != null) {
-          const v = Number(p.unit_amount);
-          if (Number.isFinite(v) && v > 0) {
-            // Écriture opportuniste dans le cache
-            await prisma.sellsyDeclinationCache.updateMany({
-              where: { id: declinationId },
-              data: { priceHT: v },
-            });
-            return v;
-          }
+async function batchPriceHTByRef(
+  refs: string[]
+): Promise<Map<string, number | null>> {
+  const map = new Map<string, number | null>();
+  const wanted = Array.from(
+    new Set(
+      refs
+        .map((r) => (r || "").trim())
+        .filter((r) => r && r !== "—")
+        .map((r) => r.toUpperCase())
+    )
+  );
+  if (wanted.length === 0) return map;
+
+  // 1) Déclinations exactes
+  const declis = await prisma.sellsyDeclinationCache.findMany({
+    where: { reference: { in: wanted, mode: "insensitive" } },
+    select: { reference: true, priceHT: true, itemId: true },
+  });
+  for (const d of declis) {
+    if (d.priceHT != null) {
+      map.set(d.reference.toUpperCase(), Number(d.priceHT));
+    }
+  }
+
+  // 2) Pour les refs sans prix direct, prend la sœur du même itemId qui a un prix
+  const stillMissing = wanted.filter((r) => !map.has(r));
+  const itemIdByMissingRef = new Map<string, number>();
+  for (const r of stillMissing) {
+    const decli = declis.find((d) => d.reference.toUpperCase() === r);
+    if (decli?.itemId) itemIdByMissingRef.set(r, decli.itemId);
+  }
+  if (itemIdByMissingRef.size > 0) {
+    const itemIds = Array.from(new Set(itemIdByMissingRef.values()));
+    const sisters = await prisma.sellsyDeclinationCache.findMany({
+      where: { itemId: { in: itemIds }, priceHT: { not: null } },
+      select: { itemId: true, priceHT: true },
+    });
+    const sisterByItem = new Map<number, number>();
+    for (const s of sisters) {
+      if (s.priceHT != null && !sisterByItem.has(s.itemId)) {
+        sisterByItem.set(s.itemId, Number(s.priceHT));
+      }
+    }
+    for (const [ref, itemId] of itemIdByMissingRef.entries()) {
+      const sp = sisterByItem.get(itemId);
+      if (sp != null) map.set(ref, sp);
+    }
+
+    // 3) Item parent
+    const stillMissing2 = stillMissing.filter((r) => !map.has(r));
+    const parentIds = Array.from(
+      new Set(stillMissing2.map((r) => itemIdByMissingRef.get(r)!).filter(Boolean))
+    );
+    if (parentIds.length > 0) {
+      const parents = await prisma.sellsyItemCache.findMany({
+        where: { id: { in: parentIds } },
+        select: { id: true, priceHT: true },
+      });
+      const parentMap = new Map<number, number>();
+      for (const p of parents) {
+        if (p.priceHT != null) parentMap.set(p.id, Number(p.priceHT));
+      }
+      for (const r of stillMissing2) {
+        const itemId = itemIdByMissingRef.get(r);
+        if (itemId) {
+          const pp = parentMap.get(itemId);
+          if (pp != null) map.set(r, pp);
         }
       }
-      // Fallback : /declinations/{id} renvoie reference_price_taxes_exc
-      const detail = await sellsyFetch<{
-        data: { reference_price_taxes_exc?: string | null };
-      }>(`/declinations/${declinationId}`);
-      const refPrice = Number(detail.data?.reference_price_taxes_exc || 0);
-      if (Number.isFinite(refPrice) && refPrice > 0) {
-        await prisma.sellsyDeclinationCache.updateMany({
-          where: { id: declinationId },
-          data: { priceHT: refPrice },
-        });
-        return refPrice;
+    }
+  }
+
+  // 4) Items directs (refs sans déclinaison)
+  const stillMissing3 = wanted.filter((r) => !map.has(r));
+  if (stillMissing3.length > 0) {
+    const items = await prisma.sellsyItemCache.findMany({
+      where: { reference: { in: stillMissing3, mode: "insensitive" } },
+      select: { reference: true, priceHT: true },
+    });
+    for (const it of items) {
+      if (it.priceHT != null) {
+        map.set(it.reference.toUpperCase(), Number(it.priceHT));
       }
     }
-    if (itemId && !declinationId) {
-      const detail = await sellsyFetch<{
-        data: { reference_price_taxes_exc?: string | null };
-      }>(`/items/${itemId}`);
-      const refPrice = Number(detail.data?.reference_price_taxes_exc || 0);
-      if (Number.isFinite(refPrice) && refPrice > 0) {
-        await prisma.sellsyItemCache.update({
-          where: { id: itemId },
-          data: { priceHT: refPrice },
-        });
-        return refPrice;
-      }
-    }
-    // Dernier recours : items/search live par ref
-    if (ref) {
-      const res = await sellsyFetch<{
-        data: Array<{ id: number; reference: string }>;
-      }>(`/items/search?limit=5`, {
-        method: "POST",
-        body: JSON.stringify({ filters: { references: [ref] } }),
-      });
-      const hit = (res.data || []).find(
-        (i) => (i.reference || "").toUpperCase() === ref.toUpperCase()
-      );
-      if (hit?.id) return fetchPriceHTLive({ itemId: hit.id });
-    }
-  } catch (e) {
-    console.warn("[previsionnel] live price err:", e);
   }
-  return null;
+
+  // 5) Refs résiduelles sans prix : null (le cron de catalogue se chargera)
+  for (const r of wanted) {
+    if (!map.has(r)) map.set(r, null);
+  }
+  return map;
 }
 
-async function priceHTForRef(ref: string): Promise<number | null> {
-  if (!ref || ref === "—") return null;
-  // 1) cache : déclinaison exacte
-  const decli = await prisma.sellsyDeclinationCache.findFirst({
-    where: { reference: { equals: ref, mode: "insensitive" } },
-    select: { id: true, priceHT: true, itemId: true },
-  });
-  if (decli?.priceHT != null) return Number(decli.priceHT);
-
-  if (decli?.itemId) {
-    // 2) cache : sœur même itemId
-    const sister = await prisma.sellsyDeclinationCache.findFirst({
-      where: { itemId: decli.itemId, priceHT: { not: null } },
-      select: { priceHT: true },
-    });
-    if (sister?.priceHT != null) return Number(sister.priceHT);
-
-    // 3) cache : item parent
-    const parent = await prisma.sellsyItemCache.findUnique({
-      where: { id: decli.itemId },
-      select: { priceHT: true },
-    });
-    if (parent?.priceHT != null) return Number(parent.priceHT);
-
-    // 4) live : Sellsy /declinations/{id} ou /items/{id}
-    const live = await fetchPriceHTLive({
-      itemId: decli.itemId,
-      declinationId: decli.id,
-    });
-    if (live != null) return live;
-  }
-
-  // 5) item direct (sans déclinaison)
-  const item = await prisma.sellsyItemCache.findFirst({
-    where: { reference: { equals: ref, mode: "insensitive" } },
-    select: { id: true, priceHT: true },
-  });
-  if (item?.priceHT != null) return Number(item.priceHT);
-  if (item?.id) {
-    const live = await fetchPriceHTLive({ itemId: item.id });
-    if (live != null) return live;
-  }
-
-  // 6) live : search items par référence
-  const live = await fetchPriceHTLive({ ref });
-  return live;
-}
-
-/**
- * Calcul du reste à payer HT à partir du status + deposit Sellsy.
- *
- * L'API Sellsy V2 n'expose pas le « solde dû » directement sur un BDC
- * (les paiements sont reportés sur les factures, dont le lien BDC↔facture
- * n'est pas filtrable en V2 — filtre `contact_id` cassé, pas de relation
- * exploitable).
- *
- * Estimation pragmatique :
- *  - status `paid` | `invoiced`           → 0 (tout encaissé/facturé)
- *  - status `cancelled`|`refused`|`expired` → 0 (commande hors prévi)
- *  - status `advanced` (acompte versé)    → reste = total × (1 − acompte%)
- *      • si `deposit.type=percent`  → acompte% = deposit.value / 100
- *      • si `deposit.type=amount`   → acompte% = deposit.value / totalTTC
- *      • sinon (acompte versé sans % connu) → 60% restant par défaut (40/40/20)
- *  - status `draft`|`sent`|`accepted`     → reste = total (rien encaissé)
- */
-/**
- * Récupère la chaîne complète des paiements via la table locale `SellsyDocLink`
- * (peuplée par les webhooks Sellsy + backfill). Suit BCDI → BDL → FAPJ et
- * additionne le paid_incl_tax de toutes les factures terminales liées.
- *
- * Retourne null si aucun lien local trouvé → caller fera fallback V1.
- */
-async function chainedPaidTTCFromLocalLinks(orderId: bigint): Promise<number | null> {
-  // 1) Tous les enfants directs du BDC (factures d'acompte + BDL)
-  const directChildren = await prisma.sellsyDocLink.findMany({
-    where: { parentId: orderId, parentType: "order" },
-    select: { childId: true, childType: true },
-  });
-  if (directChildren.length === 0) return null;
-
-  let paid = 0;
-  const invoiceIds: bigint[] = [];
-
-  for (const c of directChildren) {
-    if (c.childType === "invoice") invoiceIds.push(c.childId);
-    if (c.childType === "delivery") {
-      // BDL → cherche les factures dont c'est le parent
-      const deliveryInvoices = await prisma.sellsyDocLink.findMany({
-        where: { parentId: c.childId, parentType: "delivery", childType: "invoice" },
-        select: { childId: true },
-      });
-      for (const di of deliveryInvoices) invoiceIds.push(di.childId);
-    }
-  }
-
-  if (invoiceIds.length === 0) return null;
-
-  const paidRows = await prisma.sellsyInvoicePaid.findMany({
-    where: { invoiceId: { in: invoiceIds } },
-    select: { paidInclTax: true },
-  });
-  for (const r of paidRows) {
-    if (r.paidInclTax != null) paid += Number(r.paidInclTax);
-  }
-  return paid;
-}
-
-/**
- * Calcule le reste à payer HT d'un BDC.
- *
- * Priorité :
- *  1. Table locale `SellsyDocLink` + `SellsyInvoicePaid` peuplées par les
- *     webhooks Sellsy → suit la chaîne BCDI → BDL → FAPJ et somme le payé.
- *     C'est la voie la plus précise une fois le backfill effectué.
- *  2. Si le local est vide (backfill pas encore lancé pour ce BDC),
- *     fallback V1 `Document.getOne.relateds_amount` (couvre paiements directs
- *     + factures d'acompte mais pas la chaîne complète).
- *  3. Sinon V2 status + deposit + paiements directs.
- */
-async function calcPaymentSummary(order: SellsyOrder): Promise<{
-  restePayerHT: number;
-  paidPct: number;
-}> {
-  const totalHT = Number(order.amounts?.total_excl_tax || 0);
-  const totalTTC = Number(order.amounts?.total_incl_tax || 0);
-  if (totalHT <= 0 || totalTTC <= 0) {
-    return { restePayerHT: 0, paidPct: 1 };
-  }
-
-  const status = (order.status || "").toLowerCase();
-  if (["cancelled", "refused", "expired"].includes(status)) {
-    return { restePayerHT: 0, paidPct: 0 };
-  }
-  if (["paid"].includes(status)) {
-    return { restePayerHT: 0, paidPct: 1 };
-  }
-
-  // 0) Source la plus précise : tables locales alimentées par webhooks
-  try {
-    const orderIdBig = BigInt(order.id);
-    const localPaidTTC = await chainedPaidTTCFromLocalLinks(orderIdBig);
-    if (localPaidTTC != null) {
-      const paidTTC = Math.min(totalTTC, localPaidTTC);
-      const resteTTC = Math.max(0, totalTTC - paidTTC);
-      const ratio = totalHT / totalTTC;
-      const restePayerHT = Number((resteTTC * ratio).toFixed(2));
-      const paidPct = Math.min(Math.max(paidTTC / totalTTC, 0), 1);
-      return { restePayerHT, paidPct };
-    }
-  } catch (e) {
-    console.warn("[previsionnel] local links err:", e);
-  }
-
-  // 1) Source principale : V1 Document.getOne → relateds_amount
-  try {
-    const v1 = (await sellsyV1Call("Document.getOne", {
-      doctype: "order",
-      docid: String(order.id),
-    })) as {
-      step?: string;
-      totalAmount?: string;
-      totalAmountTaxesFree?: string;
-      relateds_amount?: string;
-    } | null;
-
-    if (v1) {
-      const v1Total = Number(v1.totalAmount || totalTTC);
-      const v1TotalHT = Number(v1.totalAmountTaxesFree || totalHT);
-      const paidTTC = Math.min(v1Total, Number(v1.relateds_amount || 0));
-      const resteTTC = Math.max(0, v1Total - paidTTC);
-      const ratio = v1Total > 0 ? v1TotalHT / v1Total : 1;
-      const restePayerHT = Number((resteTTC * ratio).toFixed(2));
-      const paidPct = v1Total > 0 ? Math.min(Math.max(paidTTC / v1Total, 0), 1) : 0;
-      return { restePayerHT, paidPct };
-    }
-  } catch (e) {
-    console.warn("[previsionnel] V1 Document.getOne err:", e);
-  }
-
-  // 2) Fallback V2 : status + deposit + paiements directs
-  if (status === "invoiced") {
-    return { restePayerHT: 0, paidPct: 1 };
-  }
-  let paidFromPaymentsTTC = 0;
-  try {
-    const pay = await sellsyFetch<{
-      data: Array<{ amount?: { value: string }; status?: string }>;
-    }>(`/orders/${order.id}/payments?limit=100`);
-    for (const p of pay.data || []) {
-      if (p.status && p.status !== "confirmed") continue;
-      const v = Number(p.amount?.value || 0);
-      if (Number.isFinite(v)) paidFromPaymentsTTC += v;
-    }
-  } catch {
-    /* tolère */
-  }
-  let paidFromDepositTTC = 0;
-  const deposit = (order as unknown as { deposit?: { type?: string; value?: string } }).deposit;
-  if (status === "advanced") {
-    if (deposit?.type === "percent") {
-      paidFromDepositTTC = (Number(deposit.value || 0) / 100) * totalTTC;
-    } else if (deposit?.type === "amount") {
-      paidFromDepositTTC = Number(deposit.value || 0);
-    } else {
-      paidFromDepositTTC = 0.4 * totalTTC;
-    }
-  }
-  const paidTTC = Math.min(totalTTC, Math.max(paidFromPaymentsTTC, paidFromDepositTTC));
-  const resteTTC = Math.max(0, totalTTC - paidTTC);
-  const ratio = totalHT / totalTTC;
-  const restePayerHT = Number((resteTTC * ratio).toFixed(2));
-  const paidPct = Math.min(Math.max(paidTTC / totalTTC, 0), 1);
-  return { restePayerHT, paidPct };
-}
-
-async function fetchOrderInfo(
-  bcdi: string,
-  staffMap: Map<number, string>
-): Promise<{
-  client: string | null;
-  commercial: string | null;
-  totalHT: number;
-  restePayerHT: number;
-  paidPct: number;
-  status: string | null;
-  etatProduit: string | null;
-  isSav: boolean;
-} | null> {
-  try {
-    const search = await sellsyFetch<{ data: SellsyOrder[] }>(
-      `/orders/search?limit=1&embed[]=owner&embed[]=contact&embed[]=company`,
-      {
-        method: "POST",
-        body: JSON.stringify({ filters: { number: bcdi } }),
-      }
-    );
-    const order = search.data?.[0];
-    if (!order) return null;
-
-    const totalHT = Number(order.amounts?.total_excl_tax || 0);
-    let { restePayerHT, paidPct } = await calcPaymentSummary(order);
-
-    const ownerId = order.owner_id ?? order.owner?.id ?? null;
-    const commercial =
-      ownerId && staffMap.has(ownerId) ? staffMap.get(ownerId)! : null;
-
-    let client: string | null = null;
-    const ec = order._embed?.contact;
-    if (ec) {
-      const n = `${ec.first_name || ""} ${ec.last_name || ""}`.trim();
-      if (n) client = n;
-    }
-    if (!client && order._embed?.company?.name) client = order._embed.company.name;
-    if (!client && order.company_name) client = order.company_name;
-
-    // Cherche d'abord dans la Vente locale (déjà synchronisée), sinon live Sellsy
-    let etatProduit: string | null = null;
-    try {
-      const v = await prisma.vente.findFirst({
-        where: { numero: { equals: bcdi, mode: "insensitive" } },
-        select: { etatProduit: true },
-      });
-      etatProduit = v?.etatProduit || null;
-    } catch {
-      /* tolère */
-    }
-    if (!etatProduit) {
-      etatProduit = await fetchEtatProduit(order.id);
-    }
-
-    const ep = (etatProduit || "").toUpperCase();
-    const isSav = ep.includes("SAV") || ep.includes("RETOUR");
-    if (isSav) {
-      // Un SAV ou retour n'entre pas dans la projection de trésorerie
-      restePayerHT = 0;
-      paidPct = 1;
-    }
-
-    return {
-      client,
-      commercial,
-      totalHT: Number(totalHT.toFixed(2)),
-      restePayerHT,
-      paidPct,
-      status: order.status || null,
-      etatProduit,
-      isSav,
-    };
-  } catch (e) {
-    console.warn(`[previsionnel] order ${bcdi}:`, e);
-    return null;
-  }
-}
-
+// ────────────────────────────────────────────────────────────
+// GET handler — lecture pure DB
+// ────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const impCode = url.searchParams.get("imp") || IMPORTS[0]?.code || "IMP-618";
@@ -502,24 +189,24 @@ export async function GET(request: Request) {
     }
   }
 
-  // 1) Charger le packing JSON via HTTP (sert depuis /public/data)
+  // 1) Packing JSON
   let packing: PackingFile;
   try {
     const origin = new URL(request.url).origin;
-    const res = await fetch(`${origin}/data/${conf.dataFile}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(`${origin}/data/${conf.dataFile}`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     packing = await res.json();
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
-      { error: `Packing list introuvable: ${conf.dataFile}`, debug: msg },
+      {
+        error: `Packing list introuvable: ${conf.dataFile}`,
+        debug: e instanceof Error ? e.message : String(e),
+      },
       { status: 500 }
     );
   }
 
-  // 2) Grouper par BCDI
+  // 2) Groupe par BCDI
   const groups = new Map<string, PackingItem[]>();
   for (const it of packing.items) {
     const k = it.bcdi || "STOCK";
@@ -527,7 +214,7 @@ export async function GET(request: Request) {
     groups.get(k)!.push(it);
   }
 
-  // 2bis) Charger les overrides BCDI pour cet IMP
+  // 3) Overrides
   const overrides = await prisma.previsionnelBcdiOverride.findMany({
     where: { impCode: conf.code },
     select: {
@@ -556,42 +243,30 @@ export async function GET(request: Request) {
     });
   }
 
-  // 3) Staffs Sellsy
-  let staffMap = new Map<number, string>();
-  try {
-    const staffs = await listStaffs();
-    staffMap = new Map(
-      staffs.map((s) => [s.id, `${s.firstname} ${s.lastname}`.trim()])
-    );
-  } catch {
-    /* tolère */
-  }
-
-  // 4) Construire les rangées
-  const bcdis = Array.from(groups.keys());
-  const rows: Row[] = [];
-
-  // a) BCDI réels — on ignore ceux convertis en stock (pas besoin d'appel Sellsy)
-  const realBcdis = bcdis.filter(
+  // 4) Snapshots (toujours lu — pas de filtre TTL ici, le cron s'en occupe)
+  const realBcdis = Array.from(groups.keys()).filter(
     (b) =>
       b.toUpperCase().startsWith("BCDI") &&
       overrideMap.get(b.toUpperCase())?.action !== "to-stock"
   );
-
-  // Cache persistant par BCDI (TTL 1h sur fresh=false, 0 si fresh=true)
-  const SNAPSHOT_TTL_MS = 60 * 60 * 1000;
-  const cutoff = new Date(Date.now() - SNAPSHOT_TTL_MS);
-  const snapshots = fresh
-    ? []
-    : await prisma.bcdiSellsySnapshot.findMany({
-        where: { bcdi: { in: realBcdis }, computedAt: { gt: cutoff } },
-      });
-  const snapshotByBcdi = new Map(snapshots.map((s) => [s.bcdi, s]));
-  const orderInfoByBcdi = new Map<string, Awaited<ReturnType<typeof fetchOrderInfo>>>();
-
-  // Lecture cache
-  for (const s of snapshots) {
-    orderInfoByBcdi.set(s.bcdi, {
+  const snapshotsRaw = await prisma.bcdiSellsySnapshot.findMany({
+    where: { bcdi: { in: realBcdis } },
+  });
+  interface SnapInfo {
+    client: string | null;
+    commercial: string | null;
+    totalHT: number;
+    restePayerHT: number;
+    paidPct: number;
+    status: string | null;
+    etatProduit: string | null;
+    isSav: boolean;
+    computedAt: Date;
+  }
+  const snapByBcdi = new Map<string, SnapInfo>();
+  let oldestComputedAt: Date | null = null;
+  for (const s of snapshotsRaw) {
+    const info: SnapInfo = {
       client: s.client,
       commercial: s.commercial,
       totalHT: s.totalHT != null ? Number(s.totalHT) : 0,
@@ -600,56 +275,15 @@ export async function GET(request: Request) {
       status: s.status,
       etatProduit: s.etatProduit,
       isSav: s.isSav,
-    });
+      computedAt: s.computedAt,
+    };
+    snapByBcdi.set(s.bcdi, info);
+    if (!oldestComputedAt || s.computedAt < oldestComputedAt) {
+      oldestComputedAt = s.computedAt;
+    }
   }
 
-  // Fetch live uniquement pour les BCDIs absents du cache
-  const toFetch = realBcdis.filter((b) => !snapshotByBcdi.has(b));
-  const CONC = 12;
-  for (let i = 0; i < toFetch.length; i += CONC) {
-    const batch = toFetch.slice(i, i + CONC);
-    const results = await Promise.all(
-      batch.map((b) => fetchOrderInfo(b, staffMap))
-    );
-    batch.forEach((b, idx) => orderInfoByBcdi.set(b, results[idx]));
-  }
-
-  // Écriture asynchrone du cache pour les BCDIs fraîchement fetchés (ne bloque pas la réponse)
-  void Promise.allSettled(
-    toFetch.map(async (b) => {
-      const info = orderInfoByBcdi.get(b);
-      if (!info) return;
-      await prisma.bcdiSellsySnapshot.upsert({
-        where: { bcdi: b },
-        create: {
-          bcdi: b,
-          client: info.client,
-          commercial: info.commercial,
-          totalHT: info.totalHT,
-          restePayerHT: info.restePayerHT,
-          paidPct: info.paidPct,
-          status: info.status,
-          etatProduit: info.etatProduit,
-          isSav: info.isSav,
-          computedAt: new Date(),
-        },
-        update: {
-          client: info.client,
-          commercial: info.commercial,
-          totalHT: info.totalHT,
-          restePayerHT: info.restePayerHT,
-          paidPct: info.paidPct,
-          status: info.status,
-          etatProduit: info.etatProduit,
-          isSav: info.isSav,
-          computedAt: new Date(),
-        },
-      });
-    })
-  );
-
-  // Clients qui sont toujours du stock (commandes internes DIMEXOI / Exhibition).
-  // Comparé en majuscules après normalisation, match si le client commence par.
+  // 5) Auto-stock detection
   const AUTO_STOCK_CLIENTS = ["ORDER DIMEXOI", "DIMEXOI", "EXHIBITION"];
   const isAutoStockClient = (client: string | null | undefined): boolean => {
     if (!client) return false;
@@ -657,12 +291,27 @@ export async function GET(request: Request) {
     return AUTO_STOCK_CLIENTS.some((s) => c === s || c.startsWith(s + " "));
   };
 
-  for (const bcdi of bcdis) {
-    const items = groups.get(bcdi)!;
+  // 6) Pré-fetch des prix HT en un seul batch DB pour tous les items STOCK
+  const stockRefs = packing.items
+    .filter((it) => {
+      const k = it.bcdi || "STOCK";
+      const isReal = k.toUpperCase().startsWith("BCDI");
+      const ov = overrideMap.get(k.toUpperCase());
+      const info = isReal ? snapByBcdi.get(k) : undefined;
+      const autoStock = isReal && info && isAutoStockClient(info.client);
+      const converted = isReal && ov?.action === "to-stock";
+      return !isReal || converted || autoStock;
+    })
+    .map((it) => it.ref);
+  const priceMap = await batchPriceHTByRef(stockRefs);
+
+  // 6) Construit les rangées
+  const rows: Row[] = [];
+  for (const [bcdi, items] of groups.entries()) {
     const nbMeubles = items.reduce((s, it) => s + (it.qty || 0), 0);
     const isRealBcdi = bcdi.toUpperCase().startsWith("BCDI");
     const override = overrideMap.get(bcdi.toUpperCase());
-    const info = isRealBcdi ? orderInfoByBcdi.get(bcdi) : undefined;
+    const info = isRealBcdi ? snapByBcdi.get(bcdi) : undefined;
     const autoStock = isRealBcdi && isAutoStockClient(info?.client);
     const convertedFromBcdi = isRealBcdi && override?.action === "to-stock";
     const isStock = !isRealBcdi || convertedFromBcdi || autoStock;
@@ -671,7 +320,8 @@ export async function GET(request: Request) {
       let potentiel = 0;
       const detailedItems: RowItem[] = [];
       for (const it of items) {
-        const price = it.priceHTOverride ?? (await priceHTForRef(it.ref));
+        const price =
+          it.priceHTOverride ?? priceMap.get((it.ref || "").toUpperCase().trim()) ?? null;
         detailedItems.push({
           ref: it.ref,
           description: it.description,
@@ -712,7 +362,6 @@ export async function GET(request: Request) {
         items: detailedItems,
       });
     } else {
-      // Applique overrides manuels (total/reste à payer + note)
       let totalHT_ = info ? info.totalHT : null;
       let restePayer = info ? info.restePayerHT : null;
       let hasManualTotalHT = false;
@@ -752,7 +401,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // Tri : BCDI ascendant, STOCK en bas
   rows.sort((a, b) => {
     if (a.isStock && !b.isStock) return 1;
     if (!a.isStock && b.isStock) return -1;
@@ -769,12 +417,16 @@ export async function GET(request: Request) {
     ),
   };
 
+  const missingSnapshots = realBcdis.filter((b) => !snapByBcdi.has(b)).length;
+
   const payload = {
     imp: conf,
     meta: packing.meta,
     rows,
     totals,
     generatedAt: new Date().toISOString(),
+    snapshotOldestComputedAt: oldestComputedAt?.toISOString() ?? null,
+    snapshotMissing: missingSnapshots,
   };
 
   cache.set(cacheKey, { data: payload, expires: Date.now() + TTL_MS });
