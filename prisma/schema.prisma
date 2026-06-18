@@ -1388,6 +1388,23 @@ model PrevisionnelBcdiOverride {
   @@map("previsionnel_bcdi_override")
 }
 
+model BcdiSellsySnapshot {
+  bcdi          String   @id
+  sellsyOrderId BigInt?
+  client        String?
+  commercial    String?
+  totalHT       Decimal? @db.Decimal(12, 2)
+  restePayerHT  Decimal? @db.Decimal(12, 2)
+  paidPct       Decimal? @db.Decimal(6, 4)
+  status        String?
+  etatProduit   String?
+  isSav         Boolean  @default(false)
+  computedAt    DateTime @default(now())
+
+  @@index([computedAt(sort: Desc)], map: "bcdi_sellsy_snapshot_computed_idx")
+  @@map("bcdi_sellsy_snapshot")
+}
+
 model SellsyDocLink {
   childId     BigInt
   childType   String // invoice | delivery | order | estimate | creditnote

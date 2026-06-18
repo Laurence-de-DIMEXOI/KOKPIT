@@ -577,15 +577,76 @@ export async function GET(request: Request) {
       b.toUpperCase().startsWith("BCDI") &&
       overrideMap.get(b.toUpperCase())?.action !== "to-stock"
   );
+
+  // Cache persistant par BCDI (TTL 1h sur fresh=false, 0 si fresh=true)
+  const SNAPSHOT_TTL_MS = 60 * 60 * 1000;
+  const cutoff = new Date(Date.now() - SNAPSHOT_TTL_MS);
+  const snapshots = fresh
+    ? []
+    : await prisma.bcdiSellsySnapshot.findMany({
+        where: { bcdi: { in: realBcdis }, computedAt: { gt: cutoff } },
+      });
+  const snapshotByBcdi = new Map(snapshots.map((s) => [s.bcdi, s]));
   const orderInfoByBcdi = new Map<string, Awaited<ReturnType<typeof fetchOrderInfo>>>();
-  const CONC = 8;
-  for (let i = 0; i < realBcdis.length; i += CONC) {
-    const batch = realBcdis.slice(i, i + CONC);
+
+  // Lecture cache
+  for (const s of snapshots) {
+    orderInfoByBcdi.set(s.bcdi, {
+      client: s.client,
+      commercial: s.commercial,
+      totalHT: s.totalHT != null ? Number(s.totalHT) : 0,
+      restePayerHT: s.restePayerHT != null ? Number(s.restePayerHT) : 0,
+      paidPct: s.paidPct != null ? Number(s.paidPct) : 0,
+      status: s.status,
+      etatProduit: s.etatProduit,
+      isSav: s.isSav,
+    });
+  }
+
+  // Fetch live uniquement pour les BCDIs absents du cache
+  const toFetch = realBcdis.filter((b) => !snapshotByBcdi.has(b));
+  const CONC = 12;
+  for (let i = 0; i < toFetch.length; i += CONC) {
+    const batch = toFetch.slice(i, i + CONC);
     const results = await Promise.all(
       batch.map((b) => fetchOrderInfo(b, staffMap))
     );
     batch.forEach((b, idx) => orderInfoByBcdi.set(b, results[idx]));
   }
+
+  // Écriture asynchrone du cache pour les BCDIs fraîchement fetchés (ne bloque pas la réponse)
+  void Promise.allSettled(
+    toFetch.map(async (b) => {
+      const info = orderInfoByBcdi.get(b);
+      if (!info) return;
+      await prisma.bcdiSellsySnapshot.upsert({
+        where: { bcdi: b },
+        create: {
+          bcdi: b,
+          client: info.client,
+          commercial: info.commercial,
+          totalHT: info.totalHT,
+          restePayerHT: info.restePayerHT,
+          paidPct: info.paidPct,
+          status: info.status,
+          etatProduit: info.etatProduit,
+          isSav: info.isSav,
+          computedAt: new Date(),
+        },
+        update: {
+          client: info.client,
+          commercial: info.commercial,
+          totalHT: info.totalHT,
+          restePayerHT: info.restePayerHT,
+          paidPct: info.paidPct,
+          status: info.status,
+          etatProduit: info.etatProduit,
+          isSav: info.isSav,
+          computedAt: new Date(),
+        },
+      });
+    })
+  );
 
   // Clients qui sont toujours du stock (commandes internes DIMEXOI / Exhibition).
   // Comparé en majuscules après normalisation, match si le client commence par.

@@ -16,8 +16,17 @@ import {
   StickyNote,
   Pencil,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { ContainerBanner } from "@/components/layout/container-banner";
 import { IMPORTS } from "@/lib/imports-config";
+import {
+  parseClientNote,
+  formatActionLine,
+  prependLine,
+  ACTION_LABELS,
+  ACTION_ORDER,
+  type ClientAction,
+} from "@/lib/previsionnel-notes";
 
 const ACHAT_GRADIENT = {
   from: "var(--color-active)",
@@ -164,6 +173,7 @@ function ExpandedRow({
   onSetAmount,
   onSetNote,
   busy,
+  userName,
 }: {
   row: Row;
   onConvert: (bcdi: string, note: string) => void;
@@ -175,6 +185,7 @@ function ExpandedRow({
   ) => void;
   onSetNote: (bcdi: string, note: string | null) => void;
   busy: boolean;
+  userName: string;
 }) {
   const canConvert = !row.isStock || row.convertedFromBcdi;
   const realBcdiId = row.originalBcdi || row.bcdi;
@@ -238,11 +249,74 @@ function ExpandedRow({
             </tbody>
           </table>
 
-          {/* Note affichée (si présente) */}
+          {/* Journal des actions client (note multi-ligne) */}
           {row.note && (
-            <div className="px-3 py-1.5 border-t border-cockpit bg-amber-50/50 flex items-start gap-2 text-[12px] text-amber-900">
-              <StickyNote className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-700" />
-              <span className="flex-1 whitespace-pre-wrap">{row.note}</span>
+            <div className="px-3 py-2 border-t border-cockpit bg-amber-50/50 text-[12px] text-amber-900">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-amber-700/80 font-semibold mb-1">
+                <StickyNote className="w-3 h-3" />
+                Suivi client
+              </div>
+              <pre className="font-sans whitespace-pre-wrap text-cockpit-heading text-[12px] leading-relaxed">
+                {row.note}
+              </pre>
+            </div>
+          )}
+
+          {/* Actions rapides client (BCDI uniquement) */}
+          {realBcdiId.toUpperCase().startsWith("BCDI") && (
+            <div className="px-3 py-2 border-t border-cockpit bg-cockpit flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] uppercase tracking-wider text-cockpit-secondary font-semibold mr-1">
+                Action client :
+              </span>
+              {ACTION_ORDER.map((action) => {
+                const m = ACTION_LABELS[action];
+                return (
+                  <button
+                    key={action}
+                    onClick={() => {
+                      const line = formatActionLine(
+                        action,
+                        new Date(),
+                        userName || null
+                      );
+                      onSetNote(realBcdiId, prependLine(row.note, line));
+                    }}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border hover:opacity-90 disabled:opacity-40 transition-opacity"
+                    style={{
+                      color: m.color,
+                      backgroundColor: m.bg,
+                      borderColor: m.border,
+                    }}
+                    title={`Ajouter « ${m.label} » daté d'aujourd'hui`}
+                  >
+                    <span>{m.emoji}</span>
+                    <span>{m.label}</span>
+                  </button>
+                );
+              })}
+              <span className="text-cockpit-secondary/40 text-[11px] mx-1">·</span>
+              <button
+                onClick={() => {
+                  const txt = window.prompt(
+                    `Note libre pour ${realBcdiId} (ajoutée en haut, laisser vide pour effacer tout) :`,
+                    ""
+                  );
+                  if (txt === null) return;
+                  if (txt.trim() === "") {
+                    if (window.confirm("Effacer tout le suivi client ?")) {
+                      onSetNote(realBcdiId, null);
+                    }
+                    return;
+                  }
+                  onSetNote(realBcdiId, prependLine(row.note, txt.trim()));
+                }}
+                disabled={busy}
+                className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border border-cockpit-input text-cockpit-primary hover:bg-cockpit-card disabled:opacity-40"
+              >
+                <Pencil className="w-3 h-3" />
+                Note libre
+              </button>
             </div>
           )}
 
@@ -265,23 +339,6 @@ function ExpandedRow({
                   <>Modifs manuelles : note / reste à payer / conversion stock.</>
                 )}
               </div>
-
-              {/* Bouton Note */}
-              <button
-                onClick={() => {
-                  const note = window.prompt(
-                    `Note pour ${realBcdiId} (vide = effacer) :`,
-                    row.note || ""
-                  );
-                  if (note === null) return;
-                  onSetNote(realBcdiId, note.trim() || null);
-                }}
-                disabled={busy}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card disabled:opacity-40"
-              >
-                <StickyNote className="w-3 h-3" />
-                {row.note ? "Modifier la note" : "Ajouter une note"}
-              </button>
 
               {/* Bouton Saisir montants manuels */}
               {!isConverted && (
@@ -360,6 +417,24 @@ function ExpandedRow({
   );
 }
 
+function ContactBadge({ note }: { note: string | null }) {
+  const parsed = parseClientNote(note);
+  if (!parsed) return null;
+  const m = ACTION_LABELS[parsed.action];
+  return (
+    <span
+      title={parsed.line}
+      className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border whitespace-nowrap"
+      style={{ color: m.color, backgroundColor: m.bg, borderColor: m.border }}
+    >
+      <span>{m.emoji}</span>
+      <span>{m.label}</span>
+      {parsed.date && <span className="opacity-80">· {parsed.date}</span>}
+      {parsed.by && <span className="opacity-80">· {parsed.by}</span>}
+    </span>
+  );
+}
+
 function SortableHeader({
   label,
   field,
@@ -397,6 +472,12 @@ function SortableHeader({
 }
 
 export default function PrevisionnelPage() {
+  const { data: session } = useSession();
+  const userName = useMemo(() => {
+    const u = session?.user as { prenom?: string; nom?: string } | undefined;
+    if (!u) return "";
+    return `${u.prenom || ""} ${u.nom?.charAt(0) || ""}`.trim().replace(/\s+/g, " ");
+  }, [session]);
   const [activeImp, setActiveImp] = useState(IMPORTS[0]?.code || "IMP-618");
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -714,9 +795,14 @@ export default function PrevisionnelPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-cockpit-heading">
-                          {r.client || (
-                            <span className="text-cockpit-secondary/70">—</span>
-                          )}
+                          <div className="flex flex-col gap-0.5">
+                            <span>
+                              {r.client || (
+                                <span className="text-cockpit-secondary/70">—</span>
+                              )}
+                            </span>
+                            {r.note && <ContactBadge note={r.note} />}
+                          </div>
                         </td>
                         <td className="px-3 py-2.5 text-cockpit-primary text-[13px]">
                           {r.commercial || (
@@ -753,6 +839,7 @@ export default function PrevisionnelPage() {
                         <ExpandedRow
                           row={r}
                           busy={overrideBusy}
+                          userName={userName}
                           onConvert={(b, note) => setOverride(b, "to-stock", { note })}
                           onRestore={(b) => setOverride(b, "restore")}
                           onSetAmount={(b, restePayerHT, totalHT) =>
