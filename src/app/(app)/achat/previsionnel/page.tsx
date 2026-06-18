@@ -50,6 +50,7 @@ interface Row {
   paidPct: number | null;
   etatProduit: string | null;
   isSav: boolean;
+  bdoBcNumber: string | null;
   note: string | null;
   hasManualRestePayer: boolean;
   hasManualTotalHT: boolean;
@@ -912,6 +913,14 @@ export default function PrevisionnelPage() {
                                 className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-600 text-white"
                               >
                                 URGENT
+                              </span>
+                            )}
+                            {r.bdoBcNumber && (
+                              <span
+                                title={`Montants récupérés depuis le Sellsy Bois d'Orient (${r.bdoBcNumber})`}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200"
+                              >
+                                BDO {r.bdoBcNumber}
                               </span>
                             )}
                             {r.note && (

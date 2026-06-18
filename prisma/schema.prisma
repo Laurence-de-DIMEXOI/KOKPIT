@@ -1399,6 +1399,7 @@ model BcdiSellsySnapshot {
   status        String?
   etatProduit   String?
   isSav         Boolean  @default(false)
+  bdoBcNumber   String?
   computedAt    DateTime @default(now())
 
   @@index([computedAt(sort: Desc)], map: "bcdi_sellsy_snapshot_computed_idx")

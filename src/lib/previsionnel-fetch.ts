@@ -5,6 +5,24 @@ import {
   listStaffs,
   type SellsyOrder,
 } from "@/lib/sellsy";
+import { fetchBdoOrderSummaryByNumber } from "@/lib/sellsy-bdo";
+
+/**
+ * Extrait un numéro de BC Bois d'Orient depuis un ou plusieurs textes
+ * (objet du document, commentaires…). Formats tolérés :
+ *   "BC-11487", "BC 11487", "BC11487", parfois suffixé d'une date
+ *   ("BC-11487-06122024") ou précédé de "BCDI Bois D'Orient : ".
+ * Renvoie la forme normalisée "BC-11487" (sans le suffixe date) ou null.
+ */
+function extractBcNumber(...texts: (string | null | undefined)[]): string | null {
+  const re = /BC[\s-]?(\d{4,6})/i;
+  for (const t of texts) {
+    if (!t) continue;
+    const m = t.match(re);
+    if (m) return `BC-${m[1]}`;
+  }
+  return null;
+}
 
 /**
  * Fetch lourd Sellsy pour le Prévisionnel. Réservé au cron de refresh.
@@ -192,6 +210,7 @@ export interface BcdiInfo {
   etatProduit: string | null;
   isSav: boolean;
   sellsyOrderId: number | null;
+  bdoBcNumber: string | null;
 }
 
 async function fetchOrderInfo(
@@ -209,8 +228,9 @@ async function fetchOrderInfo(
     const order = search.data?.[0];
     if (!order) return null;
 
-    const totalHT = Number(order.amounts?.total_excl_tax || 0);
+    let totalHT = Number(order.amounts?.total_excl_tax || 0);
     let { restePayerHT, paidPct } = await calcPaymentSummary(order);
+    let statusValue: string | null = order.status || null;
 
     const ownerId = order.owner_id ?? order.owner?.id ?? null;
     const commercial =
@@ -224,6 +244,43 @@ async function fetchOrderInfo(
     }
     if (!client && order._embed?.company?.name) client = order._embed.company.name;
     if (!client && order.company_name) client = order.company_name;
+
+    // ── Bois d'Orient : BCDI DIMEXOI à 0€ dont l'objet/les commentaires
+    //    référencent un BC Bois d'Orient → on récupère les montants côté
+    //    Sellsy BDO (même procédé).
+    let bdoBcNumber: string | null = null;
+    if (totalHT <= 0) {
+      // 1) objet (subject) — déjà dans la réponse V2
+      let bc = extractBcNumber(order.subject);
+      // 2) sinon, scan du document V1 complet (objet + notes + commentaires)
+      if (!bc) {
+        try {
+          const v1 = await sellsyV1Call("Document.getOne", {
+            doctype: "order",
+            docid: String(order.id),
+          });
+          bc = extractBcNumber(JSON.stringify(v1));
+        } catch {
+          /* tolère */
+        }
+      }
+      if (bc) {
+        bdoBcNumber = bc;
+        try {
+          const bdo = await fetchBdoOrderSummaryByNumber(bc);
+          if (bdo) {
+            totalHT = bdo.totalHT;
+            restePayerHT = bdo.restePayerHT;
+            paidPct = bdo.paidPct;
+            if (bdo.status) statusValue = bdo.status;
+            if (!client && bdo.client) client = bdo.client;
+            bdoBcNumber = bdo.number || bc;
+          }
+        } catch (e) {
+          console.warn(`[prev-fetch] BDO ${bc} (BCDI ${bcdi}):`, (e as Error).message);
+        }
+      }
+    }
 
     let etatProduit: string | null = null;
     try {
@@ -252,10 +309,11 @@ async function fetchOrderInfo(
       totalHT: Number(totalHT.toFixed(2)),
       restePayerHT,
       paidPct,
-      status: order.status || null,
+      status: statusValue,
       etatProduit,
       isSav,
       sellsyOrderId: order.id,
+      bdoBcNumber,
     };
   } catch (e) {
     console.warn(`[prev-fetch] order ${bcdi}:`, e);
@@ -335,6 +393,7 @@ export async function refreshBcdiSnapshots(
               status: info.status,
               etatProduit: info.etatProduit,
               isSav: info.isSav,
+              bdoBcNumber: info.bdoBcNumber,
               computedAt: new Date(),
             },
             update: {
@@ -347,6 +406,7 @@ export async function refreshBcdiSnapshots(
               status: info.status,
               etatProduit: info.etatProduit,
               isSav: info.isSav,
+              bdoBcNumber: info.bdoBcNumber,
               computedAt: new Date(),
             },
           });

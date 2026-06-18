@@ -309,6 +309,108 @@ export async function listAllEstimatesBdo(): Promise<SellsyBdoDocument[]> {
   return listAllDocumentsBdo("estimates");
 }
 
+// ===== RECHERCHE D'UN BC PAR NUMÉRO (Prévisionnel) =====
+
+export interface BdoOrderSummary {
+  sellsyOrderId: number;
+  number: string;
+  client: string | null;
+  totalHT: number;
+  totalTTC: number;
+  restePayerHT: number;
+  paidPct: number;
+  status: string | null;
+}
+
+/**
+ * Recherche un BC (bon de commande) dans le Sellsy Bois d'Orient par son numéro
+ * et calcule le reste à payer HT — même procédé que pour DIMEXOI (statut + paiements).
+ *
+ * `rawNum` est le numéro extrait de l'objet / des commentaires d'un BCDI DIMEXOI
+ * (ex : "BC-11487", parfois "BC 11487" ou avec suffixe date "BC-11487-06122024").
+ * On teste plusieurs formes pour matcher le champ `number` du document BDO.
+ */
+export async function fetchBdoOrderSummaryByNumber(
+  rawNum: string
+): Promise<BdoOrderSummary | null> {
+  const digits = (rawNum.match(/\d{3,}/) || [])[0];
+  if (!digits) return null;
+  const candidates = Array.from(
+    new Set([rawNum.trim(), `BC-${digits}`, `BC ${digits}`, `BC${digits}`, digits])
+  );
+
+  let order: SellsyBdoDocument | null = null;
+  for (const number of candidates) {
+    try {
+      const res = await sellsyFetchBdo<SellsyListResponse<SellsyBdoDocument>>(
+        `/orders/search?limit=1&embed[]=contact&embed[]=company`,
+        { method: "POST", body: JSON.stringify({ filters: { number } }) }
+      );
+      if (res.data?.[0]) {
+        order = res.data[0];
+        break;
+      }
+    } catch (e) {
+      console.warn(`[BDO] recherche order "${number}" ko:`, (e as Error).message);
+    }
+  }
+  if (!order) return null;
+
+  const totalHT = Number(order.amounts?.total_excl_tax || 0);
+  const totalTTC = Number(order.amounts?.total_incl_tax || 0);
+  const status = (order.status || "").toLowerCase();
+
+  let client: string | null = null;
+  const ec = order._embed?.contact;
+  if (ec) {
+    const n = `${ec.first_name || ""} ${ec.last_name || ""}`.trim();
+    if (n) client = n;
+  }
+  if (!client && order._embed?.company?.name) client = order._embed.company.name;
+
+  let restePayerHT = 0;
+  let paidPct = 1;
+  if (totalHT > 0 && totalTTC > 0) {
+    if (["cancelled", "refused", "expired"].includes(status)) {
+      restePayerHT = 0;
+      paidPct = 0;
+    } else if (status === "paid" || status === "invoiced") {
+      restePayerHT = 0;
+      paidPct = 1;
+    } else {
+      let paidTTC = 0;
+      try {
+        const pay = await sellsyFetchBdo<{
+          data: Array<{ amount?: { value: string }; status?: string }>;
+        }>(`/orders/${order.id}/payments?limit=100`);
+        for (const p of pay.data || []) {
+          if (p.status && p.status !== "confirmed") continue;
+          const v = Number(p.amount?.value || 0);
+          if (Number.isFinite(v)) paidTTC += v;
+        }
+      } catch {
+        /* tolère */
+      }
+      paidTTC = Math.min(totalTTC, paidTTC);
+      const resteTTC = Math.max(0, totalTTC - paidTTC);
+      const ratio = totalHT / totalTTC;
+      restePayerHT = Number((resteTTC * ratio).toFixed(2));
+      paidPct = Math.min(Math.max(paidTTC / totalTTC, 0), 1);
+    }
+  }
+
+  return {
+    sellsyOrderId: order.id,
+    number: order.number || rawNum,
+    client,
+    totalHT: Number(totalHT.toFixed(2)),
+    totalTTC: Number(totalTTC.toFixed(2)),
+    restePayerHT,
+    paidPct,
+    status: order.status || null,
+  };
+}
+
 // ===== DETAILS CONTACT =====
 
 export async function fetchIndividualDetailsBdo(id: number): Promise<{

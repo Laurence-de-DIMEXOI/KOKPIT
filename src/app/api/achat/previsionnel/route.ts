@@ -64,6 +64,7 @@ interface Row {
   paidPct: number | null;
   etatProduit: string | null;
   isSav: boolean;
+  bdoBcNumber: string | null;
   note: string | null;
   hasManualRestePayer: boolean;
   hasManualTotalHT: boolean;
@@ -299,6 +300,7 @@ export async function GET(request: Request) {
     status: string | null;
     etatProduit: string | null;
     isSav: boolean;
+    bdoBcNumber: string | null;
     computedAt: Date;
   }
   const snapByBcdi = new Map<string, SnapInfo>();
@@ -313,6 +315,7 @@ export async function GET(request: Request) {
       status: s.status,
       etatProduit: s.etatProduit,
       isSav: s.isSav,
+      bdoBcNumber: s.bdoBcNumber,
       computedAt: s.computedAt,
     };
     snapByBcdi.set(s.bcdi, info);
@@ -417,6 +420,7 @@ export async function GET(request: Request) {
         paidPct: null,
         etatProduit: null,
         isSav: false,
+        bdoBcNumber: null,
         note: override?.note ?? null,
         hasManualRestePayer: false,
         hasManualTotalHT: false,
@@ -453,6 +457,7 @@ export async function GET(request: Request) {
         paidPct: info?.paidPct ?? null,
         etatProduit: info?.etatProduit ?? null,
         isSav: info?.isSav ?? false,
+        bdoBcNumber: info?.bdoBcNumber ?? null,
         note: override?.note ?? null,
         hasManualRestePayer,
         hasManualTotalHT,
