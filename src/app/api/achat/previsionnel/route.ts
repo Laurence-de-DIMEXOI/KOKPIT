@@ -245,35 +245,81 @@ async function priceHTForRef(ref: string): Promise<number | null> {
  *      • sinon (acompte versé sans % connu) → 60% restant par défaut (40/40/20)
  *  - status `draft`|`sent`|`accepted`     → reste = total (rien encaissé)
  */
-function calcPaymentSummary(order: SellsyOrder): {
+/**
+ * Calcule le reste à payer HT d'un BDC.
+ *
+ * On combine 2 signaux Sellsy car aucun n'est complet à lui seul :
+ *
+ *  A. Paiements directs sur l'order (`GET /orders/{id}/payments`) — capture
+ *     les paiements explicitement liés au BDC (ex: BCDI-05598 → 625 € acompte
+ *     que le status `sent` ne reflète pas).
+ *  B. Champ `order.deposit` + status — capture les acomptes encaissés via
+ *     des canaux non liés directement à l'order (factures séparées, comptes
+ *     Bois d'Orient, etc.). Quand status=`advanced`, on assume que l'acompte
+ *     défini sur le BDC est encaissé.
+ *
+ * On prend le MAX des 2 → on ne sous-estime pas le payé (et donc on ne
+ * sur-estime pas le reste à payer).
+ *
+ * Cas particuliers :
+ *  - status `paid` ou `invoiced` → reste 0
+ *  - status `cancelled`/`refused`/`expired` → reste 0 (exclu de la projection)
+ *  - status `sent`/`accepted`/`draft` + acompte détecté via /payments → reste calculé
+ *  - totalHT/TTC = 0 → BDC fantôme, exclu
+ */
+async function calcPaymentSummary(order: SellsyOrder): Promise<{
   restePayerHT: number;
   paidPct: number;
-} {
+}> {
   const totalHT = Number(order.amounts?.total_excl_tax || 0);
   const totalTTC = Number(order.amounts?.total_incl_tax || 0);
-  if (totalHT <= 0) return { restePayerHT: 0, paidPct: 1 };
-
-  const status = (order.status || "").toLowerCase();
-  if (["paid", "invoiced"].includes(status)) {
+  if (totalHT <= 0 || totalTTC <= 0) {
     return { restePayerHT: 0, paidPct: 1 };
   }
+
+  const status = (order.status || "").toLowerCase();
   if (["cancelled", "refused", "expired"].includes(status)) {
     return { restePayerHT: 0, paidPct: 0 };
   }
+  if (["paid", "invoiced"].includes(status)) {
+    return { restePayerHT: 0, paidPct: 1 };
+  }
 
+  // A) Paiements directs sur le BDC
+  let paidFromPaymentsTTC = 0;
+  try {
+    const pay = await sellsyFetch<{
+      data: Array<{ amount?: { value: string }; status?: string }>;
+    }>(`/orders/${order.id}/payments?limit=100`);
+    for (const p of pay.data || []) {
+      if (p.status && p.status !== "confirmed") continue;
+      const v = Number(p.amount?.value || 0);
+      if (Number.isFinite(v)) paidFromPaymentsTTC += v;
+    }
+  } catch {
+    /* tolère */
+  }
+
+  // B) Acompte présumé via le champ deposit + status advanced
+  let paidFromDepositTTC = 0;
   const deposit = (order as unknown as { deposit?: { type?: string; value?: string } }).deposit;
-  let paidPct = 0;
   if (status === "advanced") {
     if (deposit?.type === "percent") {
-      paidPct = Number(deposit.value || 0) / 100;
-    } else if (deposit?.type === "amount" && totalTTC > 0) {
-      paidPct = Number(deposit.value || 0) / totalTTC;
+      paidFromDepositTTC = (Number(deposit.value || 0) / 100) * totalTTC;
+    } else if (deposit?.type === "amount") {
+      paidFromDepositTTC = Number(deposit.value || 0);
     } else {
-      paidPct = 0.4;
+      paidFromDepositTTC = 0.4 * totalTTC; // défaut DIMEXOI : 40 %
     }
   }
-  paidPct = Math.min(Math.max(paidPct, 0), 1);
-  const restePayerHT = Number((totalHT * (1 - paidPct)).toFixed(2));
+
+  // On prend le max — on ne sous-estime jamais ce qui est payé
+  const paidTTC = Math.min(totalTTC, Math.max(paidFromPaymentsTTC, paidFromDepositTTC));
+  const resteTTC = Math.max(0, totalTTC - paidTTC);
+  const ratio = totalHT / totalTTC;
+  const restePayerHT = Number((resteTTC * ratio).toFixed(2));
+  const paidPct = Math.min(Math.max(paidTTC / totalTTC, 0), 1);
+
   return { restePayerHT, paidPct };
 }
 
@@ -302,7 +348,7 @@ async function fetchOrderInfo(
     if (!order) return null;
 
     const totalHT = Number(order.amounts?.total_excl_tax || 0);
-    let { restePayerHT, paidPct } = calcPaymentSummary(order);
+    let { restePayerHT, paidPct } = await calcPaymentSummary(order);
 
     const ownerId = order.owner_id ?? order.owner?.id ?? null;
     const commercial =
