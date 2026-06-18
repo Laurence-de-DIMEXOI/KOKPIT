@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sellsyFetch, listStaffs, type SellsyOrder } from "@/lib/sellsy";
+import {
+  sellsyFetch,
+  sellsyV1Call,
+  listStaffs,
+  type SellsyOrder,
+} from "@/lib/sellsy";
 import { IMPORTS } from "@/lib/imports-config";
 
 /**
@@ -248,24 +253,19 @@ async function priceHTForRef(ref: string): Promise<number | null> {
 /**
  * Calcule le reste à payer HT d'un BDC.
  *
- * On combine 2 signaux Sellsy car aucun n'est complet à lui seul :
+ * Source de vérité : le V1 Sellsy `Document.getOne` qui expose `relateds_amount` —
+ * la somme TTC de TOUTES les relations (paiements directs + factures d'acompte
+ * + factures liées). Cette valeur reflète ce que Sellsy considère comme encaissé
+ * dans le contexte de l'order, même quand les paiements ont migré vers les
+ * documents enfants (BDL, facture finale).
  *
- *  A. Paiements directs sur l'order (`GET /orders/{id}/payments`) — capture
- *     les paiements explicitement liés au BDC (ex: BCDI-05598 → 625 € acompte
- *     que le status `sent` ne reflète pas).
- *  B. Champ `order.deposit` + status — capture les acomptes encaissés via
- *     des canaux non liés directement à l'order (factures séparées, comptes
- *     Bois d'Orient, etc.). Quand status=`advanced`, on assume que l'acompte
- *     défini sur le BDC est encaissé.
+ * Exemple BCDI-05598 META FORGE :
+ *   - totalAmount V1 : 1 250 € TTC
+ *   - relateds_amount : 625 € TTC (acompte Bois d'Orient)
+ *   - reste TTC = 625 € → HT = 575,97 € (≈ Michelle 625 TTC)
  *
- * On prend le MAX des 2 → on ne sous-estime pas le payé (et donc on ne
- * sur-estime pas le reste à payer).
- *
- * Cas particuliers :
- *  - status `paid` ou `invoiced` → reste 0
- *  - status `cancelled`/`refused`/`expired` → reste 0 (exclu de la projection)
- *  - status `sent`/`accepted`/`draft` + acompte détecté via /payments → reste calculé
- *  - totalHT/TTC = 0 → BDC fantôme, exclu
+ * Fallback V2 : si l'appel V1 échoue (rare), on retombe sur le calcul V2
+ * status + deposit + paiements directs.
  */
 async function calcPaymentSummary(order: SellsyOrder): Promise<{
   restePayerHT: number;
@@ -281,11 +281,40 @@ async function calcPaymentSummary(order: SellsyOrder): Promise<{
   if (["cancelled", "refused", "expired"].includes(status)) {
     return { restePayerHT: 0, paidPct: 0 };
   }
-  if (["paid", "invoiced"].includes(status)) {
+  if (["paid"].includes(status)) {
     return { restePayerHT: 0, paidPct: 1 };
   }
 
-  // A) Paiements directs sur le BDC
+  // 1) Source principale : V1 Document.getOne → relateds_amount
+  try {
+    const v1 = (await sellsyV1Call("Document.getOne", {
+      doctype: "order",
+      docid: String(order.id),
+    })) as {
+      step?: string;
+      totalAmount?: string;
+      totalAmountTaxesFree?: string;
+      relateds_amount?: string;
+    } | null;
+
+    if (v1) {
+      const v1Total = Number(v1.totalAmount || totalTTC);
+      const v1TotalHT = Number(v1.totalAmountTaxesFree || totalHT);
+      const paidTTC = Math.min(v1Total, Number(v1.relateds_amount || 0));
+      const resteTTC = Math.max(0, v1Total - paidTTC);
+      const ratio = v1Total > 0 ? v1TotalHT / v1Total : 1;
+      const restePayerHT = Number((resteTTC * ratio).toFixed(2));
+      const paidPct = v1Total > 0 ? Math.min(Math.max(paidTTC / v1Total, 0), 1) : 0;
+      return { restePayerHT, paidPct };
+    }
+  } catch (e) {
+    console.warn("[previsionnel] V1 Document.getOne err:", e);
+  }
+
+  // 2) Fallback V2 : status + deposit + paiements directs
+  if (status === "invoiced") {
+    return { restePayerHT: 0, paidPct: 1 };
+  }
   let paidFromPaymentsTTC = 0;
   try {
     const pay = await sellsyFetch<{
@@ -299,8 +328,6 @@ async function calcPaymentSummary(order: SellsyOrder): Promise<{
   } catch {
     /* tolère */
   }
-
-  // B) Acompte présumé via le champ deposit + status advanced
   let paidFromDepositTTC = 0;
   const deposit = (order as unknown as { deposit?: { type?: string; value?: string } }).deposit;
   if (status === "advanced") {
@@ -309,17 +336,14 @@ async function calcPaymentSummary(order: SellsyOrder): Promise<{
     } else if (deposit?.type === "amount") {
       paidFromDepositTTC = Number(deposit.value || 0);
     } else {
-      paidFromDepositTTC = 0.4 * totalTTC; // défaut DIMEXOI : 40 %
+      paidFromDepositTTC = 0.4 * totalTTC;
     }
   }
-
-  // On prend le max — on ne sous-estime jamais ce qui est payé
   const paidTTC = Math.min(totalTTC, Math.max(paidFromPaymentsTTC, paidFromDepositTTC));
   const resteTTC = Math.max(0, totalTTC - paidTTC);
   const ratio = totalHT / totalTTC;
   const restePayerHT = Number((resteTTC * ratio).toFixed(2));
   const paidPct = Math.min(Math.max(paidTTC / totalTTC, 0), 1);
-
   return { restePayerHT, paidPct };
 }
 
