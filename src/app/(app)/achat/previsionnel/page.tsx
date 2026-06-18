@@ -848,7 +848,7 @@ export default function PrevisionnelPage() {
               <thead className="bg-cockpit-card text-[11px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
                 <tr>
                   <th className="w-8 px-2 py-2.5"></th>
-                  <SortableHeader label="N° BCDI" field="bcdi" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} width="w-28" />
+                  <SortableHeader label="N° BCDI" field="bcdi" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} width="w-40" />
                   <SortableHeader label="Client" field="client" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortableHeader label="Propriétaire" field="commercial" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} width="w-32" />
                   <SortableHeader label="Statut" field="status" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} width="w-40" />
@@ -904,7 +904,7 @@ export default function PrevisionnelPage() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-xs font-semibold text-[var(--color-active)]">
-                          <span className="inline-flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                             <span>{r.bcdi}</span>
                             {r.urgent && (
                               <span
