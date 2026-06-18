@@ -12,12 +12,32 @@ interface ContainerMeta {
   destination: string;
 }
 
+type BannerVariant = "achat" | "commercial";
+
+const VARIANTS: Record<BannerVariant, { gradient: string; btnText: string }> = {
+  // DA Achat : violet/active → butter yellow
+  achat: {
+    gradient:
+      "linear-gradient(90deg, var(--color-active) 0%, var(--color-active) 50%, #FEEB9C 130%)",
+    btnText: "var(--color-active)",
+  },
+  // DA Commercial : teal → butter yellow
+  commercial: {
+    gradient: "linear-gradient(90deg, #0E6973 0%, #128894 60%, #FEEB9C 130%)",
+    btnText: "#0E6973",
+  },
+};
+
 /**
  * Bandeau "Container en transit" — réutilisable sur toute page KOKPIT.
  * Affiche les méta + un bouton qui ouvre la pop-up détaillée du contenu.
- * DA Commercial : gradient teal #0E6973 → #FEEB9C.
+ * `variant` adapte le gradient à la DA de la section (Achat par défaut).
  */
-export function ContainerBanner() {
+export function ContainerBanner({
+  variant = "achat",
+}: {
+  variant?: BannerVariant;
+} = {}) {
   const [meta, setMeta] = useState<ContainerMeta | null>(null);
   const [count, setCount] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
@@ -34,14 +54,13 @@ export function ContainerBanner() {
 
   if (!meta) return null;
 
+  const v = VARIANTS[variant];
+
   return (
     <>
       <div
         className="rounded-card shadow-cockpit-md overflow-hidden border border-cockpit"
-        style={{
-          background:
-            "linear-gradient(90deg, #0E6973 0%, #128894 60%, #FEEB9C 130%)",
-        }}
+        style={{ background: v.gradient }}
       >
         <div className="px-5 py-4 flex items-center gap-4 text-white">
           <div className="shrink-0 w-11 h-11 rounded-full bg-white/15 flex items-center justify-center">
@@ -62,7 +81,8 @@ export function ContainerBanner() {
           </div>
           <button
             onClick={() => setOpen(true)}
-            className="shrink-0 px-3.5 py-2 rounded-input text-[13px] font-semibold bg-white text-[#0E6973] hover:bg-white/90 shadow-cockpit-sm transition-colors whitespace-nowrap"
+            className="shrink-0 px-3.5 py-2 rounded-input text-[13px] font-semibold bg-white hover:bg-white/90 shadow-cockpit-sm transition-colors whitespace-nowrap"
+            style={{ color: v.btnText }}
           >
             Voir le contenu
             {count !== null && (
