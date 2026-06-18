@@ -1,7 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, TrendingUp, RefreshCw, Search } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Loader2,
+  TrendingUp,
+  RefreshCw,
+  Search,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
 import { ContainerBanner } from "@/components/layout/container-banner";
 import { IMPORTS } from "@/lib/imports-config";
 
@@ -9,6 +16,14 @@ const ACHAT_GRADIENT = {
   from: "var(--color-active)",
   to: "#FEEB9C",
 };
+
+interface RowItem {
+  ref: string;
+  description: string;
+  qty: number;
+  note?: string;
+  priceHT?: number | null;
+}
 
 interface Row {
   bcdi: string;
@@ -19,6 +34,9 @@ interface Row {
   totalHT: number | null;
   restePayerHT: number | null;
   potentielCommercial: number | null;
+  status: string | null;
+  paidPct: number | null;
+  items: RowItem[];
 }
 
 interface Payload {
@@ -42,11 +60,135 @@ function eur(n: number | null): string {
   }).format(n);
 }
 
+function eurPrecise(n: number | null): string {
+  if (n == null) return "—";
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+interface StatusBadge {
+  label: string;
+  fg: string;
+  bg: string;
+}
+const STATUS_BADGES: Record<string, StatusBadge> = {
+  paid: { label: "Payé", fg: "#065F46", bg: "#D1FAE5" },
+  invoiced: { label: "Facturé", fg: "#065F46", bg: "#D1FAE5" },
+  advanced: { label: "Acompte", fg: "#92400E", bg: "#FEF3C7" },
+  accepted: { label: "Accepté", fg: "#1E40AF", bg: "#DBEAFE" },
+  sent: { label: "Envoyé", fg: "#B91C1C", bg: "#FEE2E2" },
+  draft: { label: "Brouillon", fg: "#6B7280", bg: "#F3F4F6" },
+  cancelled: { label: "Annulé", fg: "#6B7280", bg: "#F3F4F6" },
+  refused: { label: "Refusé", fg: "#6B7280", bg: "#F3F4F6" },
+  expired: { label: "Expiré", fg: "#6B7280", bg: "#F3F4F6" },
+};
+
+function StatusPill({ row }: { row: Row }) {
+  if (row.isStock) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+        Stock
+      </span>
+    );
+  }
+  if (!row.status) return <span className="text-cockpit-secondary/60">—</span>;
+  const b = STATUS_BADGES[row.status] || {
+    label: row.status,
+    fg: "#6B7280",
+    bg: "#F3F4F6",
+  };
+  const pct = row.paidPct != null ? Math.round(row.paidPct * 100) : null;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium"
+        style={{ backgroundColor: b.bg, color: b.fg }}
+      >
+        {b.label}
+      </span>
+      {pct != null && pct > 0 && pct < 100 && (
+        <span className="text-[10px] text-cockpit-secondary tabular-nums">
+          {pct}%
+        </span>
+      )}
+    </span>
+  );
+}
+
+function ExpandedRow({ row }: { row: Row }) {
+  return (
+    <tr className="bg-cockpit border-b border-cockpit">
+      <td colSpan={9} className="px-12 py-3">
+        <div className="rounded-card bg-cockpit-card border border-cockpit shadow-cockpit-sm overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-cockpit text-[10px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold w-32">Réf</th>
+                <th className="px-3 py-2 text-left font-semibold">
+                  Dénomination
+                </th>
+                <th className="px-3 py-2 text-right font-semibold w-16">Qté</th>
+                {row.isStock && (
+                  <th className="px-3 py-2 text-right font-semibold w-28">
+                    Prix HT
+                  </th>
+                )}
+                {row.isStock && (
+                  <th className="px-3 py-2 text-right font-semibold w-28">
+                    Sous-total
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {row.items.map((it, i) => (
+                <tr
+                  key={`${row.bcdi}-${it.ref}-${i}`}
+                  className="border-b border-cockpit/50 last:border-b-0"
+                >
+                  <td className="px-3 py-1.5 font-mono text-cockpit-primary">
+                    {it.ref}
+                  </td>
+                  <td className="px-3 py-1.5 text-cockpit-heading">
+                    <div>{it.description}</div>
+                    {it.note && (
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                        ⚠ {it.note}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-cockpit-heading">
+                    {it.qty}
+                  </td>
+                  {row.isStock && (
+                    <td className="px-3 py-1.5 text-right font-mono text-cockpit-primary">
+                      {it.priceHT != null ? eurPrecise(it.priceHT) : "—"}
+                    </td>
+                  )}
+                  {row.isStock && (
+                    <td className="px-3 py-1.5 text-right font-mono font-semibold text-amber-700">
+                      {it.priceHT != null ? eur(it.priceHT * it.qty) : "—"}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 export default function PrevisionnelPage() {
   const [activeImp, setActiveImp] = useState(IMPORTS[0]?.code || "IMP-618");
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async (imp: string, fresh = false) => {
     setLoading(true);
@@ -64,6 +206,7 @@ export default function PrevisionnelPage() {
 
   useEffect(() => {
     fetchData(activeImp);
+    setExpanded(new Set());
   }, [activeImp, fetchData]);
 
   const filtered = useMemo(() => {
@@ -74,9 +217,23 @@ export default function PrevisionnelPage() {
       (r) =>
         r.bcdi.toLowerCase().includes(needle) ||
         (r.client || "").toLowerCase().includes(needle) ||
-        (r.commercial || "").toLowerCase().includes(needle)
+        (r.commercial || "").toLowerCase().includes(needle) ||
+        r.items.some(
+          (it) =>
+            it.ref.toLowerCase().includes(needle) ||
+            it.description.toLowerCase().includes(needle)
+        )
     );
   }, [data, q]);
+
+  const toggleExpand = (bcdi: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(bcdi)) next.delete(bcdi);
+      else next.add(bcdi);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6 pb-8">
@@ -128,7 +285,7 @@ export default function PrevisionnelPage() {
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher (BCDI, client, commercial)…"
+              placeholder="Rechercher (BCDI, client, commercial, réf, désignation)…"
               className="w-full pl-10 pr-4 py-2 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-active)] focus:border-transparent"
             />
           </div>
@@ -168,6 +325,7 @@ export default function PrevisionnelPage() {
             <table className="w-full text-sm">
               <thead className="bg-cockpit-card text-[11px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
                 <tr>
+                  <th className="w-8 px-2 py-2.5"></th>
                   <th className="px-4 py-2.5 text-left font-semibold w-32">
                     N° BCDI
                   </th>
@@ -175,10 +333,13 @@ export default function PrevisionnelPage() {
                   <th className="px-4 py-2.5 text-left font-semibold w-36">
                     Propriétaire
                   </th>
+                  <th className="px-4 py-2.5 text-left font-semibold w-28">
+                    Statut
+                  </th>
                   <th className="px-4 py-2.5 text-right font-semibold w-20">
                     Nb meubles
                   </th>
-                  <th className="px-4 py-2.5 text-right font-semibold w-32">
+                  <th className="px-4 py-2.5 text-right font-semibold w-28">
                     Total HT
                   </th>
                   <th className="px-4 py-2.5 text-right font-semibold w-32">
@@ -190,48 +351,62 @@ export default function PrevisionnelPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
-                  <tr
-                    key={r.bcdi}
-                    className={`border-b border-cockpit hover:bg-cockpit/60 transition-colors ${
-                      r.isStock ? "bg-amber-50/40" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-2.5 font-mono text-xs font-semibold text-[var(--color-active)]">
-                      {r.bcdi}
-                    </td>
-                    <td className="px-4 py-2.5 text-cockpit-heading">
-                      {r.client || (
-                        <span className="text-cockpit-secondary/70">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-cockpit-primary text-[13px]">
-                      {r.commercial || (
-                        <span className="text-cockpit-secondary/70">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-cockpit-heading font-medium">
-                      {r.nbMeubles}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-cockpit-primary">
-                      {eur(r.totalHT)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-emerald-700">
-                      {r.restePayerHT && r.restePayerHT > 0
-                        ? eur(r.restePayerHT)
-                        : eur(r.restePayerHT)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-amber-700">
-                      {eur(r.potentielCommercial)}
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((r) => {
+                  const isOpen = expanded.has(r.bcdi);
+                  return (
+                    <Fragment key={r.bcdi}>
+                      <tr
+                        onClick={() => toggleExpand(r.bcdi)}
+                        className={`border-b border-cockpit hover:bg-cockpit/60 transition-colors cursor-pointer ${
+                          r.isStock ? "bg-amber-50/40" : ""
+                        } ${isOpen ? "bg-cockpit/40" : ""}`}
+                      >
+                        <td className="w-8 px-2 py-2.5 text-cockpit-secondary">
+                          {isOpen ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-xs font-semibold text-[var(--color-active)]">
+                          {r.bcdi}
+                        </td>
+                        <td className="px-4 py-2.5 text-cockpit-heading">
+                          {r.client || (
+                            <span className="text-cockpit-secondary/70">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-cockpit-primary text-[13px]">
+                          {r.commercial || (
+                            <span className="text-cockpit-secondary/70">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <StatusPill row={r} />
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-cockpit-heading font-medium">
+                          {r.nbMeubles}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-cockpit-primary">
+                          {eur(r.totalHT)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-emerald-700">
+                          {eur(r.restePayerHT)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-amber-700">
+                          {eur(r.potentielCommercial)}
+                        </td>
+                      </tr>
+                      {isOpen && <ExpandedRow row={r} />}
+                    </Fragment>
+                  );
+                })}
               </tbody>
               {data.rows.length > 0 && (
                 <tfoot className="bg-cockpit border-t-2 border-cockpit">
                   <tr>
                     <td
-                      colSpan={3}
+                      colSpan={5}
                       className="px-4 py-3 text-right text-xs uppercase tracking-wider font-semibold text-cockpit-secondary"
                     >
                       Totaux

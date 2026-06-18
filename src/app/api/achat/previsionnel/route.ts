@@ -28,11 +28,21 @@ interface PackingItem {
   description: string;
   qty: number;
   note?: string;
+  /** Override manuel du prix HT (utile pour les refs absentes du catalogue Sellsy) */
+  priceHTOverride?: number;
 }
 
 interface PackingFile {
   meta: Record<string, string>;
   items: PackingItem[];
+}
+
+interface RowItem {
+  ref: string;
+  description: string;
+  qty: number;
+  note?: string;
+  priceHT?: number | null;
 }
 
 interface Row {
@@ -44,44 +54,187 @@ interface Row {
   totalHT: number | null;
   restePayerHT: number | null;
   potentielCommercial: number | null;
-  refsDetail?: Array<{ ref: string; qty: number; priceHT: number | null }>;
+  status: string | null;
+  paidPct: number | null;
+  items: RowItem[];
 }
 
 const cache = new Map<string, { data: unknown; expires: number }>();
 const TTL_MS = 15 * 60 * 1000;
 
+/**
+ * Cherche le prix HT live sur Sellsy pour un item / déclinaison + écrit dans le cache.
+ *  - Tente d'abord /items/{id}/declinations/{declId}/prices (référence_price_taxes_exc)
+ *  - Sinon retourne null
+ */
+async function fetchPriceHTLive(opts: {
+  itemId?: number | null;
+  declinationId?: number | null;
+  ref?: string;
+}): Promise<number | null> {
+  const { itemId, declinationId, ref } = opts;
+  try {
+    if (itemId && declinationId) {
+      const res = await sellsyFetch<{
+        data: { data?: Array<{ unit_amount?: string }> } & {
+          unit_amount?: string;
+        };
+      }>(`/items/${itemId}/declinations/${declinationId}/prices?limit=20`);
+      const list: Array<{ unit_amount?: string }> =
+        (res as unknown as { data: Array<{ unit_amount?: string }> }).data || [];
+      for (const p of list) {
+        if (p.unit_amount != null) {
+          const v = Number(p.unit_amount);
+          if (Number.isFinite(v) && v > 0) {
+            // Écriture opportuniste dans le cache
+            await prisma.sellsyDeclinationCache.updateMany({
+              where: { id: declinationId },
+              data: { priceHT: v },
+            });
+            return v;
+          }
+        }
+      }
+      // Fallback : /declinations/{id} renvoie reference_price_taxes_exc
+      const detail = await sellsyFetch<{
+        data: { reference_price_taxes_exc?: string | null };
+      }>(`/declinations/${declinationId}`);
+      const refPrice = Number(detail.data?.reference_price_taxes_exc || 0);
+      if (Number.isFinite(refPrice) && refPrice > 0) {
+        await prisma.sellsyDeclinationCache.updateMany({
+          where: { id: declinationId },
+          data: { priceHT: refPrice },
+        });
+        return refPrice;
+      }
+    }
+    if (itemId && !declinationId) {
+      const detail = await sellsyFetch<{
+        data: { reference_price_taxes_exc?: string | null };
+      }>(`/items/${itemId}`);
+      const refPrice = Number(detail.data?.reference_price_taxes_exc || 0);
+      if (Number.isFinite(refPrice) && refPrice > 0) {
+        await prisma.sellsyItemCache.update({
+          where: { id: itemId },
+          data: { priceHT: refPrice },
+        });
+        return refPrice;
+      }
+    }
+    // Dernier recours : items/search live par ref
+    if (ref) {
+      const res = await sellsyFetch<{
+        data: Array<{ id: number; reference: string }>;
+      }>(`/items/search?limit=5`, {
+        method: "POST",
+        body: JSON.stringify({ filters: { references: [ref] } }),
+      });
+      const hit = (res.data || []).find(
+        (i) => (i.reference || "").toUpperCase() === ref.toUpperCase()
+      );
+      if (hit?.id) return fetchPriceHTLive({ itemId: hit.id });
+    }
+  } catch (e) {
+    console.warn("[previsionnel] live price err:", e);
+  }
+  return null;
+}
+
 async function priceHTForRef(ref: string): Promise<number | null> {
   if (!ref || ref === "—") return null;
+  // 1) cache : déclinaison exacte
   const decli = await prisma.sellsyDeclinationCache.findFirst({
     where: { reference: { equals: ref, mode: "insensitive" } },
-    select: { priceHT: true, itemId: true },
+    select: { id: true, priceHT: true, itemId: true },
   });
   if (decli?.priceHT != null) return Number(decli.priceHT);
 
   if (decli?.itemId) {
-    // Tente sœur du même itemId avec un prix
+    // 2) cache : sœur même itemId
     const sister = await prisma.sellsyDeclinationCache.findFirst({
       where: { itemId: decli.itemId, priceHT: { not: null } },
       select: { priceHT: true },
     });
     if (sister?.priceHT != null) return Number(sister.priceHT);
 
-    // Item parent
+    // 3) cache : item parent
     const parent = await prisma.sellsyItemCache.findUnique({
       where: { id: decli.itemId },
       select: { priceHT: true },
     });
     if (parent?.priceHT != null) return Number(parent.priceHT);
+
+    // 4) live : Sellsy /declinations/{id} ou /items/{id}
+    const live = await fetchPriceHTLive({
+      itemId: decli.itemId,
+      declinationId: decli.id,
+    });
+    if (live != null) return live;
   }
 
-  // Tentative item direct par référence (pour les items sans déclinaison)
+  // 5) item direct (sans déclinaison)
   const item = await prisma.sellsyItemCache.findFirst({
     where: { reference: { equals: ref, mode: "insensitive" } },
-    select: { priceHT: true },
+    select: { id: true, priceHT: true },
   });
   if (item?.priceHT != null) return Number(item.priceHT);
+  if (item?.id) {
+    const live = await fetchPriceHTLive({ itemId: item.id });
+    if (live != null) return live;
+  }
 
-  return null;
+  // 6) live : search items par référence
+  const live = await fetchPriceHTLive({ ref });
+  return live;
+}
+
+/**
+ * Calcul du reste à payer HT à partir du status + deposit Sellsy.
+ *
+ * L'API Sellsy V2 n'expose pas le « solde dû » directement sur un BDC
+ * (les paiements sont reportés sur les factures, dont le lien BDC↔facture
+ * n'est pas filtrable en V2 — filtre `contact_id` cassé, pas de relation
+ * exploitable).
+ *
+ * Estimation pragmatique :
+ *  - status `paid` | `invoiced`           → 0 (tout encaissé/facturé)
+ *  - status `cancelled`|`refused`|`expired` → 0 (commande hors prévi)
+ *  - status `advanced` (acompte versé)    → reste = total × (1 − acompte%)
+ *      • si `deposit.type=percent`  → acompte% = deposit.value / 100
+ *      • si `deposit.type=amount`   → acompte% = deposit.value / totalTTC
+ *      • sinon (acompte versé sans % connu) → 60% restant par défaut (40/40/20)
+ *  - status `draft`|`sent`|`accepted`     → reste = total (rien encaissé)
+ */
+function calcPaymentSummary(order: SellsyOrder): {
+  restePayerHT: number;
+  paidPct: number;
+} {
+  const totalHT = Number(order.amounts?.total_excl_tax || 0);
+  const totalTTC = Number(order.amounts?.total_incl_tax || 0);
+  if (totalHT <= 0) return { restePayerHT: 0, paidPct: 1 };
+
+  const status = (order.status || "").toLowerCase();
+  if (["paid", "invoiced"].includes(status)) {
+    return { restePayerHT: 0, paidPct: 1 };
+  }
+  if (["cancelled", "refused", "expired"].includes(status)) {
+    return { restePayerHT: 0, paidPct: 0 };
+  }
+
+  const deposit = (order as unknown as { deposit?: { type?: string; value?: string } }).deposit;
+  let paidPct = 0;
+  if (status === "advanced") {
+    if (deposit?.type === "percent") {
+      paidPct = Number(deposit.value || 0) / 100;
+    } else if (deposit?.type === "amount" && totalTTC > 0) {
+      paidPct = Number(deposit.value || 0) / totalTTC;
+    } else {
+      paidPct = 0.4;
+    }
+  }
+  paidPct = Math.min(Math.max(paidPct, 0), 1);
+  const restePayerHT = Number((totalHT * (1 - paidPct)).toFixed(2));
+  return { restePayerHT, paidPct };
 }
 
 async function fetchOrderInfo(
@@ -92,6 +245,8 @@ async function fetchOrderInfo(
   commercial: string | null;
   totalHT: number;
   restePayerHT: number;
+  paidPct: number;
+  status: string | null;
 } | null> {
   try {
     const search = await sellsyFetch<{ data: SellsyOrder[] }>(
@@ -104,16 +259,13 @@ async function fetchOrderInfo(
     const order = search.data?.[0];
     if (!order) return null;
 
-    const amounts = order.amounts!;
-    const totalHT = Number(amounts.total_excl_tax || 0);
-    const totalTTC = Number(amounts.total_incl_tax || 0);
+    const totalHT = Number(order.amounts?.total_excl_tax || 0);
+    const { restePayerHT, paidPct } = calcPaymentSummary(order);
 
-    // Owner / commercial
     const ownerId = order.owner_id ?? order.owner?.id ?? null;
     const commercial =
       ownerId && staffMap.has(ownerId) ? staffMap.get(ownerId)! : null;
 
-    // Client
     let client: string | null = null;
     const ec = order._embed?.contact;
     if (ec) {
@@ -123,29 +275,13 @@ async function fetchOrderInfo(
     if (!client && order._embed?.company?.name) client = order._embed.company.name;
     if (!client && order.company_name) client = order.company_name;
 
-    // Paiements liés
-    let paidTTC = 0;
-    try {
-      const pay = await sellsyFetch<{
-        data: Array<{ amount?: { value: string } }>;
-      }>(`/orders/${order.id}/payments`);
-      for (const p of pay.data || []) {
-        const v = Number(p.amount?.value || 0);
-        if (Number.isFinite(v)) paidTTC += v;
-      }
-    } catch {
-      /* tolère */
-    }
-
-    const restePayerTTC = Math.max(0, totalTTC - paidTTC);
-    const ratio = totalTTC > 0 ? totalHT / totalTTC : 1;
-    const restePayerHT = Number((restePayerTTC * ratio).toFixed(2));
-
     return {
       client,
       commercial,
       totalHT: Number(totalHT.toFixed(2)),
       restePayerHT,
+      paidPct,
+      status: order.status || null,
     };
   } catch (e) {
     console.warn(`[previsionnel] order ${bcdi}:`, e);
@@ -229,18 +365,18 @@ export async function GET(request: Request) {
     const isStock = !bcdi.toUpperCase().startsWith("BCDI");
 
     if (isStock) {
-      // Potentiel commercial = Σ qty × prix HT
       let potentiel = 0;
-      let allKnown = true;
-      const refsDetail: Row["refsDetail"] = [];
+      const detailedItems: RowItem[] = [];
       for (const it of items) {
-        const price = await priceHTForRef(it.ref);
-        refsDetail.push({ ref: it.ref, qty: it.qty, priceHT: price });
-        if (price == null) {
-          allKnown = false;
-        } else {
-          potentiel += it.qty * price;
-        }
+        const price = it.priceHTOverride ?? (await priceHTForRef(it.ref));
+        detailedItems.push({
+          ref: it.ref,
+          description: it.description,
+          qty: it.qty,
+          note: it.note,
+          priceHT: price,
+        });
+        if (price != null) potentiel += it.qty * price;
       }
       rows.push({
         bcdi,
@@ -250,10 +386,10 @@ export async function GET(request: Request) {
         nbMeubles,
         totalHT: null,
         restePayerHT: null,
-        potentielCommercial: allKnown
-          ? Number(potentiel.toFixed(2))
-          : Number(potentiel.toFixed(2)), // partiel — affiché tel quel
-        refsDetail,
+        potentielCommercial: Number(potentiel.toFixed(2)),
+        status: null,
+        paidPct: null,
+        items: detailedItems,
       });
     } else {
       const info = orderInfoByBcdi.get(bcdi);
@@ -266,6 +402,14 @@ export async function GET(request: Request) {
         totalHT: info ? info.totalHT : null,
         restePayerHT: info ? info.restePayerHT : null,
         potentielCommercial: 0,
+        status: info?.status || null,
+        paidPct: info?.paidPct ?? null,
+        items: items.map((it) => ({
+          ref: it.ref,
+          description: it.description,
+          qty: it.qty,
+          note: it.note,
+        })),
       });
     }
   }
