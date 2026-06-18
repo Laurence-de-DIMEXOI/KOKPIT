@@ -5,6 +5,7 @@ import {
   listStaffs,
   type SellsyOrder,
 } from "@/lib/sellsy";
+import { fetchBoOrderPaidTTC } from "@/lib/sellsy-bdo";
 
 /**
  * ────────────────────────────────────────────────────────────────────────
@@ -103,6 +104,8 @@ interface BoAmounts {
  * Reste à payer = 0 si une facture BO payée du même montant existe pour le
  * même client, sinon le montant HT de la commande.
  */
+const BO_PAID_TTL_MS = 6 * 60 * 60 * 1000; // re-synchro paiements BO toutes les 6h max
+
 async function lookupBoAmountsLocal(bcRef: string): Promise<BoAmounts | null> {
   const digits = (bcRef.match(/\d{4,6}/) || [])[0];
   if (!digits) return null;
@@ -114,6 +117,8 @@ async function lookupBoAmountsLocal(bcRef: string): Promise<BoAmounts | null> {
   if (!commande || commande.montantHT == null) return null;
 
   const totalHT = Number(commande.montantHT);
+  const totalTTC = Number(commande.montantTTC || 0);
+
   let client: string | null = null;
   if (commande.clientBdoId) {
     const c = await prisma.clientBoisDOrient.findUnique({
@@ -123,11 +128,31 @@ async function lookupBoAmountsLocal(bcRef: string): Promise<BoAmounts | null> {
     if (c) client = `${c.prenom || ""} ${c.nom || ""}`.trim() || null;
   }
 
-  // Reste à payer : commande payée, ou facture payée de même montant pour ce client.
-  let restePayerHT = totalHT;
-  if (commande.statut === "paid") {
-    restePayerHT = 0;
-  } else if (commande.clientBdoId) {
+  // Montant payé (TTC), combinaison de 3 signaux :
+  //  - paiements directs de la commande (acomptes) → /orders/{id}/payments BO (caché)
+  //  - commande `paid` → soldée
+  //  - facture BO payée du même montant HT pour ce client → soldée
+  //    (cas "invoiced" : le paiement est porté par la facture, pas la commande)
+  let paidTTC: number =
+    commande.paidInclTax != null ? Number(commande.paidInclTax) : 0;
+  const stale =
+    !commande.paidSyncedAt ||
+    Date.now() - commande.paidSyncedAt.getTime() > BO_PAID_TTL_MS;
+  if (commande.statut !== "paid" && (commande.paidInclTax == null || stale)) {
+    const fetched = await fetchBoOrderPaidTTC(commande.sellsyDocId);
+    if (fetched != null) {
+      paidTTC = fetched;
+      await prisma.documentBoisDOrient
+        .update({
+          where: { id: commande.id },
+          data: { paidInclTax: fetched, paidSyncedAt: new Date() },
+        })
+        .catch(() => {});
+    }
+  }
+
+  let soldee = commande.statut === "paid";
+  if (!soldee && paidTTC < totalTTC && commande.clientBdoId) {
     const paidFact = await prisma.documentBoisDOrient.findFirst({
       where: {
         clientBdoId: commande.clientBdoId,
@@ -137,14 +162,24 @@ async function lookupBoAmountsLocal(bcRef: string): Promise<BoAmounts | null> {
       },
       select: { id: true },
     });
-    if (paidFact) restePayerHT = 0;
+    if (paidFact) soldee = true;
+  }
+
+  let restePayerHT: number;
+  if (soldee) {
+    restePayerHT = 0;
+  } else if (totalTTC > 0) {
+    const resteTTC = Math.max(0, totalTTC - paidTTC);
+    restePayerHT = Number((resteTTC * (totalHT / totalTTC)).toFixed(2));
+  } else {
+    restePayerHT = totalHT;
   }
 
   const paidPct = totalHT > 0 ? Math.min(Math.max(1 - restePayerHT / totalHT, 0), 1) : 1;
   return {
     bcNumber: commande.reference || bcRef,
     totalHT: Number(totalHT.toFixed(2)),
-    restePayerHT: Number(restePayerHT.toFixed(2)),
+    restePayerHT,
     paidPct,
     status: commande.statut || null,
     client,

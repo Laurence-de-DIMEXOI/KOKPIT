@@ -805,6 +805,8 @@ model DocumentBoisDOrient {
   montantTTC  Float    @default(0)
   montantHT   Float    @default(0)
   statut      String? // statut Sellsy (payée, envoyée, etc.)
+  paidInclTax Decimal? @db.Decimal(12, 2) // Σ paiements confirmés TTC (Sellsy BO) — Prévisionnel
+  paidSyncedAt DateTime? // dernière synchro des paiements BO
   pdfUrl      String? // URL publique Supabase Storage
   pdfPath     String? // path dans le bucket Supabase
   createdAt   DateTime @default(now())

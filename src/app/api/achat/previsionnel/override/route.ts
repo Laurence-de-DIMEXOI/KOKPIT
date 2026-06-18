@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, restored: true });
   }
 
-  if (!["to-stock", "set-amount", "set-note"].includes(action)) {
+  if (!["to-stock", "set-note"].includes(action)) {
     return NextResponse.json({ error: "action inconnue" }, { status: 400 });
   }
 

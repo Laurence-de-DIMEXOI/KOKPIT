@@ -14,7 +14,6 @@ import {
   ArrowUp,
   ArrowDown,
   StickyNote,
-  Pencil,
 } from "lucide-react";
 import { ContainerBanner } from "@/components/layout/container-banner";
 import { IMPORTS } from "@/lib/imports-config";
@@ -203,18 +202,12 @@ function ExpandedRow({
   row,
   onConvert,
   onRestore,
-  onSetAmount,
   onSetNote,
   busy,
 }: {
   row: Row;
   onConvert: (bcdi: string, note: string) => void;
   onRestore: (bcdi: string) => void;
-  onSetAmount: (
-    bcdi: string,
-    restePayerHT: number | null,
-    totalHT: number | null
-  ) => void;
   onSetNote: (bcdi: string, note: string | null) => void;
   busy: boolean;
 }) {
@@ -311,12 +304,8 @@ function ExpandedRow({
                     </span>
                     {row.overrideNote && <span> · {row.overrideNote}</span>}
                   </>
-                ) : row.hasManualRestePayer || row.hasManualTotalHT ? (
-                  <span className="text-[var(--color-active)] font-medium">
-                    ✏️ Saisie manuelle active
-                  </span>
                 ) : (
-                  <>Modifs manuelles : note / reste à payer / conversion stock.</>
+                  <>Note libre · conversion en stock.</>
                 )}
               </div>
 
@@ -336,48 +325,6 @@ function ExpandedRow({
                 <StickyNote className="w-3 h-3" />
                 {row.note ? "Modifier la note" : "Ajouter une note"}
               </button>
-
-              {/* Bouton Saisir montants manuels */}
-              {!isConverted && (
-                <button
-                  onClick={() => {
-                    const cur = row.restePayerHT == null ? "" : String(row.restePayerHT);
-                    const v = window.prompt(
-                      `Reste à payer HT pour ${realBcdiId} (€, vide = retirer override) :`,
-                      cur
-                    );
-                    if (v === null) return;
-                    const clean = v.trim().replace(",", ".");
-                    const num = clean === "" ? null : Number(clean);
-                    if (clean !== "" && (!Number.isFinite(num) || (num as number) < 0)) {
-                      window.alert("Montant invalide");
-                      return;
-                    }
-                    // Si total HT est à 0 / null, propose aussi de le saisir
-                    let totalNum: number | null | undefined = undefined;
-                    if (row.totalHT == null || row.totalHT === 0) {
-                      const t = window.prompt(
-                        `Total HT pour ${realBcdiId} (€, optionnel) :`,
-                        row.totalHT ? String(row.totalHT) : ""
-                      );
-                      if (t !== null) {
-                        const ct = t.trim().replace(",", ".");
-                        totalNum = ct === "" ? null : Number(ct);
-                        if (ct !== "" && (!Number.isFinite(totalNum) || (totalNum as number) < 0)) {
-                          window.alert("Total HT invalide");
-                          return;
-                        }
-                      }
-                    }
-                    onSetAmount(realBcdiId, num, totalNum === undefined ? null : totalNum);
-                  }}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-emerald-700 border border-emerald-300 bg-emerald-50 rounded-input hover:bg-emerald-100 disabled:opacity-40"
-                >
-                  <Pencil className="w-3 h-3" />
-                  Saisir reste à payer
-                </button>
-              )}
 
               {/* Bouton convertir stock / restaurer */}
               {isConverted ? (
@@ -598,8 +545,8 @@ export default function PrevisionnelPage() {
   const setOverride = useCallback(
     async (
       bcdi: string,
-      action: "to-stock" | "restore" | "set-amount" | "set-note",
-      payload?: { note?: string | null; restePayerHT?: number | null; totalHT?: number | null }
+      action: "to-stock" | "restore" | "set-note",
+      payload?: { note?: string | null }
     ) => {
       setOverrideBusy(true);
       try {
@@ -955,20 +902,10 @@ export default function PrevisionnelPage() {
                           {r.nbMeubles}
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono text-cockpit-primary">
-                          <span className="inline-flex items-center gap-1">
-                            {r.hasManualTotalHT && (
-                              <Pencil className="w-2.5 h-2.5 text-[var(--color-active)]" />
-                            )}
-                            {eur(r.totalHT)}
-                          </span>
+                          {eur(r.totalHT)}
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono font-semibold text-emerald-700">
-                          <span className="inline-flex items-center gap-1">
-                            {r.hasManualRestePayer && (
-                              <Pencil className="w-2.5 h-2.5 text-[var(--color-active)]" />
-                            )}
-                            {eur(r.restePayerHT)}
-                          </span>
+                          {eur(r.restePayerHT)}
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono font-semibold text-amber-700">
                           {eur(r.potentielCommercial)}
@@ -983,9 +920,6 @@ export default function PrevisionnelPage() {
                           busy={overrideBusy}
                           onConvert={(b, note) => setOverride(b, "to-stock", { note })}
                           onRestore={(b) => setOverride(b, "restore")}
-                          onSetAmount={(b, restePayerHT, totalHT) =>
-                            setOverride(b, "set-amount", { restePayerHT, totalHT })
-                          }
                           onSetNote={(b, note) => setOverride(b, "set-note", { note })}
                         />
                       )}

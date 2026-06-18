@@ -309,6 +309,29 @@ export async function listAllEstimatesBdo(): Promise<SellsyBdoDocument[]> {
   return listAllDocumentsBdo("estimates");
 }
 
+/**
+ * Σ des paiements confirmés (TTC) d'une commande Bois d'Orient.
+ * Utilisé par le Prévisionnel pour calculer le reste à payer réel (acomptes).
+ * Renvoie le montant TTC payé, ou null si l'appel échoue.
+ */
+export async function fetchBoOrderPaidTTC(orderId: string | number): Promise<number | null> {
+  try {
+    const res = await sellsyFetchBdo<{
+      data: Array<{ amount?: { value?: string }; status?: string }>;
+    }>(`/orders/${orderId}/payments?limit=100`);
+    let paid = 0;
+    for (const p of res.data || []) {
+      if (p.status && p.status !== "confirmed") continue;
+      const v = Number(p.amount?.value || 0);
+      if (Number.isFinite(v)) paid += v;
+    }
+    return Number(paid.toFixed(2));
+  } catch (e) {
+    console.warn(`[BO] paiements order ${orderId} ko:`, (e as Error).message);
+    return null;
+  }
+}
+
 // ===== DETAILS CONTACT =====
 
 export async function fetchIndividualDetailsBdo(id: number): Promise<{
