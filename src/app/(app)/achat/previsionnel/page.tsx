@@ -917,10 +917,10 @@ export default function PrevisionnelPage() {
                             )}
                             {r.bdoBcNumber && (
                               <span
-                                title={`Montants récupérés depuis le Sellsy Bois d'Orient (${r.bdoBcNumber})`}
+                                title={`Montants récupérés depuis Bois d'Orient (BO) — ${r.bdoBcNumber}`}
                                 className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200"
                               >
-                                BDO {r.bdoBcNumber}
+                                BO {r.bdoBcNumber}
                               </span>
                             )}
                             {r.note && (

@@ -5,15 +5,25 @@ import {
   listStaffs,
   type SellsyOrder,
 } from "@/lib/sellsy";
-import { fetchBdoOrderSummaryByNumber } from "@/lib/sellsy-bdo";
 
 /**
- * Extrait un numéro de BC Bois d'Orient depuis un ou plusieurs textes
- * (objet du document, commentaires…). Formats tolérés :
- *   "BC-11487", "BC 11487", "BC11487", parfois suffixé d'une date
- *   ("BC-11487-06122024") ou précédé de "BCDI Bois D'Orient : ".
- * Renvoie la forme normalisée "BC-11487" (sans le suffixe date) ou null.
+ * ────────────────────────────────────────────────────────────────────────
+ * Bois d'Orient (BO) — BCDI DIMEXOI à 0€ qui sont en réalité des BC BO.
+ *
+ * Le lien BCDI → n° de BC figure dans l'objet du document (rare) et surtout
+ * dans un COMMENTAIRE Sellsy ("BCDI Bois D'Orient : BC-11487-06122024").
+ * ⚠ Les filtres de POST /comments/search sont TOTALEMENT inopérants sur ce
+ * compte (même owner_id renvoie les 7157 commentaires) → impossible de cibler
+ * une commande côté serveur. On scanne donc l'intégralité des commentaires
+ * UNE fois et on mémoïse la map `orderId → n° BC` (le mapping est figé).
+ *
+ * Les MONTANTS (total HT, reste à payer) viennent de la base locale
+ * `DocumentBoisDOrient` (les données BO y sont déjà migrées) — plus aucun
+ * appel au Sellsy BO live.
+ * ────────────────────────────────────────────────────────────────────────
  */
+
+/** Extrait le n° de BC normalisé "BC-11487" depuis un texte (objet/commentaire). */
 function extractBcNumber(...texts: (string | null | undefined)[]): string | null {
   const re = /BC[\s-]?(\d{4,6})/i;
   for (const t of texts) {
@@ -22,6 +32,123 @@ function extractBcNumber(...texts: (string | null | undefined)[]): string | null
     if (m) return `BC-${m[1]}`;
   }
   return null;
+}
+
+// Cache mémoire de la map orderId → n° BC (scan global des commentaires).
+let commentBcMapCache: { map: Map<number, string>; expires: number } | null = null;
+const COMMENT_MAP_TTL_MS = 6 * 60 * 60 * 1000; // 6h — mapping historique figé
+
+interface SellsyComment {
+  description?: string;
+  related?: Array<{ type?: string; id?: number | string }>;
+}
+
+/**
+ * Scanne tous les commentaires Sellsy (pagination) et construit la map
+ * `orderId (V2) → n° BC` à partir des commentaires "BCDI Bois D'Orient : BC-…".
+ * Mémoïsé 6h. Plafonné à 150 pages de 100 (≈ 15 000 commentaires) par sécurité.
+ */
+async function getOrderBcMap(): Promise<Map<number, string>> {
+  if (commentBcMapCache && Date.now() < commentBcMapCache.expires) {
+    return commentBcMapCache.map;
+  }
+  const map = new Map<number, string>();
+  const PAGE = 100;
+  let offset = 0;
+  let total = Infinity;
+  let pages = 0;
+  while (offset < total && pages < 150) {
+    let res: { data: SellsyComment[]; pagination?: { total?: number } };
+    try {
+      res = await sellsyFetch(`/comments/search?limit=${PAGE}&offset=${offset}`, {
+        method: "POST",
+        body: JSON.stringify({ filters: {} }),
+      });
+    } catch (e) {
+      console.warn("[prev-fetch] scan commentaires interrompu:", (e as Error).message);
+      break;
+    }
+    total = res.pagination?.total ?? 0;
+    for (const c of res.data || []) {
+      const bc = extractBcNumber(c.description);
+      if (!bc) continue;
+      for (const rel of c.related || []) {
+        if ((rel.type === "order" || rel.type === "purchase-order") && rel.id != null) {
+          map.set(Number(rel.id), bc);
+        }
+      }
+    }
+    if (!res.data || res.data.length === 0) break;
+    offset += PAGE;
+    pages++;
+  }
+  console.log(`[prev-fetch] map BO commentaires : ${map.size} commandes mappées (${pages} pages)`);
+  commentBcMapCache = { map, expires: Date.now() + COMMENT_MAP_TTL_MS };
+  return map;
+}
+
+interface BoAmounts {
+  bcNumber: string;
+  totalHT: number;
+  restePayerHT: number;
+  paidPct: number;
+  status: string | null;
+  client: string | null;
+}
+
+/**
+ * Récupère les montants d'un BC depuis la base locale `DocumentBoisDOrient`.
+ * `bcRef` peut être "BC-11487" ou "BC-11487-06122024" → on matche par le
+ * cœur "BC-<digits>" (la référence en base est "BC-11487-06122024").
+ * Reste à payer = 0 si une facture BO payée du même montant existe pour le
+ * même client, sinon le montant HT de la commande.
+ */
+async function lookupBoAmountsLocal(bcRef: string): Promise<BoAmounts | null> {
+  const digits = (bcRef.match(/\d{4,6}/) || [])[0];
+  if (!digits) return null;
+
+  const commande = await prisma.documentBoisDOrient.findFirst({
+    where: { type: "COMMANDE", reference: { startsWith: `BC-${digits}` } },
+    orderBy: { date: "desc" },
+  });
+  if (!commande || commande.montantHT == null) return null;
+
+  const totalHT = Number(commande.montantHT);
+  let client: string | null = null;
+  if (commande.clientBdoId) {
+    const c = await prisma.clientBoisDOrient.findUnique({
+      where: { id: commande.clientBdoId },
+      select: { nom: true, prenom: true },
+    });
+    if (c) client = `${c.prenom || ""} ${c.nom || ""}`.trim() || null;
+  }
+
+  // Reste à payer : commande payée, ou facture payée de même montant pour ce client.
+  let restePayerHT = totalHT;
+  if (commande.statut === "paid") {
+    restePayerHT = 0;
+  } else if (commande.clientBdoId) {
+    const paidFact = await prisma.documentBoisDOrient.findFirst({
+      where: {
+        clientBdoId: commande.clientBdoId,
+        type: "FACTURE",
+        statut: "paid",
+        montantHT: commande.montantHT,
+      },
+      select: { id: true },
+    });
+    if (paidFact) restePayerHT = 0;
+  }
+
+  const paidPct = totalHT > 0 ? Math.min(Math.max(1 - restePayerHT / totalHT, 0), 1) : 1;
+  return {
+    bcNumber: commande.reference || bcRef,
+    totalHT: Number(totalHT.toFixed(2)),
+    restePayerHT: Number(restePayerHT.toFixed(2)),
+    paidPct,
+    status: commande.statut || null,
+    client,
+  };
 }
 
 /**
@@ -215,7 +342,8 @@ export interface BcdiInfo {
 
 async function fetchOrderInfo(
   bcdi: string,
-  staffMap: Map<number, string>
+  staffMap: Map<number, string>,
+  priorBcNumber: string | null = null
 ): Promise<BcdiInfo | null> {
   try {
     const search = await sellsyFetch<{ data: SellsyOrder[] }>(
@@ -245,39 +373,30 @@ async function fetchOrderInfo(
     if (!client && order._embed?.company?.name) client = order._embed.company.name;
     if (!client && order.company_name) client = order.company_name;
 
-    // ── Bois d'Orient : BCDI DIMEXOI à 0€ dont l'objet/les commentaires
-    //    référencent un BC Bois d'Orient → on récupère les montants côté
-    //    Sellsy BDO (même procédé).
+    // ── Bois d'Orient : BCDI DIMEXOI à 0€ qui est en réalité un BC BO.
+    //    n° BC = objet (rare) sinon commentaire (map scannée). Montants depuis
+    //    la base locale DocumentBoisDOrient (plus d'appel Sellsy BO live).
     let bdoBcNumber: string | null = null;
     if (totalHT <= 0) {
-      // 1) objet (subject) — déjà dans la réponse V2
-      let bc = extractBcNumber(order.subject);
-      // 2) sinon, scan du document V1 complet (objet + notes + commentaires)
+      let bc = extractBcNumber(order.subject) || priorBcNumber;
       if (!bc) {
-        try {
-          const v1 = await sellsyV1Call("Document.getOne", {
-            doctype: "order",
-            docid: String(order.id),
-          });
-          bc = extractBcNumber(JSON.stringify(v1));
-        } catch {
-          /* tolère */
-        }
+        const map = await getOrderBcMap();
+        bc = map.get(order.id) || null;
       }
       if (bc) {
         bdoBcNumber = bc;
         try {
-          const bdo = await fetchBdoOrderSummaryByNumber(bc);
-          if (bdo) {
-            totalHT = bdo.totalHT;
-            restePayerHT = bdo.restePayerHT;
-            paidPct = bdo.paidPct;
-            if (bdo.status) statusValue = bdo.status;
-            if (!client && bdo.client) client = bdo.client;
-            bdoBcNumber = bdo.number || bc;
+          const bo = await lookupBoAmountsLocal(bc);
+          if (bo) {
+            totalHT = bo.totalHT;
+            restePayerHT = bo.restePayerHT;
+            paidPct = bo.paidPct;
+            if (bo.status) statusValue = bo.status;
+            if (!client && bo.client) client = bo.client;
+            bdoBcNumber = bo.bcNumber;
           }
         } catch (e) {
-          console.warn(`[prev-fetch] BDO ${bc} (BCDI ${bcdi}):`, (e as Error).message);
+          console.warn(`[prev-fetch] BO ${bc} (BCDI ${bcdi}):`, (e as Error).message);
         }
       }
     }
@@ -354,6 +473,13 @@ export async function refreshBcdiSnapshots(
   const upToDate = new Set(existing.map((s) => s.bcdi));
   const toRefresh = realBcdis.filter((b) => !upToDate.has(b));
 
+  // n° BC BO déjà connus → évite de re-scanner les commentaires à chaque refresh
+  const knownBc = await prisma.bcdiSellsySnapshot.findMany({
+    where: { bcdi: { in: realBcdis }, bdoBcNumber: { not: null } },
+    select: { bcdi: true, bdoBcNumber: true },
+  });
+  const priorBcByBcdi = new Map(knownBc.map((s) => [s.bcdi, s.bdoBcNumber]));
+
   let staffMap = new Map<number, string>();
   try {
     const staffs = await listStaffs();
@@ -371,7 +497,10 @@ export async function refreshBcdiSnapshots(
   for (let i = 0; i < toRefresh.length; i += concurrency) {
     const batch = toRefresh.slice(i, i + concurrency);
     const results = await Promise.all(
-      batch.map(async (b) => ({ bcdi: b, info: await fetchOrderInfo(b, staffMap) }))
+      batch.map(async (b) => ({
+        bcdi: b,
+        info: await fetchOrderInfo(b, staffMap, priorBcByBcdi.get(b) ?? null),
+      }))
     );
     await Promise.all(
       results.map(async ({ bcdi, info }) => {
