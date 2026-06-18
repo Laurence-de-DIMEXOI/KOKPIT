@@ -687,10 +687,10 @@ export default function PrevisionnelPage() {
                     </span>
                   </div>
                   <div className="relative h-4 w-full rounded-full bg-cockpit-input overflow-hidden border border-cockpit">
-                    <div className="absolute inset-y-0 left-0 flex">
-                      <div style={{ width: w(cmd) }} className="bg-blue-500/80" title={`Commandes : ${m3(cmd)}`} />
-                      <div style={{ width: w(stk), maxWidth: `${Math.max(0, 100 - (cmd / capacityM3) * 100)}%` }} className="bg-amber-500/80" title={`Stock : ${m3(stk)}`} />
-                      <div style={{ width: w(bon) }} className="bg-purple-500/70" title={`Bonus : ${m3(bon)}`} />
+                    <div className="absolute inset-0 flex">
+                      <div style={{ width: w(cmd) }} className="shrink-0 bg-blue-500/80" title={`Commandes : ${m3(cmd)}`} />
+                      <div style={{ width: w(stk) }} className="shrink-0 bg-amber-500/80" title={`Stock : ${m3(stk)}`} />
+                      <div style={{ width: w(bon) }} className="shrink-0 bg-purple-500/70" title={`Bonus : ${m3(bon)}`} />
                     </div>
                     {/* Repère 100% capacité */}
                     <div className="absolute inset-y-0 right-0 w-px bg-cockpit-heading/40" />
