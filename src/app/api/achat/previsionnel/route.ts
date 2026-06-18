@@ -37,6 +37,39 @@ interface PackingFile {
   items: PackingItem[];
 }
 
+function normalizeStr(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+/**
+ * Récupère le custom field "Etat des produits" d'un BDC Sellsy.
+ *  - "SAV" / "RETOUR" → on flag pour badge UI + reste à payer = 0
+ */
+async function fetchEtatProduit(sellsyOrderId: number | string): Promise<string | null> {
+  try {
+    const cfRes = await sellsyFetch<{ data: Array<{ code?: string; name?: string; label?: string; value?: unknown; parameters?: { items?: Array<{ id: number | string; label: string }> } }> }>(
+      `/orders/${sellsyOrderId}/custom-fields?limit=100`
+    );
+    const cfs = cfRes.data || [];
+    const target = cfs.find((cf) => {
+      const fields = [cf.code, cf.name, cf.label].filter(Boolean) as string[];
+      return fields.some((v) => {
+        const n = normalizeStr(v);
+        return n.includes("etat") && n.includes("produit");
+      });
+    });
+    if (target?.value != null && target.value !== "") {
+      const raw = String(target.value).trim();
+      const items = target.parameters?.items || [];
+      const matched = items.find((it) => String(it.id) === raw);
+      return matched?.label || raw;
+    }
+  } catch {
+    /* tolère */
+  }
+  return null;
+}
+
 interface RowItem {
   ref: string;
   description: string;
@@ -61,6 +94,8 @@ interface Row {
   potentielCommercial: number | null;
   status: string | null;
   paidPct: number | null;
+  etatProduit: string | null;
+  isSav: boolean;
   items: RowItem[];
 }
 
@@ -252,6 +287,8 @@ async function fetchOrderInfo(
   restePayerHT: number;
   paidPct: number;
   status: string | null;
+  etatProduit: string | null;
+  isSav: boolean;
 } | null> {
   try {
     const search = await sellsyFetch<{ data: SellsyOrder[] }>(
@@ -265,7 +302,7 @@ async function fetchOrderInfo(
     if (!order) return null;
 
     const totalHT = Number(order.amounts?.total_excl_tax || 0);
-    const { restePayerHT, paidPct } = calcPaymentSummary(order);
+    let { restePayerHT, paidPct } = calcPaymentSummary(order);
 
     const ownerId = order.owner_id ?? order.owner?.id ?? null;
     const commercial =
@@ -280,6 +317,29 @@ async function fetchOrderInfo(
     if (!client && order._embed?.company?.name) client = order._embed.company.name;
     if (!client && order.company_name) client = order.company_name;
 
+    // Cherche d'abord dans la Vente locale (déjà synchronisée), sinon live Sellsy
+    let etatProduit: string | null = null;
+    try {
+      const v = await prisma.vente.findFirst({
+        where: { numero: { equals: bcdi, mode: "insensitive" } },
+        select: { etatProduit: true },
+      });
+      etatProduit = v?.etatProduit || null;
+    } catch {
+      /* tolère */
+    }
+    if (!etatProduit) {
+      etatProduit = await fetchEtatProduit(order.id);
+    }
+
+    const ep = (etatProduit || "").toUpperCase();
+    const isSav = ep.includes("SAV") || ep.includes("RETOUR");
+    if (isSav) {
+      // Un SAV ou retour n'entre pas dans la projection de trésorerie
+      restePayerHT = 0;
+      paidPct = 1;
+    }
+
     return {
       client,
       commercial,
@@ -287,6 +347,8 @@ async function fetchOrderInfo(
       restePayerHT,
       paidPct,
       status: order.status || null,
+      etatProduit,
+      isSav,
     };
   } catch (e) {
     console.warn(`[previsionnel] order ${bcdi}:`, e);
@@ -434,6 +496,8 @@ export async function GET(request: Request) {
         potentielCommercial: Number(potentiel.toFixed(2)),
         status: null,
         paidPct: null,
+        etatProduit: null,
+        isSav: false,
         items: detailedItems,
       });
     } else {
@@ -449,6 +513,8 @@ export async function GET(request: Request) {
         potentielCommercial: 0,
         status: info?.status || null,
         paidPct: info?.paidPct ?? null,
+        etatProduit: info?.etatProduit ?? null,
+        isSav: info?.isSav ?? false,
         items: items.map((it) => ({
           ref: it.ref,
           description: it.description,

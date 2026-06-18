@@ -41,6 +41,8 @@ interface Row {
   potentielCommercial: number | null;
   status: string | null;
   paidPct: number | null;
+  etatProduit: string | null;
+  isSav: boolean;
   items: RowItem[];
 }
 
@@ -107,14 +109,22 @@ function StatusPill({ row }: { row: Row }) {
   };
   const pct = row.paidPct != null ? Math.round(row.paidPct * 100) : null;
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1.5 flex-wrap">
       <span
         className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium"
         style={{ backgroundColor: b.bg, color: b.fg }}
       >
         {b.label}
       </span>
-      {pct != null && pct > 0 && pct < 100 && (
+      {row.isSav && (
+        <span
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300"
+          title={row.etatProduit ? `Etat des produits : ${row.etatProduit}` : "SAV"}
+        >
+          {row.etatProduit?.toUpperCase().includes("RETOUR") ? "RETOUR" : "SAV"}
+        </span>
+      )}
+      {pct != null && pct > 0 && pct < 100 && !row.isSav && (
         <span className="text-[10px] text-cockpit-secondary tabular-nums">
           {pct}%
         </span>
