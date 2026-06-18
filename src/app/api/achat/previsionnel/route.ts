@@ -378,13 +378,24 @@ export async function GET(request: Request) {
     batch.forEach((b, idx) => orderInfoByBcdi.set(b, results[idx]));
   }
 
+  // Clients qui sont toujours du stock (commandes internes DIMEXOI / Exhibition).
+  // Comparé en majuscules après normalisation, match si le client commence par.
+  const AUTO_STOCK_CLIENTS = ["ORDER DIMEXOI", "DIMEXOI", "EXHIBITION"];
+  const isAutoStockClient = (client: string | null | undefined): boolean => {
+    if (!client) return false;
+    const c = client.trim().toUpperCase();
+    return AUTO_STOCK_CLIENTS.some((s) => c === s || c.startsWith(s + " "));
+  };
+
   for (const bcdi of bcdis) {
     const items = groups.get(bcdi)!;
     const nbMeubles = items.reduce((s, it) => s + (it.qty || 0), 0);
     const isRealBcdi = bcdi.toUpperCase().startsWith("BCDI");
     const override = overrideMap.get(bcdi.toUpperCase());
+    const info = isRealBcdi ? orderInfoByBcdi.get(bcdi) : undefined;
+    const autoStock = isRealBcdi && isAutoStockClient(info?.client);
     const convertedFromBcdi = isRealBcdi && override?.action === "to-stock";
-    const isStock = !isRealBcdi || convertedFromBcdi;
+    const isStock = !isRealBcdi || convertedFromBcdi || autoStock;
 
     if (isStock) {
       let potentiel = 0;
@@ -400,13 +411,22 @@ export async function GET(request: Request) {
         });
         if (price != null) potentiel += it.qty * price;
       }
+      const clientLabel = convertedFromBcdi
+        ? `Stock (ex ${bcdi})`
+        : autoStock
+          ? `Stock — ${info!.client}`
+          : "STOCK";
       rows.push({
         bcdi,
         isStock: true,
         convertedFromBcdi,
         originalBcdi: convertedFromBcdi ? bcdi : undefined,
-        overrideNote: override?.note ?? null,
-        client: convertedFromBcdi ? `Stock (ex ${bcdi})` : "STOCK",
+        overrideNote: convertedFromBcdi
+          ? override?.note ?? null
+          : autoStock
+            ? `Commande interne ${info!.client}`
+            : null,
+        client: clientLabel,
         commercial: null,
         nbMeubles,
         totalHT: null,
@@ -417,7 +437,6 @@ export async function GET(request: Request) {
         items: detailedItems,
       });
     } else {
-      const info = orderInfoByBcdi.get(bcdi);
       rows.push({
         bcdi,
         isStock: false,
