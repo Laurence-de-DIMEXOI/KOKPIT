@@ -1,0 +1,260 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Loader2, TrendingUp, RefreshCw, Search } from "lucide-react";
+import { ContainerBanner } from "@/components/layout/container-banner";
+import { IMPORTS } from "@/lib/imports-config";
+
+const ACHAT_GRADIENT = {
+  from: "var(--color-active)",
+  to: "#FEEB9C",
+};
+
+interface Row {
+  bcdi: string;
+  isStock: boolean;
+  client: string | null;
+  commercial: string | null;
+  nbMeubles: number;
+  totalHT: number | null;
+  restePayerHT: number | null;
+  potentielCommercial: number | null;
+}
+
+interface Payload {
+  imp: { code: string; label: string; containerNo: string };
+  meta: { contNo: string; arriveeLabel: string; departLabel: string };
+  rows: Row[];
+  totals: {
+    nbMeubles: number;
+    totalHT: number;
+    restePayerHT: number;
+    potentielCommercial: number;
+  };
+}
+
+function eur(n: number | null): string {
+  if (n == null) return "—";
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+export default function PrevisionnelPage() {
+  const [activeImp, setActiveImp] = useState(IMPORTS[0]?.code || "IMP-618");
+  const [data, setData] = useState<Payload | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [q, setQ] = useState("");
+
+  const fetchData = useCallback(async (imp: string, fresh = false) => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/achat/previsionnel?imp=${encodeURIComponent(imp)}${fresh ? "&fresh=true" : ""}`
+      );
+      const j = await res.json();
+      if (res.ok) setData(j);
+      else setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData(activeImp);
+  }, [activeImp, fetchData]);
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const needle = q.trim().toLowerCase();
+    if (!needle) return data.rows;
+    return data.rows.filter(
+      (r) =>
+        r.bcdi.toLowerCase().includes(needle) ||
+        (r.client || "").toLowerCase().includes(needle) ||
+        (r.commercial || "").toLowerCase().includes(needle)
+    );
+  }, [data, q]);
+
+  return (
+    <div className="space-y-6 pb-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-cockpit-heading flex items-center gap-2">
+          <TrendingUp className="w-7 h-7" style={{ color: "var(--color-active)" }} />
+          Prévisionnel
+        </h1>
+        <p className="text-cockpit-secondary text-sm mt-1">
+          Suivi financier par arrivage : reste à encaisser des commandes clients et potentiel
+          commercial du stock à venir.
+        </p>
+      </div>
+
+      {/* Container banner */}
+      <ContainerBanner />
+
+      {/* Tabs */}
+      <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-sm overflow-hidden">
+        <div className="flex items-center gap-1 px-3 pt-2 border-b border-cockpit">
+          {IMPORTS.map((imp) => (
+            <button
+              key={imp.code}
+              onClick={() => setActiveImp(imp.code)}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeImp === imp.code
+                  ? "text-white"
+                  : "text-cockpit-secondary hover:text-cockpit-primary hover:bg-cockpit"
+              }`}
+              style={
+                activeImp === imp.code
+                  ? {
+                      background: `linear-gradient(135deg, ${ACHAT_GRADIENT.from}, ${ACHAT_GRADIENT.to})`,
+                    }
+                  : undefined
+              }
+            >
+              {imp.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Toolbar */}
+        <div className="px-4 py-3 flex flex-wrap items-center gap-3 bg-cockpit">
+          <div className="relative flex-1 min-w-[260px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
+            <input
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Rechercher (BCDI, client, commercial)…"
+              className="w-full pl-10 pr-4 py-2 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-active)] focus:border-transparent"
+            />
+          </div>
+          <div className="text-xs text-cockpit-secondary">
+            {data ? (
+              <>
+                <span className="font-semibold text-cockpit-heading">
+                  {filtered.length}
+                </span>{" "}
+                ligne{filtered.length > 1 ? "s" : ""}
+              </>
+            ) : (
+              "—"
+            )}
+          </div>
+          <button
+            onClick={() => fetchData(activeImp, true)}
+            disabled={loading}
+            className="ml-auto inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            Rafraîchir
+          </button>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          {loading && !data ? (
+            <div className="py-12 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-cockpit-secondary" />
+            </div>
+          ) : !data ? (
+            <div className="py-12 text-center text-cockpit-secondary text-sm">
+              Aucune donnée
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-cockpit-card text-[11px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
+                <tr>
+                  <th className="px-4 py-2.5 text-left font-semibold w-32">
+                    N° BCDI
+                  </th>
+                  <th className="px-4 py-2.5 text-left font-semibold">Client</th>
+                  <th className="px-4 py-2.5 text-left font-semibold w-36">
+                    Propriétaire
+                  </th>
+                  <th className="px-4 py-2.5 text-right font-semibold w-20">
+                    Nb meubles
+                  </th>
+                  <th className="px-4 py-2.5 text-right font-semibold w-32">
+                    Total HT
+                  </th>
+                  <th className="px-4 py-2.5 text-right font-semibold w-32">
+                    Reste à payer HT
+                  </th>
+                  <th className="px-4 py-2.5 text-right font-semibold w-32">
+                    Potentiel comm.
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr
+                    key={r.bcdi}
+                    className={`border-b border-cockpit hover:bg-cockpit/60 transition-colors ${
+                      r.isStock ? "bg-amber-50/40" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-2.5 font-mono text-xs font-semibold text-[var(--color-active)]">
+                      {r.bcdi}
+                    </td>
+                    <td className="px-4 py-2.5 text-cockpit-heading">
+                      {r.client || (
+                        <span className="text-cockpit-secondary/70">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-cockpit-primary text-[13px]">
+                      {r.commercial || (
+                        <span className="text-cockpit-secondary/70">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-cockpit-heading font-medium">
+                      {r.nbMeubles}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-cockpit-primary">
+                      {eur(r.totalHT)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-emerald-700">
+                      {r.restePayerHT && r.restePayerHT > 0
+                        ? eur(r.restePayerHT)
+                        : eur(r.restePayerHT)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-amber-700">
+                      {eur(r.potentielCommercial)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {data.rows.length > 0 && (
+                <tfoot className="bg-cockpit border-t-2 border-cockpit">
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="px-4 py-3 text-right text-xs uppercase tracking-wider font-semibold text-cockpit-secondary"
+                    >
+                      Totaux
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-cockpit-heading font-bold">
+                      {data.totals.nbMeubles}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-cockpit-heading font-bold">
+                      {eur(data.totals.totalHT)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">
+                      {eur(data.totals.restePayerHT)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-amber-700">
+                      {eur(data.totals.potentielCommercial)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -86,6 +86,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { label: "Need Price", href: "/achat/need-price", icon: FileText, module: "need-price" },
       { label: "Calculateur", href: "/achat/calculateur", icon: Calculator, module: "calculateur" },
       { label: "Suivi commandes", href: "/achat/suivi-commandes", icon: Truck, module: "suivi-commandes" },
+      { label: "Prévisionnel", href: "/achat/previsionnel", icon: TrendingUp, module: "previsionnel" },
     ],
   },
   {

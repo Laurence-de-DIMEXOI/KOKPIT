@@ -32,6 +32,7 @@ export type Module =
   | "need-price"
   | "calculateur"
   | "suivi-commandes"
+  | "previsionnel"
   | "permissions"
   | "parametres-achat"
   | "operations-marketing"
@@ -80,6 +81,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "need-price",
     "calculateur",
     "suivi-commandes",
+    "previsionnel",
     "parametres-achat",
     "operations-marketing",
     "daily-briefing",
@@ -113,6 +115,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "messagerie",
     "need-price",
     "suivi-commandes",
+    "previsionnel",
     "parametres-achat",
     "operations-marketing",
     "daily-briefing",
@@ -139,6 +142,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "messagerie",
     "need-price",
     "suivi-commandes",
+    "previsionnel",
     "parametres-achat",
     "daily-briefing",
   ],
@@ -174,6 +178,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "need-price",
     "calculateur",
     "suivi-commandes",
+    "previsionnel",
     "parametres-achat",
     "operations-marketing",
     "daily-briefing",
@@ -201,6 +206,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "need-price",
     "calculateur",
     "suivi-commandes",
+    "previsionnel",
     "parametres-achat",
   ],
 };
