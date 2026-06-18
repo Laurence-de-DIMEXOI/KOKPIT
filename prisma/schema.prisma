@@ -1374,13 +1374,15 @@ model SellsyCatalogueSync {
 }
 
 model PrevisionnelBcdiOverride {
-  bcdi      String   @id // ex: "BCDI-05057"
-  impCode   String // ex: "IMP-618" — pour scoper l'override à un arrivage
-  action    String // "to-stock" — convertit la ligne en stock potentiel
-  note      String?  @db.Text // raison saisie par l'utilisateur (annulation client, etc.)
-  updatedBy String? // userId
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  bcdi                 String   @id // ex: "BCDI-05057"
+  impCode              String // ex: "IMP-618" — pour scoper l'override à un arrivage
+  action               String // "to-stock" | "set-amount" | "set-note"
+  note                 String?  @db.Text // note libre (annulation, info Michelle, etc.)
+  restePayerHTOverride Decimal? @db.Decimal(12, 2) // saisie manuelle quand le calcul auto manque
+  totalHTOverride      Decimal? @db.Decimal(12, 2) // pour les BDC fantômes à 0
+  updatedBy            String? // userId
+  updatedAt            DateTime @updatedAt
+  createdAt            DateTime @default(now())
 
   @@index([impCode])
   @@map("previsionnel_bcdi_override")

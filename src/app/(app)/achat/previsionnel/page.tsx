@@ -10,6 +10,11 @@ import {
   ChevronDown,
   PackageX,
   Undo2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  StickyNote,
+  Pencil,
 } from "lucide-react";
 import { ContainerBanner } from "@/components/layout/container-banner";
 import { IMPORTS } from "@/lib/imports-config";
@@ -43,7 +48,26 @@ interface Row {
   paidPct: number | null;
   etatProduit: string | null;
   isSav: boolean;
+  note: string | null;
+  hasManualRestePayer: boolean;
+  hasManualTotalHT: boolean;
   items: RowItem[];
+}
+
+type SortKey =
+  | "bcdi"
+  | "client"
+  | "commercial"
+  | "status"
+  | "nbMeubles"
+  | "totalHT"
+  | "restePayerHT"
+  | "potentielCommercial";
+
+type SortDir = "asc" | "desc";
+
+interface StatusFilter {
+  status: string | null; // null = tous
 }
 
 interface Payload {
@@ -137,11 +161,19 @@ function ExpandedRow({
   row,
   onConvert,
   onRestore,
+  onSetAmount,
+  onSetNote,
   busy,
 }: {
   row: Row;
   onConvert: (bcdi: string, note: string) => void;
   onRestore: (bcdi: string) => void;
+  onSetAmount: (
+    bcdi: string,
+    restePayerHT: number | null,
+    totalHT: number | null
+  ) => void;
+  onSetNote: (bcdi: string, note: string | null) => void;
   busy: boolean;
 }) {
   const canConvert = !row.isStock || row.convertedFromBcdi;
@@ -206,23 +238,94 @@ function ExpandedRow({
             </tbody>
           </table>
 
+          {/* Note affichée (si présente) */}
+          {row.note && (
+            <div className="px-3 py-1.5 border-t border-cockpit bg-amber-50/50 flex items-start gap-2 text-[12px] text-amber-900">
+              <StickyNote className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-700" />
+              <span className="flex-1 whitespace-pre-wrap">{row.note}</span>
+            </div>
+          )}
+
           {/* Actions discrètes en bas du drawer */}
-          {canConvert && realBcdiId.toUpperCase().startsWith("BCDI") && (
-            <div className="px-3 py-2 border-t border-cockpit bg-cockpit flex items-center justify-between gap-3">
-              <div className="text-[11px] text-cockpit-secondary">
+          {realBcdiId.toUpperCase().startsWith("BCDI") && (
+            <div className="px-3 py-2 border-t border-cockpit bg-cockpit flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[11px] text-cockpit-secondary flex-1 min-w-[200px]">
                 {isConverted ? (
                   <>
                     <span className="font-medium text-amber-700">
                       Converti en stock potentiel
                     </span>
-                    {row.overrideNote && (
-                      <span> · {row.overrideNote}</span>
-                    )}
+                    {row.overrideNote && <span> · {row.overrideNote}</span>}
                   </>
+                ) : row.hasManualRestePayer || row.hasManualTotalHT ? (
+                  <span className="text-[var(--color-active)] font-medium">
+                    ✏️ Saisie manuelle active
+                  </span>
                 ) : (
-                  <>Le client a annulé ? Bascule ce BCDI en stock pour le revaloriser.</>
+                  <>Modifs manuelles : note / reste à payer / conversion stock.</>
                 )}
               </div>
+
+              {/* Bouton Note */}
+              <button
+                onClick={() => {
+                  const note = window.prompt(
+                    `Note pour ${realBcdiId} (vide = effacer) :`,
+                    row.note || ""
+                  );
+                  if (note === null) return;
+                  onSetNote(realBcdiId, note.trim() || null);
+                }}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card disabled:opacity-40"
+              >
+                <StickyNote className="w-3 h-3" />
+                {row.note ? "Modifier la note" : "Ajouter une note"}
+              </button>
+
+              {/* Bouton Saisir montants manuels */}
+              {!isConverted && (
+                <button
+                  onClick={() => {
+                    const cur = row.restePayerHT == null ? "" : String(row.restePayerHT);
+                    const v = window.prompt(
+                      `Reste à payer HT pour ${realBcdiId} (€, vide = retirer override) :`,
+                      cur
+                    );
+                    if (v === null) return;
+                    const clean = v.trim().replace(",", ".");
+                    const num = clean === "" ? null : Number(clean);
+                    if (clean !== "" && (!Number.isFinite(num) || (num as number) < 0)) {
+                      window.alert("Montant invalide");
+                      return;
+                    }
+                    // Si total HT est à 0 / null, propose aussi de le saisir
+                    let totalNum: number | null | undefined = undefined;
+                    if (row.totalHT == null || row.totalHT === 0) {
+                      const t = window.prompt(
+                        `Total HT pour ${realBcdiId} (€, optionnel) :`,
+                        row.totalHT ? String(row.totalHT) : ""
+                      );
+                      if (t !== null) {
+                        const ct = t.trim().replace(",", ".");
+                        totalNum = ct === "" ? null : Number(ct);
+                        if (ct !== "" && (!Number.isFinite(totalNum) || (totalNum as number) < 0)) {
+                          window.alert("Total HT invalide");
+                          return;
+                        }
+                      }
+                    }
+                    onSetAmount(realBcdiId, num, totalNum === undefined ? null : totalNum);
+                  }}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-emerald-700 border border-emerald-300 bg-emerald-50 rounded-input hover:bg-emerald-100 disabled:opacity-40"
+                >
+                  <Pencil className="w-3 h-3" />
+                  Saisir reste à payer
+                </button>
+              )}
+
+              {/* Bouton convertir stock / restaurer */}
               {isConverted ? (
                 <button
                   onClick={() => onRestore(realBcdiId)}
@@ -232,7 +335,7 @@ function ExpandedRow({
                   <Undo2 className="w-3 h-3" />
                   Restaurer le BCDI client
                 </button>
-              ) : (
+              ) : canConvert ? (
                 <button
                   onClick={() => {
                     const note = window.prompt(
@@ -248,12 +351,48 @@ function ExpandedRow({
                   <PackageX className="w-3 h-3" />
                   Convertir en stock
                 </button>
-              )}
+              ) : null}
             </div>
           )}
         </div>
       </td>
     </tr>
+  );
+}
+
+function SortableHeader({
+  label,
+  field,
+  sortKey,
+  sortDir,
+  onSort,
+  align = "left",
+  width,
+}: {
+  label: string;
+  field: SortKey;
+  sortKey: SortKey | null;
+  sortDir: SortDir;
+  onSort: (k: SortKey) => void;
+  align?: "left" | "right";
+  width?: string;
+}) {
+  const active = sortKey === field;
+  const Icon = !active ? ArrowUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <th
+      className={`px-3 py-2.5 ${align === "right" ? "text-right" : "text-left"} font-semibold whitespace-nowrap select-none ${width || ""}`}
+    >
+      <button
+        onClick={() => onSort(field)}
+        className={`inline-flex items-center gap-1 ${
+          align === "right" ? "flex-row-reverse" : ""
+        } ${active ? "text-cockpit-heading" : "hover:text-cockpit-primary"}`}
+      >
+        <span>{label}</span>
+        <Icon className="w-3 h-3 opacity-60" />
+      </button>
+    </th>
   );
 }
 
@@ -264,6 +403,12 @@ export default function PrevisionnelPage() {
   const [overrideBusy, setOverrideBusy] = useState(false);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [statusFilter, setStatusFilter] = useState<string>(""); // "" = tous
+  const [filterIsSav, setFilterIsSav] = useState<"all" | "sav" | "no-sav">("all");
+  const [filterIsStock, setFilterIsStock] = useState<"all" | "stock" | "no-stock">("all");
+  const [filterZeroHT, setFilterZeroHT] = useState<boolean>(false);
 
   const fetchData = useCallback(async (imp: string, fresh = false) => {
     setLoading(true);
@@ -287,19 +432,64 @@ export default function PrevisionnelPage() {
   const filtered = useMemo(() => {
     if (!data) return [];
     const needle = q.trim().toLowerCase();
-    if (!needle) return data.rows;
-    return data.rows.filter(
-      (r) =>
-        r.bcdi.toLowerCase().includes(needle) ||
-        (r.client || "").toLowerCase().includes(needle) ||
-        (r.commercial || "").toLowerCase().includes(needle) ||
-        r.items.some(
-          (it) =>
-            it.ref.toLowerCase().includes(needle) ||
-            it.description.toLowerCase().includes(needle)
-        )
-    );
-  }, [data, q]);
+    let out = data.rows;
+    if (needle) {
+      out = out.filter(
+        (r) =>
+          r.bcdi.toLowerCase().includes(needle) ||
+          (r.client || "").toLowerCase().includes(needle) ||
+          (r.commercial || "").toLowerCase().includes(needle) ||
+          (r.note || "").toLowerCase().includes(needle) ||
+          r.items.some(
+            (it) =>
+              it.ref.toLowerCase().includes(needle) ||
+              it.description.toLowerCase().includes(needle)
+          )
+      );
+    }
+    if (statusFilter) {
+      out = out.filter((r) => (r.status || "") === statusFilter);
+    }
+    if (filterIsSav !== "all") {
+      out = out.filter((r) => (filterIsSav === "sav" ? r.isSav : !r.isSav));
+    }
+    if (filterIsStock !== "all") {
+      out = out.filter((r) => (filterIsStock === "stock" ? r.isStock : !r.isStock));
+    }
+    if (filterZeroHT) {
+      out = out.filter((r) => !r.isStock && !r.isSav && (r.totalHT == null || r.totalHT === 0));
+    }
+    if (sortKey) {
+      const mul = sortDir === "asc" ? 1 : -1;
+      out = [...out].sort((a, b) => {
+        const av = a[sortKey] as number | string | null;
+        const bv = b[sortKey] as number | string | null;
+        // null toujours en bas
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (typeof av === "number" && typeof bv === "number") return (av - bv) * mul;
+        return String(av).localeCompare(String(bv), "fr", { sensitivity: "base" }) * mul;
+      });
+    }
+    return out;
+  }, [data, q, statusFilter, filterIsSav, filterIsStock, filterZeroHT, sortKey, sortDir]);
+
+  const allStatuses = useMemo(() => {
+    if (!data) return [] as string[];
+    return Array.from(new Set(data.rows.map((r) => r.status).filter(Boolean))) as string[];
+  }, [data]);
+
+  const handleSort = (k: SortKey) => {
+    setSortKey((prev) => {
+      if (prev === k) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return prev;
+      }
+      setSortDir("asc");
+      return k;
+    });
+  };
 
   const toggleExpand = (bcdi: string) => {
     setExpanded((prev) => {
@@ -311,13 +501,17 @@ export default function PrevisionnelPage() {
   };
 
   const setOverride = useCallback(
-    async (bcdi: string, action: "to-stock" | "restore", note?: string) => {
+    async (
+      bcdi: string,
+      action: "to-stock" | "restore" | "set-amount" | "set-note",
+      payload?: { note?: string | null; restePayerHT?: number | null; totalHT?: number | null }
+    ) => {
       setOverrideBusy(true);
       try {
         const res = await fetch("/api/achat/previsionnel/override", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bcdi, impCode: activeImp, action, note }),
+          body: JSON.stringify({ bcdi, impCode: activeImp, action, ...payload }),
         });
         if (!res.ok) throw new Error("override ko");
         await fetchData(activeImp, true);
@@ -370,7 +564,66 @@ export default function PrevisionnelPage() {
           ))}
         </div>
 
-        {/* Toolbar */}
+        {/* Toolbar — Filtres */}
+        <div className="px-4 py-2.5 flex flex-wrap items-center gap-2 bg-cockpit border-b border-cockpit/60">
+          <span className="text-[11px] uppercase tracking-wider text-cockpit-secondary font-semibold">
+            Filtres :
+          </span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="text-xs px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-card text-cockpit-primary focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]"
+          >
+            <option value="">Statut : tous</option>
+            {allStatuses.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filterIsSav}
+            onChange={(e) => setFilterIsSav(e.target.value as "all" | "sav" | "no-sav")}
+            className="text-xs px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-card text-cockpit-primary focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]"
+          >
+            <option value="all">SAV : tous</option>
+            <option value="sav">Uniquement SAV</option>
+            <option value="no-sav">Sans SAV</option>
+          </select>
+          <select
+            value={filterIsStock}
+            onChange={(e) => setFilterIsStock(e.target.value as "all" | "stock" | "no-stock")}
+            className="text-xs px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-card text-cockpit-primary focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]"
+          >
+            <option value="all">Stock : tous</option>
+            <option value="stock">Uniquement stock</option>
+            <option value="no-stock">Sans stock</option>
+          </select>
+          <label className="inline-flex items-center gap-1.5 text-xs text-cockpit-primary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filterZeroHT}
+              onChange={(e) => setFilterZeroHT(e.target.checked)}
+              className="accent-[var(--color-active)]"
+            />
+            BDC à 0 HT (hors SAV)
+          </label>
+          {(statusFilter || filterIsSav !== "all" || filterIsStock !== "all" || filterZeroHT) && (
+            <button
+              onClick={() => {
+                setStatusFilter("");
+                setFilterIsSav("all");
+                setFilterIsStock("all");
+                setFilterZeroHT(false);
+              }}
+              className="text-[11px] text-cockpit-secondary hover:text-cockpit-primary underline"
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
+
+        {/* Toolbar — Recherche + actions */}
         <div className="px-4 py-3 flex flex-wrap items-center gap-3 bg-cockpit">
           <div className="relative flex-1 min-w-[260px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-secondary" />
@@ -419,30 +672,14 @@ export default function PrevisionnelPage() {
               <thead className="bg-cockpit-card text-[11px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
                 <tr>
                   <th className="w-8 px-2 py-2.5"></th>
-                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-28">
-                    N° BCDI
-                  </th>
-                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap">
-                    Client
-                  </th>
-                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-32">
-                    Propriétaire
-                  </th>
-                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-40">
-                    Statut
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-20">
-                    Nb meubles
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-24">
-                    Total HT
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-32">
-                    Reste à payer HT
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-32">
-                    Potentiel comm.
-                  </th>
+                  <SortableHeader label="N° BCDI" field="bcdi" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} width="w-28" />
+                  <SortableHeader label="Client" field="client" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Propriétaire" field="commercial" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} width="w-32" />
+                  <SortableHeader label="Statut" field="status" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} width="w-40" />
+                  <SortableHeader label="Nb meubles" field="nbMeubles" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" width="w-20" />
+                  <SortableHeader label="Total HT" field="totalHT" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" width="w-24" />
+                  <SortableHeader label="Reste à payer HT" field="restePayerHT" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" width="w-32" />
+                  <SortableHeader label="Potentiel comm." field="potentielCommercial" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" width="w-32" />
                 </tr>
               </thead>
               <tbody>
@@ -464,7 +701,17 @@ export default function PrevisionnelPage() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-xs font-semibold text-[var(--color-active)]">
-                          {r.bcdi}
+                          <span className="inline-flex items-center gap-1.5">
+                            <span>{r.bcdi}</span>
+                            {r.note && (
+                              <span
+                                title={r.note}
+                                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-700 border border-amber-300"
+                              >
+                                <StickyNote className="w-2.5 h-2.5" />
+                              </span>
+                            )}
+                          </span>
                         </td>
                         <td className="px-3 py-2.5 text-cockpit-heading">
                           {r.client || (
@@ -483,10 +730,20 @@ export default function PrevisionnelPage() {
                           {r.nbMeubles}
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono text-cockpit-primary">
-                          {eur(r.totalHT)}
+                          <span className="inline-flex items-center gap-1">
+                            {r.hasManualTotalHT && (
+                              <Pencil className="w-2.5 h-2.5 text-[var(--color-active)]" />
+                            )}
+                            {eur(r.totalHT)}
+                          </span>
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono font-semibold text-emerald-700">
-                          {eur(r.restePayerHT)}
+                          <span className="inline-flex items-center gap-1">
+                            {r.hasManualRestePayer && (
+                              <Pencil className="w-2.5 h-2.5 text-[var(--color-active)]" />
+                            )}
+                            {eur(r.restePayerHT)}
+                          </span>
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono font-semibold text-amber-700">
                           {eur(r.potentielCommercial)}
@@ -496,8 +753,12 @@ export default function PrevisionnelPage() {
                         <ExpandedRow
                           row={r}
                           busy={overrideBusy}
-                          onConvert={(b, note) => setOverride(b, "to-stock", note)}
+                          onConvert={(b, note) => setOverride(b, "to-stock", { note })}
                           onRestore={(b) => setOverride(b, "restore")}
+                          onSetAmount={(b, restePayerHT, totalHT) =>
+                            setOverride(b, "set-amount", { restePayerHT, totalHT })
+                          }
+                          onSetNote={(b, note) => setOverride(b, "set-note", { note })}
                         />
                       )}
                     </Fragment>

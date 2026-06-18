@@ -101,6 +101,11 @@ interface Row {
   paidPct: number | null;
   etatProduit: string | null;
   isSav: boolean;
+  /** note libre (visible discrètement sur la ligne) */
+  note: string | null;
+  /** flags pour savoir si une valeur vient d'une saisie manuelle */
+  hasManualRestePayer: boolean;
+  hasManualTotalHT: boolean;
   items: RowItem[];
 }
 
@@ -522,14 +527,33 @@ export async function GET(request: Request) {
     groups.get(k)!.push(it);
   }
 
-  // 2bis) Charger les overrides BCDI → STOCK pour cet IMP
+  // 2bis) Charger les overrides BCDI pour cet IMP
   const overrides = await prisma.previsionnelBcdiOverride.findMany({
     where: { impCode: conf.code },
-    select: { bcdi: true, action: true, note: true },
+    select: {
+      bcdi: true,
+      action: true,
+      note: true,
+      restePayerHTOverride: true,
+      totalHTOverride: true,
+    },
   });
-  const overrideMap = new Map<string, { action: string; note: string | null }>();
+  interface OverrideEntry {
+    action: string;
+    note: string | null;
+    restePayerHTOverride: number | null;
+    totalHTOverride: number | null;
+  }
+  const overrideMap = new Map<string, OverrideEntry>();
   for (const o of overrides) {
-    overrideMap.set(o.bcdi.toUpperCase(), { action: o.action, note: o.note });
+    overrideMap.set(o.bcdi.toUpperCase(), {
+      action: o.action,
+      note: o.note,
+      restePayerHTOverride:
+        o.restePayerHTOverride != null ? Number(o.restePayerHTOverride) : null,
+      totalHTOverride:
+        o.totalHTOverride != null ? Number(o.totalHTOverride) : null,
+    });
   }
 
   // 3) Staffs Sellsy
@@ -621,9 +645,25 @@ export async function GET(request: Request) {
         paidPct: null,
         etatProduit: null,
         isSav: false,
+        note: override?.note ?? null,
+        hasManualRestePayer: false,
+        hasManualTotalHT: false,
         items: detailedItems,
       });
     } else {
+      // Applique overrides manuels (total/reste à payer + note)
+      let totalHT_ = info ? info.totalHT : null;
+      let restePayer = info ? info.restePayerHT : null;
+      let hasManualTotalHT = false;
+      let hasManualRestePayer = false;
+      if (override?.totalHTOverride != null) {
+        totalHT_ = override.totalHTOverride;
+        hasManualTotalHT = true;
+      }
+      if (override?.restePayerHTOverride != null) {
+        restePayer = override.restePayerHTOverride;
+        hasManualRestePayer = true;
+      }
       rows.push({
         bcdi,
         isStock: false,
@@ -631,13 +671,16 @@ export async function GET(request: Request) {
         client: info?.client || null,
         commercial: info?.commercial || null,
         nbMeubles,
-        totalHT: info ? info.totalHT : null,
-        restePayerHT: info ? info.restePayerHT : null,
+        totalHT: totalHT_,
+        restePayerHT: restePayer,
         potentielCommercial: 0,
         status: info?.status || null,
         paidPct: info?.paidPct ?? null,
         etatProduit: info?.etatProduit ?? null,
         isSav: info?.isSav ?? false,
+        note: override?.note ?? null,
+        hasManualRestePayer,
+        hasManualTotalHT,
         items: items.map((it) => ({
           ref: it.ref,
           description: it.description,
