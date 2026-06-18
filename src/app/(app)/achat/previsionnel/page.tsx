@@ -8,6 +8,8 @@ import {
   Search,
   ChevronRight,
   ChevronDown,
+  PackageX,
+  Undo2,
 } from "lucide-react";
 import { ContainerBanner } from "@/components/layout/container-banner";
 import { IMPORTS } from "@/lib/imports-config";
@@ -28,6 +30,9 @@ interface RowItem {
 interface Row {
   bcdi: string;
   isStock: boolean;
+  convertedFromBcdi: boolean;
+  originalBcdi?: string;
+  overrideNote?: string | null;
   client: string | null;
   commercial: string | null;
   nbMeubles: number;
@@ -118,7 +123,20 @@ function StatusPill({ row }: { row: Row }) {
   );
 }
 
-function ExpandedRow({ row }: { row: Row }) {
+function ExpandedRow({
+  row,
+  onConvert,
+  onRestore,
+  busy,
+}: {
+  row: Row;
+  onConvert: (bcdi: string, note: string) => void;
+  onRestore: (bcdi: string) => void;
+  busy: boolean;
+}) {
+  const canConvert = !row.isStock || row.convertedFromBcdi;
+  const realBcdiId = row.originalBcdi || row.bcdi;
+  const isConverted = row.convertedFromBcdi;
   return (
     <tr className="bg-cockpit border-b border-cockpit">
       <td colSpan={9} className="px-12 py-3">
@@ -177,6 +195,52 @@ function ExpandedRow({ row }: { row: Row }) {
               ))}
             </tbody>
           </table>
+
+          {/* Actions discrètes en bas du drawer */}
+          {canConvert && realBcdiId.toUpperCase().startsWith("BCDI") && (
+            <div className="px-3 py-2 border-t border-cockpit bg-cockpit flex items-center justify-between gap-3">
+              <div className="text-[11px] text-cockpit-secondary">
+                {isConverted ? (
+                  <>
+                    <span className="font-medium text-amber-700">
+                      Converti en stock potentiel
+                    </span>
+                    {row.overrideNote && (
+                      <span> · {row.overrideNote}</span>
+                    )}
+                  </>
+                ) : (
+                  <>Le client a annulé ? Bascule ce BCDI en stock pour le revaloriser.</>
+                )}
+              </div>
+              {isConverted ? (
+                <button
+                  onClick={() => onRestore(realBcdiId)}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card disabled:opacity-40"
+                >
+                  <Undo2 className="w-3 h-3" />
+                  Restaurer le BCDI client
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    const note = window.prompt(
+                      `Raison de la conversion en stock pour ${realBcdiId} ?`,
+                      "Annulation client"
+                    );
+                    if (note === null) return;
+                    onConvert(realBcdiId, note.trim() || "Annulation client");
+                  }}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-amber-700 border border-amber-300 bg-amber-50 rounded-input hover:bg-amber-100 disabled:opacity-40"
+                >
+                  <PackageX className="w-3 h-3" />
+                  Convertir en stock
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </td>
     </tr>
@@ -187,6 +251,7 @@ export default function PrevisionnelPage() {
   const [activeImp, setActiveImp] = useState(IMPORTS[0]?.code || "IMP-618");
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [overrideBusy, setOverrideBusy] = useState(false);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -234,6 +299,24 @@ export default function PrevisionnelPage() {
       return next;
     });
   };
+
+  const setOverride = useCallback(
+    async (bcdi: string, action: "to-stock" | "restore", note?: string) => {
+      setOverrideBusy(true);
+      try {
+        const res = await fetch("/api/achat/previsionnel/override", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bcdi, impCode: activeImp, action, note }),
+        });
+        if (!res.ok) throw new Error("override ko");
+        await fetchData(activeImp, true);
+      } finally {
+        setOverrideBusy(false);
+      }
+    },
+    [activeImp, fetchData]
+  );
 
   return (
     <div className="space-y-6 pb-8">
@@ -397,7 +480,14 @@ export default function PrevisionnelPage() {
                           {eur(r.potentielCommercial)}
                         </td>
                       </tr>
-                      {isOpen && <ExpandedRow row={r} />}
+                      {isOpen && (
+                        <ExpandedRow
+                          row={r}
+                          busy={overrideBusy}
+                          onConvert={(b, note) => setOverride(b, "to-stock", note)}
+                          onRestore={(b) => setOverride(b, "restore")}
+                        />
+                      )}
                     </Fragment>
                   );
                 })}

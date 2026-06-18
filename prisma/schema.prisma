@@ -1372,3 +1372,16 @@ model SellsyCatalogueSync {
 
   @@map("sellsy_catalogue_sync")
 }
+
+model PrevisionnelBcdiOverride {
+  bcdi      String   @id // ex: "BCDI-05057"
+  impCode   String // ex: "IMP-618" — pour scoper l'override à un arrivage
+  action    String // "to-stock" — convertit la ligne en stock potentiel
+  note      String?  @db.Text // raison saisie par l'utilisateur (annulation client, etc.)
+  updatedBy String? // userId
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([impCode])
+  @@map("previsionnel_bcdi_override")
+}

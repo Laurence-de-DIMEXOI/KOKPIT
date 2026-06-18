@@ -48,6 +48,11 @@ interface RowItem {
 interface Row {
   bcdi: string;
   isStock: boolean;
+  /** true si convertit manuellement depuis un BCDI client (override "to-stock") */
+  convertedFromBcdi: boolean;
+  /** Référence métier réelle (avant conversion, pour l'affichage) */
+  originalBcdi?: string;
+  overrideNote?: string | null;
   client: string | null;
   commercial: string | null;
   nbMeubles: number;
@@ -332,6 +337,16 @@ export async function GET(request: Request) {
     groups.get(k)!.push(it);
   }
 
+  // 2bis) Charger les overrides BCDI → STOCK pour cet IMP
+  const overrides = await prisma.previsionnelBcdiOverride.findMany({
+    where: { impCode: conf.code },
+    select: { bcdi: true, action: true, note: true },
+  });
+  const overrideMap = new Map<string, { action: string; note: string | null }>();
+  for (const o of overrides) {
+    overrideMap.set(o.bcdi.toUpperCase(), { action: o.action, note: o.note });
+  }
+
   // 3) Staffs Sellsy
   let staffMap = new Map<number, string>();
   try {
@@ -347,8 +362,12 @@ export async function GET(request: Request) {
   const bcdis = Array.from(groups.keys());
   const rows: Row[] = [];
 
-  // a) BCDI réels — appels Sellsy en parallèle
-  const realBcdis = bcdis.filter((b) => b.toUpperCase().startsWith("BCDI"));
+  // a) BCDI réels — on ignore ceux convertis en stock (pas besoin d'appel Sellsy)
+  const realBcdis = bcdis.filter(
+    (b) =>
+      b.toUpperCase().startsWith("BCDI") &&
+      overrideMap.get(b.toUpperCase())?.action !== "to-stock"
+  );
   const orderInfoByBcdi = new Map<string, Awaited<ReturnType<typeof fetchOrderInfo>>>();
   const CONC = 8;
   for (let i = 0; i < realBcdis.length; i += CONC) {
@@ -362,7 +381,10 @@ export async function GET(request: Request) {
   for (const bcdi of bcdis) {
     const items = groups.get(bcdi)!;
     const nbMeubles = items.reduce((s, it) => s + (it.qty || 0), 0);
-    const isStock = !bcdi.toUpperCase().startsWith("BCDI");
+    const isRealBcdi = bcdi.toUpperCase().startsWith("BCDI");
+    const override = overrideMap.get(bcdi.toUpperCase());
+    const convertedFromBcdi = isRealBcdi && override?.action === "to-stock";
+    const isStock = !isRealBcdi || convertedFromBcdi;
 
     if (isStock) {
       let potentiel = 0;
@@ -381,7 +403,10 @@ export async function GET(request: Request) {
       rows.push({
         bcdi,
         isStock: true,
-        client: "STOCK",
+        convertedFromBcdi,
+        originalBcdi: convertedFromBcdi ? bcdi : undefined,
+        overrideNote: override?.note ?? null,
+        client: convertedFromBcdi ? `Stock (ex ${bcdi})` : "STOCK",
         commercial: null,
         nbMeubles,
         totalHT: null,
@@ -396,6 +421,7 @@ export async function GET(request: Request) {
       rows.push({
         bcdi,
         isStock: false,
+        convertedFromBcdi: false,
         client: info?.client || null,
         commercial: info?.commercial || null,
         nbMeubles,
