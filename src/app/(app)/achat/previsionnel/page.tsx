@@ -109,7 +109,7 @@ function StatusPill({ row }: { row: Row }) {
   };
   const pct = row.paidPct != null ? Math.round(row.paidPct * 100) : null;
   return (
-    <span className="inline-flex items-center gap-1.5 flex-wrap">
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
       <span
         className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium"
         style={{ backgroundColor: b.bg, color: b.fg }}
@@ -428,7 +428,7 @@ export default function PrevisionnelPage() {
                   <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-32">
                     Propriétaire
                   </th>
-                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-28">
+                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-40">
                     Statut
                   </th>
                   <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-20">
@@ -452,7 +452,7 @@ export default function PrevisionnelPage() {
                     <Fragment key={r.bcdi}>
                       <tr
                         onClick={() => toggleExpand(r.bcdi)}
-                        className={`border-b border-cockpit hover:bg-cockpit/60 transition-colors cursor-pointer ${
+                        className={`border-b border-cockpit hover:bg-cockpit/60 transition-colors cursor-pointer align-middle [&>td]:align-middle ${
                           r.isStock ? "bg-amber-50/40" : ""
                         } ${isOpen ? "bg-cockpit/40" : ""}`}
                       >
