@@ -13,6 +13,7 @@
 
 export type ClientAction =
   | "appel"
+  | "sms"
   | "mvocal"
   | "messagerie"
   | "mail"
@@ -35,6 +36,13 @@ export const ACTION_LABELS: Record<ClientAction, ActionMeta> = {
     color: "#065F46",
     bg: "#D1FAE5",
     border: "#A7F3D0",
+  },
+  sms: {
+    label: "SMS",
+    emoji: "💬",
+    color: "#1E40AF",
+    bg: "#DBEAFE",
+    border: "#BFDBFE",
   },
   mvocal: {
     label: "Msg vocal",
@@ -82,6 +90,7 @@ export const ACTION_LABELS: Record<ClientAction, ActionMeta> = {
 
 export const ACTION_ORDER: ClientAction[] = [
   "appel",
+  "sms",
   "mvocal",
   "messagerie",
   "mail",
@@ -129,6 +138,8 @@ function detectAction(line: string): ClientAction | null {
     return "fapj";
   if (/messagerie/.test(l)) return "messagerie";
   if (/msg.{0,2}vocal|message.{0,2}vocal/.test(l)) return "mvocal";
+  // « msg » seul (sans « vocal ») = SMS — convention Bernard
+  if (/\bmsg\b|\bsms\b/.test(l)) return "sms";
   if (/informer.{0,5}par.{0,5}mail|par.{0,2}mail|envoy(é|e|er).{0,8}mail/.test(l))
     return "mail";
   if (/appel[eé]|appell[eé]/.test(l)) return "appel";
