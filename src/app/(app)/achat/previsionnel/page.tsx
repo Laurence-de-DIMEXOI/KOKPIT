@@ -31,6 +31,7 @@ interface RowItem {
   qty: number;
   note?: string;
   priceHT?: number | null;
+  volumeM3?: number | null;
 }
 
 interface Row {
@@ -53,6 +54,10 @@ interface Row {
   hasManualRestePayer: boolean;
   hasManualTotalHT: boolean;
   items: RowItem[];
+  section: string;
+  urgent: boolean;
+  order: number;
+  volumeM3: number;
 }
 
 type SortKey =
@@ -63,7 +68,8 @@ type SortKey =
   | "nbMeubles"
   | "totalHT"
   | "restePayerHT"
-  | "potentielCommercial";
+  | "potentielCommercial"
+  | "volumeM3";
 
 type SortDir = "asc" | "desc";
 
@@ -72,16 +78,50 @@ interface StatusFilter {
 }
 
 interface Payload {
-  imp: { code: string; label: string; containerNo: string };
-  meta: { contNo: string; arriveeLabel: string; departLabel: string };
+  imp: {
+    code: string;
+    label: string;
+    containerNo: string;
+    containerType?: string;
+    capacityM3?: number;
+    previsionnel?: boolean;
+  };
+  meta: {
+    contNo: string;
+    arriveeLabel?: string;
+    departLabel?: string;
+    containerType?: string;
+    capacityM3?: number;
+    statut?: string;
+    note?: string;
+  };
   rows: Row[];
   totals: {
     nbMeubles: number;
     totalHT: number;
     restePayerHT: number;
     potentielCommercial: number;
+    volumeM3?: number;
+    volumeBySection?: { command: number; stock: number; bonus: number };
   };
 }
+
+function m3(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(n)} m³`;
+}
+
+interface SectionMeta {
+  label: string;
+  fg: string;
+  bg: string;
+  border: string;
+}
+const SECTION_BADGES: Record<string, SectionMeta> = {
+  command: { label: "Commande", fg: "#1E40AF", bg: "#DBEAFE", border: "#BFDBFE" },
+  stock: { label: "Stock magasin", fg: "#92400E", bg: "#FEF3C7", border: "#FDE68A" },
+  bonus: { label: "Bonus", fg: "#5B21B6", bg: "#EDE9FE", border: "#DDD6FE" },
+};
 
 function eur(n: number | null): string {
   if (n == null) return "—";
@@ -182,7 +222,7 @@ function ExpandedRow({
   const isConverted = row.convertedFromBcdi;
   return (
     <tr className="bg-cockpit border-b border-cockpit">
-      <td colSpan={9} className="px-12 py-3">
+      <td colSpan={10} className="px-12 py-3">
         <div className="rounded-card bg-cockpit-card border border-cockpit shadow-cockpit-sm overflow-hidden">
           <table className="w-full text-xs">
             <thead className="bg-cockpit text-[10px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
@@ -192,6 +232,9 @@ function ExpandedRow({
                   Dénomination
                 </th>
                 <th className="px-3 py-2 text-right font-semibold w-16">Qté</th>
+                <th className="px-3 py-2 text-right font-semibold w-24">
+                  Vol. unit.
+                </th>
                 {row.isStock && (
                   <th className="px-3 py-2 text-right font-semibold w-28">
                     Prix HT
@@ -223,6 +266,9 @@ function ExpandedRow({
                   </td>
                   <td className="px-3 py-1.5 text-right font-mono text-cockpit-heading">
                     {it.qty}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-cockpit-secondary">
+                    {it.volumeM3 != null ? m3(it.volumeM3) : "—"}
                   </td>
                   {row.isStock && (
                     <td className="px-3 py-1.5 text-right font-mono text-cockpit-primary">
@@ -434,6 +480,8 @@ export default function PrevisionnelPage() {
   const [filterIsSav, setFilterIsSav] = useState<"all" | "sav" | "no-sav">("all");
   const [filterIsStock, setFilterIsStock] = useState<"all" | "stock" | "no-stock">("all");
   const [filterZeroHT, setFilterZeroHT] = useState<boolean>(false);
+  const [sectionFilter, setSectionFilter] = useState<string>(""); // "" = toutes
+  const [filterUrgent, setFilterUrgent] = useState<boolean>(false);
 
   const fetchData = useCallback(async (imp: string, fresh = false) => {
     setLoading(true);
@@ -484,6 +532,12 @@ export default function PrevisionnelPage() {
     if (filterZeroHT) {
       out = out.filter((r) => !r.isStock && !r.isSav && (r.totalHT == null || r.totalHT === 0));
     }
+    if (sectionFilter) {
+      out = out.filter((r) => r.section === sectionFilter);
+    }
+    if (filterUrgent) {
+      out = out.filter((r) => r.urgent);
+    }
     if (sortKey) {
       const mul = sortDir === "asc" ? 1 : -1;
       out = [...out].sort((a, b) => {
@@ -498,12 +552,27 @@ export default function PrevisionnelPage() {
       });
     }
     return out;
-  }, [data, q, statusFilter, filterIsSav, filterIsStock, filterZeroHT, sortKey, sortDir]);
+  }, [data, q, statusFilter, filterIsSav, filterIsStock, filterZeroHT, sectionFilter, filterUrgent, sortKey, sortDir]);
 
   const allStatuses = useMemo(() => {
     if (!data) return [] as string[];
     return Array.from(new Set(data.rows.map((r) => r.status).filter(Boolean))) as string[];
   }, [data]);
+
+  // Sections présentes (active l'UI prévisionnel uniquement si pertinent)
+  const sections = useMemo(() => {
+    if (!data) return [] as string[];
+    return Array.from(new Set(data.rows.map((r) => r.section)));
+  }, [data]);
+  const hasSections =
+    sections.length > 1 || (sections.length === 1 && sections[0] !== "command");
+  const hasUrgent = useMemo(
+    () => !!data?.rows.some((r) => r.urgent),
+    [data]
+  );
+  const capacityM3 = data?.meta?.capacityM3 ?? data?.imp?.capacityM3 ?? null;
+  const containerType =
+    data?.meta?.containerType ?? data?.imp?.containerType ?? null;
 
   const handleSort = (k: SortKey) => {
     setSortKey((prev) => {
@@ -589,11 +658,91 @@ export default function PrevisionnelPage() {
           ))}
         </div>
 
+        {/* Jauge de remplissage container (prévisionnel) */}
+        {data && capacityM3 && data.totals.volumeM3 != null && (
+          <div className="px-4 py-3 bg-cockpit border-b border-cockpit/60">
+            {(() => {
+              const cmd = data.totals.volumeBySection?.command ?? 0;
+              const stk = data.totals.volumeBySection?.stock ?? 0;
+              const bon = data.totals.volumeBySection?.bonus ?? 0;
+              const total = data.totals.volumeM3 ?? 0;
+              const horsBonus = cmd + stk;
+              const pct = (total / capacityM3) * 100;
+              const pctHorsBonus = (horsBonus / capacityM3) * 100;
+              const over = horsBonus > capacityM3;
+              const w = (v: number) => `${Math.min((v / capacityM3) * 100, 100)}%`;
+              return (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                    <span className="text-[11px] uppercase tracking-wider text-cockpit-secondary font-semibold">
+                      Remplissage container
+                      {containerType ? ` (${containerType} · ${capacityM3} m³)` : ""}
+                    </span>
+                    <span className="text-xs font-mono text-cockpit-heading">
+                      <span className="font-bold">{m3(total)}</span>
+                      <span className="text-cockpit-secondary"> / {capacityM3} m³ · </span>
+                      <span className={over ? "text-red-600 font-bold" : "text-emerald-700 font-semibold"}>
+                        {pct.toFixed(0)}%
+                      </span>
+                    </span>
+                  </div>
+                  <div className="relative h-4 w-full rounded-full bg-cockpit-input overflow-hidden border border-cockpit">
+                    <div className="absolute inset-y-0 left-0 flex">
+                      <div style={{ width: w(cmd) }} className="bg-blue-500/80" title={`Commandes : ${m3(cmd)}`} />
+                      <div style={{ width: w(stk), maxWidth: `${Math.max(0, 100 - (cmd / capacityM3) * 100)}%` }} className="bg-amber-500/80" title={`Stock : ${m3(stk)}`} />
+                      <div style={{ width: w(bon) }} className="bg-purple-500/70" title={`Bonus : ${m3(bon)}`} />
+                    </div>
+                    {/* Repère 100% capacité */}
+                    <div className="absolute inset-y-0 right-0 w-px bg-cockpit-heading/40" />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-[11px] text-cockpit-secondary">
+                    <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500/80" /> Commandes {m3(cmd)}</span>
+                    <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500/80" /> Stock {m3(stk)}</span>
+                    <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-purple-500/70" /> Bonus {m3(bon)}</span>
+                    <span className={`ml-auto font-medium ${over ? "text-red-600" : "text-cockpit-primary"}`}>
+                      Hors bonus : {m3(horsBonus)} ({pctHorsBonus.toFixed(0)}%)
+                      {over && " — dépasse la capacité"}
+                    </span>
+                  </div>
+                  {data.meta?.statut && (
+                    <p className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-block">
+                      ⚠ {data.meta.statut}
+                    </p>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+
         {/* Toolbar — Filtres */}
         <div className="px-4 py-2.5 flex flex-wrap items-center gap-2 bg-cockpit border-b border-cockpit/60">
           <span className="text-[11px] uppercase tracking-wider text-cockpit-secondary font-semibold">
             Filtres :
           </span>
+          {hasSections && (
+            <select
+              value={sectionFilter}
+              onChange={(e) => setSectionFilter(e.target.value)}
+              className="text-xs px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-card text-cockpit-primary focus:outline-none focus:ring-1 focus:ring-[var(--color-active)]"
+            >
+              <option value="">Catégorie : toutes</option>
+              <option value="command">Commandes</option>
+              <option value="stock">Stock magasin</option>
+              <option value="bonus">Bonus</option>
+            </select>
+          )}
+          {hasUrgent && (
+            <label className="inline-flex items-center gap-1.5 text-xs text-red-700 font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filterUrgent}
+                onChange={(e) => setFilterUrgent(e.target.checked)}
+                className="accent-red-600"
+              />
+              Ultra-urgent
+            </label>
+          )}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -633,13 +782,15 @@ export default function PrevisionnelPage() {
             />
             BDC à 0 HT (hors SAV)
           </label>
-          {(statusFilter || filterIsSav !== "all" || filterIsStock !== "all" || filterZeroHT) && (
+          {(statusFilter || filterIsSav !== "all" || filterIsStock !== "all" || filterZeroHT || sectionFilter || filterUrgent) && (
             <button
               onClick={() => {
                 setStatusFilter("");
                 setFilterIsSav("all");
                 setFilterIsStock("all");
                 setFilterZeroHT(false);
+                setSectionFilter("");
+                setFilterUrgent(false);
               }}
               className="text-[11px] text-cockpit-secondary hover:text-cockpit-primary underline"
             >
@@ -705,17 +856,44 @@ export default function PrevisionnelPage() {
                   <SortableHeader label="Total HT" field="totalHT" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" width="w-24" />
                   <SortableHeader label="Reste à payer HT" field="restePayerHT" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" width="w-32" />
                   <SortableHeader label="Potentiel comm." field="potentielCommercial" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" width="w-32" />
+                  <SortableHeader label="Volume" field="volumeM3" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" width="w-24" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => {
-                  const isOpen = expanded.has(r.bcdi);
+                {filtered.map((r, idx) => {
+                  const rowKey = `${r.section}::${r.bcdi}::${r.order}`;
+                  const isOpen = expanded.has(rowKey);
+                  // Séparateur de section (vue par défaut non triée uniquement)
+                  const prev = idx > 0 ? filtered[idx - 1] : null;
+                  const showDivider =
+                    hasSections && !sortKey && (!prev || prev.section !== r.section);
+                  const secMeta = SECTION_BADGES[r.section];
                   return (
-                    <Fragment key={r.bcdi}>
+                    <Fragment key={rowKey}>
+                      {showDivider && secMeta && (
+                        <tr className="bg-cockpit/70 border-y border-cockpit">
+                          <td colSpan={10} className="px-3 py-1.5">
+                            <span
+                              className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+                              style={{
+                                color: secMeta.fg,
+                                backgroundColor: secMeta.bg,
+                                border: `1px solid ${secMeta.border}`,
+                              }}
+                            >
+                              {r.section === "command"
+                                ? "Commandes (ordre de priorité)"
+                                : r.section === "stock"
+                                  ? "Stock magasin"
+                                  : "Bonus — si place dans le container"}
+                            </span>
+                          </td>
+                        </tr>
+                      )}
                       <tr
-                        onClick={() => toggleExpand(r.bcdi)}
+                        onClick={() => toggleExpand(rowKey)}
                         className={`border-b border-cockpit hover:bg-cockpit/60 transition-colors cursor-pointer align-middle [&>td]:align-middle ${
-                          r.isStock ? "bg-amber-50/40" : ""
+                          r.urgent ? "bg-red-50/60" : r.isStock ? "bg-amber-50/40" : ""
                         } ${isOpen ? "bg-cockpit/40" : ""}`}
                       >
                         <td className="w-8 px-2 py-2.5 text-cockpit-secondary">
@@ -726,8 +904,24 @@ export default function PrevisionnelPage() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-xs font-semibold text-[var(--color-active)]">
-                          <span className="inline-flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1.5 flex-wrap">
                             <span>{r.bcdi}</span>
+                            {r.urgent && (
+                              <span
+                                title="Ultra-urgent — ne pas négocier"
+                                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-600 text-white"
+                              >
+                                URGENT
+                              </span>
+                            )}
+                            {r.items.length > 0 && r.items.every((it) => !it.ref) && (
+                              <span
+                                title="Référence à créer (n'existe pas encore)"
+                                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-slate-100 text-slate-500 border border-slate-200"
+                              >
+                                à créer
+                              </span>
+                            )}
                             {r.note && (
                               <span
                                 title={r.note}
@@ -778,6 +972,9 @@ export default function PrevisionnelPage() {
                         <td className="px-3 py-2.5 text-right font-mono font-semibold text-amber-700">
                           {eur(r.potentielCommercial)}
                         </td>
+                        <td className="px-3 py-2.5 text-right font-mono text-cockpit-primary">
+                          {r.volumeM3 ? m3(r.volumeM3) : "—"}
+                        </td>
                       </tr>
                       {isOpen && (
                         <ExpandedRow
@@ -815,6 +1012,9 @@ export default function PrevisionnelPage() {
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-bold text-amber-700">
                       {eur(data.totals.potentielCommercial)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono font-bold text-cockpit-heading">
+                      {m3(data.totals.volumeM3 ?? 0)}
                     </td>
                   </tr>
                 </tfoot>

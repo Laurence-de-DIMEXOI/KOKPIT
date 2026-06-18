@@ -24,6 +24,14 @@ interface PackingItem {
   qty: number;
   note?: string;
   priceHTOverride?: number;
+  /** Prévisionnel : "command" | "stock" | "bonus" (défaut "command"). */
+  section?: string;
+  /** Prévisionnel : ligne ultra-urgente (rouge sur le fichier Indonésie). */
+  urgent?: boolean;
+  /** Prévisionnel : volume estimé en m³ par unité. */
+  volumeM3?: number;
+  /** Prévisionnel : index d'ordre de priorité (préserve l'ordre du fichier). */
+  order?: number;
 }
 
 interface PackingFile {
@@ -37,6 +45,7 @@ interface RowItem {
   qty: number;
   note?: string;
   priceHT?: number | null;
+  volumeM3?: number | null;
 }
 
 interface Row {
@@ -59,6 +68,11 @@ interface Row {
   hasManualRestePayer: boolean;
   hasManualTotalHT: boolean;
   items: RowItem[];
+  // ── Prévisionnel (IMP-619) ──
+  section: string; // "command" | "stock" | "bonus"
+  urgent: boolean;
+  order: number;
+  volumeM3: number; // volume total de la ligne (Σ qty × vol unitaire)
 }
 
 const cache = new Map<string, { data: unknown; expires: number }>();
@@ -206,12 +220,28 @@ export async function GET(request: Request) {
     );
   }
 
-  // 2) Groupe par BCDI
-  const groups = new Map<string, PackingItem[]>();
+  // 2) Groupe par (section, BCDI) — un même BCDI peut exister dans 2 sections
+  //    (ex: BCDI-05181 en commande urgente ET en stock magasin sur IMP-619).
+  interface Group {
+    bcdi: string;
+    section: string;
+    urgent: boolean;
+    order: number;
+    items: PackingItem[];
+  }
+  const groups = new Map<string, Group>();
   for (const it of packing.items) {
-    const k = it.bcdi || "STOCK";
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k)!.push(it);
+    const bcdi = it.bcdi || "STOCK";
+    const section = it.section || "command";
+    const key = `${section}::${bcdi}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { bcdi, section, urgent: false, order: it.order ?? 99999, items: [] };
+      groups.set(key, g);
+    }
+    g.items.push(it);
+    if (it.urgent) g.urgent = true;
+    if ((it.order ?? 99999) < g.order) g.order = it.order ?? 99999;
   }
 
   // 3) Overrides
@@ -244,10 +274,18 @@ export async function GET(request: Request) {
   }
 
   // 4) Snapshots (toujours lu — pas de filtre TTL ici, le cron s'en occupe)
-  const realBcdis = Array.from(groups.keys()).filter(
-    (b) =>
-      b.toUpperCase().startsWith("BCDI") &&
-      overrideMap.get(b.toUpperCase())?.action !== "to-stock"
+  //    Seules les lignes "command" avec un vrai BCDI non converti en stock.
+  const realBcdis = Array.from(
+    new Set(
+      Array.from(groups.values())
+        .filter(
+          (g) =>
+            g.section === "command" &&
+            g.bcdi.toUpperCase().startsWith("BCDI") &&
+            overrideMap.get(g.bcdi.toUpperCase())?.action !== "to-stock"
+        )
+        .map((g) => g.bcdi)
+    )
   );
   const snapshotsRaw = await prisma.bcdiSellsySnapshot.findMany({
     where: { bcdi: { in: realBcdis } },
@@ -291,10 +329,14 @@ export async function GET(request: Request) {
     return AUTO_STOCK_CLIENTS.some((s) => c === s || c.startsWith(s + " "));
   };
 
-  // 6) Pré-fetch des prix HT en un seul batch DB pour tous les items STOCK
+  // 6) Pré-fetch des prix HT en un seul batch DB pour tous les items STOCK.
+  //    Une ligne est "stock" si : section stock/bonus, OU section command sans
+  //    vrai BCDI, OU convertie en stock, OU client auto-stock.
   const stockRefs = packing.items
     .filter((it) => {
       const k = it.bcdi || "STOCK";
+      const section = it.section || "command";
+      if (section !== "command") return true; // stock + bonus
       const isReal = k.toUpperCase().startsWith("BCDI");
       const ov = overrideMap.get(k.toUpperCase());
       const info = isReal ? snapByBcdi.get(k) : undefined;
@@ -305,16 +347,32 @@ export async function GET(request: Request) {
     .map((it) => it.ref);
   const priceMap = await batchPriceHTByRef(stockRefs);
 
+  // Helper : volume total d'un groupe (Σ qty × volume unitaire)
+  const groupVolume = (items: PackingItem[]) =>
+    Number(
+      items
+        .reduce((s, it) => s + (it.volumeM3 ?? 0) * (it.qty || 0), 0)
+        .toFixed(3)
+    );
+
   // 6) Construit les rangées
   const rows: Row[] = [];
-  for (const [bcdi, items] of groups.entries()) {
+  for (const g of groups.values()) {
+    const { bcdi, section, urgent, order, items } = g;
     const nbMeubles = items.reduce((s, it) => s + (it.qty || 0), 0);
+    const volumeM3 = groupVolume(items);
+    const isCommandSection = section === "command";
     const isRealBcdi = bcdi.toUpperCase().startsWith("BCDI");
     const override = overrideMap.get(bcdi.toUpperCase());
-    const info = isRealBcdi ? snapByBcdi.get(bcdi) : undefined;
-    const autoStock = isRealBcdi && isAutoStockClient(info?.client);
-    const convertedFromBcdi = isRealBcdi && override?.action === "to-stock";
-    const isStock = !isRealBcdi || convertedFromBcdi || autoStock;
+    const info =
+      isCommandSection && isRealBcdi ? snapByBcdi.get(bcdi) : undefined;
+    const autoStock =
+      isCommandSection && isRealBcdi && isAutoStockClient(info?.client);
+    const convertedFromBcdi =
+      isCommandSection && isRealBcdi && override?.action === "to-stock";
+    // stock / bonus → toujours traité comme stock potentiel
+    const isStock =
+      !isCommandSection || !isRealBcdi || convertedFromBcdi || autoStock;
 
     if (isStock) {
       let potentiel = 0;
@@ -328,6 +386,7 @@ export async function GET(request: Request) {
           qty: it.qty,
           note: it.note,
           priceHT: price,
+          volumeM3: it.volumeM3 ?? null,
         });
         if (price != null) potentiel += it.qty * price;
       }
@@ -335,7 +394,9 @@ export async function GET(request: Request) {
         ? `Stock (ex ${bcdi})`
         : autoStock
           ? `Stock — ${info!.client}`
-          : "STOCK";
+          : section === "bonus"
+            ? "Bonus"
+            : "STOCK";
       rows.push({
         bcdi,
         isStock: true,
@@ -360,6 +421,10 @@ export async function GET(request: Request) {
         hasManualRestePayer: false,
         hasManualTotalHT: false,
         items: detailedItems,
+        section,
+        urgent,
+        order,
+        volumeM3,
       });
     } else {
       let totalHT_ = info ? info.totalHT : null;
@@ -396,14 +461,26 @@ export async function GET(request: Request) {
           description: it.description,
           qty: it.qty,
           note: it.note,
+          volumeM3: it.volumeM3 ?? null,
         })),
+        section,
+        urgent,
+        order,
+        volumeM3,
       });
     }
   }
 
+  const SECTION_RANK: Record<string, number> = { command: 0, stock: 1, bonus: 2 };
   rows.sort((a, b) => {
-    if (a.isStock && !b.isStock) return 1;
-    if (!a.isStock && b.isStock) return -1;
+    const ra = SECTION_RANK[a.section] ?? 0;
+    const rb = SECTION_RANK[b.section] ?? 0;
+    if (ra !== rb) return ra - rb;
+    // Dans la section commande : stock auto en bas (comportement IMP-618)
+    if (a.section === "command" && b.section === "command" && a.isStock !== b.isStock) {
+      return a.isStock ? 1 : -1;
+    }
+    if (a.order !== b.order) return a.order - b.order;
     return a.bcdi.localeCompare(b.bcdi);
   });
 
@@ -415,6 +492,18 @@ export async function GET(request: Request) {
       (s, r) => s + (r.potentielCommercial || 0),
       0
     ),
+    volumeM3: Number(rows.reduce((s, r) => s + (r.volumeM3 || 0), 0).toFixed(2)),
+    volumeBySection: {
+      command: Number(
+        rows.filter((r) => r.section === "command").reduce((s, r) => s + r.volumeM3, 0).toFixed(2)
+      ),
+      stock: Number(
+        rows.filter((r) => r.section === "stock").reduce((s, r) => s + r.volumeM3, 0).toFixed(2)
+      ),
+      bonus: Number(
+        rows.filter((r) => r.section === "bonus").reduce((s, r) => s + r.volumeM3, 0).toFixed(2)
+      ),
+    },
   };
 
   const missingSnapshots = realBcdis.filter((b) => !snapByBcdi.has(b)).length;
