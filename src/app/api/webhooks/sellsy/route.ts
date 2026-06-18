@@ -8,6 +8,10 @@ import {
   getOrder,
   sellsyFetch,
 } from "@/lib/sellsy";
+import {
+  upsertDocLink,
+  upsertInvoicePaid,
+} from "@/lib/sellsy-webhook-handler";
 import crypto from "crypto";
 
 export const maxDuration = 60;
@@ -412,8 +416,27 @@ async function handleDocumentEvent(notif: string, docId: string, data: any, rela
   // Facture (invoice)
   else if (subtype.includes("invoice") || subtype.includes("facture")) {
     await syncInvoice(docId);
+  }
+  // BDL (delivery / livraison)
+  else if (subtype.includes("delivery") || subtype.includes("livraison") || subtype.includes("bdl")) {
+    await syncDelivery(docId);
   } else {
     console.log(`[webhook sellsy] document subtype inconnu: ${subtype}`);
+  }
+}
+
+/**
+ * Sync minimaliste d'un BDL : on enregistre uniquement le lien parent ↔ enfant
+ * (utile pour relier BCDI → BDL → FAPJ côté Prévisionnel).
+ */
+async function syncDelivery(deliveryId: string) {
+  try {
+    const res = await sellsyFetch<{ data: { id: number; number?: string; parent?: { type?: string; id?: number } } }>(
+      `/delivery-notes/${deliveryId}`
+    );
+    if (res.data) await upsertDocLink("delivery", res.data);
+  } catch (e) {
+    console.warn(`[webhook sellsy] syncDelivery ${deliveryId}:`, (e as Error).message);
   }
 }
 
@@ -575,6 +598,10 @@ async function syncInvoice(invoiceId: string) {
       statutSellsy,
     },
   });
+
+  // Mise à jour des tables Prévisionnel : lien parent + solde
+  await upsertInvoicePaid(inv);
+  await upsertDocLink("invoice", inv);
 
   checkAndNotifyScoring(contact.id).catch(() => {});
 }

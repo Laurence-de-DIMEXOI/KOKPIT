@@ -251,21 +251,58 @@ async function priceHTForRef(ref: string): Promise<number | null> {
  *  - status `draft`|`sent`|`accepted`     → reste = total (rien encaissé)
  */
 /**
+ * Récupère la chaîne complète des paiements via la table locale `SellsyDocLink`
+ * (peuplée par les webhooks Sellsy + backfill). Suit BCDI → BDL → FAPJ et
+ * additionne le paid_incl_tax de toutes les factures terminales liées.
+ *
+ * Retourne null si aucun lien local trouvé → caller fera fallback V1.
+ */
+async function chainedPaidTTCFromLocalLinks(orderId: bigint): Promise<number | null> {
+  // 1) Tous les enfants directs du BDC (factures d'acompte + BDL)
+  const directChildren = await prisma.sellsyDocLink.findMany({
+    where: { parentId: orderId, parentType: "order" },
+    select: { childId: true, childType: true },
+  });
+  if (directChildren.length === 0) return null;
+
+  let paid = 0;
+  const invoiceIds: bigint[] = [];
+
+  for (const c of directChildren) {
+    if (c.childType === "invoice") invoiceIds.push(c.childId);
+    if (c.childType === "delivery") {
+      // BDL → cherche les factures dont c'est le parent
+      const deliveryInvoices = await prisma.sellsyDocLink.findMany({
+        where: { parentId: c.childId, parentType: "delivery", childType: "invoice" },
+        select: { childId: true },
+      });
+      for (const di of deliveryInvoices) invoiceIds.push(di.childId);
+    }
+  }
+
+  if (invoiceIds.length === 0) return null;
+
+  const paidRows = await prisma.sellsyInvoicePaid.findMany({
+    where: { invoiceId: { in: invoiceIds } },
+    select: { paidInclTax: true },
+  });
+  for (const r of paidRows) {
+    if (r.paidInclTax != null) paid += Number(r.paidInclTax);
+  }
+  return paid;
+}
+
+/**
  * Calcule le reste à payer HT d'un BDC.
  *
- * Source de vérité : le V1 Sellsy `Document.getOne` qui expose `relateds_amount` —
- * la somme TTC de TOUTES les relations (paiements directs + factures d'acompte
- * + factures liées). Cette valeur reflète ce que Sellsy considère comme encaissé
- * dans le contexte de l'order, même quand les paiements ont migré vers les
- * documents enfants (BDL, facture finale).
- *
- * Exemple BCDI-05598 META FORGE :
- *   - totalAmount V1 : 1 250 € TTC
- *   - relateds_amount : 625 € TTC (acompte Bois d'Orient)
- *   - reste TTC = 625 € → HT = 575,97 € (≈ Michelle 625 TTC)
- *
- * Fallback V2 : si l'appel V1 échoue (rare), on retombe sur le calcul V2
- * status + deposit + paiements directs.
+ * Priorité :
+ *  1. Table locale `SellsyDocLink` + `SellsyInvoicePaid` peuplées par les
+ *     webhooks Sellsy → suit la chaîne BCDI → BDL → FAPJ et somme le payé.
+ *     C'est la voie la plus précise une fois le backfill effectué.
+ *  2. Si le local est vide (backfill pas encore lancé pour ce BDC),
+ *     fallback V1 `Document.getOne.relateds_amount` (couvre paiements directs
+ *     + factures d'acompte mais pas la chaîne complète).
+ *  3. Sinon V2 status + deposit + paiements directs.
  */
 async function calcPaymentSummary(order: SellsyOrder): Promise<{
   restePayerHT: number;
@@ -283,6 +320,22 @@ async function calcPaymentSummary(order: SellsyOrder): Promise<{
   }
   if (["paid"].includes(status)) {
     return { restePayerHT: 0, paidPct: 1 };
+  }
+
+  // 0) Source la plus précise : tables locales alimentées par webhooks
+  try {
+    const orderIdBig = BigInt(order.id);
+    const localPaidTTC = await chainedPaidTTCFromLocalLinks(orderIdBig);
+    if (localPaidTTC != null) {
+      const paidTTC = Math.min(totalTTC, localPaidTTC);
+      const resteTTC = Math.max(0, totalTTC - paidTTC);
+      const ratio = totalHT / totalTTC;
+      const restePayerHT = Number((resteTTC * ratio).toFixed(2));
+      const paidPct = Math.min(Math.max(paidTTC / totalTTC, 0), 1);
+      return { restePayerHT, paidPct };
+    }
+  } catch (e) {
+    console.warn("[previsionnel] local links err:", e);
   }
 
   // 1) Source principale : V1 Document.getOne → relateds_amount

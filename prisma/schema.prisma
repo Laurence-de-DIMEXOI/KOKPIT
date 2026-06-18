@@ -1385,3 +1385,47 @@ model PrevisionnelBcdiOverride {
   @@index([impCode])
   @@map("previsionnel_bcdi_override")
 }
+
+model SellsyDocLink {
+  childId     BigInt
+  childType   String // invoice | delivery | order | estimate | creditnote
+  childNumber String? // ex: FAPJ-11587, BDL-2026-4858
+  parentId    BigInt
+  parentType  String
+  syncedAt    DateTime @default(now())
+
+  @@id([childId, childType])
+  @@index([parentId, parentType], map: "sellsy_doc_link_parent_idx")
+  @@index([childNumber], map: "sellsy_doc_link_child_number_idx")
+  @@map("sellsy_doc_link")
+}
+
+model SellsyInvoicePaid {
+  invoiceId           BigInt   @id
+  invoiceNumber       String
+  status              String?
+  totalInclTax        Decimal? @db.Decimal(12, 2)
+  remainingDueInclTax Decimal? @db.Decimal(12, 2)
+  paidInclTax         Decimal? @db.Decimal(12, 2)
+  updatedAt           DateTime @updatedAt
+  syncedAt            DateTime @default(now())
+
+  @@index([invoiceNumber], map: "sellsy_invoice_paid_number_idx")
+  @@map("sellsy_invoice_paid")
+}
+
+model SellsyWebhookEvent {
+  id          String    @id @default(cuid())
+  topic       String
+  objectId    BigInt?
+  payload     Json?
+  signature   String?
+  validated   Boolean   @default(false)
+  processedAt DateTime?
+  error       String?   @db.Text
+  receivedAt  DateTime  @default(now())
+
+  @@index([topic])
+  @@index([receivedAt(sort: Desc)], map: "sellsy_webhook_event_received_idx")
+  @@map("sellsy_webhook_event")
+}
