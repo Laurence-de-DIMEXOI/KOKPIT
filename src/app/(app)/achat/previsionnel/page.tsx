@@ -658,7 +658,7 @@ export default function PrevisionnelPage() {
             <option value="">Statut : tous</option>
             {allStatuses.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {STATUS_BADGES[s]?.label || s}
               </option>
             ))}
           </select>
