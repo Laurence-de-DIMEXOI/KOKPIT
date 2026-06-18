@@ -419,26 +419,28 @@ export default function PrevisionnelPage() {
               <thead className="bg-cockpit-card text-[11px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
                 <tr>
                   <th className="w-8 px-2 py-2.5"></th>
-                  <th className="px-4 py-2.5 text-left font-semibold w-32">
+                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-28">
                     N° BCDI
                   </th>
-                  <th className="px-4 py-2.5 text-left font-semibold">Client</th>
-                  <th className="px-4 py-2.5 text-left font-semibold w-36">
+                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap">
+                    Client
+                  </th>
+                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-32">
                     Propriétaire
                   </th>
-                  <th className="px-4 py-2.5 text-left font-semibold w-28">
+                  <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap w-28">
                     Statut
                   </th>
-                  <th className="px-4 py-2.5 text-right font-semibold w-20">
+                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-20">
                     Nb meubles
                   </th>
-                  <th className="px-4 py-2.5 text-right font-semibold w-28">
+                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-24">
                     Total HT
                   </th>
-                  <th className="px-4 py-2.5 text-right font-semibold w-32">
+                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-32">
                     Reste à payer HT
                   </th>
-                  <th className="px-4 py-2.5 text-right font-semibold w-32">
+                  <th className="px-3 py-2.5 text-right font-semibold whitespace-nowrap w-32">
                     Potentiel comm.
                   </th>
                 </tr>
@@ -461,32 +463,32 @@ export default function PrevisionnelPage() {
                             <ChevronRight className="w-4 h-4" />
                           )}
                         </td>
-                        <td className="px-4 py-2.5 font-mono text-xs font-semibold text-[var(--color-active)]">
+                        <td className="px-3 py-2.5 font-mono text-xs font-semibold text-[var(--color-active)]">
                           {r.bcdi}
                         </td>
-                        <td className="px-4 py-2.5 text-cockpit-heading">
+                        <td className="px-3 py-2.5 text-cockpit-heading">
                           {r.client || (
                             <span className="text-cockpit-secondary/70">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-cockpit-primary text-[13px]">
+                        <td className="px-3 py-2.5 text-cockpit-primary text-[13px]">
                           {r.commercial || (
                             <span className="text-cockpit-secondary/70">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-3 py-2.5">
                           <StatusPill row={r} />
                         </td>
-                        <td className="px-4 py-2.5 text-right font-mono text-cockpit-heading font-medium">
+                        <td className="px-3 py-2.5 text-right font-mono text-cockpit-heading font-medium">
                           {r.nbMeubles}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-mono text-cockpit-primary">
+                        <td className="px-3 py-2.5 text-right font-mono text-cockpit-primary">
                           {eur(r.totalHT)}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-emerald-700">
+                        <td className="px-3 py-2.5 text-right font-mono font-semibold text-emerald-700">
                           {eur(r.restePayerHT)}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-amber-700">
+                        <td className="px-3 py-2.5 text-right font-mono font-semibold text-amber-700">
                           {eur(r.potentielCommercial)}
                         </td>
                       </tr>
@@ -507,20 +509,20 @@ export default function PrevisionnelPage() {
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-4 py-3 text-right text-xs uppercase tracking-wider font-semibold text-cockpit-secondary"
+                      className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold text-cockpit-secondary"
                     >
                       Totaux
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-cockpit-heading font-bold">
+                    <td className="px-3 py-3 text-right font-mono text-cockpit-heading font-bold">
                       {data.totals.nbMeubles}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-cockpit-heading font-bold">
+                    <td className="px-3 py-3 text-right font-mono text-cockpit-heading font-bold">
                       {eur(data.totals.totalHT)}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">
+                    <td className="px-3 py-3 text-right font-mono font-bold text-emerald-700">
                       {eur(data.totals.restePayerHT)}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-amber-700">
+                    <td className="px-3 py-3 text-right font-mono font-bold text-amber-700">
                       {eur(data.totals.potentielCommercial)}
                     </td>
                   </tr>
