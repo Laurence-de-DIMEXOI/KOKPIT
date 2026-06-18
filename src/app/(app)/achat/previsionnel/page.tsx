@@ -914,14 +914,6 @@ export default function PrevisionnelPage() {
                                 URGENT
                               </span>
                             )}
-                            {r.items.length > 0 && r.items.every((it) => !it.ref) && (
-                              <span
-                                title="Référence à créer (n'existe pas encore)"
-                                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-slate-100 text-slate-500 border border-slate-200"
-                              >
-                                à créer
-                              </span>
-                            )}
                             {r.note && (
                               <span
                                 title={r.note}
