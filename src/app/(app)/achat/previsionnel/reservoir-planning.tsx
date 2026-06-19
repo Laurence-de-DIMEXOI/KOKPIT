@@ -150,16 +150,16 @@ export function ReservoirPlanning() {
   const containerType = (activeMonth && containerByMonth[activeMonth]) || "40ft HC";
 
   const totaux = useMemo(() => {
-    if (!data) return { nb: 0, prets: 0, ht: 0, retard: 0 };
-    return data.months.reduce(
-      (a, m) => ({
-        nb: a.nb + m.nb,
-        prets: a.prets + m.prets,
-        ht: a.ht + m.totalHT,
-        retard: a.retard + (m.enRetard ? m.nb : 0),
-      }),
-      { nb: 0, prets: 0, ht: 0, retard: 0 }
-    );
+    if (!data) return { nb: 0, prets: 0, readyToSent: 0, ht: 0, retard: 0 };
+    const acc = { nb: 0, prets: 0, readyToSent: 0, ht: 0, retard: 0 };
+    for (const m of data.months) {
+      acc.nb += m.nb;
+      acc.prets += m.prets;
+      acc.ht += m.totalHT;
+      acc.retard += m.enRetard ? m.nb : 0;
+      acc.readyToSent += m.items.filter((i) => i.trelloStatut === "Ready to Sent").length;
+    }
+    return acc;
   }, [data]);
 
   return (
@@ -198,7 +198,10 @@ export function ReservoirPlanning() {
       {data && (
         <div className="flex flex-wrap gap-3 text-xs">
           <span className="px-3 py-1.5 rounded-lg bg-cockpit-card border border-cockpit"><b>{totaux.nb}</b> commandes en réservoir</span>
-          <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700"><b>{totaux.prets}</b> prêtes à charger</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold shadow-cockpit-sm">
+            <CheckCircle2 className="w-4 h-4" /> {totaux.readyToSent} prêts à charger (Indonésie)
+          </span>
+          <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700"><b>{totaux.prets}</b> avancés (entrepôt+)</span>
           <span className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700"><b>{totaux.retard}</b> en retard</span>
           <span className="px-3 py-1.5 rounded-lg bg-cockpit-card border border-cockpit">{eur(totaux.ht)} HT</span>
           {data.horsScopeCount > 0 && (
