@@ -1408,6 +1408,25 @@ model BcdiSellsySnapshot {
   @@map("bcdi_sellsy_snapshot")
 }
 
+// Réservoir : BCDI en attente d'arrivage (pas encore "Sent" sur Trello),
+// croisé avec Sellsy pour la date de commande / le montant → planning containers.
+model ReservoirBcdi {
+  bcdi          String    @id
+  trelloCardId  String?
+  trelloStatut  String?
+  trelloStep    Int?
+  client        String?
+  sellsyOrderId BigInt?
+  dateCommande  DateTime?
+  montantHT     Decimal?  @db.Decimal(12, 2)
+  statutSellsy  String?
+  found         Boolean   @default(false)
+  computedAt    DateTime  @default(now())
+
+  @@index([dateCommande], map: "reservoir_bcdi_date_idx")
+  @@map("reservoir_bcdi")
+}
+
 model SellsyDocLink {
   childId     BigInt
   childType   String // invoice | delivery | order | estimate | creditnote
