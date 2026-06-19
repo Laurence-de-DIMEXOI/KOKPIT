@@ -310,6 +310,28 @@ export async function listAllEstimatesBdo(): Promise<SellsyBdoDocument[]> {
 }
 
 /**
+ * Montants (HT/TTC) d'une commande Bois d'Orient depuis le Sellsy BO.
+ * Sert à rattraper les commandes importées en base avec un montant à 0
+ * (import BO incomplet sur les commandes récentes).
+ */
+export async function fetchBoOrderAmounts(
+  orderId: string | number
+): Promise<{ totalHT: number; totalTTC: number } | null> {
+  try {
+    const r = await sellsyFetchBdo<{
+      amounts?: { total_excl_tax?: string; total_incl_tax?: string };
+    }>(`/orders/${orderId}?field[]=amounts`);
+    const totalHT = Number(r.amounts?.total_excl_tax || 0);
+    const totalTTC = Number(r.amounts?.total_incl_tax || 0);
+    if (totalHT <= 0 && totalTTC <= 0) return null;
+    return { totalHT: Number(totalHT.toFixed(2)), totalTTC: Number(totalTTC.toFixed(2)) };
+  } catch (e) {
+    console.warn(`[BO] montants order ${orderId} ko:`, (e as Error).message);
+    return null;
+  }
+}
+
+/**
  * Σ des paiements confirmés (TTC) d'une commande Bois d'Orient.
  * Utilisé par le Prévisionnel pour calculer le reste à payer réel (acomptes).
  * Renvoie le montant TTC payé, ou null si l'appel échoue.

@@ -5,7 +5,7 @@ import {
   listStaffs,
   type SellsyOrder,
 } from "@/lib/sellsy";
-import { fetchBoOrderPaidTTC } from "@/lib/sellsy-bdo";
+import { fetchBoOrderAmounts, fetchBoOrderPaidTTC } from "@/lib/sellsy-bdo";
 
 /**
  * ────────────────────────────────────────────────────────────────────────
@@ -114,10 +114,28 @@ async function lookupBoAmountsLocal(bcRef: string): Promise<BoAmounts | null> {
     where: { type: "COMMANDE", reference: { startsWith: `BC-${digits}` } },
     orderBy: { date: "desc" },
   });
-  if (!commande || commande.montantHT == null) return null;
+  if (!commande) return null;
 
-  const totalHT = Number(commande.montantHT);
-  const totalTTC = Number(commande.montantTTC || 0);
+  let totalHT = commande.montantHT != null ? Number(commande.montantHT) : 0;
+  let totalTTC = Number(commande.montantTTC || 0);
+
+  // Rattrapage : commande importée en base avec montant 0 → on récupère les
+  // montants depuis le Sellsy BO et on met la base à jour.
+  if (totalHT <= 0) {
+    const amts = await fetchBoOrderAmounts(commande.sellsyDocId);
+    if (amts) {
+      totalHT = amts.totalHT;
+      totalTTC = amts.totalTTC;
+      await prisma.documentBoisDOrient
+        .update({
+          where: { id: commande.id },
+          data: { montantHT: amts.totalHT, montantTTC: amts.totalTTC },
+        })
+        .catch(() => {});
+    }
+    // Si toujours 0 ici → le BC est vide côté Sellsy BO (pas encore chiffré).
+    // On n'abandonne pas : on garde le client + la référence complète (total 0).
+  }
 
   let client: string | null = null;
   if (commande.clientBdoId) {
