@@ -1420,6 +1420,7 @@ model ReservoirBcdi {
   dateCommande  DateTime?
   montantHT     Decimal?  @db.Decimal(12, 2)
   statutSellsy  String?
+  bdoBcNumber   String?   // n° BC Bois d'Orient si le BCDI est un BC BO (montant DIMEXOI 0)
   found         Boolean   @default(false)
   forcedType    String?   // override manuel : "stock" = converti en stock magasin
   forcedNote    String?

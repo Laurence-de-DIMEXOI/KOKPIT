@@ -25,7 +25,7 @@ import { fetchBoOrderAmounts, fetchBoOrderPaidTTC } from "@/lib/sellsy-bdo";
  */
 
 /** Extrait le n° de BC normalisé "BC-11487" depuis un texte (objet/commentaire). */
-function extractBcNumber(...texts: (string | null | undefined)[]): string | null {
+export function extractBcNumber(...texts: (string | null | undefined)[]): string | null {
   const re = /BC[\s-]?(\d{4,6})/i;
   for (const t of texts) {
     if (!t) continue;
@@ -49,7 +49,7 @@ interface SellsyComment {
  * `orderId (V2) → n° BC` à partir des commentaires "BCDI Bois D'Orient : BC-…".
  * Mémoïsé 6h. Plafonné à 150 pages de 100 (≈ 15 000 commentaires) par sécurité.
  */
-async function getOrderBcMap(): Promise<Map<number, string>> {
+export async function getOrderBcMap(): Promise<Map<number, string>> {
   if (commentBcMapCache && Date.now() < commentBcMapCache.expires) {
     return commentBcMapCache.map;
   }
@@ -106,7 +106,7 @@ interface BoAmounts {
  */
 const BO_PAID_TTL_MS = 6 * 60 * 60 * 1000; // re-synchro paiements BO toutes les 6h max
 
-async function lookupBoAmountsLocal(bcRef: string): Promise<BoAmounts | null> {
+export async function lookupBoAmountsLocal(bcRef: string): Promise<BoAmounts | null> {
   const digits = (bcRef.match(/\d{4,6}/) || [])[0];
   if (!digits) return null;
 

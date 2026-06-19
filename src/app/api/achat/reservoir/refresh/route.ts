@@ -8,6 +8,7 @@ import {
   TRELLO_EXCLUDED_LISTS,
   parseTrelloCard,
 } from "@/lib/reservoir";
+import { extractBcNumber, getOrderBcMap, lookupBoAmountsLocal } from "@/lib/previsionnel-fetch";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
@@ -78,8 +79,10 @@ async function run(req: NextRequest) {
         let dateCommande: Date | null = null;
         let montantHT: number | null = null;
         let statutSellsy: string | null = null;
+        let clientName: string | null = c.client || null;
+        let bdoBcNumber: string | null = null;
         try {
-          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; amounts?: { total_excl_tax?: string } }> }>(
+          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; subject?: string; amounts?: { total_excl_tax?: string } }> }>(
             `/orders/search?limit=1`,
             { method: "POST", body: JSON.stringify({ filters: { number: c.bcdi } }) }
           );
@@ -90,6 +93,23 @@ async function run(req: NextRequest) {
             dateCommande = ds ? new Date(ds) : null;
             montantHT = o.amounts?.total_excl_tax != null ? Number(o.amounts.total_excl_tax) : null;
             statutSellsy = o.status || null;
+            // Bois d'Orient : BCDI à 0€ dont le BC est dans l'objet ou un commentaire
+            if (montantHT == null || montantHT <= 0) {
+              let bc = extractBcNumber(o.subject);
+              if (!bc) {
+                const map = await getOrderBcMap();
+                bc = map.get(o.id) || null;
+              }
+              if (bc) {
+                bdoBcNumber = bc;
+                const bo = await lookupBoAmountsLocal(bc);
+                if (bo) {
+                  montantHT = bo.totalHT;
+                  bdoBcNumber = bo.bcNumber;
+                  if (!clientName && bo.client) clientName = bo.client;
+                }
+              }
+            }
           }
         } catch {
           /* tolère — Trello indicatif, on garde la carte sans Sellsy */
@@ -98,11 +118,12 @@ async function run(req: NextRequest) {
           trelloCardId: c.trelloCardId,
           trelloStatut: c.trelloStatut,
           trelloStep: c.trelloStep,
-          client: c.client || null,
+          client: clientName,
           sellsyOrderId,
           dateCommande,
           montantHT,
           statutSellsy,
+          bdoBcNumber,
           found: sellsyOrderId != null,
           computedAt: new Date(),
         };

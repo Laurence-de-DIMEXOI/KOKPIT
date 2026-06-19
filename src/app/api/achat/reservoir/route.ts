@@ -24,6 +24,7 @@ interface ResItem {
   forcedStock: boolean;
   isSav: boolean;
   dansImp618: boolean;
+  bdoBcNumber: string | null;
 }
 
 // Commande "stock magasin" (pas urgente) : client interne.
@@ -124,6 +125,7 @@ export async function GET(req: NextRequest) {
       forcedStock,
       isSav: (etat || "").toUpperCase().includes("SAV"),
       dansImp618: imp618.has(r.bcdi.toUpperCase()),
+      bdoBcNumber: r.bdoBcNumber,
     };
     if (!r.dateCommande) { sansDate.push(item); continue; }
     if (r.dateCommande < sinceDate) { horsScope.push(item); continue; }
