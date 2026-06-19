@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import path from "path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -31,13 +33,39 @@ interface ResItem {
   nbMeubles: number;
 }
 
+// Contenu de l'IMP-618 (parti le 14 juin 2026) — lu depuis le packing JSON local,
+// agrégé par BCDI (nb meubles = somme des qty des lignes).
+async function loadImp618(origin: string): Promise<ResItem[]> {
+  try {
+    let raw: string;
+    const fp = path.join(process.cwd(), "public", "data", "container-caau9910103.json");
+    try { raw = await fs.readFile(fp, "utf-8"); }
+    catch { raw = await (await fetch(`${origin}/data/container-caau9910103.json`, { cache: "no-store" })).text(); }
+    const json = JSON.parse(raw) as { items?: Array<{ bcdi?: string; qty?: number; description?: string }> };
+    const byBcdi = new Map<string, { nb: number; desc: string }>();
+    for (const it of json.items || []) {
+      if (!it.bcdi) continue;
+      const k = it.bcdi.toUpperCase();
+      const prev = byBcdi.get(k) || { nb: 0, desc: it.description || "" };
+      prev.nb += Number(it.qty ?? 1) || 1;
+      byBcdi.set(k, prev);
+    }
+    return [...byBcdi.entries()].map(([bcdi, v]) => ({
+      bcdi, client: null, dateCommande: null, montantHT: null,
+      trelloStatut: "Sent", pret: true, found: true, etatProduit: null,
+      isStock: false, forcedStock: false, isSav: false, bdoBcNumber: null,
+      moisTheorique: null, retard: false, nbMeubles: v.nb,
+    }));
+  } catch { return []; }
+}
+
 /**
  * GET /api/achat/reservoir?delaiTotal=9&delaiBateau=1.5&capacite=130
  *
- * Réservoir = commandes Sellsy "SUR COMMANDE" / "SAV" / "COMMANDE MAGASIN"
- * (table reservoir_bcdi, alimentée depuis Sellsy). SUR COMMANDE + SAV sont
- * planifiés dans le calendrier de départs (40ft HC / 6 sem, ~capacité meubles,
- * FIFO sans couper de commande). COMMANDE MAGASIN = section stock à part.
+ * Réservoir = pipeline Trello (table reservoir_bcdi). Onglet 0 = IMP-618 (parti
+ * le 14 juin, depuis le packing JSON). Onglets suivants = départs futurs (40ft
+ * HC / 6 sem) remplis FIFO ≤ capacité meubles, sans couper de commande.
+ * COMMANDE MAGASIN = section stock à part.
  */
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -54,18 +82,17 @@ export async function GET(req: NextRequest) {
   };
   const capacite = Number(url.searchParams.get("capacite")) || CONTAINER_CAPACITY_MEUBLES;
 
-  const [rows, expeditions] = await Promise.all([
+  const [rows, expeditions, imp618Items] = await Promise.all([
     prisma.reservoirBcdi.findMany({ orderBy: { dateCommande: "asc" } }),
     prisma.impExpedition.findMany({ select: { bcdi: true } }),
+    loadImp618(url.origin),
   ]);
-  // BCDI déjà expédiés (packing lists IMP partis) → reçus, exclus du réservoir
-  // (sauf SAV : un SAV d'un BCDI déjà parti est une refabrication légitime).
   const shipped = new Set(expeditions.map((e) => e.bcdi.toUpperCase()));
 
   const now = new Date();
   const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  // 1) Construit les items (calendrier = SUR COMMANDE + SAV, stock = COMMANDE MAGASIN)
+  // 1) Items du réservoir (calendrier vs stock magasin)
   const calendarItems: ResItem[] = [];
   const stockItems: ResItem[] = [];
   const sansDate: ResItem[] = [];
@@ -74,7 +101,7 @@ export async function GET(req: NextRequest) {
   for (const r of rows) {
     const etat = (r.etatProduit || "").trim().toUpperCase();
     const isSav = etat === "SAV";
-    // Déjà parti dans un IMP (donc reçu) et pas un SAV → on l'exclut silencieusement
+    // Filet de sécurité : déjà parti dans un IMP (reçu) et pas un SAV → exclu
     if (!isSav && shipped.has(r.bcdi.toUpperCase())) { dejaExpedies++; continue; }
     const forcedStock = r.forcedType === "stock";
     const isStock = etat === "COMMANDE MAGASIN" || forcedStock;
@@ -96,32 +123,32 @@ export async function GET(req: NextRequest) {
       retard: !!moisTheorique && moisTheorique < nowKey,
       nbMeubles: r.nbMeubles != null && r.nbMeubles > 0 ? r.nbMeubles : 1,
     };
-    if (!r.dateCommande) { sansDate.push(item); continue; }
     if (isStock) { stockItems.push(item); continue; }
+    if (!r.dateCommande) { sansDate.push(item); }
     calendarItems.push(item);
   }
 
-  // 2) FIFO : plus ancienne commande d'abord
-  calendarItems.sort((a, b) => (a.dateCommande || "").localeCompare(b.dateCommande || ""));
+  // 2) FIFO : plus ancienne commande d'abord (sans date → en fin)
+  calendarItems.sort((a, b) => (a.dateCommande || "9999").localeCompare(b.dateCommande || "9999"));
 
-  // 3) Calendrier de départs FUTURS (le 1er départ planifiable est le prochain ≥ aujourd'hui)
+  // 3) Calendrier : slot 0 = IMP-618 (14 juin, parti) ; slots suivants = futurs
   const totalMeubles = calendarItems.reduce((s, i) => s + i.nbMeubles, 0);
   const horizon = Math.max(4, Math.ceil(totalMeubles / capacite) + 3);
-  const allDeps = departures(horizon + 12);
-  const futureDeps = allDeps.filter((d) => d.getTime() >= now.getTime() - 3 * 24 * 3600 * 1000);
+  const deps = departures(horizon + 2); // [0] = 14 juin = IMP-618
+  interface Slot { date: Date; items: ResItem[]; meubles: number; isImp618?: boolean }
+  const slots: Slot[] = deps.map((d) => ({ date: d, items: [], meubles: 0 }));
+  slots[0].items = imp618Items;
+  slots[0].meubles = imp618Items.reduce((s, i) => s + i.nbMeubles, 0);
+  slots[0].isImp618 = true;
 
-  interface Slot { date: Date; items: ResItem[]; meubles: number }
-  const slots: Slot[] = futureDeps.map((d) => ({ date: d, items: [], meubles: 0 }));
-
-  let si = 0;
+  let si = 1;
   for (const it of calendarItems) {
-    if (!slots[si]) slots.push({ date: futureDeps[si] || allDeps[allDeps.length - 1], items: [], meubles: 0 });
-    // si le BCDI ne tient pas dans le slot courant (non vide) → slot suivant
+    if (!slots[si]) slots.push({ date: deps[deps.length - 1], items: [], meubles: 0 });
     if (slots[si].items.length > 0 && slots[si].meubles + it.nbMeubles > capacite) {
       si++;
       if (!slots[si]) {
-        const next = departures(allDeps.length + (si - futureDeps.length) + 2);
-        slots.push({ date: next[next.length - 1], items: [], meubles: 0 });
+        const more = departures(deps.length + (si - deps.length) + 2);
+        slots.push({ date: more[more.length - 1], items: [], meubles: 0 });
       }
     }
     slots[si].items.push(it);
@@ -134,6 +161,7 @@ export async function GET(req: NextRequest) {
     .map((s) => ({
       key: departureKey(s.date),
       date: s.date.toISOString(),
+      isImp618: !!s.isImp618,
       parti: s.date.getTime() < nowTime,
       capacite,
       nbMeubles: s.meubles,
@@ -144,7 +172,7 @@ export async function GET(req: NextRequest) {
       items: s.items,
     }));
 
-  stockItems.sort((a, b) => (a.dateCommande || "").localeCompare(b.dateCommande || ""));
+  stockItems.sort((a, b) => (a.dateCommande || "9999").localeCompare(b.dateCommande || "9999"));
 
   return NextResponse.json({
     params,

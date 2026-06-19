@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCw, AlertTriangle, CheckCircle2, Ship, Plus, X, PackageCheck, ChevronDown, ChevronRight, Warehouse } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, CheckCircle2, Ship, Plus, X, PackageCheck, ChevronDown, ChevronRight, Warehouse, Upload } from "lucide-react";
 
 const PREP_IMP = "IMP-619";
 
@@ -34,6 +34,7 @@ interface ResItem {
 interface Depart {
   key: string;
   date: string;
+  isImp618: boolean;
   parti: boolean;
   capacite: number;
   nbMeubles: number;
@@ -92,6 +93,10 @@ export function ReservoirPlanning() {
   const [prepOpen, setPrepOpen] = useState(true);
   const [prepBusy, setPrepBusy] = useState<string | null>(null);
   const [stockBusy, setStockBusy] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [impCode, setImpCode] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const fetchPrep = useCallback(async () => {
     try {
@@ -124,6 +129,27 @@ export function ReservoirPlanning() {
     } finally { setLoading(false); }
   }, [delaiTotal, delaiBateau, capacite]);
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const importImp = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formEl = e.currentTarget;
+    const fd = new FormData(formEl);
+    if (!fd.get("imp") || !(fd.getAll("files").length)) return;
+    setImportBusy(true); setImportMsg(null);
+    try {
+      const res = await fetch("/api/achat/reservoir/imp-import", { method: "POST", body: fd });
+      const j = await res.json();
+      if (res.ok) {
+        setImportMsg(`✓ ${j.imp} : ${j.bcdiTrouves} BCDI lus, ${j.retiresDuReservoir} retirés du réservoir`);
+        setImpCode(""); formEl.reset();
+        await fetchData();
+      } else {
+        setImportMsg(`⚠ ${j.error || "Échec de l'import"}`);
+      }
+    } catch {
+      setImportMsg("⚠ Erreur réseau");
+    } finally { setImportBusy(false); }
+  }, [fetchData]);
 
   const toggleStock = useCallback(async (bcdi: string, currentlyForced: boolean) => {
     setStockBusy(bcdi);
@@ -247,11 +273,39 @@ export function ReservoirPlanning() {
             className="ml-2 w-16 px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
         </label>
         <span className="text-[11px] text-cockpit-secondary">(retard = vs date cible)</span>
-        <button onClick={fetchData} disabled={loading}
-          className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card disabled:opacity-50">
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Rafraîchir
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => { setImportOpen((o) => !o); setImportMsg(null); }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card">
+            <Upload className="w-3.5 h-3.5" /> Ajouter un IMP parti
+          </button>
+          <button onClick={fetchData} disabled={loading}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Rafraîchir
+          </button>
+        </div>
       </div>
+
+      {/* Import packing list d'un IMP parti → exclut ses BCDI du réservoir */}
+      {importOpen && (
+        <form onSubmit={importImp} className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-sm p-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-[11px] text-cockpit-secondary mb-1">N° du container parti</label>
+            <input name="imp" value={impCode} onChange={(e) => setImpCode(e.target.value)} placeholder="ex : 619"
+              className="w-28 px-2 py-1.5 text-sm border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
+          </div>
+          <div className="flex-1 min-w-[220px]">
+            <label className="block text-[11px] text-cockpit-secondary mb-1">Packing list(s) .xlsx</label>
+            <input name="files" type="file" accept=".xlsx,.xls" multiple
+              className="block w-full text-xs text-cockpit-primary file:mr-3 file:px-3 file:py-1.5 file:rounded-input file:border-0 file:text-xs file:font-medium file:bg-[var(--color-active)]/10 file:text-[var(--color-active)]" />
+          </div>
+          <button type="submit" disabled={importBusy}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-[var(--color-active)] rounded-input hover:opacity-90 disabled:opacity-50">
+            {importBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Importer
+          </button>
+          {importMsg && <span className={`text-xs ${importMsg.startsWith("✓") ? "text-emerald-700" : "text-red-600"}`}>{importMsg}</span>}
+          <span className="w-full text-[11px] text-cockpit-secondary">Les BCDI présents dans la packing list seront retirés du réservoir (déjà reçus). Les SAV sont conservés.</span>
+        </form>
+      )}
 
       {/* Résumé global */}
       {data && (
@@ -315,8 +369,8 @@ export function ReservoirPlanning() {
                   className={`px-3 py-2 text-xs font-medium rounded-t-lg whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                     act ? "bg-[var(--color-active)]/10 text-[var(--color-active)] border-b-2 border-[var(--color-active)] -mb-px" : "text-cockpit-secondary hover:text-cockpit-primary"
                   }`}>
-                  {d.retards > 0 && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                  {departLabel(d.date)}
+                  {d.retards > 0 && !d.isImp618 && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                  {d.isImp618 ? "IMP-618 (juin)" : departLabel(d.date)}
                   <span className={`text-[10px] ${over ? "text-red-600 font-bold" : "opacity-70"}`}>({d.nbMeubles}/{d.capacite})</span>
                 </button>
               );
@@ -335,8 +389,12 @@ export function ReservoirPlanning() {
           {activeDepart && (
             <div className="p-4 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-cockpit-heading">{`Départ ${departLabel(activeDepart.date)}`}</span>
-                {activeDepart.parti ? (
+                <span className="text-sm font-semibold text-cockpit-heading">
+                  {activeDepart.isImp618 ? "IMP-618 — parti le 14 juin 2026" : `Départ ${departLabel(activeDepart.date)}`}
+                </span>
+                {activeDepart.isImp618 ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Déjà parti</span>
+                ) : activeDepart.parti ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Date passée</span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-active)]/15 text-[var(--color-active)]">40ft HC</span>

@@ -3,24 +3,25 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sellsyFetch } from "@/lib/sellsy";
-import { normalizeBcdiKey, RESERVOIR_ETATS } from "@/lib/reservoir";
+import {
+  TRELLO_RESERVOIR_LISTS,
+  TRELLO_EXCLUDED_LISTS,
+  parseTrelloCard,
+} from "@/lib/reservoir";
 import { extractBcNumber, getOrderBcMap, lookupBoAmountsLocal } from "@/lib/previsionnel-fetch";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
 
 /**
- * Reconstruit le réservoir à partir de SELLSY (source de vérité).
+ * Reconstruit le réservoir à partir du PIPELINE TRELLO (source de vérité de ce
+ * qui n'est pas encore expédié — la colonne bouge dans le workflow quotidien).
  *
- * Source = commandes (table Vente) dont le custom field "Etat des produit" est
- * SUR COMMANDE / SAV / COMMANDE MAGASIN — c.-à-d. encore à fabriquer / pas
- * encore dans un IMP (EN STOCK = reçu, ARRIVAGE M+x = déjà sur un container →
- * exclus). Trello ne sert plus que de lookup du statut de production (par n°).
- *
- * Pour chaque commande on récupère le n° (BCDI) + nb de meubles (somme des
- * lignes) via l'API Sellsy. Incrémental : on ne re-fetch que les commandes pas
- * encore en cache (sauf ?full=1). Auth : session, ou Bearer CRON_API_SECRET /
- * UA vercel-cron.
+ * Réservoir = cartes Trello hors "Sent"/"Cancelled". Pour chaque carte on croise
+ * Sellsy par n° BCDI (date / montant / nb meubles / statut) + résolution Bois
+ * d'Orient. On enrichit avec l'état produit Sellsy (tag SAV / stock magasin) et
+ * on EXCLUT les BCDI déjà partis dans un IMP (packing lists), sauf les SAV.
+ * Auth : session, ou Bearer CRON_API_SECRET / UA vercel-cron.
  */
 async function run(req: NextRequest) {
   const auth = req.headers.get("authorization");
@@ -32,160 +33,132 @@ async function run(req: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const url = new URL(req.url);
-  const since = new Date(url.searchParams.get("since") || "2024-01-01");
-  const full = url.searchParams.get("full") === "1";
-
-  // 1) Commandes Sellsy à planifier : Vente avec etatProduit dans le périmètre
-  const ventesRaw = await prisma.vente.findMany({
-    where: { dateVente: { gte: since }, sellsyInvoiceId: { not: null }, etatProduit: { not: null } },
-    select: {
-      sellsyInvoiceId: true,
-      montant: true,
-      dateVente: true,
-      etatProduit: true,
-      contact: { select: { nom: true, prenom: true } },
-    },
-  });
-  const ventes = ventesRaw.filter((v) => RESERVOIR_ETATS.includes((v.etatProduit || "").trim().toUpperCase()));
-
-  // 2) Lookup statut Trello par n° normalisé (indicatif — saisie manuelle Indonésie)
-  const trelloByKey = new Map<string, { statut: string; cardId: string }>();
   const KEY = process.env.TRELLO_API_KEY;
   const TOK = process.env.TRELLO_TOKEN;
   const BOARD = process.env.TRELLO_BOARD_ID;
-  if (KEY && TOK && BOARD) {
-    const tAuth = `key=${KEY}&token=${TOK}`;
-    try {
-      const lists: Array<{ id: string; name: string }> = await (
-        await fetch(`https://api.trello.com/1/boards/${BOARD}/lists?${tAuth}&fields=name`)
-      ).json();
-      for (const l of lists) {
-        const listCards: Array<{ id: string; name: string }> = await (
-          await fetch(`https://api.trello.com/1/lists/${l.id}/cards?${tAuth}&fields=name`)
-        ).json();
-        for (const c of listCards) {
-          const k = normalizeBcdiKey(c.name);
-          if (k) trelloByKey.set(k, { statut: l.name, cardId: c.id });
-        }
-      }
-    } catch {
-      /* Trello indisponible → statut nul, on continue */
+  if (!KEY || !TOK || !BOARD) {
+    return NextResponse.json({ error: "Trello non configuré" }, { status: 500 });
+  }
+  const tAuth = `key=${KEY}&token=${TOK}`;
+
+  // 1) Cartes du pipeline Trello (hors Sent/Cancelled), une par BCDI (étape max)
+  const lists: Array<{ id: string; name: string }> = await (
+    await fetch(`https://api.trello.com/1/boards/${BOARD}/lists?${tAuth}&fields=name`)
+  ).json();
+  const reservoirLists = lists.filter(
+    (l) => TRELLO_RESERVOIR_LISTS.includes(l.name) && !TRELLO_EXCLUDED_LISTS.includes(l.name)
+  );
+  interface Card { bcdi: string; client: string; trelloCardId: string; trelloStatut: string; trelloStep: number }
+  const byBcdi = new Map<string, Card>();
+  for (const l of reservoirLists) {
+    const step = TRELLO_RESERVOIR_LISTS.indexOf(l.name);
+    const cards: Array<{ id: string; name: string }> = await (
+      await fetch(`https://api.trello.com/1/lists/${l.id}/cards?${tAuth}&fields=name`)
+    ).json();
+    for (const c of cards) {
+      const { bcdi, client } = parseTrelloCard(c.name);
+      if (!bcdi) continue;
+      const prev = byBcdi.get(bcdi);
+      if (!prev || step > prev.trelloStep) byBcdi.set(bcdi, { bcdi, client, trelloCardId: c.id, trelloStatut: l.name, trelloStep: step });
     }
   }
+  const uniqueCards = Array.from(byBcdi.values());
 
-  // 3) Cache existant (par order id) pour éviter de re-fetch les lignes
-  const existing = await prisma.reservoirBcdi.findMany({
-    where: { sellsyOrderId: { not: null } },
-    select: { bcdi: true, sellsyOrderId: true, nbMeubles: true, montantHT: true, dateCommande: true, bdoBcNumber: true },
-  });
-  const cacheByOrderId = new Map<string, (typeof existing)[number]>();
-  for (const e of existing) if (e.sellsyOrderId != null) cacheByOrderId.set(String(e.sellsyOrderId), e);
+  // 2) Enrichissements locaux : état produit Sellsy (tag) + BCDI déjà expédiés
+  const [ventes, expeditions] = await Promise.all([
+    prisma.vente.findMany({ where: { sellsyInvoiceId: { not: null } }, select: { sellsyInvoiceId: true, etatProduit: true } }),
+    prisma.impExpedition.findMany({ select: { bcdi: true } }),
+  ]);
+  const etatByOrderId = new Map<string, string | null>();
+  for (const v of ventes) if (v.sellsyInvoiceId) etatByOrderId.set(v.sellsyInvoiceId, v.etatProduit);
+  const shipped = new Set(expeditions.map((e) => e.bcdi.toUpperCase()));
 
-  // 3bis) BCDI déjà expédiés (packing lists IMP) → reçus, à exclure (sauf SAV)
-  const shipped = new Set(
-    (await prisma.impExpedition.findMany({ select: { bcdi: true } })).map((e) => e.bcdi.toUpperCase())
-  );
-  let exclusDejaExpedies = 0;
-
-  // 4) Résolution par commande (n° + nb meubles depuis l'API)
+  // 3) Résolution Sellsy par n° BCDI
   const concurrency = 8;
   let resolved = 0;
-  let fetched = 0;
+  let exclusDejaExpedies = 0;
   const seen: string[] = [];
-  for (let i = 0; i < ventes.length; i += concurrency) {
-    const batch = ventes.slice(i, i + concurrency);
+  for (let i = 0; i < uniqueCards.length; i += concurrency) {
     await Promise.all(
-      batch.map(async (v) => {
-        const orderId = String(v.sellsyInvoiceId);
-        const etatProduit = (v.etatProduit || "").trim().toUpperCase();
-        const cached = cacheByOrderId.get(orderId);
-        const clientName =
-          [v.contact?.prenom, v.contact?.nom].filter(Boolean).join(" ").trim() || null;
-
-        let bcdi = cached?.bcdi || null;
-        let nbMeubles: number | null = cached?.nbMeubles ?? null;
-        let montantHT: number | null = cached?.montantHT != null ? Number(cached.montantHT) : null;
-        let dateCommande: Date | null = cached?.dateCommande ?? v.dateVente;
-        let bdoBcNumber: string | null = cached?.bdoBcNumber || null;
+      uniqueCards.slice(i, i + concurrency).map(async (c) => {
+        let sellsyOrderId: bigint | null = null;
+        let dateCommande: Date | null = null;
+        let montantHT: number | null = null;
         let statutSellsy: string | null = null;
-
-        const needFetch = full || !cached || cached.nbMeubles == null || !bcdi;
-        if (needFetch) {
-          try {
-            const o = await sellsyFetch<{
-              id: number; number?: string; date?: string; created?: string; status?: string; subject?: string;
-              amounts?: { total_excl_tax?: string }; company_name?: string;
-              rows?: Array<{ type?: string; quantity?: string | number }>;
-            }>(`/orders/${orderId}`);
-            fetched++;
-            bcdi = o.number || bcdi || `ORDER-${orderId}`;
+        let clientName: string | null = c.client || null;
+        let bdoBcNumber: string | null = null;
+        let nbMeubles: number | null = null;
+        let etatProduit: string | null = null;
+        try {
+          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; subject?: string; amounts?: { total_excl_tax?: string }; rows?: Array<{ quantity?: string | number }> }> }>(
+            `/orders/search?limit=1`,
+            { method: "POST", body: JSON.stringify({ filters: { number: c.bcdi } }) }
+          );
+          const o = search.data?.[0];
+          if (o) {
+            sellsyOrderId = BigInt(o.id);
+            etatProduit = etatByOrderId.get(String(o.id)) ?? null;
+            const ds = o.date || o.created || null;
+            dateCommande = ds ? new Date(ds) : null;
+            montantHT = o.amounts?.total_excl_tax != null ? Number(o.amounts.total_excl_tax) : null;
             statutSellsy = o.status || null;
-            const ds = o.date || o.created;
-            if (ds) dateCommande = new Date(ds);
-            const amt = o.amounts?.total_excl_tax;
-            montantHT = amt != null ? Number(amt) : (v.montant ?? null);
-            if (o.rows) nbMeubles = o.rows.reduce((s, r) => s + (Number(r.quantity ?? 0) || 0), 0);
-            // Bois d'Orient : commande DIMEXOI à 0€ dont le BC est dans l'objet / un commentaire
+            try {
+              let rows = o.rows;
+              if (!rows) rows = (await sellsyFetch<{ rows?: Array<{ quantity?: string | number }> }>(`/orders/${o.id}`)).rows;
+              if (rows) nbMeubles = rows.reduce((s, r) => s + (Number(r.quantity ?? 0) || 0), 0);
+            } catch { /* tolère */ }
             if (montantHT == null || montantHT <= 0) {
               let bc = extractBcNumber(o.subject);
-              if (!bc) {
-                const map = await getOrderBcMap();
-                bc = map.get(o.id) || null;
-              }
+              if (!bc) { const map = await getOrderBcMap(); bc = map.get(o.id) || null; }
               if (bc) {
                 bdoBcNumber = bc;
                 const bo = await lookupBoAmountsLocal(bc);
-                if (bo) { montantHT = bo.totalHT; bdoBcNumber = bo.bcNumber; }
+                if (bo) { montantHT = bo.totalHT; bdoBcNumber = bo.bcNumber; if (!clientName && bo.client) clientName = bo.client; }
               }
             }
-          } catch {
-            bcdi = bcdi || `ORDER-${orderId}`;
-            montantHT = montantHT ?? (v.montant ?? null);
           }
-        }
-        if (!bcdi) bcdi = `ORDER-${orderId}`;
-        // Déjà parti dans un IMP (donc reçu) et pas un SAV → exclu du réservoir
-        if (etatProduit !== "SAV" && shipped.has(bcdi.toUpperCase())) { exclusDejaExpedies++; return; }
-        seen.push(bcdi);
+        } catch { /* Trello indicatif — on garde la carte sans Sellsy */ }
 
-        const trello = trelloByKey.get(normalizeBcdiKey(bcdi) || "__none__");
+        // Déjà parti dans un IMP (reçu) et pas un SAV → exclu
+        if ((etatProduit || "").trim().toUpperCase() !== "SAV" && shipped.has(c.bcdi.toUpperCase())) {
+          exclusDejaExpedies++;
+          return;
+        }
+        seen.push(c.bcdi);
         const data = {
-          trelloCardId: trello?.cardId || null,
-          trelloStatut: trello?.statut || null,
+          trelloCardId: c.trelloCardId,
+          trelloStatut: c.trelloStatut,
+          trelloStep: c.trelloStep,
           client: clientName,
-          sellsyOrderId: BigInt(orderId),
+          sellsyOrderId,
           dateCommande,
           montantHT,
           nbMeubles,
           statutSellsy,
           etatProduit,
           bdoBcNumber,
-          found: true,
+          found: sellsyOrderId != null,
           computedAt: new Date(),
         };
         await prisma.reservoirBcdi
-          .upsert({ where: { bcdi }, create: { bcdi, ...data }, update: data })
+          .upsert({ where: { bcdi: c.bcdi }, create: { bcdi: c.bcdi, ...data }, update: data })
           .then(() => { resolved++; })
           .catch(() => {});
       })
     );
   }
 
-  // 5) Purge des commandes qui ne sont plus dans le périmètre (reçues, arrivage, hors set…)
+  // 4) Purge des BCDI qui ne sont plus dans le pipeline (passés en Sent, etc.)
   const deleted = await prisma.reservoirBcdi.deleteMany({
     where: { bcdi: { notIn: seen.length ? seen : ["__none__"] } },
   });
 
   return NextResponse.json({
     ok: true,
-    source: "sellsy:etatProduit",
-    etats: RESERVOIR_ETATS,
-    since: since.toISOString().slice(0, 10),
-    commandes: ventes.length,
-    resolus: resolved,
-    fetchSellsy: fetched,
-    statutsTrello: trelloByKey.size,
+    source: "trello:pipeline",
+    listesReservoir: reservoirLists.map((l) => l.name),
+    cartes: uniqueCards.length,
+    resolusSellsy: resolved,
     exclusDejaExpedies,
     purges: deleted.count,
   });
