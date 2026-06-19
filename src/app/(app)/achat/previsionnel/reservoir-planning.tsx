@@ -27,6 +27,8 @@ interface ResItem {
   isSav: boolean;
   dansImp618: boolean;
   bdoBcNumber: string | null;
+  moisTheorique: string | null;
+  retard: boolean;
 }
 interface ResMonth {
   key: string;
@@ -34,9 +36,11 @@ interface ResMonth {
   prets: number;
   urgents: number;
   stock: number;
+  retards: number;
   totalHT: number;
   enRetard: boolean;
   rattrapage: boolean;
+  imp618: boolean;
   items: ResItem[];
 }
 interface ResPayload {
@@ -49,7 +53,6 @@ interface ResPayload {
   total: number;
 }
 
-const CONTAINERS: Record<string, number> = { "20ft": 33, "40ft HC": 76.4 };
 
 function eur(n: number | null): string {
   if (n == null) return "—";
@@ -79,10 +82,9 @@ const STATUT_STYLE: Record<string, string> = {
 export function ReservoirPlanning() {
   const [data, setData] = useState<ResPayload | null>(null);
   const [loading, setLoading] = useState(false);
-  const [delaiTotal, setDelaiTotal] = useState(6);
+  const [delaiTotal, setDelaiTotal] = useState(9);
   const [delaiBateau, setDelaiBateau] = useState(1.5);
   const [activeMonth, setActiveMonth] = useState<string | null>(null);
-  const [containerByMonth, setContainerByMonth] = useState<Record<string, string>>({});
   const [prep, setPrep] = useState<PrepPayload | null>(null);
   const [prepOpen, setPrepOpen] = useState(true);
   const [prepBusy, setPrepBusy] = useState<string | null>(null);
@@ -148,7 +150,6 @@ export function ReservoirPlanning() {
   }, [data, activeMonth]);
 
   const active = useMemo(() => data?.months.find((m) => m.key === activeMonth) || null, [data, activeMonth]);
-  const containerType = (activeMonth && containerByMonth[activeMonth]) || "40ft HC";
 
   const totaux = useMemo(() => {
     if (!data) return { nb: 0, prets: 0, readyToSent: 0, ht: 0, retard: 0 };
@@ -262,8 +263,8 @@ export function ReservoirPlanning() {
                     act ? "bg-[var(--color-active)]/10 text-[var(--color-active)] border-b-2 border-[var(--color-active)] -mb-px"
                         : "text-cockpit-secondary hover:text-cockpit-primary"
                   }`}>
-                  {(m.rattrapage || m.enRetard) && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                  {moisLabel(m.key)}
+                  {(m.rattrapage || m.enRetard) && !m.imp618 && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                  {m.imp618 ? "Juin 2026 · IMP-618" : moisLabel(m.key)}
                   <span className="text-[10px] opacity-70">({m.urgents}{m.stock ? `+${m.stock}` : ""})</span>
                 </button>
               );
@@ -274,25 +275,25 @@ export function ReservoirPlanning() {
             <div className="p-4 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm font-semibold text-cockpit-heading">
-                  Chargement {moisLabel(active.key)}
+                  {active.imp618 ? "IMP-618 — parti en juin 2026" : `Chargement ${moisLabel(active.key)}`}
                 </span>
+                {active.imp618 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">
+                    Déjà sur le container parti
+                  </span>
+                )}
                 {active.rattrapage && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                    <AlertTriangle className="w-3 h-3" /> Rattrapage backlog (≤ {moisLabel(active.key)})
+                  <span
+                    title="Regroupe toutes les commandes dont le chargement était dû à cette échéance ou avant — à charger en priorité sur le prochain container"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                    <AlertTriangle className="w-3 h-3" /> Retard cumulé — à charger en priorité
                   </span>
                 )}
                 <span className="text-xs text-cockpit-secondary">
                   {active.urgents} à charger · <span className="text-emerald-700 font-medium">{active.prets} prêtes</span>
+                  {active.retards > 0 && <> · <span className="text-red-600 font-semibold">⚠ {active.retards} en retard</span></>}
                   {active.stock > 0 && <> · <span className="text-amber-700">{active.stock} stock magasin</span></>} · {eur(active.totalHT)} HT
                 </span>
-                <label className="ml-auto text-xs text-cockpit-secondary">
-                  Container prévu :
-                  <select value={containerType}
-                    onChange={(e) => setContainerByMonth((p) => ({ ...p, [active.key]: e.target.value }))}
-                    className="ml-2 px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-card text-cockpit-primary">
-                    {Object.keys(CONTAINERS).map((c) => <option key={c} value={c}>{c} (~{CONTAINERS[c]} m³)</option>)}
-                  </select>
-                </label>
               </div>
 
               <div className="overflow-x-auto">
@@ -335,7 +336,14 @@ export function ReservoirPlanning() {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-cockpit-heading">{it.client || <span className="text-cockpit-secondary/60">—</span>}</td>
-                        <td className="px-3 py-2 text-cockpit-primary text-xs">{dateCourt(it.dateCommande)}</td>
+                        <td className="px-3 py-2 text-cockpit-primary text-xs whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1">
+                            {it.retard && (
+                              <AlertTriangle className="w-3 h-3 text-red-500 flex-shrink-0" aria-label="En retard, non chargée" />
+                            )}
+                            {dateCourt(it.dateCommande)}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-right font-mono text-cockpit-primary">{eur(it.montantHT)}</td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2 whitespace-nowrap">

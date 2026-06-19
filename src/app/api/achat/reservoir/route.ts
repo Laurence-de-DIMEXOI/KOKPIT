@@ -25,6 +25,8 @@ interface ResItem {
   isSav: boolean;
   dansImp618: boolean;
   bdoBcNumber: string | null;
+  moisTheorique: string | null;
+  retard: boolean;
 }
 
 // Commande "stock magasin" (pas urgente) : client interne.
@@ -105,6 +107,7 @@ export async function GET(req: NextRequest) {
 
   const sinceDate = new Date(since);
   const nowKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const IMP618_MONTH = "2026-06"; // IMP-618 est parti en juin 2026
 
   const buckets = new Map<string, ResItem[]>();
   const sansDate: ResItem[] = [];
@@ -113,6 +116,8 @@ export async function GET(req: NextRequest) {
   for (const r of rows) {
     const forcedStock = r.forcedType === "stock";
     const etat = r.sellsyOrderId ? etatByOrderId.get(String(r.sellsyOrderId)) ?? null : null;
+    const dansImp618 = imp618.has(r.bcdi.toUpperCase());
+    const moisTheorique = r.dateCommande ? moisChargementKey(r.dateCommande, params) : null;
     const item: ResItem = {
       bcdi: r.bcdi,
       client: r.client,
@@ -124,14 +129,19 @@ export async function GET(req: NextRequest) {
       isStock: isStockClient(r.client) || forcedStock,
       forcedStock,
       isSav: (etat || "").toUpperCase().includes("SAV"),
-      dansImp618: imp618.has(r.bcdi.toUpperCase()),
+      dansImp618,
       bdoBcNumber: r.bdoBcNumber,
+      moisTheorique,
+      // en retard = mois de chargement théorique déjà passé, et pas encore parti
+      retard: !!moisTheorique && moisTheorique < nowKey && !dansImp618,
     };
     if (!r.dateCommande) { sansDate.push(item); continue; }
     if (r.dateCommande < sinceDate) { horsScope.push(item); continue; }
-    const moisTheorique = moisChargementKey(r.dateCommande, params);
-    // consolidation : tout ce qui devait charger <= moisCible va dans moisCible
-    const key = moisTheorique <= moisCible ? moisCible : moisTheorique;
+    // Déjà sur l'IMP-618 (parti en juin 2026) → onglet juin 2026 dédié.
+    // Sinon : tout ce qui devait charger <= moisCible est consolidé dans moisCible.
+    const key = dansImp618
+      ? IMP618_MONTH
+      : moisTheorique! <= moisCible ? moisCible : moisTheorique!;
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key)!.push(item);
   }
@@ -145,15 +155,18 @@ export async function GET(req: NextRequest) {
         if (x.pret !== y.pret) return x.pret ? -1 : 1;
         return (x.dateCommande || "").localeCompare(y.dateCommande || "");
       });
+      const imp618Tab = items.length > 0 && items.every((i) => i.dansImp618);
       return {
         key,
         nb: items.length,
         prets: items.filter((i) => i.pret).length,
         urgents: items.filter((i) => !i.isStock).length,
         stock: items.filter((i) => i.isStock).length,
+        retards: items.filter((i) => i.retard).length,
         totalHT: Number(items.reduce((s, i) => s + (i.montantHT || 0), 0).toFixed(2)),
-        enRetard: key <= nowKey,
-        rattrapage: key === moisCible, // contient le backlog consolidé
+        enRetard: key <= nowKey && !imp618Tab,
+        rattrapage: key === moisCible && !imp618Tab, // contient le backlog consolidé
+        imp618: imp618Tab,
         items,
       };
     });
