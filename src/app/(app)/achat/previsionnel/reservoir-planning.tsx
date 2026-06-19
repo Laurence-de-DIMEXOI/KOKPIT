@@ -22,18 +22,24 @@ interface ResItem {
   trelloStatut: string | null;
   pret: boolean;
   found: boolean;
+  isStock: boolean;
+  dansImp618: boolean;
 }
 interface ResMonth {
   key: string;
   nb: number;
   prets: number;
+  urgents: number;
+  stock: number;
   totalHT: number;
   enRetard: boolean;
+  rattrapage: boolean;
   items: ResItem[];
 }
 interface ResPayload {
   params: { delaiTotalMois: number; delaiBateauMois: number };
   nowKey: string;
+  moisCible: string;
   months: ResMonth[];
   sansDate: ResItem[];
   horsScopeCount: number;
@@ -116,11 +122,11 @@ export function ReservoirPlanning() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Onglet par défaut : 1er mois en retard (le plus ancien), sinon le 1er
+  // Onglet par défaut : le mois cible (rattrapage), sinon 1er en retard, sinon 1er
   useEffect(() => {
     if (!data || activeMonth) return;
-    const firstRetard = data.months.find((m) => m.enRetard);
-    setActiveMonth((firstRetard || data.months[0])?.key || null);
+    const target = data.months.find((m) => m.rattrapage) || data.months.find((m) => m.enRetard);
+    setActiveMonth((target || data.months[0])?.key || null);
   }, [data, activeMonth]);
 
   const active = useMemo(() => data?.months.find((m) => m.key === activeMonth) || null, [data, activeMonth]);
@@ -235,9 +241,9 @@ export function ReservoirPlanning() {
                     act ? "bg-[var(--color-active)]/10 text-[var(--color-active)] border-b-2 border-[var(--color-active)] -mb-px"
                         : "text-cockpit-secondary hover:text-cockpit-primary"
                   }`}>
-                  {m.enRetard && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                  {(m.rattrapage || m.enRetard) && <AlertTriangle className="w-3 h-3 text-red-500" />}
                   {moisLabel(m.key)}
-                  <span className="text-[10px] opacity-70">({m.nb})</span>
+                  <span className="text-[10px] opacity-70">({m.urgents}{m.stock ? `+${m.stock}` : ""})</span>
                 </button>
               );
             })}
@@ -249,13 +255,14 @@ export function ReservoirPlanning() {
                 <span className="text-sm font-semibold text-cockpit-heading">
                   Chargement {moisLabel(active.key)}
                 </span>
-                {active.enRetard && (
+                {active.rattrapage && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                    <AlertTriangle className="w-3 h-3" /> En retard
+                    <AlertTriangle className="w-3 h-3" /> Rattrapage backlog (≤ {moisLabel(active.key)})
                   </span>
                 )}
                 <span className="text-xs text-cockpit-secondary">
-                  {active.nb} commandes · <span className="text-emerald-700 font-medium">{active.prets} prêtes</span> · {eur(active.totalHT)} HT
+                  {active.urgents} à charger · <span className="text-emerald-700 font-medium">{active.prets} prêtes</span>
+                  {active.stock > 0 && <> · <span className="text-amber-700">{active.stock} stock magasin</span></>} · {eur(active.totalHT)} HT
                 </span>
                 <label className="ml-auto text-xs text-cockpit-secondary">
                   Container prévu :
@@ -281,7 +288,11 @@ export function ReservoirPlanning() {
                   </thead>
                   <tbody>
                     {active.items.map((it) => (
-                      <tr key={it.bcdi} className={`border-b border-cockpit/50 ${prepSet.has(it.bcdi) ? "bg-[var(--color-active)]/10" : it.pret ? "bg-emerald-50/30" : ""}`}>
+                      <tr key={it.bcdi} className={`border-b border-cockpit/50 ${
+                        prepSet.has(it.bcdi) ? "bg-[var(--color-active)]/10"
+                          : it.isStock ? "bg-amber-50/30 opacity-80"
+                          : it.pret ? "bg-emerald-50/30" : ""
+                      }`}>
                         <td className="px-2 py-2">
                           <button onClick={() => togglePrep(it.bcdi)} disabled={prepBusy === it.bcdi}
                             title={prepSet.has(it.bcdi) ? "Retirer de la préparation" : "Ajouter à la préparation"}
@@ -293,7 +304,13 @@ export function ReservoirPlanning() {
                             {prepBusy === it.bcdi ? <Loader2 className="w-3 h-3 animate-spin" /> : prepSet.has(it.bcdi) ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                           </button>
                         </td>
-                        <td className="px-3 py-2 font-mono text-xs font-semibold text-[var(--color-active)]">{it.bcdi}</td>
+                        <td className="px-3 py-2 font-mono text-xs font-semibold text-[var(--color-active)]">
+                          <span className="inline-flex items-center gap-1.5 flex-wrap">
+                            {it.bcdi}
+                            {it.isStock && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Stock magasin</span>}
+                            {it.dansImp618 && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">déjà IMP-618</span>}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-cockpit-heading">{it.client || <span className="text-cockpit-secondary/60">—</span>}</td>
                         <td className="px-3 py-2 text-cockpit-primary text-xs">{dateCourt(it.dateCommande)}</td>
                         <td className="px-3 py-2 text-right font-mono text-cockpit-primary">{eur(it.montantHT)}</td>

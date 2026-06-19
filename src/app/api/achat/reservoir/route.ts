@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import path from "path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -18,6 +20,43 @@ interface ResItem {
   trelloStatut: string | null;
   pret: boolean;
   found: boolean;
+  isStock: boolean;
+  dansImp618: boolean;
+}
+
+// Commande "stock magasin" (pas urgente) : client interne.
+function isStockClient(client: string | null): boolean {
+  if (!client) return false;
+  const c = client.trim().toUpperCase();
+  return /^(STOCK|ORDER\s+FOR\s+SHOP|ORDER\s+DIMEXOI|DIMEXOI|EXHIBITION)/.test(c);
+}
+
+// BCDI déjà chargés dans l'IMP-618 (container en mer) — lus depuis le packing JSON.
+async function loadImp618Bcdis(origin: string): Promise<Set<string>> {
+  const set = new Set<string>();
+  try {
+    let raw: string;
+    const fp = path.join(process.cwd(), "public", "data", "container-caau9910103.json");
+    try {
+      raw = await fs.readFile(fp, "utf-8");
+    } catch {
+      raw = await (await fetch(`${origin}/data/container-caau9910103.json`, { cache: "no-store" })).text();
+    }
+    const json = JSON.parse(raw) as { items?: Array<{ bcdi?: string }> };
+    for (const it of json.items || []) {
+      if (it.bcdi) set.add(it.bcdi.toUpperCase());
+    }
+  } catch {
+    /* tolère */
+  }
+  return set;
+}
+
+/** Mois courant + 1 → prochaine échéance de chargement par défaut (YYYY-MM). */
+function defaultMoisCible(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 /**
@@ -41,10 +80,14 @@ export async function GET(req: NextRequest) {
       : DEFAULT_RESERVOIR_PARAMS.delaiBateauMois,
   };
   const since = url.searchParams.get("since") || "2024-01-01";
+  // Mois cible = prochaine échéance de chargement. Tous les mois théoriques
+  // <= moisCible sont consolidés dans ce tab (rattrapage du backlog).
+  const moisCible = url.searchParams.get("moisCible") || defaultMoisCible();
 
-  const rows = await prisma.reservoirBcdi.findMany({
-    orderBy: { dateCommande: "asc" },
-  });
+  const [rows, imp618] = await Promise.all([
+    prisma.reservoirBcdi.findMany({ orderBy: { dateCommande: "asc" } }),
+    loadImp618Bcdis(url.origin),
+  ]);
 
   const sinceDate = new Date(since);
   const nowKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
@@ -62,10 +105,14 @@ export async function GET(req: NextRequest) {
       trelloStatut: r.trelloStatut,
       pret: r.trelloStatut ? TRELLO_READY_LISTS.includes(r.trelloStatut) : false,
       found: r.found,
+      isStock: isStockClient(r.client),
+      dansImp618: imp618.has(r.bcdi.toUpperCase()),
     };
     if (!r.dateCommande) { sansDate.push(item); continue; }
     if (r.dateCommande < sinceDate) { horsScope.push(item); continue; }
-    const key = moisChargementKey(r.dateCommande, params);
+    const moisTheorique = moisChargementKey(r.dateCommande, params);
+    // consolidation : tout ce qui devait charger <= moisCible va dans moisCible
+    const key = moisTheorique <= moisCible ? moisCible : moisTheorique;
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key)!.push(item);
   }
@@ -74,15 +121,20 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([key, items]) => {
       items.sort((x, y) => {
-        if (x.pret !== y.pret) return x.pret ? -1 : 1; // prêts d'abord
-        return (x.dateCommande || "").localeCompare(y.dateCommande || ""); // puis plus ancien
+        // stock en dernier (pas urgent), sinon prêts d'abord, puis plus ancien
+        if (x.isStock !== y.isStock) return x.isStock ? 1 : -1;
+        if (x.pret !== y.pret) return x.pret ? -1 : 1;
+        return (x.dateCommande || "").localeCompare(y.dateCommande || "");
       });
       return {
         key,
         nb: items.length,
         prets: items.filter((i) => i.pret).length,
+        urgents: items.filter((i) => !i.isStock).length,
+        stock: items.filter((i) => i.isStock).length,
         totalHT: Number(items.reduce((s, i) => s + (i.montantHT || 0), 0).toFixed(2)),
         enRetard: key <= nowKey,
+        rattrapage: key === moisCible, // contient le backlog consolidé
         items,
       };
     });
@@ -90,6 +142,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     params,
     nowKey,
+    moisCible,
     months,
     sansDate,
     horsScopeCount: horsScope.length,
