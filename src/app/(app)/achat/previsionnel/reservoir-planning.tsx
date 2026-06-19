@@ -299,11 +299,11 @@ export function ReservoirPlanning() {
                   <thead className="text-[11px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
                     <tr>
                       <th className="px-2 py-2 w-9"></th>
-                      <th className="px-3 py-2 text-left font-semibold w-28">N° BCDI</th>
+                      <th className="px-3 py-2 text-left font-semibold w-44 whitespace-nowrap">N° BCDI</th>
                       <th className="px-3 py-2 text-left font-semibold">Client</th>
                       <th className="px-3 py-2 text-left font-semibold w-24">Commande</th>
                       <th className="px-3 py-2 text-right font-semibold w-24">Montant HT</th>
-                      <th className="px-3 py-2 text-left font-semibold w-40">Statut prod (Trello)</th>
+                      <th className="px-3 py-2 text-left font-semibold w-56 whitespace-nowrap">Statut prod (Trello)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -324,28 +324,28 @@ export function ReservoirPlanning() {
                             {prepBusy === it.bcdi ? <Loader2 className="w-3 h-3 animate-spin" /> : prepSet.has(it.bcdi) ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                           </button>
                         </td>
-                        <td className="px-3 py-2 font-mono text-xs font-semibold text-[var(--color-active)]">
-                          <span className="inline-flex items-center gap-1.5 flex-wrap">
+                        <td className="px-3 py-2 font-mono text-xs font-semibold text-[var(--color-active)] whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                             {it.bcdi}
-                            {it.isSav && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">SAV</span>}
-                            {it.isStock && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Stock magasin{it.forcedStock ? " (manuel)" : ""}</span>}
-                            {it.dansImp618 && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">déjà IMP-618</span>}
+                            {it.isSav && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 whitespace-nowrap">SAV</span>}
+                            {it.isStock && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">Stock magasin{it.forcedStock ? " (manuel)" : ""}</span>}
+                            {it.dansImp618 && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 whitespace-nowrap">déjà IMP-618</span>}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-cockpit-heading">{it.client || <span className="text-cockpit-secondary/60">—</span>}</td>
                         <td className="px-3 py-2 text-cockpit-primary text-xs">{dateCourt(it.dateCommande)}</td>
                         <td className="px-3 py-2 text-right font-mono text-cockpit-primary">{eur(it.montantHT)}</td>
                         <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUT_STYLE[it.trelloStatut || ""] || "bg-gray-100 text-gray-600"}`}>
-                              {it.pret && <CheckCircle2 className="w-3 h-3" />}
+                          <div className="flex items-center gap-2 whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUT_STYLE[it.trelloStatut || ""] || "bg-gray-100 text-gray-600"}`}>
+                              {it.pret && <CheckCircle2 className="w-3 h-3 flex-shrink-0" />}
                               {it.trelloStatut || "—"}
                             </span>
                             <button
                               onClick={() => toggleStock(it.bcdi, it.forcedStock)}
                               disabled={stockBusy === it.bcdi}
                               title={it.forcedStock ? "Annuler la conversion en stock" : "Convertir en stock magasin (on le fait venir pour le magasin)"}
-                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors disabled:opacity-40 ${
+                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${
                                 it.forcedStock
                                   ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
                                   : "border-cockpit-input text-cockpit-secondary hover:border-amber-400 hover:text-amber-700"
