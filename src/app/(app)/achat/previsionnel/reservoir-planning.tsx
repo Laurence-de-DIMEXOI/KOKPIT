@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCw, AlertTriangle, CheckCircle2, Ship } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, CheckCircle2, Ship, Plus, X, PackageCheck, ChevronDown, ChevronRight } from "lucide-react";
+
+const PREP_IMP = "IMP-619";
+
+interface PrepPayload {
+  imp: string;
+  items: Array<{ bcdi: string; client: string | null; dateCommande: string | null; montantHT: number | null; trelloStatut: string | null; pret: boolean }>;
+  nb: number;
+  prets: number;
+  totalHT: number;
+  bcdis: string[];
+}
 
 interface ResItem {
   bcdi: string;
@@ -63,6 +74,34 @@ export function ReservoirPlanning() {
   const [delaiBateau, setDelaiBateau] = useState(1.5);
   const [activeMonth, setActiveMonth] = useState<string | null>(null);
   const [containerByMonth, setContainerByMonth] = useState<Record<string, string>>({});
+  const [prep, setPrep] = useState<PrepPayload | null>(null);
+  const [prepOpen, setPrepOpen] = useState(true);
+  const [prepBusy, setPrepBusy] = useState<string | null>(null);
+
+  const fetchPrep = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/achat/reservoir/prep?imp=${PREP_IMP}`);
+      if (res.ok) setPrep(await res.json());
+    } catch { /* silencieux */ }
+  }, []);
+  useEffect(() => { fetchPrep(); }, [fetchPrep]);
+
+  const prepSet = useMemo(() => new Set(prep?.bcdis || []), [prep]);
+
+  const togglePrep = useCallback(async (bcdi: string) => {
+    const action = prepSet.has(bcdi) ? "remove" : "add";
+    setPrepBusy(bcdi);
+    try {
+      await fetch("/api/achat/reservoir/prep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imp: PREP_IMP, bcdi, action }),
+      });
+      await fetchPrep();
+    } finally {
+      setPrepBusy(null);
+    }
+  }, [prepSet, fetchPrep]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -145,6 +184,43 @@ export function ReservoirPlanning() {
         </div>
       )}
 
+      {/* Panneau préparation container */}
+      <div className="bg-[var(--color-active)]/5 rounded-card border border-[var(--color-active)]/30 overflow-hidden">
+        <button onClick={() => setPrepOpen((o) => !o)}
+          className="w-full flex items-center gap-2 px-4 py-2.5 text-left">
+          <PackageCheck className="w-4 h-4 text-[var(--color-active)]" />
+          <span className="text-sm font-semibold text-cockpit-heading">Préparation {PREP_IMP}</span>
+          <span className="text-xs text-cockpit-secondary">
+            {prep ? `${prep.nb} commandes · ${prep.prets} prêtes · ${eur(prep.totalHT)} HT` : "…"}
+          </span>
+          {prepOpen ? <ChevronDown className="w-4 h-4 ml-auto text-cockpit-secondary" /> : <ChevronRight className="w-4 h-4 ml-auto text-cockpit-secondary" />}
+        </button>
+        {prepOpen && (
+          <div className="px-4 pb-3">
+            {!prep || prep.items.length === 0 ? (
+              <p className="text-xs text-cockpit-secondary italic py-2">
+                Aucune commande. Ajoute des BCDI depuis les onglets ci-dessous (bouton +).
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {prep.items.map((it) => (
+                  <span key={it.bcdi}
+                    className="inline-flex items-center gap-1.5 text-xs bg-cockpit-card border border-cockpit rounded-lg pl-2 pr-1 py-1">
+                    <span className="font-mono text-[var(--color-active)]">{it.bcdi}</span>
+                    <span className="text-cockpit-secondary truncate max-w-[120px]">{it.client}</span>
+                    {it.pret && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                    <button onClick={() => togglePrep(it.bcdi)} disabled={prepBusy === it.bcdi}
+                      className="p-0.5 rounded hover:bg-red-100 text-cockpit-secondary hover:text-red-600">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Onglets mois */}
       {loading && !data ? (
         <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-cockpit-secondary" /></div>
@@ -195,6 +271,7 @@ export function ReservoirPlanning() {
                 <table className="w-full text-sm">
                   <thead className="text-[11px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
                     <tr>
+                      <th className="px-2 py-2 w-9"></th>
                       <th className="px-3 py-2 text-left font-semibold w-28">N° BCDI</th>
                       <th className="px-3 py-2 text-left font-semibold">Client</th>
                       <th className="px-3 py-2 text-left font-semibold w-24">Commande</th>
@@ -204,7 +281,18 @@ export function ReservoirPlanning() {
                   </thead>
                   <tbody>
                     {active.items.map((it) => (
-                      <tr key={it.bcdi} className={`border-b border-cockpit/50 ${it.pret ? "bg-emerald-50/30" : ""}`}>
+                      <tr key={it.bcdi} className={`border-b border-cockpit/50 ${prepSet.has(it.bcdi) ? "bg-[var(--color-active)]/10" : it.pret ? "bg-emerald-50/30" : ""}`}>
+                        <td className="px-2 py-2">
+                          <button onClick={() => togglePrep(it.bcdi)} disabled={prepBusy === it.bcdi}
+                            title={prepSet.has(it.bcdi) ? "Retirer de la préparation" : "Ajouter à la préparation"}
+                            className={`w-6 h-6 inline-flex items-center justify-center rounded-md border transition-colors disabled:opacity-40 ${
+                              prepSet.has(it.bcdi)
+                                ? "bg-[var(--color-active)] border-[var(--color-active)] text-white"
+                                : "border-cockpit-input text-cockpit-secondary hover:border-[var(--color-active)] hover:text-[var(--color-active)]"
+                            }`}>
+                            {prepBusy === it.bcdi ? <Loader2 className="w-3 h-3 animate-spin" /> : prepSet.has(it.bcdi) ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                          </button>
+                        </td>
                         <td className="px-3 py-2 font-mono text-xs font-semibold text-[var(--color-active)]">{it.bcdi}</td>
                         <td className="px-3 py-2 text-cockpit-heading">{it.client || <span className="text-cockpit-secondary/60">—</span>}</td>
                         <td className="px-3 py-2 text-cockpit-primary text-xs">{dateCourt(it.dateCommande)}</td>
