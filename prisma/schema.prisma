@@ -1421,6 +1421,7 @@ model ReservoirBcdi {
   montantHT     Decimal?  @db.Decimal(12, 2)
   nbMeubles     Int?      // somme des quantités des lignes de la commande Sellsy
   statutSellsy  String?
+  etatProduit   String?   // custom field Sellsy "Etat des produit" : SUR COMMANDE / SAV / COMMANDE MAGASIN…
   bdoBcNumber   String?   // n° BC Bois d'Orient si le BCDI est un BC BO (montant DIMEXOI 0)
   found         Boolean   @default(false)
   forcedType    String?   // override manuel : "stock" = converti en stock magasin

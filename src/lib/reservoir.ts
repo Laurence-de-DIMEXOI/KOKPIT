@@ -24,6 +24,20 @@ export const DEFAULT_RESERVOIR_PARAMS: ReservoirParams = {
   delaiBateauMois: 1.5,
 };
 
+// États produit Sellsy (custom field "Etat des produit") qui composent le réservoir
+// = commandes encore à fabriquer / pas encore dans un IMP.
+// EN STOCK (reçu) et ARRIVAGE M+1/2/3 (déjà sur un container en mer) sont exclus.
+export const RESERVOIR_ETATS = ["SUR COMMANDE", "SAV", "COMMANDE MAGASIN"];
+
+/** Normalise un n° de commande/carte vers une clé comparable (digits, sans zéros
+ *  de tête) — tolère "BCDI-04411", "BDCI-04411", "BCDI4411"… → "4411". */
+export function normalizeBcdiKey(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const m = name.match(/B[CD]DI[\s-]?0*(\d{2,6})/i);
+  if (m) return String(parseInt(m[1], 10));
+  return null;
+}
+
 // Listes Trello = réservoir (pas encore expédié). "Sent" et "Cancelled BCDI" exclus.
 export const TRELLO_RESERVOIR_LISTS = [
   "BCDI",

@@ -25,7 +25,7 @@ interface ResItem {
   isStock: boolean;
   forcedStock: boolean;
   isSav: boolean;
-  dansImp618: boolean;
+  etatProduit: string | null;
   bdoBcNumber: string | null;
   moisTheorique: string | null;
   retard: boolean;
@@ -34,7 +34,6 @@ interface ResItem {
 interface Depart {
   key: string;
   date: string;
-  isImp618: boolean;
   parti: boolean;
   capacite: number;
   nbMeubles: number;
@@ -179,7 +178,6 @@ export function ReservoirPlanning() {
           {it.bdoBcNumber && <span title={`Bois d'Orient — ${it.bdoBcNumber}`} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 whitespace-nowrap">BO {it.bdoBcNumber}</span>}
           {it.isSav && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 whitespace-nowrap">SAV</span>}
           {it.isStock && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">Stock magasin{it.forcedStock ? " (manuel)" : ""}</span>}
-          {it.dansImp618 && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 whitespace-nowrap">déjà IMP-618</span>}
         </span>
       </td>
       <td className="px-3 py-2 text-cockpit-heading">{it.client || <span className="text-cockpit-secondary/60">—</span>}</td>
@@ -316,8 +314,8 @@ export function ReservoirPlanning() {
                   className={`px-3 py-2 text-xs font-medium rounded-t-lg whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                     act ? "bg-[var(--color-active)]/10 text-[var(--color-active)] border-b-2 border-[var(--color-active)] -mb-px" : "text-cockpit-secondary hover:text-cockpit-primary"
                   }`}>
-                  {d.retards > 0 && !d.isImp618 && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                  {d.isImp618 ? "IMP-618" : departLabel(d.date)}
+                  {d.retards > 0 && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                  {departLabel(d.date)}
                   <span className={`text-[10px] ${over ? "text-red-600 font-bold" : "opacity-70"}`}>({d.nbMeubles}/{d.capacite})</span>
                 </button>
               );
@@ -336,12 +334,8 @@ export function ReservoirPlanning() {
           {activeDepart && (
             <div className="p-4 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-cockpit-heading">
-                  {activeDepart.isImp618 ? "IMP-618 — parti le 14 juin 2026" : `Départ ${departLabel(activeDepart.date)}`}
-                </span>
-                {activeDepart.isImp618 ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Déjà parti</span>
-                ) : activeDepart.parti ? (
+                <span className="text-sm font-semibold text-cockpit-heading">{`Départ ${departLabel(activeDepart.date)}`}</span>
+                {activeDepart.parti ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Date passée</span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-active)]/15 text-[var(--color-active)]">40ft HC</span>
