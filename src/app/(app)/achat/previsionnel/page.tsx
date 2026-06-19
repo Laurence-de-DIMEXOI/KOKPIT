@@ -16,6 +16,7 @@ import {
   StickyNote,
 } from "lucide-react";
 import { ContainerBanner } from "@/components/layout/container-banner";
+import { ReservoirPlanning } from "./reservoir-planning";
 import { IMPORTS } from "@/lib/imports-config";
 import { parseClientNote, ACTION_LABELS } from "@/lib/previsionnel-notes";
 
@@ -430,6 +431,7 @@ export default function PrevisionnelPage() {
   const [filterZeroHT, setFilterZeroHT] = useState<boolean>(false);
   const [sectionFilter, setSectionFilter] = useState<string>(""); // "" = toutes
   const [filterUrgent, setFilterUrgent] = useState<boolean>(false);
+  const [mode, setMode] = useState<"containers" | "reservoir">("containers");
 
   const fetchData = useCallback(async (imp: string, fresh = false) => {
     setLoading(true);
@@ -578,6 +580,30 @@ export default function PrevisionnelPage() {
         </p>
       </div>
 
+      {/* Toggle Containers / Réservoir */}
+      <div className="inline-flex rounded-lg border border-cockpit overflow-hidden text-sm">
+        <button
+          onClick={() => setMode("containers")}
+          className={`px-4 py-2 font-medium transition-colors ${
+            mode === "containers" ? "bg-[var(--color-active)] text-white" : "bg-cockpit-card text-cockpit-secondary hover:text-cockpit-primary"
+          }`}
+        >
+          Containers
+        </button>
+        <button
+          onClick={() => setMode("reservoir")}
+          className={`px-4 py-2 font-medium transition-colors ${
+            mode === "reservoir" ? "bg-[var(--color-active)] text-white" : "bg-cockpit-card text-cockpit-secondary hover:text-cockpit-primary"
+          }`}
+        >
+          Réservoir (planning)
+        </button>
+      </div>
+
+      {mode === "reservoir" ? (
+        <ReservoirPlanning />
+      ) : (
+      <>
       {/* Container banner */}
       <ContainerBanner />
 
@@ -958,6 +984,8 @@ export default function PrevisionnelPage() {
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
