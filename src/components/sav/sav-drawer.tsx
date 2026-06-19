@@ -19,6 +19,8 @@ import {
   StickyNote,
   MessageSquare,
   UploadCloud,
+  CreditCard,
+  Link2,
 } from "lucide-react";
 import clsx from "clsx";
 import { Drawer } from "@/components/layout/drawer";
@@ -73,6 +75,28 @@ interface SAVDossierDetail {
   updatedAt: string;
   documents: SAVDocument[];
   commentaires: SAVCommentaire[];
+}
+
+interface SellsyResolution {
+  bcdis: Array<{
+    ref: string;
+    found: boolean;
+    orderId?: number;
+    status?: string;
+    statutLabel?: string;
+    totalTTC?: number;
+    url?: string;
+  }>;
+  avoirs: Array<{
+    number: string;
+    solde: boolean;
+    statut: string | null;
+    date: string | null;
+    montantTTC: number;
+    apresOuverture: boolean;
+  }>;
+  refundDetected: boolean;
+  suggestedTraite: boolean;
 }
 
 interface SAVDrawerProps {
@@ -138,6 +162,9 @@ export default function SAVDrawer({
   const [dossier, setDossier] = useState<SAVDossierDetail | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Résolution Sellsy (BCDI liés + avoirs du client)
+  const [sellsyInfo, setSellsyInfo] = useState<SellsyResolution | null>(null);
+
   // Statut edit
   const [editingStatut, setEditingStatut] = useState(false);
   const [statutValue, setStatutValue] = useState("");
@@ -170,6 +197,12 @@ export default function SAVDrawer({
       setDossier(data);
       setStatutValue(data.statut);
       setDescriptionValue(data.description || "");
+      // Résolution Sellsy en arrière-plan (non bloquant)
+      setSellsyInfo(null);
+      fetch(`/api/sav/${dossierId}/sellsy`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((info) => info && setSellsyInfo(info))
+        .catch(() => {});
     } catch {
       addToast("Erreur lors du chargement du dossier", "error");
     } finally {
@@ -451,6 +484,79 @@ export default function SAVDrawer({
               </p>
             )}
           </div>
+
+          {/* ── Sellsy : commandes liées + remboursement (avoir) ── */}
+          {sellsyInfo && (sellsyInfo.bcdis.length > 0 || sellsyInfo.refundDetected) && (
+            <div className="space-y-2">
+              {sellsyInfo.bcdis.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-cockpit-secondary uppercase tracking-wide flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5" />
+                    Commandes liées (auto)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {sellsyInfo.bcdis.map((b) =>
+                      b.found ? (
+                        <a
+                          key={b.ref}
+                          href={b.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border border-cockpit bg-cockpit-dark hover:border-teal-500/50 transition-colors"
+                        >
+                          <span className="font-mono text-teal-600">{b.ref}</span>
+                          <span className="text-cockpit-secondary">· {b.statutLabel}</span>
+                          <ExternalLink className="w-3 h-3 text-cockpit-secondary" />
+                        </a>
+                      ) : (
+                        <span
+                          key={b.ref}
+                          title="Commande introuvable dans Sellsy"
+                          className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border border-dashed border-cockpit text-cockpit-secondary"
+                        >
+                          <span className="font-mono">{b.ref}</span> · introuvable
+                        </span>
+                      )
+                    )}
+                  </div>
+                </>
+              )}
+
+              {sellsyInfo.refundDetected && (
+                <div className="rounded-lg border border-purple-300 bg-purple-50 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <CreditCard className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 text-xs text-purple-900">
+                      <p className="font-semibold">Remboursement détecté — avoir client</p>
+                      {sellsyInfo.avoirs.map((a) => (
+                        <p key={a.number} className="mt-0.5">
+                          <span className="font-mono">{a.number}</span>
+                          {a.montantTTC > 0 && ` — ${a.montantTTC.toLocaleString("fr-FR")} €`}
+                          {" · "}
+                          <span className={a.solde ? "text-emerald-700 font-medium" : "text-amber-700 font-medium"}>
+                            {a.solde ? "soldé" : "non soldé"}
+                          </span>
+                          {a.date && ` · ${new Date(a.date).toLocaleDateString("fr-FR")}`}
+                        </p>
+                      ))}
+                      <p className="mt-1 text-purple-700/70 text-[11px]">
+                        Avoir rattaché au client (vérifier qu&apos;il correspond bien à ce SAV).
+                      </p>
+                    </div>
+                  </div>
+                  {dossier.statut !== "TRAITE" && dossier.statut !== "CLOTURE" && (
+                    <button
+                      onClick={() => handleStatutChange("TRAITE")}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg py-1.5 bg-purple-600 hover:bg-purple-700 transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Marquer ce SAV traité
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Statut change ──────────────────────────────────── */}
           <div>
