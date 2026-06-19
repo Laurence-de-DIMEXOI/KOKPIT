@@ -94,6 +94,8 @@ interface SellsyResolution {
     date: string | null;
     montantTTC: number;
     apresOuverture: boolean;
+    linkedBcdi: string | null;
+    matchesSav: boolean;
   }>;
   refundDetected: boolean;
   suggestedTraite: boolean;
@@ -527,7 +529,7 @@ export default function SAVDrawer({
                   <div className="flex items-start gap-2">
                     <CreditCard className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                     <div className="flex-1 text-xs text-purple-900">
-                      <p className="font-semibold">Remboursement détecté — avoir client</p>
+                      <p className="font-semibold">Remboursement détecté — avoir</p>
                       {sellsyInfo.avoirs.map((a) => (
                         <p key={a.number} className="mt-0.5">
                           <span className="font-mono">{a.number}</span>
@@ -537,11 +539,20 @@ export default function SAVDrawer({
                             {a.solde ? "soldé" : "non soldé"}
                           </span>
                           {a.date && ` · ${new Date(a.date).toLocaleDateString("fr-FR")}`}
+                          {a.matchesSav ? (
+                            <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">
+                              ✓ lié à {a.linkedBcdi}
+                            </span>
+                          ) : a.linkedBcdi ? (
+                            <span className="ml-1 text-purple-700/70">(chaîne : {a.linkedBcdi})</span>
+                          ) : null}
                         </p>
                       ))}
-                      <p className="mt-1 text-purple-700/70 text-[11px]">
-                        Avoir rattaché au client (vérifier qu&apos;il correspond bien à ce SAV).
-                      </p>
+                      {!sellsyInfo.avoirs.some((a) => a.matchesSav) && (
+                        <p className="mt-1 text-purple-700/70 text-[11px]">
+                          Avoir rattaché au client (non relié à un BCDI de ce SAV — à vérifier).
+                        </p>
+                      )}
                     </div>
                   </div>
                   {dossier.statut !== "TRAITE" && dossier.statut !== "CLOTURE" && (
