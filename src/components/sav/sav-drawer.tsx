@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   FileText,
   Mail,
@@ -18,6 +18,7 @@ import {
   X,
   StickyNote,
   MessageSquare,
+  UploadCloud,
 } from "lucide-react";
 import clsx from "clsx";
 import { Drawer } from "@/components/layout/drawer";
@@ -147,8 +148,10 @@ export default function SAVDrawer({
 
   // New document form
   const [showDocForm, setShowDocForm] = useState(false);
-  const [docForm, setDocForm] = useState<{ nom: string; type: string; url: string; contenu: string }>({ nom: "", type: "PDF", url: "", contenu: "" });
+  const [docForm, setDocForm] = useState<{ nom: string; type: string; url: string; contenu: string; taille: number | null }>({ nom: "", type: "PDF", url: "", contenu: "", taille: null });
   const [submittingDoc, setSubmittingDoc] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // New comment
   const [commentValue, setCommentValue] = useState("");
@@ -229,6 +232,45 @@ export default function SAVDrawer({
     }
   };
 
+  // ── Upload fichier (Supabase via /api/upload) ──────────────────
+  const inferDocType = (filename: string): string => {
+    const ext = filename.split(".").pop()?.toLowerCase() || "";
+    if (ext === "pdf") return "PDF";
+    if (["jpg", "jpeg", "png", "gif", "webp", "heic"].includes(ext)) return "PHOTO";
+    if (["eml", "msg"].includes(ext)) return "EMAIL";
+    return "AUTRE";
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDoc(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "sav");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Échec de l'upload");
+      }
+      const { url } = await res.json();
+      setDocForm((prev) => ({
+        ...prev,
+        url,
+        nom: prev.nom.trim() || file.name,
+        type: prev.type === "PDF" ? inferDocType(file.name) : prev.type,
+        taille: file.size,
+      }));
+      addToast("Fichier téléversé", "success");
+    } catch (err: any) {
+      addToast(err.message || "Échec de l'upload", "error");
+    } finally {
+      setUploadingDoc(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   // ── Add document ────────────────────────────────────────────────
 
   const handleAddDocument = async (e: React.FormEvent) => {
@@ -245,6 +287,7 @@ export default function SAVDrawer({
           type: docForm.type,
           url: docForm.url.trim() || null,
           contenu: docForm.contenu || null,
+          taille: docForm.taille,
         }),
       });
       if (!res.ok) {
@@ -257,7 +300,7 @@ export default function SAVDrawer({
           ? { ...prev, documents: [...prev.documents, newDoc] }
           : prev
       );
-      setDocForm({ nom: "", type: TYPES_DOCUMENT_SAV[0].value, url: "", contenu: "" });
+      setDocForm({ nom: "", type: TYPES_DOCUMENT_SAV[0].value, url: "", contenu: "", taille: null });
       setShowDocForm(false);
       addToast("Document ajoute", "success");
       onRefresh();
@@ -525,11 +568,41 @@ export default function SAVDrawer({
                     </option>
                   ))}
                 </select>
+                {/* Upload fichier */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.eml,.msg,.doc,.docx,.xls,.xlsx"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingDoc}
+                  className="w-full flex items-center justify-center gap-2 bg-cockpit-card border border-dashed border-cockpit rounded-lg px-3 py-2.5 text-sm text-cockpit-primary hover:border-teal-500/60 hover:text-teal-600 transition-colors disabled:opacity-50"
+                >
+                  {uploadingDoc ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UploadCloud className="w-4 h-4" />
+                  )}
+                  {docForm.taille != null
+                    ? `Fichier joint (${Math.round(docForm.taille / 1024)} Ko) — remplacer`
+                    : uploadingDoc
+                    ? "Téléversement…"
+                    : "Téléverser un fichier (max 15 Mo)"}
+                </button>
+                <div className="flex items-center gap-2 text-[11px] text-cockpit-secondary">
+                  <span className="flex-1 h-px bg-cockpit" />
+                  ou coller un lien
+                  <span className="flex-1 h-px bg-cockpit" />
+                </div>
                 <input
                   type="url"
                   value={docForm.url}
                   onChange={(e) =>
-                    setDocForm((prev) => ({ ...prev, url: e.target.value }))
+                    setDocForm((prev) => ({ ...prev, url: e.target.value, taille: null }))
                   }
                   placeholder="Lien (https://...) — optionnel"
                   className="w-full bg-cockpit-card border border-cockpit rounded-lg px-3 py-2 text-sm text-cockpit-primary placeholder:text-cockpit-secondary focus:outline-none focus:ring-2 focus:ring-teal-500/40"
