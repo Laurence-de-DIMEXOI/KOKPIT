@@ -23,6 +23,8 @@ interface ResItem {
   pret: boolean;
   found: boolean;
   isStock: boolean;
+  forcedStock: boolean;
+  isSav: boolean;
   dansImp618: boolean;
 }
 interface ResMonth {
@@ -93,6 +95,7 @@ export function ReservoirPlanning() {
   useEffect(() => { fetchPrep(); }, [fetchPrep]);
 
   const prepSet = useMemo(() => new Set(prep?.bcdis || []), [prep]);
+  const [stockBusy, setStockBusy] = useState<string | null>(null);
 
   const togglePrep = useCallback(async (bcdi: string) => {
     const action = prepSet.has(bcdi) ? "remove" : "add";
@@ -121,6 +124,20 @@ export function ReservoirPlanning() {
   }, [delaiTotal, delaiBateau]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const toggleStock = useCallback(async (bcdi: string, currentlyForced: boolean) => {
+    setStockBusy(bcdi);
+    try {
+      await fetch("/api/achat/reservoir/override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bcdi, action: currentlyForced ? "reset" : "stock" }),
+      });
+      await fetchData();
+    } finally {
+      setStockBusy(null);
+    }
+  }, [fetchData]);
 
   // Onglet par défaut : le mois cible (rattrapage), sinon 1er en retard, sinon 1er
   useEffect(() => {
@@ -307,7 +324,8 @@ export function ReservoirPlanning() {
                         <td className="px-3 py-2 font-mono text-xs font-semibold text-[var(--color-active)]">
                           <span className="inline-flex items-center gap-1.5 flex-wrap">
                             {it.bcdi}
-                            {it.isStock && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Stock magasin</span>}
+                            {it.isSav && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">SAV</span>}
+                            {it.isStock && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Stock magasin{it.forcedStock ? " (manuel)" : ""}</span>}
                             {it.dansImp618 && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">déjà IMP-618</span>}
                           </span>
                         </td>
@@ -315,10 +333,23 @@ export function ReservoirPlanning() {
                         <td className="px-3 py-2 text-cockpit-primary text-xs">{dateCourt(it.dateCommande)}</td>
                         <td className="px-3 py-2 text-right font-mono text-cockpit-primary">{eur(it.montantHT)}</td>
                         <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUT_STYLE[it.trelloStatut || ""] || "bg-gray-100 text-gray-600"}`}>
-                            {it.pret && <CheckCircle2 className="w-3 h-3" />}
-                            {it.trelloStatut || "—"}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUT_STYLE[it.trelloStatut || ""] || "bg-gray-100 text-gray-600"}`}>
+                              {it.pret && <CheckCircle2 className="w-3 h-3" />}
+                              {it.trelloStatut || "—"}
+                            </span>
+                            <button
+                              onClick={() => toggleStock(it.bcdi, it.forcedStock)}
+                              disabled={stockBusy === it.bcdi}
+                              title={it.forcedStock ? "Annuler la conversion en stock" : "Convertir en stock magasin (on le fait venir pour le magasin)"}
+                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors disabled:opacity-40 ${
+                                it.forcedStock
+                                  ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                  : "border-cockpit-input text-cockpit-secondary hover:border-amber-400 hover:text-amber-700"
+                              }`}>
+                              {stockBusy === it.bcdi ? "…" : it.forcedStock ? "↩ client" : "→ stock"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

@@ -21,6 +21,8 @@ interface ResItem {
   pret: boolean;
   found: boolean;
   isStock: boolean;
+  forcedStock: boolean;
+  isSav: boolean;
   dansImp618: boolean;
 }
 
@@ -89,6 +91,17 @@ export async function GET(req: NextRequest) {
     loadImp618Bcdis(url.origin),
   ]);
 
+  // etatProduit depuis la table Vente (jointure par id de commande Sellsy)
+  const orderIds = rows.map((r) => r.sellsyOrderId).filter(Boolean).map((id) => String(id));
+  const etatByOrderId = new Map<string, string | null>();
+  if (orderIds.length) {
+    const ventes = await prisma.vente.findMany({
+      where: { sellsyInvoiceId: { in: orderIds } },
+      select: { sellsyInvoiceId: true, etatProduit: true },
+    });
+    for (const v of ventes) if (v.sellsyInvoiceId) etatByOrderId.set(v.sellsyInvoiceId, v.etatProduit);
+  }
+
   const sinceDate = new Date(since);
   const nowKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
 
@@ -97,6 +110,8 @@ export async function GET(req: NextRequest) {
   const horsScope: ResItem[] = []; // datés mais avant `since` (vieux/stale)
 
   for (const r of rows) {
+    const forcedStock = r.forcedType === "stock";
+    const etat = r.sellsyOrderId ? etatByOrderId.get(String(r.sellsyOrderId)) ?? null : null;
     const item: ResItem = {
       bcdi: r.bcdi,
       client: r.client,
@@ -105,7 +120,9 @@ export async function GET(req: NextRequest) {
       trelloStatut: r.trelloStatut,
       pret: r.trelloStatut ? TRELLO_READY_LISTS.includes(r.trelloStatut) : false,
       found: r.found,
-      isStock: isStockClient(r.client),
+      isStock: isStockClient(r.client) || forcedStock,
+      forcedStock,
+      isSav: (etat || "").toUpperCase().includes("SAV"),
       dansImp618: imp618.has(r.bcdi.toUpperCase()),
     };
     if (!r.dateCommande) { sansDate.push(item); continue; }
