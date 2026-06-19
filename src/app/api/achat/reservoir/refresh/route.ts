@@ -81,8 +81,9 @@ async function run(req: NextRequest) {
         let statutSellsy: string | null = null;
         let clientName: string | null = c.client || null;
         let bdoBcNumber: string | null = null;
+        let nbMeubles: number | null = null;
         try {
-          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; subject?: string; amounts?: { total_excl_tax?: string } }> }>(
+          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; subject?: string; amounts?: { total_excl_tax?: string }; rows?: Array<{ type?: string; quantity?: string | number }> }> }>(
             `/orders/search?limit=1`,
             { method: "POST", body: JSON.stringify({ filters: { number: c.bcdi } }) }
           );
@@ -93,6 +94,17 @@ async function run(req: NextRequest) {
             dateCommande = ds ? new Date(ds) : null;
             montantHT = o.amounts?.total_excl_tax != null ? Number(o.amounts.total_excl_tax) : null;
             statutSellsy = o.status || null;
+            // Nb meubles = somme des quantités des lignes (GET /orders/{id} → rows)
+            try {
+              let rows = o.rows;
+              if (!rows) {
+                const full = await sellsyFetch<{ rows?: Array<{ type?: string; quantity?: string | number }> }>(`/orders/${o.id}`);
+                rows = full.rows;
+              }
+              if (rows) {
+                nbMeubles = rows.reduce((s, r) => s + (Number(r.quantity ?? 0) || 0), 0);
+              }
+            } catch { /* tolère */ }
             // Bois d'Orient : BCDI à 0€ dont le BC est dans l'objet ou un commentaire
             if (montantHT == null || montantHT <= 0) {
               let bc = extractBcNumber(o.subject);
@@ -122,6 +134,7 @@ async function run(req: NextRequest) {
           sellsyOrderId,
           dateCommande,
           montantHT,
+          nbMeubles,
           statutSellsy,
           bdoBcNumber,
           found: sellsyOrderId != null,

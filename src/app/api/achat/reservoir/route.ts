@@ -8,6 +8,9 @@ import {
   DEFAULT_RESERVOIR_PARAMS,
   moisChargementKey,
   TRELLO_READY_LISTS,
+  departures,
+  departureKey,
+  CONTAINER_CAPACITY_MEUBLES,
 } from "@/lib/reservoir";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +30,7 @@ interface ResItem {
   bdoBcNumber: string | null;
   moisTheorique: string | null;
   retard: boolean;
+  nbMeubles: number;
 }
 
 // Commande "stock magasin" (pas urgente) : client interne.
@@ -57,13 +61,6 @@ async function loadImp618Bcdis(origin: string): Promise<Set<string>> {
   return set;
 }
 
-/** Mois courant + 1 → prochaine échéance de chargement par défaut (YYYY-MM). */
-function defaultMoisCible(): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 /**
  * GET /api/achat/reservoir?delaiTotal=6&delaiBateau=1.5&since=2024-01-01
  *
@@ -85,9 +82,6 @@ export async function GET(req: NextRequest) {
       : DEFAULT_RESERVOIR_PARAMS.delaiBateauMois,
   };
   const since = url.searchParams.get("since") || "2024-01-01";
-  // Mois cible = prochaine échéance de chargement. Tous les mois théoriques
-  // <= moisCible sont consolidés dans ce tab (rattrapage du backlog).
-  const moisCible = url.searchParams.get("moisCible") || defaultMoisCible();
 
   const [rows, imp618] = await Promise.all([
     prisma.reservoirBcdi.findMany({ orderBy: { dateCommande: "asc" } }),
@@ -107,17 +101,21 @@ export async function GET(req: NextRequest) {
 
   const sinceDate = new Date(since);
   const nowKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-  const IMP618_MONTH = "2026-06"; // IMP-618 est parti en juin 2026
+  const capacite = Number(url.searchParams.get("capacite")) || CONTAINER_CAPACITY_MEUBLES;
 
-  const buckets = new Map<string, ResItem[]>();
+  // 1) Construit tous les items (avec nb meubles, flags)
+  const imp618Items: ResItem[] = [];
+  const clientItems: ResItem[] = [];
+  const stockItems: ResItem[] = [];
   const sansDate: ResItem[] = [];
-  const horsScope: ResItem[] = []; // datés mais avant `since` (vieux/stale)
+  let horsScopeCount = 0;
 
   for (const r of rows) {
     const forcedStock = r.forcedType === "stock";
     const etat = r.sellsyOrderId ? etatByOrderId.get(String(r.sellsyOrderId)) ?? null : null;
     const dansImp618 = imp618.has(r.bcdi.toUpperCase());
     const moisTheorique = r.dateCommande ? moisChargementKey(r.dateCommande, params) : null;
+    const isStock = isStockClient(r.client) || forcedStock;
     const item: ResItem = {
       bcdi: r.bcdi,
       client: r.client,
@@ -126,58 +124,78 @@ export async function GET(req: NextRequest) {
       trelloStatut: r.trelloStatut,
       pret: r.trelloStatut ? TRELLO_READY_LISTS.includes(r.trelloStatut) : false,
       found: r.found,
-      isStock: isStockClient(r.client) || forcedStock,
+      isStock,
       forcedStock,
       isSav: (etat || "").toUpperCase().includes("SAV"),
       dansImp618,
       bdoBcNumber: r.bdoBcNumber,
       moisTheorique,
-      // en retard = mois de chargement théorique déjà passé, et pas encore parti
       retard: !!moisTheorique && moisTheorique < nowKey && !dansImp618,
+      nbMeubles: r.nbMeubles != null && r.nbMeubles > 0 ? r.nbMeubles : 1,
     };
+    if (dansImp618) { imp618Items.push(item); continue; }
     if (!r.dateCommande) { sansDate.push(item); continue; }
-    if (r.dateCommande < sinceDate) { horsScope.push(item); continue; }
-    // Déjà sur l'IMP-618 (parti en juin 2026) → onglet juin 2026 dédié.
-    // Sinon : tout ce qui devait charger <= moisCible est consolidé dans moisCible.
-    const key = dansImp618
-      ? IMP618_MONTH
-      : moisTheorique! <= moisCible ? moisCible : moisTheorique!;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key)!.push(item);
+    if (r.dateCommande < sinceDate) { horsScopeCount++; continue; }
+    if (isStock) { stockItems.push(item); continue; }
+    clientItems.push(item);
   }
 
-  const months = Array.from(buckets.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([key, items]) => {
-      items.sort((x, y) => {
-        // stock en dernier (pas urgent), sinon prêts d'abord, puis plus ancien
-        if (x.isStock !== y.isStock) return x.isStock ? 1 : -1;
-        if (x.pret !== y.pret) return x.pret ? -1 : 1;
-        return (x.dateCommande || "").localeCompare(y.dateCommande || "");
-      });
-      const imp618Tab = items.length > 0 && items.every((i) => i.dansImp618);
+  // 2) Tri prioritaire : plus ancienne commande d'abord (FIFO)
+  clientItems.sort((a, b) => (a.dateCommande || "").localeCompare(b.dateCommande || ""));
+
+  // 3) Distribution dans le calendrier de départs (40ft HC /6 sem), ~capacité
+  //    meubles par container, sans couper un BCDI.
+  const slotCount = Math.max(2, Math.ceil(
+    clientItems.reduce((s, i) => s + i.nbMeubles, 0) / capacite
+  ) + 2);
+  const deps = departures(slotCount + 1); // +1 = slot 0 (IMP-618 déjà parti)
+  interface Slot { date: Date; items: ResItem[]; meubles: number }
+  const slots: Slot[] = deps.map((d) => ({ date: d, items: [], meubles: 0 }));
+  slots[0].items = imp618Items; // IMP-618 (14 juin) = déjà parti
+  slots[0].meubles = imp618Items.reduce((s, i) => s + i.nbMeubles, 0);
+
+  let si = 1;
+  for (const it of clientItems) {
+    // si le BCDI ne tient pas dans le slot courant (et qu'il n'est pas vide) → slot suivant
+    if (slots[si].items.length > 0 && slots[si].meubles + it.nbMeubles > capacite) {
+      si++;
+      if (!slots[si]) slots.push({ date: departures(si + 1)[si], items: [], meubles: 0 });
+    }
+    slots[si].items.push(it);
+    slots[si].meubles += it.nbMeubles;
+  }
+
+  const nowTime = Date.now();
+  const departsOut = slots
+    .filter((s) => s.items.length > 0)
+    .map((s, idx) => {
+      const isImp618 = idx === 0 && s.items.every((i) => i.dansImp618);
       return {
-        key,
-        nb: items.length,
-        prets: items.filter((i) => i.pret).length,
-        urgents: items.filter((i) => !i.isStock).length,
-        stock: items.filter((i) => i.isStock).length,
-        retards: items.filter((i) => i.retard).length,
-        totalHT: Number(items.reduce((s, i) => s + (i.montantHT || 0), 0).toFixed(2)),
-        enRetard: key <= nowKey && !imp618Tab,
-        rattrapage: key === moisCible && !imp618Tab, // contient le backlog consolidé
-        imp618: imp618Tab,
-        items,
+        key: departureKey(s.date),
+        date: s.date.toISOString(),
+        isImp618,
+        parti: s.date.getTime() < nowTime,
+        capacite,
+        nbMeubles: s.meubles,
+        nb: s.items.length,
+        prets: s.items.filter((i) => i.pret).length,
+        retards: s.items.filter((i) => i.retard).length,
+        totalHT: Number(s.items.reduce((sum, i) => sum + (i.montantHT || 0), 0).toFixed(2)),
+        items: s.items,
       };
     });
 
+  // Stock magasin : à part (ne compte pas dans les 130 client)
+  stockItems.sort((a, b) => (a.dateCommande || "").localeCompare(b.dateCommande || ""));
+
   return NextResponse.json({
     params,
-    nowKey,
-    moisCible,
-    months,
+    capacite,
+    departs: departsOut,
+    stock: stockItems,
+    stockMeubles: stockItems.reduce((s, i) => s + i.nbMeubles, 0),
     sansDate,
-    horsScopeCount: horsScope.length,
+    horsScopeCount,
     total: rows.length,
   });
 }
