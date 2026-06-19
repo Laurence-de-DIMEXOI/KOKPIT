@@ -59,17 +59,22 @@ export const TRELLO_EXCLUDED_LISTS = ["Sent", "Cancelled BCDI"];
 
 // ── Calendrier de départs (40ft HC toutes les 6 semaines) ──────────────────
 // IMP-618 est parti le 14 juin 2026 ; un départ toutes les 6 semaines ensuite.
-export const DEPART_BASE_ISO = "2026-06-14";
-export const DEPART_INTERVAL_DAYS = 42; // 6 semaines
+export const DEPART_BASE_ISO = "2026-06-14"; // IMP-618 (slot 0)
+export const DEPART_FIRST_GAP_DAYS = 14; // 1er départ = 2 semaines après l'IMP-618
+export const DEPART_INTERVAL_DAYS = 42; // puis toutes les 6 semaines
 export const CONTAINER_CAPACITY_MEUBLES = 130; // ~130 meubles client par container
 
-/** Génère `count` dates de départ depuis la base, tous les 42 jours. */
+/**
+ * Génère `count` dates de départ : i=0 = base (IMP-618, 14 juin), i=1 = base + 2
+ * semaines (1er container à planifier), puis tous les 42 jours (6 semaines).
+ */
 export function departures(count: number): Date[] {
   const base = new Date(`${DEPART_BASE_ISO}T00:00:00Z`);
   const out: Date[] = [];
   for (let i = 0; i < count; i++) {
     const d = new Date(base);
-    d.setUTCDate(d.getUTCDate() + i * DEPART_INTERVAL_DAYS);
+    const offset = i === 0 ? 0 : DEPART_FIRST_GAP_DAYS + (i - 1) * DEPART_INTERVAL_DAYS;
+    d.setUTCDate(d.getUTCDate() + offset);
     out.push(d);
   }
   return out;

@@ -257,7 +257,7 @@ export function ReservoirPlanning() {
           <Ship className="w-5 h-5" style={{ color: "var(--color-active)" }} />
           <div>
             <p className="text-sm font-semibold text-cockpit-heading">Planning containers</p>
-            <p className="text-[11px] text-cockpit-secondary">Un 40ft HC toutes les 6 semaines · ~{capacite} meubles client / container · sans couper les commandes</p>
+            <p className="text-[11px] text-cockpit-secondary">1er départ 2 sem. après l'IMP-618 puis toutes les 6 semaines · ~{capacite} meubles / container · sans couper les commandes</p>
           </div>
         </div>
         <label className="text-xs text-cockpit-secondary">
