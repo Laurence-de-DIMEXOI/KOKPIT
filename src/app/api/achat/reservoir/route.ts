@@ -54,7 +54,13 @@ export async function GET(req: NextRequest) {
   };
   const capacite = Number(url.searchParams.get("capacite")) || CONTAINER_CAPACITY_MEUBLES;
 
-  const rows = await prisma.reservoirBcdi.findMany({ orderBy: { dateCommande: "asc" } });
+  const [rows, expeditions] = await Promise.all([
+    prisma.reservoirBcdi.findMany({ orderBy: { dateCommande: "asc" } }),
+    prisma.impExpedition.findMany({ select: { bcdi: true } }),
+  ]);
+  // BCDI déjà expédiés (packing lists IMP partis) → reçus, exclus du réservoir
+  // (sauf SAV : un SAV d'un BCDI déjà parti est une refabrication légitime).
+  const shipped = new Set(expeditions.map((e) => e.bcdi.toUpperCase()));
 
   const now = new Date();
   const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -63,12 +69,15 @@ export async function GET(req: NextRequest) {
   const calendarItems: ResItem[] = [];
   const stockItems: ResItem[] = [];
   const sansDate: ResItem[] = [];
+  let dejaExpedies = 0;
 
   for (const r of rows) {
     const etat = (r.etatProduit || "").trim().toUpperCase();
+    const isSav = etat === "SAV";
+    // Déjà parti dans un IMP (donc reçu) et pas un SAV → on l'exclut silencieusement
+    if (!isSav && shipped.has(r.bcdi.toUpperCase())) { dejaExpedies++; continue; }
     const forcedStock = r.forcedType === "stock";
     const isStock = etat === "COMMANDE MAGASIN" || forcedStock;
-    const isSav = etat === "SAV";
     const moisTheorique = r.dateCommande ? moisChargementKey(r.dateCommande, params) : null;
     const item: ResItem = {
       bcdi: r.bcdi,
@@ -145,6 +154,7 @@ export async function GET(req: NextRequest) {
     stockMeubles: stockItems.reduce((s, i) => s + i.nbMeubles, 0),
     sansDate,
     horsScopeCount: 0,
+    dejaExpedies,
     total: rows.length,
   });
 }

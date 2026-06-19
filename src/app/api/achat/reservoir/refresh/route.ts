@@ -82,6 +82,12 @@ async function run(req: NextRequest) {
   const cacheByOrderId = new Map<string, (typeof existing)[number]>();
   for (const e of existing) if (e.sellsyOrderId != null) cacheByOrderId.set(String(e.sellsyOrderId), e);
 
+  // 3bis) BCDI déjà expédiés (packing lists IMP) → reçus, à exclure (sauf SAV)
+  const shipped = new Set(
+    (await prisma.impExpedition.findMany({ select: { bcdi: true } })).map((e) => e.bcdi.toUpperCase())
+  );
+  let exclusDejaExpedies = 0;
+
   // 4) Résolution par commande (n° + nb meubles depuis l'API)
   const concurrency = 8;
   let resolved = 0;
@@ -139,6 +145,8 @@ async function run(req: NextRequest) {
           }
         }
         if (!bcdi) bcdi = `ORDER-${orderId}`;
+        // Déjà parti dans un IMP (donc reçu) et pas un SAV → exclu du réservoir
+        if (etatProduit !== "SAV" && shipped.has(bcdi.toUpperCase())) { exclusDejaExpedies++; return; }
         seen.push(bcdi);
 
         const trello = trelloByKey.get(normalizeBcdiKey(bcdi) || "__none__");
@@ -178,6 +186,7 @@ async function run(req: NextRequest) {
     resolus: resolved,
     fetchSellsy: fetched,
     statutsTrello: trelloByKey.size,
+    exclusDejaExpedies,
     purges: deleted.count,
   });
 }

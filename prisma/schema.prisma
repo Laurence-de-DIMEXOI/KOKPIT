@@ -1434,6 +1434,18 @@ model ReservoirBcdi {
   @@map("reservoir_bcdi")
 }
 
+// BCDI déjà expédiés (lus dans les packing lists des IMP partis). Sert à exclure
+// du réservoir les commandes déjà reçues mais encore mal taguées dans Sellsy.
+// Alimenté hors cron (le connecteur SharePoint n'est pas dispo en headless) :
+// scan ponctuel des packing lists 2024+ → script.
+model ImpExpedition {
+  bcdi    String   @id
+  imp     String
+  addedAt DateTime @default(now())
+
+  @@map("imp_expedition")
+}
+
 // Container en préparation : BCDI sélectionnés depuis le réservoir pour composer
 // le prochain container à demander à l'Indonésie (ex: IMP-619).
 model PrepContainerItem {

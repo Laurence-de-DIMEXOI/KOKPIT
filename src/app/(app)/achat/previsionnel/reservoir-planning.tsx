@@ -51,6 +51,7 @@ interface ResPayload {
   stockMeubles: number;
   sansDate: ResItem[];
   horsScopeCount: number;
+  dejaExpedies: number;
   total: number;
 }
 
@@ -264,8 +265,8 @@ export function ReservoirPlanning() {
           {data.stock.length > 0 && (
             <span className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700"><b>{data.stock.length}</b> stock magasin ({data.stockMeubles} meubles)</span>
           )}
-          {data.horsScopeCount > 0 && (
-            <span className="px-3 py-1.5 rounded-lg bg-cockpit border border-cockpit text-cockpit-secondary">{data.horsScopeCount} cartes &lt; 2024 (ignorées)</span>
+          {data.dejaExpedies > 0 && (
+            <span className="px-3 py-1.5 rounded-lg bg-cockpit border border-cockpit text-cockpit-secondary" title="Commandes retrouvées dans un IMP déjà parti (reçues) — exclues du calendrier">{data.dejaExpedies} déjà expédiées (exclues)</span>
           )}
         </div>
       )}
