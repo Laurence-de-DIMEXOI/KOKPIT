@@ -180,6 +180,8 @@ Pour les chiffres CA / volumes BDC + Devis du rapport mensuel :
 | `/api/cron?job=relance` | `0 9 * * *` | 13h00 | Relances clients |
 | `/api/cron?job=cross-sell` | `30 9 * * *` | 13h30 | Cross-sell |
 | `/api/recap-hebdo` | `0 5 * * 2` | Mardi 9h00 | Récap hebdo direction |
+| `/api/cron/previsionnel-refresh` | `*/30 * * * *` | toutes les 30 min | Snapshots Prévisionnel (BCDI + BO) |
+| `/api/achat/reservoir/refresh` | `30 4 * * *` | 08h30 | Réservoir planning containers (Trello × Sellsy) |
 
 Toutes les routes ont `onlyMissing=true` quand absent — donc inoffensif une fois l'historique rempli (0 résultat scannable).
 
