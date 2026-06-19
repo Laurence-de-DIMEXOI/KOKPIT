@@ -2,8 +2,25 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 19 juin 2026 (v34 — Prévisionnel IMP-619 + Bois d'Orient + volume)
-**Mis à jour par** : Session Claude Code (sprint juin — IMP-619 40ft HC, résolution BC Bois d'Orient, reste à payer réel, colonne volume)
+**Dernière mise à jour** : 19 juin 2026 (v35 — Nettoyage navigation)
+**Mis à jour par** : Session Claude Code (sprint juin — IMP-619 + Bois d'Orient + volume, puis allègement du menu)
+
+### Nettoyage navigation (19 juin 2026, v35) — pages retirées du menu
+Demande Laurence : alléger le menu. Fichiers **supprimés** (pages + API/composants/hooks orphelins) :
+- **Pipeline Devis** (`/commercial/pipeline`) — à remplacer plus tard par un autre système de visualisation devis.
+- **Commandes** (`/commercial/commandes`) — redondant avec Sellsy.
+- **Aujourd'hui** / Daily Briefing (`/aujourd-hui` + `_components`, `/api/aujourd-hui`, `/administration/daily-briefing`, `/api/admin/daily-briefing-eligible`, `components/admin/daily-briefing-eligibles`, `lib/daily-briefing-access`). Champ Prisma `User.dailyBriefingEligible` conservé (inerte).
+- **Messagerie** (`/messagerie`, `/api/messagerie/*`, `hooks/use-messagerie`, `components/messagerie`) + badge non-lus retiré de la sidebar.
+- **Collaborateurs** (`/administration/collaborateurs`).
+- **Tableau de bord Administration** (`/administration/page.tsx` — l'index ; les sous-pages Congés/Pointage/Paramètres restent).
+
+**Relocalisé** (page conservée, sortie du menu principal) → nouvelle catégorie **« Ressources »** (repliée par défaut, `defaultCollapsed` sur `NavCategory`) :
+- **Bois d'Orient** (`/commercial/bois-dorient`) — page informative.
+- **Docs & Aide** (`/docs`).
+
+**Fusionné** : **Liens utiles** intégré dans **Docs & Aide** via onglets. `liens-utiles/page.tsx` → `components/liens-utiles-panel.tsx`, `docs/page.tsx` → `components/docs-reader.tsx`, nouveau `docs/page.tsx` = wrapper à onglets (Documentation | Liens utiles). API `/api/liens-utiles` conservée. La page `/liens-utiles` n'existe plus.
+
+⚠ Les `Module` correspondants restent listés dans `auth-utils.ts` (chaînes inertes, non réintroduites au menu). Notif `devis_expirant` repointée `/commercial/pipeline` → `/commercial`.
 
 ---
 

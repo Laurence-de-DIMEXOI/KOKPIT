@@ -10,28 +10,6 @@ import { NAV_CATEGORIES, type NavCategory, type NavItem } from "@/lib/nav-config
 import { canAccessModule } from "@/lib/auth-utils";
 import type { Role } from "@/lib/auth-utils";
 
-function useUnreadMessages() {
-  const [total, setTotal] = useState(0);
-  useEffect(() => {
-    let mounted = true;
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/messagerie/unread");
-        if (res.ok && mounted) {
-          const data = await res.json();
-          setTotal(data.total || 0);
-        }
-      } catch { /* silencieux */ }
-    };
-    poll();
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible") poll();
-    }, 15000);
-    return () => { mounted = false; clearInterval(interval); };
-  }, []);
-  return total;
-}
-
 function useSlaOverdue() {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -89,12 +67,15 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const { data: session } = useSession();
   const userRole = session?.user?.role as Role | undefined;
   const userOverrides = (session?.user as any)?.moduleAccessOverrides as Record<string, boolean> | null | undefined;
-  const unreadMessages = useUnreadMessages();
   const slaOverdue = useSlaOverdue();
   const demandesNonTraitees = useDemandesNonTraitees();
 
-  // Catégories collapsed/expanded — défaut: toutes ouvertes
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Catégories collapsed/expanded — défaut: toutes ouvertes sauf celles marquées defaultCollapsed
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      NAV_CATEGORIES.filter((c) => c.defaultCollapsed).map((c) => [c.id, true])
+    )
+  );
 
   const toggleCategory = (id: string) => {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -140,11 +121,6 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         >
           <Icon className="w-4 h-4 flex-shrink-0" />
           <span className="flex-1 truncate">{item.label}</span>
-          {item.href === "/messagerie" && unreadMessages > 0 && (
-            <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
-              {unreadMessages > 99 ? "99+" : unreadMessages}
-            </span>
-          )}
           {item.href === "/leads" && (slaOverdue > 0 || demandesNonTraitees > 0) && (
             <span className={`ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-white text-[10px] font-bold px-1 ${demandesNonTraitees > 0 ? "bg-red-500" : "bg-orange-500"}`}>
               {demandesNonTraitees > 0

@@ -4,14 +4,10 @@ import {
   Users,
   Megaphone,
   Mail,
-  ShoppingCart,
   Package,
   FileText,
   TrendingUp,
-  Building2,
   CalendarDays,
-  UserCircle,
-  Link2,
   GitCompareArrows,
   BookOpen,
   ClipboardList,
@@ -20,11 +16,9 @@ import {
   Clock,
   AlertTriangle,
   Settings,
-  MessageSquare,
   Calculator,
   Truck,
   Sparkles,
-  Sunrise,
   Ruler,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
@@ -43,6 +37,7 @@ export interface NavCategory {
   label: string;
   color: string; // couleur du header de catégorie
   items: NavItem[];
+  defaultCollapsed?: boolean; // repliée par défaut (ex: Ressources)
 }
 
 // ===== MENU UNIQUE — TOUTES LES PAGES =====
@@ -56,9 +51,6 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { label: "Tableau de bord", href: "/commercial", icon: TrendingUp, module: "dashboard-commercial" },
       { label: "Demandes", href: "/leads", icon: Inbox, module: "leads" },
       { label: "Contacts", href: "/contacts", icon: Users, module: "contacts" },
-      { label: "Bois d'Orient", href: "/commercial/bois-dorient", icon: TreePine, module: "bois-dorient" },
-      { label: "Pipeline Devis", href: "/commercial/pipeline", icon: FileText, module: "pipeline" },
-      { label: "Commandes", href: "/commercial/commandes", icon: ShoppingCart, module: "commandes" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },
       { label: "Sur-Mesure", href: "/commercial/sur-mesure", icon: Ruler, module: "sur-mesure" },
@@ -94,8 +86,6 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Administration",
     color: "#F17142",
     items: [
-      { label: "Tableau de bord", href: "/administration", icon: Building2, module: "dashboard-admin" },
-      { label: "Collaborateurs", href: "/administration/collaborateurs", icon: UserCircle, module: "collaborateurs" },
       { label: "Congés & Absences", href: "/administration/conges", icon: CalendarDays, module: "conges" },
       { label: "Pointage", href: "/administration/pointage", icon: Clock, module: "pointage" },
       { label: "Pointage Équipe", href: "/administration/pointage/equipe", icon: Users, module: "pointage-equipe" },
@@ -107,11 +97,17 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Général",
     color: "#F4B400",
     items: [
-      { label: "Aujourd'hui", href: "/aujourd-hui", icon: Sunrise, module: "daily-briefing" },
-      { label: "Messagerie", href: "/messagerie", icon: MessageSquare, module: "messagerie" },
       { label: "Mes Tâches", href: "/commercial/taches", icon: ClipboardList, module: "taches" },
       { label: "Club Tectona", href: "/marketing/club", icon: Crown, module: "club-tectona" },
-      { label: "Liens utiles", href: "/liens-utiles", icon: Link2, module: "liens-utiles" },
+    ],
+  },
+  {
+    id: "ressources",
+    label: "Ressources",
+    color: "#8592A3",
+    defaultCollapsed: true,
+    items: [
+      { label: "Bois d'Orient", href: "/commercial/bois-dorient", icon: TreePine, module: "bois-dorient" },
       { label: "Docs & Aide", href: "/docs", icon: BookOpen, module: "docs" },
     ],
   },

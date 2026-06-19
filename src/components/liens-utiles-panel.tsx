@@ -42,7 +42,7 @@ function getFaviconUrl(url: string): string {
   }
 }
 
-export default function LiensUtilesPage() {
+export function LiensUtilesPanel() {
   const [liens, setLiens] = useState<LienUtile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);

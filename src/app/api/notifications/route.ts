@@ -166,7 +166,7 @@ export async function GET() {
             expiringDevis > 1 ? "s" : ""
           }`,
           severity: "warning",
-          href: "/commercial/pipeline",
+          href: "/commercial",
         });
       }
     } catch {
