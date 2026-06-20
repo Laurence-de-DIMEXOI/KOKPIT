@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import {
   DEFAULT_RESERVOIR_PARAMS,
   moisChargementKey,
+  dateChargement,
   TRELLO_READY_LISTS,
   departures,
   departureKey,
@@ -90,7 +91,6 @@ export async function GET(req: NextRequest) {
   const shipped = new Set(expeditions.map((e) => e.bcdi.toUpperCase()));
 
   const now = new Date();
-  const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   // 1) Items du réservoir (calendrier vs stock magasin)
   const calendarItems: ResItem[] = [];
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
       isSav,
       bdoBcNumber: r.bdoBcNumber,
       moisTheorique,
-      retard: !!moisTheorique && moisTheorique < nowKey,
+      retard: false, // calculé après affectation au départ (retard projeté)
       nbMeubles: r.nbMeubles != null && r.nbMeubles > 0 ? r.nbMeubles : 1,
     };
     if (isStock) { stockItems.push(item); continue; }
@@ -150,6 +150,12 @@ export async function GET(req: NextRequest) {
         const more = departures(deps.length + (si - deps.length) + 2);
         slots.push({ date: more[more.length - 1], items: [], meubles: 0 });
       }
+    }
+    // Retard projeté : la commande sera-t-elle chargée APRÈS sa date limite ?
+    // (date départ assigné > date commande + délai cible de chargement)
+    if (it.dateCommande) {
+      const limite = dateChargement(new Date(it.dateCommande), params);
+      it.retard = slots[si].date.getTime() > limite.getTime();
     }
     slots[si].items.push(it);
     slots[si].meubles += it.nbMeubles;

@@ -64,19 +64,30 @@ async function run(req: NextRequest) {
   }
   const uniqueCards = Array.from(byBcdi.values());
 
-  // 2) Enrichissements locaux : état produit Sellsy (tag) + BCDI déjà expédiés
+  // 2) Enrichissements locaux : état produit + client Sellsy (tag) + BCDI expédiés
   const [ventes, expeditions] = await Promise.all([
-    prisma.vente.findMany({ where: { sellsyInvoiceId: { not: null } }, select: { sellsyInvoiceId: true, etatProduit: true } }),
+    prisma.vente.findMany({
+      where: { sellsyInvoiceId: { not: null } },
+      select: { sellsyInvoiceId: true, etatProduit: true, contact: { select: { nom: true, prenom: true } } },
+    }),
     prisma.impExpedition.findMany({ select: { bcdi: true } }),
   ]);
   const etatByOrderId = new Map<string, string | null>();
-  for (const v of ventes) if (v.sellsyInvoiceId) etatByOrderId.set(v.sellsyInvoiceId, v.etatProduit);
+  const clientByOrderId = new Map<string, string>();
+  for (const v of ventes) {
+    if (!v.sellsyInvoiceId) continue;
+    etatByOrderId.set(v.sellsyInvoiceId, v.etatProduit);
+    const cn = [v.contact?.prenom, v.contact?.nom].filter(Boolean).join(" ").trim();
+    if (cn) clientByOrderId.set(v.sellsyInvoiceId, cn);
+  }
   const shipped = new Set(expeditions.map((e) => e.bcdi.toUpperCase()));
+  const SINCE = new Date("2025-01-01"); // on ne garde que les commandes Sellsy depuis 2025
 
   // 3) Résolution Sellsy par n° BCDI
   const concurrency = 8;
   let resolved = 0;
   let exclusDejaExpedies = 0;
+  let exclusVieux = 0;
   const seen: string[] = [];
   for (let i = 0; i < uniqueCards.length; i += concurrency) {
     await Promise.all(
@@ -90,7 +101,7 @@ async function run(req: NextRequest) {
         let nbMeubles: number | null = null;
         let etatProduit: string | null = null;
         try {
-          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; subject?: string; amounts?: { total_excl_tax?: string }; rows?: Array<{ quantity?: string | number }> }> }>(
+          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; subject?: string; company_name?: string; amounts?: { total_excl_tax?: string }; rows?: Array<{ quantity?: string | number }> }> }>(
             `/orders/search?limit=1`,
             { method: "POST", body: JSON.stringify({ filters: { number: c.bcdi } }) }
           );
@@ -98,6 +109,9 @@ async function run(req: NextRequest) {
           if (o) {
             sellsyOrderId = BigInt(o.id);
             etatProduit = etatByOrderId.get(String(o.id)) ?? null;
+            // Client = Sellsy (raison sociale, sinon contact) — prioritaire sur la carte Trello
+            const sc = (o.company_name || "").trim() || clientByOrderId.get(String(o.id)) || null;
+            if (sc) clientName = sc;
             const ds = o.date || o.created || null;
             dateCommande = ds ? new Date(ds) : null;
             montantHT = o.amounts?.total_excl_tax != null ? Number(o.amounts.total_excl_tax) : null;
@@ -119,6 +133,8 @@ async function run(req: NextRequest) {
           }
         } catch { /* Trello indicatif — on garde la carte sans Sellsy */ }
 
+        // On ne garde que les commandes Sellsy depuis 2025 (date connue et antérieure → exclue)
+        if (dateCommande && dateCommande < SINCE) { exclusVieux++; return; }
         // Déjà parti dans un IMP (reçu) et pas un SAV → exclu
         if ((etatProduit || "").trim().toUpperCase() !== "SAV" && shipped.has(c.bcdi.toUpperCase())) {
           exclusDejaExpedies++;
@@ -160,6 +176,7 @@ async function run(req: NextRequest) {
     cartes: uniqueCards.length,
     resolusSellsy: resolved,
     exclusDejaExpedies,
+    exclusVieux,
     purges: deleted.count,
   });
 }
