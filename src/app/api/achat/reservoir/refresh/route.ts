@@ -88,6 +88,7 @@ async function run(req: NextRequest) {
   let resolved = 0;
   let exclusDejaExpedies = 0;
   let exclusVieux = 0;
+  let exclusSansSellsy = 0;
   const seen: string[] = [];
   for (let i = 0; i < uniqueCards.length; i += concurrency) {
     await Promise.all(
@@ -131,8 +132,10 @@ async function run(req: NextRequest) {
               }
             }
           }
-        } catch { /* Trello indicatif — on garde la carte sans Sellsy */ }
+        } catch { /* Sellsy indisponible */ }
 
+        // Sans correspondance Sellsy → non planifiable (pas de date/meubles) : exclue
+        if (sellsyOrderId == null) { exclusSansSellsy++; return; }
         // On ne garde que les commandes Sellsy depuis 2025 (date connue et antérieure → exclue)
         if (dateCommande && dateCommande < SINCE) { exclusVieux++; return; }
         // Déjà parti dans un IMP (reçu) et pas un SAV → exclu
@@ -177,6 +180,7 @@ async function run(req: NextRequest) {
     resolusSellsy: resolved,
     exclusDejaExpedies,
     exclusVieux,
+    exclusSansSellsy,
     purges: deleted.count,
   });
 }
