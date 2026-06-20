@@ -34,30 +34,37 @@ interface ResItem {
   nbMeubles: number;
 }
 
-// Contenu de l'IMP-618 (parti le 14 juin 2026) — lu depuis le packing JSON local,
-// agrégé par BCDI (nb meubles = somme des qty des lignes).
+// Contenu de l'IMP-618 (parti le 14 juin 2026) — lu depuis le packing JSON
+// enrichi (client / montant / date via Sellsy, généré hors-ligne une fois).
+// Repli sur le JSON brut (bcdi + qty) si l'enrichi est absent.
 async function loadImp618(origin: string): Promise<ResItem[]> {
-  try {
-    let raw: string;
-    const fp = path.join(process.cwd(), "public", "data", "container-caau9910103.json");
-    try { raw = await fs.readFile(fp, "utf-8"); }
-    catch { raw = await (await fetch(`${origin}/data/container-caau9910103.json`, { cache: "no-store" })).text(); }
-    const json = JSON.parse(raw) as { items?: Array<{ bcdi?: string; qty?: number; description?: string }> };
-    const byBcdi = new Map<string, { nb: number; desc: string }>();
-    for (const it of json.items || []) {
-      if (!it.bcdi) continue;
-      const k = it.bcdi.toUpperCase();
-      const prev = byBcdi.get(k) || { nb: 0, desc: it.description || "" };
-      prev.nb += Number(it.qty ?? 1) || 1;
-      byBcdi.set(k, prev);
-    }
-    return [...byBcdi.entries()].map(([bcdi, v]) => ({
-      bcdi, client: null, dateCommande: null, montantHT: null,
-      trelloStatut: "Sent", pret: true, found: true, etatProduit: null,
-      isStock: false, forcedStock: false, isSav: false, bdoBcNumber: null,
-      moisTheorique: null, retard: false, nbMeubles: v.nb,
-    }));
-  } catch { return []; }
+  const readJson = async (file: string): Promise<any | null> => {
+    try {
+      const fp = path.join(process.cwd(), "public", "data", file);
+      try { return JSON.parse(await fs.readFile(fp, "utf-8")); }
+      catch { return JSON.parse(await (await fetch(`${origin}/data/${file}`, { cache: "no-store" })).text()); }
+    } catch { return null; }
+  };
+  const mk = (o: Partial<ResItem> & { bcdi: string; nbMeubles: number }): ResItem => ({
+    client: null, dateCommande: null, montantHT: null, trelloStatut: "Sent", pret: true,
+    found: true, etatProduit: null, isStock: false, forcedStock: false, isSav: false,
+    bdoBcNumber: null, moisTheorique: null, retard: false, ...o,
+  });
+
+  const enr = await readJson("container-caau9910103-enriched.json");
+  if (enr?.items?.length) {
+    return enr.items.map((it: { bcdi: string; nbMeubles?: number; client?: string | null; montantHT?: number | null; dateCommande?: string | null; bdoBcNumber?: string | null }) =>
+      mk({ bcdi: it.bcdi, nbMeubles: it.nbMeubles && it.nbMeubles > 0 ? it.nbMeubles : 1, client: it.client ?? null, montantHT: it.montantHT ?? null, dateCommande: it.dateCommande ?? null, bdoBcNumber: it.bdoBcNumber ?? null }));
+  }
+  // Repli : JSON brut agrégé par BCDI
+  const json = await readJson("container-caau9910103.json");
+  if (!json?.items) return [];
+  const byBcdi = new Map<string, number>();
+  for (const it of json.items as Array<{ bcdi?: string; qty?: number }>) {
+    if (!it.bcdi) continue;
+    byBcdi.set(it.bcdi.toUpperCase(), (byBcdi.get(it.bcdi.toUpperCase()) || 0) + (Number(it.qty ?? 1) || 1));
+  }
+  return [...byBcdi.entries()].map(([bcdi, nb]) => mk({ bcdi, nbMeubles: nb }));
 }
 
 /**

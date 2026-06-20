@@ -1,0 +1,502 @@
+{
+  "meta": {
+    "contNo": "CAAU9910103",
+    "depart": "2026-06-14",
+    "departLabel": "14 juin 2026",
+    "origine": "Indonésie",
+    "arrivee": "2026-07-06",
+    "arriveeLabel": "6 juillet 2026",
+    "destination": "La Réunion",
+    "source": "Elaury"
+  },
+  "items": [
+    {
+      "bcdi": "BCDI-05057",
+      "nbMeubles": 1,
+      "client": "M Alain ALIAMUS",
+      "montantHT": 2267.74,
+      "dateCommande": "2025-05-09T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05123",
+      "nbMeubles": 1,
+      "client": "Mme Nathalie CALPETARD",
+      "montantHT": 1493.09,
+      "dateCommande": "2025-05-14T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05633",
+      "nbMeubles": 1,
+      "client": "Mme Agathe SZMACINSKI",
+      "montantHT": 2119.82,
+      "dateCommande": "2026-02-10T00:00:00.000Z",
+      "bdoBcNumber": "BC-11682-06052025"
+    },
+    {
+      "bcdi": "BCDI-05095",
+      "nbMeubles": 2,
+      "client": "Mme Evelyne CLAIN",
+      "montantHT": 2044.52,
+      "dateCommande": "2025-05-11T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05066",
+      "nbMeubles": 1,
+      "client": "M Jérome RICQUEBOURG",
+      "montantHT": 800.92,
+      "dateCommande": "2025-05-09T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05181",
+      "nbMeubles": 1,
+      "client": "M Pascal LAURET",
+      "montantHT": 1972.35,
+      "dateCommande": "2025-05-31T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05146",
+      "nbMeubles": 12,
+      "client": "Mme Christelle JALA",
+      "montantHT": 6543.78,
+      "dateCommande": "2025-05-17T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05022",
+      "nbMeubles": 9,
+      "client": "David LALLEMAND",
+      "montantHT": 16129.03,
+      "dateCommande": "2025-05-04T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05319",
+      "nbMeubles": 1,
+      "client": "Mme Marine GOMARD",
+      "montantHT": 1252.53,
+      "dateCommande": "2025-08-16T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05045",
+      "nbMeubles": 14,
+      "client": "M Patrice BOULEVART",
+      "montantHT": 17032.26,
+      "dateCommande": "2025-05-08T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-04989",
+      "nbMeubles": 10,
+      "client": "M Roberto DEVEAUX",
+      "montantHT": 12350.23,
+      "dateCommande": "2025-05-03T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05102",
+      "nbMeubles": 1,
+      "client": "Mme Llaika Mohammad GHIVALLA",
+      "montantHT": 737.33,
+      "dateCommande": "2025-05-11T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05109",
+      "nbMeubles": 1,
+      "client": "Mme Nadia BECHATA",
+      "montantHT": 1548.39,
+      "dateCommande": "2025-05-13T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05132",
+      "nbMeubles": 3,
+      "client": "Mme Carole ROUSSEL",
+      "montantHT": 1677.42,
+      "dateCommande": "2025-05-16T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05124",
+      "nbMeubles": 2,
+      "client": "M Johnny CHAMAND",
+      "montantHT": 1225.81,
+      "dateCommande": "2025-05-14T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05149",
+      "nbMeubles": 1,
+      "client": "Vincent LEBON",
+      "montantHT": 894.01,
+      "dateCommande": "2025-05-17T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05032",
+      "nbMeubles": 2,
+      "client": "M Jérome LIESENFELT",
+      "montantHT": 811.06,
+      "dateCommande": "2025-05-07T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05159",
+      "nbMeubles": 1,
+      "client": "M Iqbal OMARJEE",
+      "montantHT": 792.63,
+      "dateCommande": "2025-05-24T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05175",
+      "nbMeubles": 1,
+      "client": "Mme Gwen LE GRATIET",
+      "montantHT": 700.46,
+      "dateCommande": "2025-05-30T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05176",
+      "nbMeubles": 2,
+      "client": "Mme Murielle Mario COCHARD",
+      "montantHT": 1465.44,
+      "dateCommande": "2025-05-30T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05134",
+      "nbMeubles": 4,
+      "client": "M Jospeh Henri PAYET",
+      "montantHT": 589.86,
+      "dateCommande": "2025-05-16T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05106",
+      "nbMeubles": 4,
+      "client": "SAS SUPERETTE DU 15eme",
+      "montantHT": 1006.45,
+      "dateCommande": "2025-05-11T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05145",
+      "nbMeubles": 5,
+      "client": "Mme Laetitia HOARAU",
+      "montantHT": 1474.65,
+      "dateCommande": "2025-05-17T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05078",
+      "nbMeubles": 2,
+      "client": "Mme Sylvie nallet",
+      "montantHT": 488.48,
+      "dateCommande": "2025-05-10T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05150",
+      "nbMeubles": 6,
+      "client": "M Salima AKHOUN",
+      "montantHT": 1410.14,
+      "dateCommande": "2025-05-17T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05190",
+      "nbMeubles": 1,
+      "client": "M Tatiana Adrien FONTAINE INFANTE",
+      "montantHT": 645.16,
+      "dateCommande": "2025-06-05T00:00:00.000Z",
+      "bdoBcNumber": "BC-11745-23052025"
+    },
+    {
+      "bcdi": "BCDI-05107",
+      "nbMeubles": 3,
+      "client": "Mme Evelyne Parvedy",
+      "montantHT": 3686.64,
+      "dateCommande": "2025-05-11T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05232",
+      "nbMeubles": 10,
+      "client": "Frederic RAMELET",
+      "montantHT": 7834.1,
+      "dateCommande": "2025-06-27T00:00:00.000Z",
+      "bdoBcNumber": "BC-11727-11052025"
+    },
+    {
+      "bcdi": "BCDI-05218",
+      "nbMeubles": 1,
+      "client": "M Jean Daniel GRONDIN",
+      "montantHT": 994.47,
+      "dateCommande": "2025-06-24T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05224",
+      "nbMeubles": 2,
+      "client": "Mme Mathilde GOUMANE",
+      "montantHT": 331.8,
+      "dateCommande": "2025-06-26T00:00:00.000Z",
+      "bdoBcNumber": "BC-11763-20062025"
+    },
+    {
+      "bcdi": "BCDI-05225",
+      "nbMeubles": 1,
+      "client": "Mme Nadia BERROUACHDI",
+      "montantHT": 1290.32,
+      "dateCommande": "2025-06-26T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05251",
+      "nbMeubles": 2,
+      "client": "Mme Clémencia GERARD",
+      "montantHT": 395.39,
+      "dateCommande": "2025-07-11T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05253",
+      "nbMeubles": 5,
+      "client": "M Stephane INFANTE",
+      "montantHT": 4792.63,
+      "dateCommande": "2025-07-11T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05256",
+      "nbMeubles": 4,
+      "client": "Mme Amethyste CAZAL",
+      "montantHT": 1686.64,
+      "dateCommande": "2025-07-11T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05260",
+      "nbMeubles": 1,
+      "client": "Mme Alice Victor Vincenot VERDIER",
+      "montantHT": 875.58,
+      "dateCommande": "2025-07-12T00:00:00.000Z",
+      "bdoBcNumber": "BC-11782-11072025"
+    },
+    {
+      "bcdi": "BCDI-05491",
+      "nbMeubles": 1,
+      "client": "Mme Sophie LALLEMAND",
+      "montantHT": 0,
+      "dateCommande": "2025-10-23T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05209",
+      "nbMeubles": 5,
+      "client": "M Claude GONTHIER",
+      "montantHT": 3999.08,
+      "dateCommande": "2025-06-14T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05036",
+      "nbMeubles": 7,
+      "client": "Mme Sabrina NARAYANIN",
+      "montantHT": 6632.26,
+      "dateCommande": "2025-05-08T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05196",
+      "nbMeubles": 1,
+      "client": "Mme Karine DESILES",
+      "montantHT": 0,
+      "dateCommande": "2025-06-06T00:00:00.000Z",
+      "bdoBcNumber": "BC-11752-03062025"
+    },
+    {
+      "bcdi": "BCDI-05198",
+      "nbMeubles": 5,
+      "client": "M Regis MOREL",
+      "montantHT": 4599.08,
+      "dateCommande": "2025-06-10T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05269",
+      "nbMeubles": 8,
+      "client": "Mme Presila SAVRIMOUTOU",
+      "montantHT": 1382.49,
+      "dateCommande": "2025-07-18T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05278",
+      "nbMeubles": 1,
+      "client": "M Pierre CLERTE",
+      "montantHT": 902.3,
+      "dateCommande": "2025-07-25T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05309",
+      "nbMeubles": 1,
+      "client": "Mme Marie Noelle PERRIN",
+      "montantHT": 0,
+      "dateCommande": "2025-08-12T00:00:00.000Z",
+      "bdoBcNumber": "BC-11801-08082025"
+    },
+    {
+      "bcdi": "BCDI-05365",
+      "nbMeubles": 6,
+      "client": "Mme Virginie LE ROUX",
+      "montantHT": 233.18,
+      "dateCommande": "2025-09-04T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05366",
+      "nbMeubles": 1,
+      "client": "Mme Delphine NEHOUA",
+      "montantHT": 1221.2,
+      "dateCommande": "2025-09-05T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05368",
+      "nbMeubles": 6,
+      "client": "Mme Anne leclerc",
+      "montantHT": 474.88,
+      "dateCommande": "2025-09-05T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05388",
+      "nbMeubles": 1,
+      "client": "Mme Francoise VINCENT",
+      "montantHT": 935.48,
+      "dateCommande": "2025-09-13T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05403",
+      "nbMeubles": 10,
+      "client": "ORDER DIMEXOI",
+      "montantHT": 0,
+      "dateCommande": "2025-09-20T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05441",
+      "nbMeubles": 3,
+      "client": "Mme Monique Nicole BENARD",
+      "montantHT": 1741.94,
+      "dateCommande": "2025-10-07T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05475",
+      "nbMeubles": 1,
+      "client": "M Nelson MOREL",
+      "montantHT": 0,
+      "dateCommande": "2025-10-18T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05492",
+      "nbMeubles": 4,
+      "client": "M Thierry Et Brigitte GOUTORBE",
+      "montantHT": 3031.34,
+      "dateCommande": "2025-10-24T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05511",
+      "nbMeubles": 1,
+      "client": "Valabjee ZAGJRAN",
+      "montantHT": 1004.61,
+      "dateCommande": "2025-11-15T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05553",
+      "nbMeubles": 6,
+      "client": "M Philippe TAFA",
+      "montantHT": 903.26,
+      "dateCommande": "2025-12-04T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05562",
+      "nbMeubles": 1,
+      "client": "M Maximilien ANAMOUTOU",
+      "montantHT": 1198.16,
+      "dateCommande": "2025-12-12T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05598",
+      "nbMeubles": 1,
+      "client": "M Sarl META -FORGE",
+      "montantHT": 1152.07,
+      "dateCommande": "2026-01-14T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "STOCK",
+      "nbMeubles": 2,
+      "client": null,
+      "montantHT": null,
+      "dateCommande": null,
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05012",
+      "nbMeubles": 4,
+      "client": "M Annabelle Zettor",
+      "montantHT": 903.87,
+      "dateCommande": "2025-05-06T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05349",
+      "nbMeubles": 16,
+      "client": "M Claude GONTHIER",
+      "montantHT": 409.22,
+      "dateCommande": "2025-08-30T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05205",
+      "nbMeubles": 1,
+      "client": "Sebastien Et Ingrid LEGALLAIS",
+      "montantHT": 0,
+      "dateCommande": "2025-06-14T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05294",
+      "nbMeubles": 1,
+      "client": "M Sébastien Gourama",
+      "montantHT": 0,
+      "dateCommande": "2025-08-05T00:00:00.000Z",
+      "bdoBcNumber": null
+    },
+    {
+      "bcdi": "BCDI-05808",
+      "nbMeubles": 2,
+      "client": "Mme Léa HOARAU",
+      "montantHT": 0,
+      "dateCommande": "2026-05-30T00:00:00.000Z",
+      "bdoBcNumber": null
+    }
+  ]
+}
