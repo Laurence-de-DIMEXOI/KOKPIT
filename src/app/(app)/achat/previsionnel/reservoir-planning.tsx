@@ -202,6 +202,7 @@ export function ReservoirPlanning() {
       <td className="px-3 py-2 font-mono text-xs font-semibold text-[var(--color-active)] whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
           {it.bcdi}
+          {prepSet.has(it.bcdi) && <span title={`Sélectionnée pour la préparation ${PREP_IMP}`} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--color-active)] text-white whitespace-nowrap">{PREP_IMP}</span>}
           {it.bdoBcNumber && <span title={`Bois d'Orient — ${it.bdoBcNumber}`} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 whitespace-nowrap">BO {it.bdoBcNumber}</span>}
           {it.isSav && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 whitespace-nowrap">SAV</span>}
           {it.isStock && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">Stock magasin{it.forcedStock ? " (manuel)" : ""}</span>}
