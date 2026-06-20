@@ -48,14 +48,14 @@ export const TRELLO_RESERVOIR_LISTS = [
   "In Warehouse",
   "Finishing",
   "Ready to Sent",
-  "Problems on furniture",
   "Pending BCDI",
 ];
 
 // Cartes physiquement prêtes / quasi prêtes à charger (priorité container).
 export const TRELLO_READY_LISTS = ["In Warehouse", "Finishing", "Ready to Sent"];
 
-export const TRELLO_EXCLUDED_LISTS = ["Sent", "Cancelled BCDI"];
+// "Problems on furniture" exclu : cartes bloquées (défaut), pas à planifier.
+export const TRELLO_EXCLUDED_LISTS = ["Sent", "Cancelled BCDI", "Problems on furniture"];
 
 // ── Calendrier de départs (40ft HC toutes les 6 semaines) ──────────────────
 // IMP-618 est parti le 14 juin 2026 ; un départ toutes les 6 semaines ensuite.
