@@ -6,7 +6,13 @@ import {
   listOrders,
   searchIndividuals,
   sellsyFetch,
+  getEstimate,
 } from "@/lib/sellsy";
+import {
+  getUniversByCategoryId,
+  getUniversFromDescription,
+  computeDevisUnivers,
+} from "@/data/univers-produit";
 import {
   syncClubCommandes,
   syncClubTags,
@@ -20,7 +26,7 @@ import { recomputeLeadAttribution } from "@/lib/attribution-tunnel";
 export const maxDuration = 800; // Vercel Pro max
 
 const cronSchema = z.object({
-  job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club"]),
+  job: z.enum(["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club", "enrich-devis"]),
 });
 
 // Helper : récupère l'état produit + statut brut depuis Sellsy pour 1 doc
@@ -114,6 +120,8 @@ export async function POST(request: NextRequest) {
         return await syncSellsyJob();
       case "sync-club":
         return await syncClubJob();
+      case "enrich-devis":
+        return await enrichDevisJob();
       default:
         return NextResponse.json(
           { error: "Job invalide" },
@@ -621,6 +629,108 @@ async function syncClubJob() {
   }
 }
 
+// Enrich devis: fetch Sellsy estimate rows → DevisLigne + univers
+async function enrichDevisJob() {
+  try {
+    const BATCH = 50;
+    const TIME_BUDGET_MS = 10 * 60 * 1000;
+    const startTime = Date.now();
+    let enriched = 0, skipped = 0, errors = 0;
+
+    function stripHtml(html: string): string {
+      return html.replace(/<[^>]*>/g, "").trim();
+    }
+
+    async function resolveCategory(sellsyItemId: number | null): Promise<number | null> {
+      if (!sellsyItemId) return null;
+      const cached = await prisma.$queryRawUnsafe<{ categoryId: number | null }[]>(
+        `SELECT "categoryId" FROM sellsy_item_cache WHERE id = $1 LIMIT 1`,
+        sellsyItemId
+      );
+      return cached[0]?.categoryId ?? null;
+    }
+
+    while (true) {
+      if (Date.now() - startTime > TIME_BUDGET_MS) break;
+
+      const devisList = await prisma.devis.findMany({
+        where: { sellsyQuoteId: { not: null }, lignes: { none: {} } },
+        select: { id: true, sellsyQuoteId: true },
+        orderBy: { createdAt: "desc" },
+        take: BATCH,
+      });
+
+      if (devisList.length === 0) break;
+
+      for (const devis of devisList) {
+        try {
+          const sellsyId = parseInt(devis.sellsyQuoteId!, 10);
+          if (isNaN(sellsyId)) { skipped++; continue; }
+
+          const estimate = await getEstimate(sellsyId) as any;
+          const rows = estimate?.rows || [];
+          if (rows.length === 0) { skipped++; continue; }
+
+          const lignesData: any[] = [];
+          for (const row of rows) {
+            if (row.type !== "catalog") continue;
+            const sellsyItemId = row.related?.id ?? null;
+            const categoryId = await resolveCategory(sellsyItemId);
+            const desc = stripHtml(row.description);
+            const univers = getUniversByCategoryId(categoryId) ?? getUniversFromDescription(desc);
+
+            lignesData.push({
+              id: `dl_${devis.id}_${row.id}`,
+              devisId: devis.id,
+              sellsyRowId: row.id,
+              reference: row.reference || null,
+              description: desc,
+              quantite: parseFloat(row.quantity) || 1,
+              prixUnitaireHT: parseFloat(row.unit_amount) || 0,
+              montantTTC: parseFloat(row.amount_tax_inc) || 0,
+              sellsyItemId,
+              categoryId,
+              univers,
+            });
+          }
+
+          if (lignesData.length > 0) {
+            const devisUnivers = computeDevisUnivers(lignesData.map((l) => l.univers));
+            await prisma.$transaction([
+              prisma.devisLigne.createMany({ data: lignesData }),
+              prisma.devis.update({ where: { id: devis.id }, data: { univers: devisUnivers } }),
+            ]);
+            enriched++;
+          } else {
+            skipped++;
+          }
+
+          await new Promise((r) => setTimeout(r, 120));
+        } catch (err: any) {
+          errors++;
+        }
+      }
+    }
+
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    console.log(`[Cron enrich-devis] ${enriched} enrichis, ${skipped} ignorés, ${errors} erreurs (${elapsed}s)`);
+
+    const remaining = await prisma.devis.count({
+      where: { sellsyQuoteId: { not: null }, lignes: { none: {} } },
+    });
+
+    return NextResponse.json({
+      job: "enrich-devis",
+      status: "completed",
+      message: `${enriched} devis enrichis (${skipped} ignorés, ${errors} erreurs) en ${elapsed}s`,
+      details: { enriched, skipped, errors, remaining, elapsed },
+    });
+  } catch (error) {
+    console.error("Cron enrich-devis error:", error);
+    return NextResponse.json({ error: "Erreur enrich-devis" }, { status: 500 });
+  }
+}
+
 // GET - Vercel Cron handler (Vercel appelle en GET) + health check
 export async function GET(request: NextRequest) {
   const jobParam = request.nextUrl.searchParams.get("job");
@@ -629,7 +739,7 @@ export async function GET(request: NextRequest) {
   if (!jobParam) {
     return NextResponse.json({
       status: "ok",
-      availableJobs: ["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club"],
+      availableJobs: ["sla-check", "relance", "cross-sell", "sync-sellsy", "sync-club", "enrich-devis"],
       message: "Cron endpoint is ready. Use GET/POST with job parameter.",
     });
   }
@@ -654,6 +764,7 @@ export async function GET(request: NextRequest) {
       case "cross-sell": return await crossSellJob();
       case "sync-sellsy": return await syncSellsyJob();
       case "sync-club": return await syncClubJob();
+      case "enrich-devis": return await enrichDevisJob();
       default: return NextResponse.json({ error: "Job invalide" }, { status: 400 });
     }
   } catch (error) {

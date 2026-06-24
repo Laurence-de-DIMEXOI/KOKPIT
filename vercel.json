@@ -59,6 +59,10 @@
     {
       "path": "/api/achat/reservoir/refresh",
       "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron?job=enrich-devis",
+      "schedule": "0 3 * * *"
     }
   ]
 }

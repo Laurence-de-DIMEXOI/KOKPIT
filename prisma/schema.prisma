@@ -377,6 +377,7 @@ model Devis {
   statutSellsy  String? // status brut Sellsy (draft, sent, accepted, refused, expired…)
   etatProduit   String? // Custom field "Etat des produit" : EN STOCK / SUR COMMANDE / ARRIVAGE M+1/2/3 / 1 PARTIE EN STOCK - 1 PARTIE SUR COMMANDE / SAV / RETOUR …
   surMesure     Boolean? // Custom field "Sur-mesure" Sellsy
+  univers       String? // Univers principal déduit des lignes : SDB, CHAMBRE, SEJOUR, CUISINE, BUREAU, EXTERIEUR, DECO
   dateDevisSellsy DateTime? // Date du devis côté Sellsy (≠ createdAt Prisma qui est l'import KOKPIT)
   dateEnvoi     DateTime?
   dateRelance   DateTime?
@@ -384,13 +385,36 @@ model Devis {
   updatedAt     DateTime    @updatedAt
 
   // Relations
-  lead    Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  lead    Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contact Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
   vente   Vente?
+  lignes  DevisLigne[]
 
   @@index([leadId])
   @@index([contactId])
   @@index([statut])
+  @@index([univers])
+}
+
+model DevisLigne {
+  id             String   @id @default(cuid())
+  devisId        String
+  sellsyRowId    Int?
+  reference      String?
+  description    String
+  quantite       Float    @default(1)
+  prixUnitaireHT Float    @default(0)
+  montantTTC     Float    @default(0)
+  sellsyItemId   Int?
+  categoryId     Int?
+  univers        String?
+  createdAt      DateTime @default(now())
+
+  devis Devis @relation(fields: [devisId], references: [id], onDelete: Cascade)
+
+  @@index([devisId])
+  @@index([univers])
+  @@index([sellsyItemId])
 }
 
 model Vente {

@@ -9,6 +9,11 @@ import {
   sellsyFetch,
 } from "@/lib/sellsy";
 import {
+  getUniversByCategoryId,
+  getUniversFromDescription,
+  computeDevisUnivers,
+} from "@/data/univers-produit";
+import {
   upsertDocLink,
   upsertInvoicePaid,
 } from "@/lib/sellsy-webhook-handler";
@@ -528,7 +533,7 @@ async function syncEstimate(estimateId: string) {
     expired: "EXPIRE",
   };
 
-  await prisma.devis.upsert({
+  const devis = await prisma.devis.upsert({
     where: { sellsyQuoteId: String(estimateId) },
     create: {
       contactId: contact.id,
@@ -546,7 +551,60 @@ async function syncEstimate(estimateId: string) {
     },
   });
 
+  // Enrichir les lignes produit + univers
+  enrichDevisLignes(devis.id, e).catch(() => {});
+
   checkAndNotifyScoring(contact.id).catch(() => {});
+}
+
+async function enrichDevisLignes(devisId: string, estimate: any) {
+  const existing = await prisma.devisLigne.count({ where: { devisId } });
+  if (existing > 0) return;
+
+  const rows = estimate?.rows || [];
+  if (rows.length === 0) return;
+
+  function stripHtml(html: string): string {
+    return html.replace(/<[^>]*>/g, "").trim();
+  }
+
+  const lignesData: any[] = [];
+  for (const row of rows) {
+    if (row.type !== "catalog") continue;
+    const sellsyItemId: number | null = row.related?.id ?? null;
+    let categoryId: number | null = null;
+    if (sellsyItemId) {
+      const cached = await prisma.$queryRawUnsafe<{ categoryId: number | null }[]>(
+        `SELECT "categoryId" FROM sellsy_item_cache WHERE id = $1 LIMIT 1`,
+        sellsyItemId
+      );
+      categoryId = cached[0]?.categoryId ?? null;
+    }
+    const desc = stripHtml(row.description);
+    const univers = getUniversByCategoryId(categoryId) ?? getUniversFromDescription(desc);
+
+    lignesData.push({
+      id: `dl_${devisId}_${row.id}`,
+      devisId,
+      sellsyRowId: row.id,
+      reference: row.reference || null,
+      description: desc,
+      quantite: parseFloat(row.quantity) || 1,
+      prixUnitaireHT: parseFloat(row.unit_amount) || 0,
+      montantTTC: parseFloat(row.amount_tax_inc) || 0,
+      sellsyItemId,
+      categoryId,
+      univers,
+    });
+  }
+
+  if (lignesData.length > 0) {
+    const devisUnivers = computeDevisUnivers(lignesData.map((l) => l.univers));
+    await prisma.$transaction([
+      prisma.devisLigne.createMany({ data: lignesData }),
+      prisma.devis.update({ where: { id: devisId }, data: { univers: devisUnivers } }),
+    ]);
+  }
 }
 
 async function syncInvoice(invoiceId: string) {

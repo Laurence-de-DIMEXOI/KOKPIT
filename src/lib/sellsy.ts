@@ -193,6 +193,22 @@ export interface SellsyRelated {
   type: string; // "individual" | "company" | "contact"
 }
 
+export interface SellsyEstimateRow {
+  id: number;
+  type: string;
+  reference: string;
+  description: string;
+  quantity: string;
+  unit_amount: string;
+  amount_tax_inc: string;
+  amount_tax_exc: string;
+  related?: {
+    id: number;
+    type: string;
+    declination_id?: number;
+  };
+}
+
 export interface SellsyEstimate {
   id: number;
   number: string;
@@ -209,6 +225,7 @@ export interface SellsyEstimate {
   assigned_staff_id?: number;
   amounts?: SellsyAmounts;
   related?: SellsyRelated[];
+  rows?: SellsyEstimateRow[];
   _embed?: {
     company?: { id: number; name: string };
     contact?: { id: number; first_name: string; last_name: string };

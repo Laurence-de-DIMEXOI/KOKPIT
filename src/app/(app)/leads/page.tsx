@@ -10,7 +10,7 @@ import {
   Inbox, TrendingUp, Clock, AlertCircle, RefreshCw, Loader2,
   ChevronDown, ChevronUp, Package, Phone, Mail, MapPin,
   Euro, User, Calendar, MessageSquare, Tag,
-  CheckCircle, XCircle, FileText, Search, Trash2,
+  CheckCircle, XCircle, FileText, Trash2,
   ExternalLink, ShoppingCart, Send,
 } from "lucide-react";
 
@@ -61,42 +61,6 @@ interface Demande {
   dateDemande?: string | null;
 }
 
-interface SellsyMatch {
-  articleDemande: {
-    nom: string;
-    categorie?: string;
-    finition?: string;
-    quantite: number;
-  };
-  bestMatch: {
-    id: number;
-    name: string;
-    reference: string;
-    prixHT: number;
-    prixTTC: number;
-    score: number;
-  } | null;
-  matchesSellsy: {
-    id: number;
-    name: string;
-    reference: string;
-    prixHT: number;
-    prixTTC: number;
-    score: number;
-    matchType: string;
-  }[];
-  estimatedValueHT: number;
-  estimatedValueTTC: number;
-}
-
-interface SellsyResult {
-  success: boolean;
-  matches: SellsyMatch[];
-  totalEstimatedHT: number;
-  totalEstimatedTTC: number;
-  catalogSize: number;
-  error?: string;
-}
 
 // ===== COMPONENT =====
 
@@ -115,8 +79,6 @@ export default function LeadsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [sellsyResults, setSellsyResults] = useState<Record<string, SellsyResult>>({});
-  const [sellsyLoading, setSellsyLoading] = useState<Record<string, boolean>>({});
   const [statutFilter, setStatutFilter] = useState<string>("ALL");
   // sellsyDocs supprimé — données devis/ventes directement dans chaque demande (via DB)
   const [relanceLoading, setRelanceLoading] = useState<Record<string, boolean>>({});
@@ -165,24 +127,6 @@ export default function LeadsPage() {
     return () => clearInterval(interval);
   }, [fetchDemandes]);
 
-  // ===== SELLSY CATALOGUE MATCH =====
-
-  const fetchSellsyMatch = async (demandeId: string) => {
-    if (sellsyResults[demandeId] || sellsyLoading[demandeId]) return;
-    setSellsyLoading((prev) => ({ ...prev, [demandeId]: true }));
-    try {
-      const res = await fetch(`/api/demandes/${demandeId}/match-sellsy`);
-      const data = await res.json();
-      setSellsyResults((prev) => ({ ...prev, [demandeId]: data }));
-    } catch (err) {
-      setSellsyResults((prev) => ({
-        ...prev,
-        [demandeId]: { success: false, matches: [], totalEstimatedHT: 0, totalEstimatedTTC: 0, catalogSize: 0, error: "Erreur de connexion" },
-      }));
-    } finally {
-      setSellsyLoading((prev) => ({ ...prev, [demandeId]: false }));
-    }
-  };
 
   // ===== UPDATE STATUT =====
 
@@ -266,7 +210,6 @@ export default function LeadsPage() {
       setExpandedId(null);
     } else {
       setExpandedId(id);
-      fetchSellsyMatch(id);
     }
   };
 
@@ -281,12 +224,6 @@ export default function LeadsPage() {
       PERDU: { bg: "bg-[#EF4444]/10", text: "text-[#EF4444]", ring: "ring-[#EF4444]/30" },
     };
     return colors[statut] || { bg: "bg-gray-500/10", text: "text-gray-400", ring: "ring-gray-500/30" };
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-[var(--color-active)]";
-    if (score >= 50) return "text-[var(--color-active)]/60";
-    return "text-[var(--color-active)]/40";
   };
 
   const nomComplet = (d: Demande) => `${d.prenom || ""} ${d.nom || ""}`.trim();
@@ -367,7 +304,7 @@ export default function LeadsPage() {
             Demandes de Prix
           </h1>
           <p className="text-cockpit-secondary text-sm">
-            Gérez les demandes · Correspondance catalogue Sellsy
+            Gérez les demandes de prix
           </p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
@@ -509,8 +446,6 @@ export default function LeadsPage() {
           filteredDemandes.map((demande) => {
             const isExpanded = expandedId === demande.id;
             const statusColor = getStatusColor(demande.statut);
-            const sellsy = sellsyResults[demande.id];
-            const sellsyIsLoading = sellsyLoading[demande.id];
             const articles = demande.articles as Article[] | null;
             const slaExpired = isSlaExpired(demande.slaDeadline);
             // SLA masqué si : déjà traité (DEVIS/VENTE), perdu (PERDU), ou legacy (< 7 mars 2026)
@@ -727,118 +662,7 @@ export default function LeadsPage() {
                         )}
                       </div>
 
-                      {/* Col 2 — Correspondance Catalogue Sellsy */}
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
-                          <Search className="w-4 h-4 text-[var(--color-active)]" />
-                          Correspondance Catalogue Sellsy
-                        </h3>
-
-                        {sellsyIsLoading ? (
-                          <div className="flex items-center gap-2 text-cockpit-secondary text-sm py-4">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Recherche dans le catalogue Sellsy...
-                          </div>
-                        ) : sellsy?.error ? (
-                          <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm">
-                            {sellsy.error}
-                          </div>
-                        ) : sellsy ? (
-                          <div className="space-y-3">
-                            {/* Montant réel (devis/BDC) depuis la DB */}
-                            {(() => {
-                              const dbAmt = demande.venteMontant || demande.devisMontant;
-                              const docNum = demande.devisRef;
-                              if (dbAmt) {
-                                return (
-                                  <div className="bg-[#03C3EC]/10 border border-[#03C3EC]/30 p-4 rounded-lg">
-                                    <div className="text-xs text-[#03C3EC] font-semibold mb-1">MONTANT SELLSY {docNum && `· ${docNum}`}</div>
-                                    <div className="text-2xl font-bold text-[#03C3EC]">
-                                      {Number(dbAmt).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}€ <span className="text-sm font-normal">HT</span>
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              if (sellsy.totalEstimatedTTC > 0) {
-                                return (
-                                  <div className="bg-[var(--color-active)]/10 border border-[var(--color-active)]/30 p-4 rounded-lg">
-                                    <div className="text-xs text-[var(--color-active)] font-semibold mb-1">ESTIMATION CATALOGUE</div>
-                                    <div className="text-2xl font-bold text-[var(--color-active)]">
-                                      {Number(sellsy.totalEstimatedTTC).toFixed(2)}€ <span className="text-sm font-normal">TTC</span>
-                                    </div>
-                                    <div className="text-xs text-cockpit-secondary mt-1">
-                                      {Number(sellsy.totalEstimatedHT).toFixed(2)}€ HT · {sellsy.catalogSize} produits analysés
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
-
-                            {/* Détails par article */}
-                            {sellsy.matches.map((m, i) => (
-                              <div key={i} className="bg-cockpit-dark p-3 rounded-lg">
-                                <div className="text-xs text-cockpit-secondary mb-1.5">
-                                  {m.articleDemande.nom} (x{m.articleDemande.quantite})
-                                </div>
-                                {m.bestMatch ? (
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-sm text-cockpit-primary font-medium">
-                                        {m.bestMatch.name}
-                                      </span>
-                                      <span className={`text-xs font-bold ${getScoreColor(m.bestMatch.score)}`}>
-                                        {m.bestMatch.score}%
-                                      </span>
-                                    </div>
-                                    {m.bestMatch.reference && (
-                                      <div className="text-xs text-cockpit-secondary">
-                                        Réf: {m.bestMatch.reference}
-                                      </div>
-                                    )}
-                                    <div className="flex items-center justify-between text-sm">
-                                      <span className="text-cockpit-secondary">
-                                        {Number(m.bestMatch.prixHT).toFixed(2)}€ HT
-                                      </span>
-                                      <span className="text-[var(--color-active)] font-semibold">
-                                        {Number(m.estimatedValueTTC).toFixed(2)}€ TTC
-                                      </span>
-                                    </div>
-                                    {/* Alternatives */}
-                                    {(m.matchesSellsy?.length || 0) > 1 && (
-                                      <details className="mt-1">
-                                        <summary className="text-[10px] text-cockpit-secondary cursor-pointer hover:text-cockpit-primary">
-                                          {m.matchesSellsy!.length - 1} autre{m.matchesSellsy!.length > 2 ? "s" : ""} correspondance{m.matchesSellsy!.length > 2 ? "s" : ""}
-                                        </summary>
-                                        <div className="mt-1 space-y-1">
-                                          {m.matchesSellsy!.slice(1).map((alt, j) => (
-                                            <div key={j} className="flex items-center justify-between text-xs text-cockpit-secondary">
-                                              <span className="truncate mr-2">{alt.name}</span>
-                                              <span>{Number(alt.prixTTC).toFixed(0)}€ ({alt.score}%)</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </details>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-cockpit-secondary italic">
-                                    Aucune correspondance trouvée
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-
-                            {sellsy.matches.length === 0 && (
-                              <div className="text-sm text-cockpit-secondary italic py-2">
-                                Aucun article à analyser
-                              </div>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {/* Col 3 — Actions & Statut */}
+                      {/* Col 2 — Actions & Statut */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-cockpit-heading flex items-center gap-2">
                           <Tag className="w-4 h-4 text-[var(--color-active)]" />

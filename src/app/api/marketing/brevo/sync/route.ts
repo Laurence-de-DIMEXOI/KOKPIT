@@ -6,56 +6,80 @@ import { prisma } from "@/lib/prisma";
 const BREVO_API = "https://api.brevo.com/v3";
 
 const SEGMENTS = [
-  // ── Acquisition & relance ──────────────────────────────────────────────────
+  // ── Relance devis ─────────────────────────────────────────────────────────
   {
-    id: "devis-sans-suite",
-    categorie: "Acquisition & relance",
-    nom: "Devis sans suite (> 30j)",
-    description: "Devis créé il y a plus de 30 jours, non converti",
+    id: "devis-chaud",
+    categorie: "Relance devis",
+    nom: "Devis chaud (3-7j)",
+    description: "Devis envoyé il y a 3-7 jours, sans réponse",
+  },
+  {
+    id: "devis-tiede",
+    categorie: "Relance devis",
+    nom: "Devis tiède (8-20j)",
+    description: "Devis envoyé il y a 8-20 jours, sans suite",
   },
   {
     id: "devis-expirant",
-    categorie: "Acquisition & relance",
-    nom: "Devis expirant bientôt (7j)",
-    description: "Devis créé il y a 23–30 jours (expire dans 7 jours), sans commande",
+    categorie: "Relance devis",
+    nom: "Devis expirant (21-30j)",
+    description: "Devis envoyé il y a 21-30 jours, expire bientôt",
   },
   {
-    id: "demande-sans-devis",
-    categorie: "Acquisition & relance",
-    nom: "Demande sans devis",
-    description: "Lead reçu, aucun devis associé",
+    id: "devis-perdus-recuperables",
+    categorie: "Relance devis",
+    nom: "Devis perdus récupérables (30-90j)",
+    description: "Devis expiré ou refusé depuis 30-90 jours",
   },
-  // ── Cycle de vie client ────────────────────────────────────────────────────
+  // ── Réactivation clients ──────────────────────────────────────────────────
   {
-    id: "acheteurs-recents",
-    categorie: "Cycle de vie client",
-    nom: "Acheteurs récents (< 60j)",
-    description: "Contacts avec une commande dans les 60 derniers jours",
+    id: "clients-a-reactiver",
+    categorie: "Réactivation clients",
+    nom: "Clients à réactiver (6-12 mois)",
+    description: "Dernière commande entre 6 et 12 mois",
   },
   {
-    id: "clients-inactifs",
-    categorie: "Cycle de vie client",
-    nom: "Clients inactifs (> 12 mois)",
+    id: "clients-perdus",
+    categorie: "Réactivation clients",
+    nom: "Clients perdus (> 12 mois)",
     description: "Dernière commande il y a plus de 12 mois",
   },
   {
-    id: "multi-commandes",
-    categorie: "Cycle de vie client",
-    nom: "Acheteurs multi-commandes",
-    description: "Contacts avec au moins 2 commandes",
+    id: "gros-paniers-non-fidelises",
+    categorie: "Réactivation clients",
+    nom: "Gros paniers non fidélisés (> 3 000€)",
+    description: "1 commande > 3 000 €, pas de 2e achat",
+  },
+  // ── Intérêt par univers ───────────────────────────────────────────────────
+  {
+    id: "interet-sdb",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Salle de bains",
+    description: "Devis avec produits SDB (vasques, colonnes…)",
   },
   {
-    id: "gros-panier-unique",
-    categorie: "Cycle de vie client",
-    nom: "Gros panier unique (> 5 000€)",
-    description: "1 commande > 5 000 €, pas de 2e achat",
+    id: "interet-chambre",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Chambre",
+    description: "Devis avec produits chambre (lits, armoires…)",
   },
-  // ── Téléchargements ────────────────────────────────────────────────────────
   {
-    id: "guide-sdb",
-    categorie: "Téléchargements",
-    nom: "Guide SDB teck — téléchargements",
-    description: "Contacts ayant téléchargé le guide salle de bain en teck",
+    id: "interet-sejour",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Séjour",
+    description: "Devis avec produits séjour (tables, buffets, meubles TV…)",
+  },
+  {
+    id: "interet-cuisine",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Cuisine",
+    description: "Devis avec produits cuisine",
+  },
+  {
+    id: "interet-exterieur",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Extérieur",
+    description: "Devis avec produits jardin / extérieur",
   },
 ];
 
@@ -126,16 +150,30 @@ async function getContactsForSegment(segmentId: string) {
 
   switch (segmentId) {
 
-    // ── Acquisition & relance ──────────────────────────────────────────────
-    case "devis-sans-suite":
-      // Devis créé il y a > 30j, pas encore converti en vente
+    // ── Relance devis ─────────────────────────────────────────────────────
+    case "devis-chaud":
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
           devis: {
             some: {
-              createdAt: { lt: daysAgo(30) },
-              statut: { in: ["EN_ATTENTE", "ENVOYE"] },
+              createdAt: { gte: daysAgo(7), lt: daysAgo(3) },
+              statut: "ENVOYE",
+              vente: null,
+            },
+          },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true },
+      });
+
+    case "devis-tiede":
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          devis: {
+            some: {
+              createdAt: { gte: daysAgo(20), lt: daysAgo(8) },
+              statut: "ENVOYE",
               vente: null,
             },
           },
@@ -144,13 +182,12 @@ async function getContactsForSegment(segmentId: string) {
       });
 
     case "devis-expirant":
-      // Devis créé il y a 23–30j (expire dans 7j, validité 30j par défaut)
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
           devis: {
             some: {
-              createdAt: { gte: daysAgo(30), lt: daysAgo(23) },
+              createdAt: { gte: daysAgo(30), lt: daysAgo(21) },
               statut: { in: ["EN_ATTENTE", "ENVOYE"] },
               vente: null,
             },
@@ -159,30 +196,38 @@ async function getContactsForSegment(segmentId: string) {
         select: { email: true, nom: true, prenom: true, ville: true },
       });
 
-    case "demande-sans-devis":
-      // Contact avec lead(s) mais sans aucun devis
+    case "devis-perdus-recuperables":
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
-          leads: { some: {} },
-          devis: { none: {} },
+          devis: {
+            some: {
+              createdAt: { gte: daysAgo(90), lt: daysAgo(30) },
+              statut: { in: ["EXPIRE", "REFUSE"] },
+              vente: null,
+            },
+          },
         },
         select: { email: true, nom: true, prenom: true, ville: true },
       });
 
-    // ── Cycle de vie client ────────────────────────────────────────────────
-    case "acheteurs-recents":
-      // Au moins 1 vente dans les 60 derniers jours
+    // ── Réactivation clients ──────────────────────────────────────────────
+    case "clients-a-reactiver":
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
-          ventes: { some: { createdAt: { gte: daysAgo(60) } } },
+          ventes: {
+            some: {},
+            every: { createdAt: { lt: daysAgo(180) } },
+          },
+          NOT: {
+            ventes: { every: { createdAt: { lt: daysAgo(365) } } },
+          },
         },
         select: { email: true, nom: true, prenom: true, ville: true },
       });
 
-    case "clients-inactifs":
-      // Ont acheté, mais dernière vente il y a plus de 12 mois
+    case "clients-perdus":
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
@@ -194,36 +239,59 @@ async function getContactsForSegment(segmentId: string) {
         select: { email: true, nom: true, prenom: true, ville: true },
       });
 
-    case "multi-commandes":
-      // Au moins 2 ventes
+    case "gros-paniers-non-fidelises":
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
-          ventes: { some: {} },
-        },
-        select: { email: true, nom: true, prenom: true, ville: true, ventes: { select: { id: true } } },
-      }).then((contacts) => contacts.filter((c) => c.ventes.length >= 2));
-
-    case "gros-panier-unique":
-      // Exactement 1 vente avec montant > 5 000€
-      return prisma.contact.findMany({
-        where: {
-          email: { not: "" },
-          ventes: { some: { montant: { gt: 5000 } } },
+          ventes: { some: { montant: { gt: 3000 } } },
         },
         select: { email: true, nom: true, prenom: true, ville: true, ventes: { select: { id: true, montant: true } } },
       }).then((contacts) =>
-        contacts.filter((c) => c.ventes.length === 1 && c.ventes[0].montant > 5000)
+        contacts.filter((c) => c.ventes.length === 1 && c.ventes[0].montant > 3000)
       );
 
-    // ── Téléchargements ────────────────────────────────────────────────────
-    case "guide-sdb":
+    // ── Intérêt par univers ──────────────────────────────────────────────
+    case "interet-sdb":
       return prisma.contact.findMany({
         where: {
           email: { not: "" },
-          evenements: {
-            some: { description: { contains: "Téléchargement guide PDF" } },
-          },
+          devis: { some: { univers: "SDB" } },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true },
+      });
+
+    case "interet-chambre":
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          devis: { some: { univers: "CHAMBRE" } },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true },
+      });
+
+    case "interet-sejour":
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          devis: { some: { univers: "SEJOUR" } },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true },
+      });
+
+    case "interet-cuisine":
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          devis: { some: { univers: "CUISINE" } },
+        },
+        select: { email: true, nom: true, prenom: true, ville: true },
+      });
+
+    case "interet-exterieur":
+      return prisma.contact.findMany({
+        where: {
+          email: { not: "" },
+          devis: { some: { univers: "EXTERIEUR" } },
         },
         select: { email: true, nom: true, prenom: true, ville: true },
       });

@@ -82,64 +82,92 @@ interface SyncLog {
 }
 
 const SEGMENTS = [
-  // ── Acquisition & relance ──────────────────────────────────────────────────
+  // ── Relance devis ─────────────────────────────────────────────────────────
   {
-    id: "devis-sans-suite",
-    categorie: "Acquisition & relance",
-    nom: "Devis sans suite (> 30j)",
-    description: "Devis non converti, créé il y a plus de 30 jours",
-    icon: AlertTriangle,
-  },
-  {
-    id: "devis-expirant",
-    categorie: "Acquisition & relance",
-    nom: "Devis expirant bientôt",
-    description: "Expire dans les 7 prochains jours, sans commande",
+    id: "devis-chaud",
+    categorie: "Relance devis",
+    nom: "Devis chaud (3-7j)",
+    description: "Devis envoyé il y a 3-7 jours, sans réponse",
     icon: AlertCircle,
   },
   {
-    id: "demande-sans-devis",
-    categorie: "Acquisition & relance",
-    nom: "Demande sans devis",
-    description: "Lead reçu, aucun devis créé",
-    icon: Mail,
-  },
-  // ── Cycle de vie client ────────────────────────────────────────────────────
-  {
-    id: "acheteurs-recents",
-    categorie: "Cycle de vie client",
-    nom: "Acheteurs récents (< 60j)",
-    description: "Commande dans les 60 derniers jours",
-    icon: CheckCircle2,
+    id: "devis-tiede",
+    categorie: "Relance devis",
+    nom: "Devis tiède (8-20j)",
+    description: "Devis envoyé il y a 8-20 jours, sans suite",
+    icon: Clock,
   },
   {
-    id: "clients-inactifs",
-    categorie: "Cycle de vie client",
-    nom: "Clients inactifs (> 12 mois)",
-    description: "Dernière commande il y a plus de 12 mois",
+    id: "devis-expirant",
+    categorie: "Relance devis",
+    nom: "Devis expirant (21-30j)",
+    description: "Devis envoyé il y a 21-30 jours, expire bientôt",
+    icon: AlertTriangle,
+  },
+  {
+    id: "devis-perdus-recuperables",
+    categorie: "Relance devis",
+    nom: "Devis perdus récupérables (30-90j)",
+    description: "Devis expiré ou refusé depuis 30-90 jours",
+    icon: RefreshCw,
+  },
+  // ── Réactivation clients ──────────────────────────────────────────────────
+  {
+    id: "clients-a-reactiver",
+    categorie: "Réactivation clients",
+    nom: "Clients à réactiver (6-12 mois)",
+    description: "Dernière commande entre 6 et 12 mois",
     icon: Users,
   },
   {
-    id: "multi-commandes",
-    categorie: "Cycle de vie client",
-    nom: "Acheteurs multi-commandes",
-    description: "Au moins 2 commandes passées",
-    icon: CheckCircle2,
-  },
-  {
-    id: "gros-panier-unique",
-    categorie: "Cycle de vie client",
-    nom: "Gros panier unique (> 5 000€)",
-    description: "1 commande > 5 000 €, pas de 2e achat",
+    id: "clients-perdus",
+    categorie: "Réactivation clients",
+    nom: "Clients perdus (> 12 mois)",
+    description: "Dernière commande il y a plus de 12 mois",
     icon: AlertTriangle,
   },
-  // ── Téléchargements ────────────────────────────────────────────────────────
   {
-    id: "guide-sdb",
-    categorie: "Téléchargements",
-    nom: "Guide SDB teck",
-    description: "Contacts ayant téléchargé le guide",
-    icon: Mail,
+    id: "gros-paniers-non-fidelises",
+    categorie: "Réactivation clients",
+    nom: "Gros paniers non fidélisés (> 3 000€)",
+    description: "1 commande > 3 000 €, pas de 2e achat",
+    icon: Users,
+  },
+  // ── Intérêt par univers ───────────────────────────────────────────────────
+  {
+    id: "interet-sdb",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Salle de bains",
+    description: "Devis avec produits SDB",
+    icon: BarChart3,
+  },
+  {
+    id: "interet-chambre",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Chambre",
+    description: "Devis avec produits chambre",
+    icon: BarChart3,
+  },
+  {
+    id: "interet-sejour",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Séjour",
+    description: "Devis avec produits séjour",
+    icon: BarChart3,
+  },
+  {
+    id: "interet-cuisine",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Cuisine",
+    description: "Devis avec produits cuisine",
+    icon: BarChart3,
+  },
+  {
+    id: "interet-exterieur",
+    categorie: "Intérêt produit",
+    nom: "Intérêt Extérieur",
+    description: "Devis avec produits jardin / extérieur",
+    icon: BarChart3,
   },
 ];
 
@@ -778,67 +806,6 @@ export default function EmailingPage() {
         })()}
       </div>
 
-      {/* Historique sync */}
-      {syncLogs.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold text-cockpit-heading mb-3">
-            Historique des synchronisations
-          </h2>
-          <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-lg overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-cockpit-dark border-b border-cockpit">
-                <tr>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-cockpit-heading">
-                    SEGMENT
-                  </th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-cockpit-heading">
-                    CONTACTS
-                  </th>
-                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-cockpit-heading">
-                    STATUT
-                  </th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-cockpit-heading">
-                    DATE
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cockpit">
-                {syncLogs.slice(0, 10).map((log) => (
-                  <tr
-                    key={log.id}
-                    className="hover:bg-cockpit-dark/50 transition-colors"
-                  >
-                    <td className="px-4 py-2.5 text-sm text-cockpit-primary">
-                      {log.segmentNom}
-                    </td>
-                    <td className="px-4 py-2.5 text-sm text-right font-medium text-cockpit-heading">
-                      {log.nbContacts}
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          log.statut === "success"
-                            ? "bg-[var(--color-active)]/10 text-[var(--color-active)]"
-                            : "bg-red-500/10 text-red-400"
-                        }`}
-                      >
-                        {log.statut === "success" ? "OK" : "Erreur"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-cockpit-secondary text-right">
-                      {new Date(log.createdAt).toLocaleDateString("fr-FR")}{" "}
-                      {new Date(log.createdAt).toLocaleTimeString("fr-FR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* Lien Brevo */}
       <div className="flex items-center justify-center">
