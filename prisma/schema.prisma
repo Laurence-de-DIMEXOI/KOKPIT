@@ -1458,6 +1458,22 @@ model ReservoirBcdi {
   @@map("reservoir_bcdi")
 }
 
+// Départs de containers planifiés à la main (horaires réels MSC Semarang → Pointe
+// des Galets). Chaque départ porte sa date, sa date d'arrivée approx et sa capacité.
+model DepartPrevu {
+  id              String    @id @default(cuid())
+  dateDepart      DateTime  @db.Date
+  dateArrivee     DateTime? @db.Date
+  capaciteMeubles Int       @default(130)
+  navire          String?
+  note            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([dateDepart], map: "depart_prevu_date_idx")
+  @@map("depart_prevu")
+}
+
 // BCDI déjà expédiés (lus dans les packing lists des IMP partis). Sert à exclure
 // du réservoir les commandes déjà reçues mais encore mal taguées dans Sellsy.
 // Alimenté hors cron (le connecteur SharePoint n'est pas dispo en headless) :

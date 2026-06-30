@@ -9,9 +9,11 @@ import {
   moisChargementKey,
   dateChargement,
   TRELLO_READY_LISTS,
-  departures,
   departureKey,
   CONTAINER_CAPACITY_MEUBLES,
+  DEPART_BASE_ISO,
+  DEPART_FIRST_GAP_DAYS,
+  DEPART_INTERVAL_DAYS,
 } from "@/lib/reservoir";
 
 export const dynamic = "force-dynamic";
@@ -90,10 +92,11 @@ export async function GET(req: NextRequest) {
   };
   const capacite = Number(url.searchParams.get("capacite")) || CONTAINER_CAPACITY_MEUBLES;
 
-  const [rows, expeditions, imp618Items] = await Promise.all([
+  const [rows, expeditions, imp618Items, departsPrevus] = await Promise.all([
     prisma.reservoirBcdi.findMany({ orderBy: { dateCommande: "asc" } }),
     prisma.impExpedition.findMany({ select: { bcdi: true } }),
     loadImp618(url.origin),
+    prisma.departPrevu.findMany({ orderBy: { dateDepart: "asc" } }),
   ]);
   const shipped = new Set(expeditions.map((e) => e.bcdi.toUpperCase()));
 
@@ -138,28 +141,34 @@ export async function GET(req: NextRequest) {
   // 2) FIFO : plus ancienne commande d'abord (sans date → en fin)
   calendarItems.sort((a, b) => (a.dateCommande || "9999").localeCompare(b.dateCommande || "9999"));
 
-  // 3) Calendrier : slot 0 = IMP-618 (14 juin, parti) ; slots suivants = futurs
-  const totalMeubles = calendarItems.reduce((s, i) => s + i.nbMeubles, 0);
-  const horizon = Math.max(4, Math.ceil(totalMeubles / capacite) + 3);
-  const deps = departures(horizon + 2); // [0] = 14 juin = IMP-618
-  interface Slot { date: Date; items: ResItem[]; meubles: number; isImp618?: boolean }
-  const slots: Slot[] = deps.map((d) => ({ date: d, items: [], meubles: 0 }));
-  slots[0].items = imp618Items;
-  slots[0].meubles = imp618Items.reduce((s, i) => s + i.nbMeubles, 0);
-  slots[0].isImp618 = true;
+  // 3) Calendrier : slot 0 = IMP-618 (14 juin, parti) ; slots suivants = départs
+  //    saisis manuellement (horaires MSC réels). Si le réservoir dépasse les
+  //    départs saisis, on génère une queue estimée (cadence 6 semaines).
+  interface Slot { date: Date; dateArrivee?: Date | null; navire?: string | null; capacite: number; estime: boolean; items: ResItem[]; meubles: number; isImp618?: boolean }
+  const slots: Slot[] = [{
+    date: new Date(`${DEPART_BASE_ISO}T00:00:00Z`),
+    capacite, estime: false, isImp618: true,
+    items: imp618Items, meubles: imp618Items.reduce((s, i) => s + i.nbMeubles, 0),
+  }];
+  for (const d of departsPrevus) {
+    slots.push({ date: d.dateDepart, dateArrivee: d.dateArrivee, navire: d.navire, capacite: d.capaciteMeubles, estime: false, items: [], meubles: 0 });
+  }
+  // Génère un départ estimé après le dernier (2 sem après l'IMP-618, sinon 6 sem)
+  const genNext = () => {
+    const last = slots[slots.length - 1];
+    const nd = new Date(last.date);
+    nd.setUTCDate(nd.getUTCDate() + (slots.length === 1 ? DEPART_FIRST_GAP_DAYS : DEPART_INTERVAL_DAYS));
+    slots.push({ date: nd, capacite: last.capacite || capacite, estime: true, items: [], meubles: 0 });
+  };
 
   let si = 1;
   for (const it of calendarItems) {
-    if (!slots[si]) slots.push({ date: deps[deps.length - 1], items: [], meubles: 0 });
-    if (slots[si].items.length > 0 && slots[si].meubles + it.nbMeubles > capacite) {
-      si++;
-      if (!slots[si]) {
-        const more = departures(deps.length + (si - deps.length) + 2);
-        slots.push({ date: more[more.length - 1], items: [], meubles: 0 });
-      }
+    while (true) {
+      if (!slots[si]) genNext();
+      if (slots[si].items.length > 0 && slots[si].meubles + it.nbMeubles > slots[si].capacite) { si++; continue; }
+      break;
     }
     // Retard projeté : la commande sera-t-elle chargée APRÈS sa date limite ?
-    // (date départ assigné > date commande + délai cible de chargement)
     if (it.dateCommande) {
       const limite = dateChargement(new Date(it.dateCommande), params);
       it.retard = slots[si].date.getTime() > limite.getTime();
@@ -174,9 +183,12 @@ export async function GET(req: NextRequest) {
     .map((s) => ({
       key: departureKey(s.date),
       date: s.date.toISOString(),
+      dateArrivee: s.dateArrivee ? s.dateArrivee.toISOString() : null,
+      navire: s.navire ?? null,
+      estime: !!s.estime,
       isImp618: !!s.isImp618,
       parti: s.date.getTime() < nowTime,
-      capacite,
+      capacite: s.capacite,
       nbMeubles: s.meubles,
       nb: s.items.length,
       prets: s.items.filter((i) => i.pret).length,

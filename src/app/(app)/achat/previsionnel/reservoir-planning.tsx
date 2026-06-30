@@ -34,6 +34,9 @@ interface ResItem {
 interface Depart {
   key: string;
   date: string;
+  dateArrivee: string | null;
+  navire: string | null;
+  estime: boolean;
   isImp618: boolean;
   parti: boolean;
   capacite: number;
@@ -43,6 +46,14 @@ interface Depart {
   retards: number;
   totalHT: number;
   items: ResItem[];
+}
+interface DepartConfig {
+  id: string;
+  dateDepart: string;
+  dateArrivee: string | null;
+  capaciteMeubles: number;
+  navire: string | null;
+  note: string | null;
 }
 interface ResPayload {
   params: { delaiTotalMois: number; delaiBateauMois: number };
@@ -97,6 +108,9 @@ export function ReservoirPlanning() {
   const [impCode, setImpCode] = useState("");
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [departsOpen, setDepartsOpen] = useState(false);
+  const [departsList, setDepartsList] = useState<DepartConfig[]>([]);
+  const [departsBusy, setDepartsBusy] = useState(false);
 
   const fetchPrep = useCallback(async () => {
     try {
@@ -129,6 +143,43 @@ export function ReservoirPlanning() {
     } finally { setLoading(false); }
   }, [delaiTotal, delaiBateau, capacite]);
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const fetchDeparts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/achat/reservoir/departs");
+      if (res.ok) setDepartsList((await res.json()).departs || []);
+    } catch { /* silencieux */ }
+  }, []);
+  useEffect(() => { fetchDeparts(); }, [fetchDeparts]);
+
+  const addDepart = useCallback(async () => {
+    setDepartsBusy(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await fetch("/api/achat/reservoir/departs", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateDepart: today, capaciteMeubles: capacite }),
+      });
+      await fetchDeparts(); await fetchData();
+    } finally { setDepartsBusy(false); }
+  }, [capacite, fetchDeparts, fetchData]);
+
+  const updateDepart = useCallback(async (id: string, patch: Partial<DepartConfig>) => {
+    setDepartsList((list) => list.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+    await fetch("/api/achat/reservoir/departs", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    await fetchData();
+  }, [fetchData]);
+
+  const deleteDepart = useCallback(async (id: string) => {
+    setDepartsBusy(true);
+    try {
+      await fetch(`/api/achat/reservoir/departs?id=${id}`, { method: "DELETE" });
+      await fetchDeparts(); await fetchData();
+    } finally { setDepartsBusy(false); }
+  }, [fetchDeparts, fetchData]);
 
   const importImp = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -258,11 +309,11 @@ export function ReservoirPlanning() {
           <Ship className="w-5 h-5" style={{ color: "var(--color-active)" }} />
           <div>
             <p className="text-sm font-semibold text-cockpit-heading">Planning containers</p>
-            <p className="text-[11px] text-cockpit-secondary">1er départ 2 sem. après l'IMP-618 puis toutes les 6 semaines · ~{capacite} meubles / container · sans couper les commandes</p>
+            <p className="text-[11px] text-cockpit-secondary">{departsList.length > 0 ? `${departsList.length} départ(s) MSC saisis` : "Départs estimés (6 sem.)"} · ~{capacite} meubles / container · sans couper les commandes</p>
           </div>
         </div>
         <label className="text-xs text-cockpit-secondary">
-          Capacité (meubles)
+          Capacité défaut
           <input type="number" step="5" min="10" value={capacite}
             onChange={(e) => { setCapacite(Number(e.target.value)); setActiveKey(null); }}
             className="ml-2 w-16 px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
@@ -275,6 +326,10 @@ export function ReservoirPlanning() {
         </label>
         <span className="text-[11px] text-cockpit-secondary">(retard = vs date cible)</span>
         <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => setDepartsOpen((o) => !o)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card">
+            <Ship className="w-3.5 h-3.5" /> Départs MSC
+          </button>
           <button onClick={() => { setImportOpen((o) => !o); setImportMsg(null); }}
             className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card">
             <Upload className="w-3.5 h-3.5" /> Ajouter un IMP parti
@@ -306,6 +361,72 @@ export function ReservoirPlanning() {
           {importMsg && <span className={`text-xs ${importMsg.startsWith("✓") ? "text-emerald-700" : "text-red-600"}`}>{importMsg}</span>}
           <span className="w-full text-[11px] text-cockpit-secondary">Les BCDI présents dans la packing list seront retirés du réservoir (déjà reçus). Les SAV sont conservés.</span>
         </form>
+      )}
+
+      {/* Gestion des départs MSC (horaires réels saisis à la main) */}
+      {departsOpen && (
+        <div className="bg-cockpit-card rounded-card border border-cockpit shadow-cockpit-sm p-4 space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Ship className="w-4 h-4 text-[var(--color-active)]" />
+            <span className="text-sm font-semibold text-cockpit-heading">Départs containers (horaires MSC)</span>
+            <a href="https://www.msc.com/fr/search-a-schedule" target="_blank" rel="noopener noreferrer"
+              className="text-[11px] text-[var(--color-active)] underline">Consulter MSC (Semarang IDSRG → Pointe des Galets REPDG) ↗</a>
+            <button onClick={addDepart} disabled={departsBusy}
+              className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[var(--color-active)] rounded-input hover:opacity-90 disabled:opacity-50">
+              <Plus className="w-3.5 h-3.5" /> Ajouter un départ
+            </button>
+          </div>
+          {departsList.length === 0 ? (
+            <p className="text-xs text-cockpit-secondary italic">Aucun départ saisi — le calendrier utilise une cadence estimée de 6 semaines. Ajoute les départs MSC réels ci-dessus.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-[10px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left font-semibold">Départ Semarang</th>
+                    <th className="px-2 py-1.5 text-left font-semibold">Arrivée ≈ Réunion</th>
+                    <th className="px-2 py-1.5 text-left font-semibold">Navire / réf.</th>
+                    <th className="px-2 py-1.5 text-right font-semibold">Capacité</th>
+                    <th className="px-2 py-1.5 w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {departsList.map((d) => (
+                    <tr key={d.id} className="border-b border-cockpit/50">
+                      <td className="px-2 py-1.5">
+                        <input type="date" defaultValue={d.dateDepart?.slice(0, 10)}
+                          onBlur={(e) => e.target.value && updateDepart(d.id, { dateDepart: e.target.value })}
+                          className="px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="date" defaultValue={d.dateArrivee?.slice(0, 10) || ""}
+                          onBlur={(e) => updateDepart(d.id, { dateArrivee: e.target.value || null })}
+                          className="px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" defaultValue={d.navire || ""} placeholder="ex : MSC …"
+                          onBlur={(e) => updateDepart(d.id, { navire: e.target.value || null })}
+                          className="w-40 px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
+                      </td>
+                      <td className="px-2 py-1.5 text-right">
+                        <input type="number" step="5" min="10" defaultValue={d.capaciteMeubles}
+                          onBlur={(e) => Number(e.target.value) > 0 && updateDepart(d.id, { capaciteMeubles: Number(e.target.value) })}
+                          className="w-16 px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary text-right" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <button onClick={() => deleteDepart(d.id)} disabled={departsBusy}
+                          className="p-1 rounded hover:bg-red-100 text-cockpit-secondary hover:text-red-600" title="Supprimer ce départ">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-cockpit-secondary">Les commandes sont réparties dans ces départs (FIFO, sans couper). Au-delà des départs saisis, une cadence estimée de 6 semaines prend le relais.</p>
+        </div>
       )}
 
       {/* Résumé global */}
@@ -371,7 +492,7 @@ export function ReservoirPlanning() {
                     act ? "bg-[var(--color-active)]/10 text-[var(--color-active)] border-b-2 border-[var(--color-active)] -mb-px" : "text-cockpit-secondary hover:text-cockpit-primary"
                   }`}>
                   {d.retards > 0 && !d.isImp618 && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                  {d.isImp618 ? "IMP-618 (juin)" : departLabel(d.date)}
+                  <span className={d.estime ? "italic opacity-90" : ""}>{d.isImp618 ? "IMP-618 (juin)" : (d.estime ? "~ " : "") + departLabel(d.date)}</span>
                   <span className={`text-[10px] ${over ? "text-red-600 font-bold" : "opacity-70"}`}>({d.nbMeubles}/{d.capacite})</span>
                 </button>
               );
@@ -397,8 +518,16 @@ export function ReservoirPlanning() {
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Déjà parti</span>
                 ) : activeDepart.parti ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Date passée</span>
+                ) : activeDepart.estime ? (
+                  <span title="Pas de départ MSC saisi — date estimée (cadence 6 sem.)" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">≈ estimé</span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-active)]/15 text-[var(--color-active)]">40ft HC</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-active)]/15 text-[var(--color-active)]">MSC</span>
+                )}
+                {activeDepart.dateArrivee && (
+                  <span className="text-[11px] text-cockpit-secondary">arrivée ≈ {departLabel(activeDepart.dateArrivee)}</span>
+                )}
+                {activeDepart.navire && (
+                  <span className="text-[11px] text-cockpit-secondary">· {activeDepart.navire}</span>
                 )}
                 <span className="text-xs text-cockpit-secondary">
                   <b className={activeDepart.nbMeubles > activeDepart.capacite ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.nbMeubles}</b>/{activeDepart.capacite} meubles · {activeDepart.nb} commandes · <span className="text-emerald-700 font-medium">{activeDepart.prets} prêtes</span>
