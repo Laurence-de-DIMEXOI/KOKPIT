@@ -144,14 +144,14 @@ export async function GET(req: NextRequest) {
   // 3) Calendrier : slot 0 = IMP-618 (14 juin, parti) ; slots suivants = départs
   //    saisis manuellement (horaires MSC réels). Si le réservoir dépasse les
   //    départs saisis, on génère une queue estimée (cadence 6 semaines).
-  interface Slot { date: Date; dateArrivee?: Date | null; navire?: string | null; capacite: number; estime: boolean; items: ResItem[]; meubles: number; isImp618?: boolean }
+  interface Slot { id?: string | null; date: Date; dateArrivee?: Date | null; navire?: string | null; capacite: number; estime: boolean; items: ResItem[]; meubles: number; isImp618?: boolean }
   const slots: Slot[] = [{
     date: new Date(`${DEPART_BASE_ISO}T00:00:00Z`),
     capacite, estime: false, isImp618: true,
     items: imp618Items, meubles: imp618Items.reduce((s, i) => s + i.nbMeubles, 0),
   }];
   for (const d of departsPrevus) {
-    slots.push({ date: d.dateDepart, dateArrivee: d.dateArrivee, navire: d.navire, capacite: d.capaciteMeubles, estime: false, items: [], meubles: 0 });
+    slots.push({ id: d.id, date: d.dateDepart, dateArrivee: d.dateArrivee, navire: d.navire, capacite: d.capaciteMeubles, estime: false, items: [], meubles: 0 });
   }
   // Génère un départ estimé après le dernier (2 sem après l'IMP-618, sinon 6 sem)
   const genNext = () => {
@@ -182,6 +182,7 @@ export async function GET(req: NextRequest) {
     .filter((s) => s.items.length > 0)
     .map((s) => ({
       key: departureKey(s.date),
+      id: s.id ?? null,
       date: s.date.toISOString(),
       dateArrivee: s.dateArrivee ? s.dateArrivee.toISOString() : null,
       navire: s.navire ?? null,

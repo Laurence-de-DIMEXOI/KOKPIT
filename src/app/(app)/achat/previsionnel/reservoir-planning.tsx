@@ -33,6 +33,7 @@ interface ResItem {
 }
 interface Depart {
   key: string;
+  id: string | null;
   date: string;
   dateArrivee: string | null;
   navire: string | null;
@@ -179,6 +180,25 @@ export function ReservoirPlanning() {
       await fetch(`/api/achat/reservoir/departs?id=${id}`, { method: "DELETE" });
       await fetchDeparts(); await fetchData();
     } finally { setDepartsBusy(false); }
+  }, [fetchDeparts, fetchData]);
+
+  // Édition inline d'un départ depuis son onglet. Un départ estimé est matérialisé (créé).
+  const saveDepart = useCallback(async (dep: Depart, patch: Record<string, unknown>) => {
+    if (dep.isImp618) return;
+    const newKey = (patch.dateDepart as string) || dep.date.slice(0, 10);
+    if (dep.id) {
+      await fetch("/api/achat/reservoir/departs", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: dep.id, ...patch }),
+      });
+    } else {
+      await fetch("/api/achat/reservoir/departs", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateDepart: dep.date.slice(0, 10), capaciteMeubles: dep.capacite, ...patch }),
+      });
+    }
+    setActiveKey(newKey);
+    await fetchDeparts(); await fetchData();
   }, [fetchDeparts, fetchData]);
 
   const importImp = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
@@ -510,29 +530,47 @@ export function ReservoirPlanning() {
           {/* Contenu : un départ */}
           {activeDepart && (
             <div className="p-4 space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-cockpit-heading">
-                  {activeDepart.isImp618 ? "IMP-618 — parti le 14 juin 2026" : `Départ ${departLabel(activeDepart.date)}`}
-                </span>
-                {activeDepart.isImp618 ? (
+              {activeDepart.isImp618 ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-semibold text-cockpit-heading">IMP-618 — parti le 14 juin 2026</span>
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Déjà parti</span>
-                ) : activeDepart.parti ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Date passée</span>
-                ) : activeDepart.estime ? (
-                  <span title="Pas de départ MSC saisi — date estimée (cadence 6 sem.)" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">≈ estimé</span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-active)]/15 text-[var(--color-active)]">MSC</span>
-                )}
-                {activeDepart.dateArrivee && (
-                  <span className="text-[11px] text-cockpit-secondary">arrivée ≈ {departLabel(activeDepart.dateArrivee)}</span>
-                )}
-                {activeDepart.navire && (
-                  <span className="text-[11px] text-cockpit-secondary">· {activeDepart.navire}</span>
-                )}
-                <span className="text-xs text-cockpit-secondary">
-                  <b className={activeDepart.nbMeubles > activeDepart.capacite ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.nbMeubles}</b>/{activeDepart.capacite} meubles · {activeDepart.nb} commandes · <span className="text-emerald-700 font-medium">{activeDepart.prets} prêtes</span>
-                  {activeDepart.retards > 0 && <> · <span className="text-red-600 font-semibold">⚠ {activeDepart.retards} en retard</span></>} · {eur(activeDepart.totalHT)} HT
-                </span>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="text-[11px] text-cockpit-secondary flex flex-col gap-0.5">Départ Semarang
+                    <input type="date" key={`d-${activeDepart.key}`} defaultValue={activeDepart.date.slice(0, 10)}
+                      onChange={(e) => e.target.value && saveDepart(activeDepart, { dateDepart: e.target.value })}
+                      className="px-2 py-1 text-sm border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
+                  </label>
+                  <label className="text-[11px] text-cockpit-secondary flex flex-col gap-0.5">Arrivée ≈ Réunion
+                    <input type="date" key={`a-${activeDepart.key}`} defaultValue={activeDepart.dateArrivee?.slice(0, 10) || ""}
+                      onChange={(e) => saveDepart(activeDepart, { dateArrivee: e.target.value || null })}
+                      className="px-2 py-1 text-sm border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
+                  </label>
+                  <label className="text-[11px] text-cockpit-secondary flex flex-col gap-0.5">Navire / réf.
+                    <input type="text" key={`n-${activeDepart.key}`} defaultValue={activeDepart.navire || ""} placeholder="MSC …"
+                      onBlur={(e) => { const v = e.target.value || null; if (v !== (activeDepart.navire || null)) saveDepart(activeDepart, { navire: v }); }}
+                      className="w-36 px-2 py-1 text-sm border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
+                  </label>
+                  <label className="text-[11px] text-cockpit-secondary flex flex-col gap-0.5">Capacité (meubles)
+                    <input type="number" step="5" min="10" key={`c-${activeDepart.key}`} defaultValue={activeDepart.capacite}
+                      onBlur={(e) => { const n = Number(e.target.value); if (n > 0 && n !== activeDepart.capacite) saveDepart(activeDepart, { capaciteMeubles: n }); }}
+                      className="w-20 px-2 py-1 text-sm border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary text-right" />
+                  </label>
+                  <div className="flex items-center gap-2 pb-1.5">
+                    {activeDepart.estime
+                      ? <span title="Date estimée — modifie un champ pour la fixer comme vrai départ MSC" className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">≈ estimé</span>
+                      : <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-active)]/15 text-[var(--color-active)]">MSC</span>}
+                    {activeDepart.id && (
+                      <button onClick={() => { deleteDepart(activeDepart.id!); setActiveKey(null); }}
+                        className="text-[11px] text-cockpit-secondary hover:text-red-600 underline">supprimer</button>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="text-xs text-cockpit-secondary">
+                <b className={activeDepart.nbMeubles > activeDepart.capacite ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.nbMeubles}</b>/{activeDepart.capacite} meubles · {activeDepart.nb} commandes · <span className="text-emerald-700 font-medium">{activeDepart.prets} prêtes</span>
+                {activeDepart.retards > 0 && <> · <span className="text-red-600 font-semibold">⚠ {activeDepart.retards} en retard</span></>} · {eur(activeDepart.totalHT)} HT
               </div>
               {/* Jauge remplissage */}
               <div className="h-2 w-full rounded-full bg-cockpit-input overflow-hidden">
