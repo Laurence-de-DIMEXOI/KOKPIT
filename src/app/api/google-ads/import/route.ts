@@ -110,6 +110,11 @@ export async function GET(request: NextRequest) {
       exportDate: row[15] || "",
     }));
 
+    // Anomalie Google Ads : certaines campagnes stoppées renvoient un coût sans
+    // aucune diffusion (0 impression + 0 clic) → coût fantôme. On le neutralise.
+    const sansDiffusion = (x: { impressions: number; clicks: number }) => x.impressions === 0 && x.clicks === 0;
+    for (const c of campaigns) if (sansDiffusion(c)) { c.cost = 0; c.conversions = 0; c.conversionValue = 0; }
+
     // Parse ad groups
     const adGroups = groupsData.slice(1).map((row) => ({
       adGroupId: row[0] || "",
@@ -124,6 +129,7 @@ export async function GET(request: NextRequest) {
       ctr: parseNum(row[9] || "0"),
       cpc: parseNum(row[10] || "0"),
     }));
+    for (const g of adGroups) if (g.impressions === 0 && g.clicks === 0) { g.cost = 0; g.conversions = 0; }
 
     // Parse ads
     const ads = adsData.slice(1).map((row) => ({
@@ -144,6 +150,7 @@ export async function GET(request: NextRequest) {
       ctr: parseNum(row[15] || "0"),
       cpc: parseNum(row[16] || "0"),
     }));
+    for (const a of ads) if (a.impressions === 0 && a.clicks === 0) { a.cost = 0; a.conversions = 0; }
 
     // Index ad groups by campaign
     const groupsByCampaign = new Map<string, typeof adGroups>();
