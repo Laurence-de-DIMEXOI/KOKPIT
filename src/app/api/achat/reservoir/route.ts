@@ -77,21 +77,23 @@ async function loadImp618(origin: string): Promise<ResItem[]> {
   }
 
   const enr = await readJson("container-caau9910103-enriched.json");
-  type Base = { bcdi: string; nbMeubles?: number; client?: string | null; montantHT?: number | null; dateCommande?: string | null; bdoBcNumber?: string | null };
+  type Ligne = { ref: string | null; desc: string; qty: number };
+  type Base = { bcdi: string; nbMeubles?: number; client?: string | null; montantHT?: number | null; dateCommande?: string | null; bdoBcNumber?: string | null; lignes?: Ligne[]; volumeM3?: number | null };
   const base: Base[] = enr?.items?.length
     ? enr.items
     : [...lignesByBcdi.keys()].map((bcdi) => ({ bcdi }));
   if (!base.length) return [];
 
   return base.map((b) => {
-    const lignes = lignesByBcdi.get(b.bcdi.toUpperCase()) || [];
+    // Lignes = Sellsy (fichier enrichi) en priorité, repli sur le packing brut
+    const lignes = b.lignes?.length ? b.lignes : (lignesByBcdi.get(b.bcdi.toUpperCase()) || []);
     const cls = classifyLignes(lignes);
     const nbFromLignes = lignes.reduce((s, l) => s + l.qty, 0);
     return mk({
       bcdi: b.bcdi,
       nbMeubles: b.nbMeubles && b.nbMeubles > 0 ? b.nbMeubles : nbFromLignes || 1,
       client: b.client ?? null, montantHT: b.montantHT ?? null, dateCommande: b.dateCommande ?? null, bdoBcNumber: b.bdoBcNumber ?? null,
-      lignes, volumeM3: estimateVolumeM3(lignes) || null, isCuisine: cls.isCuisine, isDressing: cls.isDressing,
+      lignes, volumeM3: (b.volumeM3 ?? estimateVolumeM3(lignes)) || null, isCuisine: cls.isCuisine, isDressing: cls.isDressing,
     });
   });
 }

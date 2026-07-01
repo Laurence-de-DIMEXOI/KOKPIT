@@ -7,7 +7,8 @@
     "arrivee": "2026-07-06",
     "arriveeLabel": "6 juillet 2026",
     "destination": "La Réunion",
-    "source": "Elaury"
+    "source": "Elaury",
+    "lignesSource": "sellsy"
   },
   "items": [
     {
@@ -16,7 +17,30 @@
       "client": "M Alain ALIAMUS",
       "montantHT": 2267.74,
       "dateCommande": "2025-05-09T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFWS 460R",
+          "desc": "Meuble de salle de bains Tolitoli SPC 2T - 100x50x60 cm - Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "Colonne SHERRY - à suspendre - 2 portes - 1 tiroir 40x35x160 cm - Cérusé blanc :",
+          "qty": 1
+        },
+        {
+          "ref": "EFMF 203-1R",
+          "desc": "Miroir 100X70cm Sherry Cadre - 4x7 cm - Cérusé blanc : BCDI4540",
+          "qty": 2
+        },
+        {
+          "ref": "SPC1900",
+          "desc": "FORFAIT LIVRAISON AVEC 1 LIVREUR",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.82
     },
     {
       "bcdi": "BCDI-05123",
@@ -24,7 +48,20 @@
       "client": "Mme Nathalie CALPETARD",
       "montantHT": 1493.09,
       "dateCommande": "2025-05-14T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFCI 214",
+          "desc": "Chaise de bar Hauteur siège 63cm Largeur d'assise 43cm Hauteur totale 95cm Miel : Chaise de bar Hauteur siège 63cm Largeur d'assise 43cm Hauteur totale 95cm Miel : (BCDI5123)",
+          "qty": 2
+        },
+        {
+          "ref": "EFBD 209",
+          "desc": "Lit SPC 2556 180x200cm Miel : (BCDI4930)",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05633",
@@ -32,7 +69,15 @@
       "client": "Mme Agathe SZMACINSKI",
       "montantHT": 2119.82,
       "dateCommande": "2026-02-10T00:00:00.000Z",
-      "bdoBcNumber": "BC-11682-06052025"
+      "bdoBcNumber": "BC-11682-06052025",
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Canopy Bed according to plan 180x200 RAW idem BCDI-05133 but HEIGHT : 220cm",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05095",
@@ -40,7 +85,20 @@
       "client": "Mme Evelyne CLAIN",
       "montantHT": 2044.52,
       "dateCommande": "2025-05-11T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFWR 110-1",
+          "desc": "Armoire Isabelle Minimalis 2 Porte Slats 90x55x180cm Miel",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Table ronde 120 de diamètre 76 cm de hauteur pied trapèze Miel",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.89
     },
     {
       "bcdi": "BCDI-05066",
@@ -48,7 +106,20 @@
       "client": "M Jérome RICQUEBOURG",
       "montantHT": 800.92,
       "dateCommande": "2025-05-09T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Meuble de salle de bain LUMYA finition pied sherry 110x50x85cm Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": "SPC1900",
+          "desc": "FORFAIT LIVRAISON AVEC 1 LIVREUR",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.47
     },
     {
       "bcdi": "BCDI-05181",
@@ -56,7 +127,20 @@
       "client": "M Pascal LAURET",
       "montantHT": 1972.35,
       "dateCommande": "2025-05-31T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Meuble de salle de bains CASSANDRE - 2T - 80x60x55 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 334RAW",
+          "desc": "Colonne à suspendre 1P Block 1T - 50x35x160 cm - Brut (BCDI5181)",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.81
     },
     {
       "bcdi": "BCDI-05146",
@@ -64,7 +148,45 @@
       "client": "Mme Christelle JALA",
       "montantHT": 6543.78,
       "dateCommande": "2025-05-17T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Coffee table Minimalis 2DRW according to plan 100x50x35cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "TV Buffet 2DR 2DRW according to plan 180x40x50cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Buffet 2DR Block 3DRW according to plan 200x40x90cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Buffet 2DR 2DRW according to plan 100x40x90cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Chair Cepaka W/ Block seat according to plan RAW",
+          "qty": 6
+        },
+        {
+          "ref": null,
+          "desc": "Dinning table Minimalis 180x90x76cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Mirror 200x80cm RAW Like EFMF 321R BUT different finishing",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 2.85
     },
     {
       "bcdi": "BCDI-05022",
@@ -72,7 +194,15 @@
       "client": "David LALLEMAND",
       "montantHT": 16129.03,
       "dateCommande": "2025-05-04T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "CUISINE SUR MESURE EN TECK SELON PLANS",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05319",
@@ -80,7 +210,15 @@
       "client": "Mme Marine GOMARD",
       "montantHT": 1252.53,
       "dateCommande": "2025-08-16T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFWS 097E-1R",
+          "desc": "Meuble sous vasque Zigzag 4T 150x50x60 cm Cérusé Blanc",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.45
     },
     {
       "bcdi": "BCDI-05045",
@@ -88,7 +226,15 @@
       "client": "M Patrice BOULEVART",
       "montantHT": 17032.26,
       "dateCommande": "2025-05-08T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "CUISINE SUR MESURE EN TECK SELON PLANS",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-04989",
@@ -96,7 +242,50 @@
       "client": "M Roberto DEVEAUX",
       "montantHT": 12350.23,
       "dateCommande": "2025-05-03T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Elément A : Colonne four 63x60x220 cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Elément B : Meuble de rangement 1 porte 1 range bouteille 3 tiroirs 1 range épices",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Elément C : Meuble de rangement 4 tiroirs 160x60x84 cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Elément D : Meuble de lave vaisselle 60x60x84 cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Elément E : Meuble de rangement 4 tiroirs 160x60x84 cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Elément F : Meuble de rangement 1 tiroir 40x60x84 cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Elément G : Meuble de rangement 200x40x40 cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Métrage plus pose",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 3.27
     },
     {
       "bcdi": "BCDI-05102",
@@ -104,7 +293,20 @@
       "client": "Mme Llaika Mohammad GHIVALLA",
       "montantHT": 737.33,
       "dateCommande": "2025-05-11T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "COLONNE SHERRY SUR PIEDS DIMENSIONS : 50x35x200cm Finition : cérusé blanc 2 portes 1 tiroir",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Livraison offerte",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.35
     },
     {
       "bcdi": "BCDI-05109",
@@ -112,7 +314,15 @@
       "client": "Mme Nadia BECHATA",
       "montantHT": 1548.39,
       "dateCommande": "2025-05-13T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFKS 064E",
+          "desc": "Element E, Ilot de cuisine 2 tiroirs 2 portes 160x60x88cm Cérusé blanc",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.84
     },
     {
       "bcdi": "BCDI-05132",
@@ -120,7 +330,25 @@
       "client": "Mme Carole ROUSSEL",
       "montantHT": 1677.42,
       "dateCommande": "2025-05-16T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Colonne Evolia 2DR 1DRW Zig Zag 60x30x200cm WW",
+          "qty": 1
+        },
+        {
+          "ref": "EFMF 178R",
+          "desc": "Miroir - 100x70 cm - Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Wastafel 2DRW Zig Zag hanged 100x50x50cm WW",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.61
     },
     {
       "bcdi": "BCDI-05124",
@@ -128,7 +356,20 @@
       "client": "M Johnny CHAMAND",
       "montantHT": 1225.81,
       "dateCommande": "2025-05-14T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFWS 077-3RAW",
+          "desc": "Meuble de salle de bains OASIS - 3P - 140x60x85 cm - Brut",
+          "qty": 1
+        },
+        {
+          "ref": "EFMF 111RAW",
+          "desc": "Miroir - 140x70 cm - Brut",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.71
     },
     {
       "bcdi": "BCDI-05149",
@@ -136,7 +377,15 @@
       "client": "Vincent LEBON",
       "montantHT": 894.01,
       "dateCommande": "2025-05-17T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Wastafel GATTAGA style 1DR on the right 3DRW on the left 120x60x85cm RAW",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.61
     },
     {
       "bcdi": "BCDI-05032",
@@ -144,7 +393,15 @@
       "client": "M Jérome LIESENFELT",
       "montantHT": 811.06,
       "dateCommande": "2025-05-07T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Colonne à suspendre 1 porte (façade style padi horizontal) 1 étagère 50x35x80cm BRUT",
+          "qty": 2
+        }
+      ],
+      "volumeM3": 0.28
     },
     {
       "bcdi": "BCDI-05159",
@@ -152,7 +409,15 @@
       "client": "M Iqbal OMARJEE",
       "montantHT": 792.63,
       "dateCommande": "2025-05-24T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Buffet Padang 2DRW canned 2DR 100x45x90cm RAW Like EFBF 488 BUT different size",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.41
     },
     {
       "bcdi": "BCDI-05175",
@@ -160,7 +425,15 @@
       "client": "Mme Gwen LE GRATIET",
       "montantHT": 700.46,
       "dateCommande": "2025-05-30T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Lit Slats \"3 NEW\" 120x190cm Cérusé blanc Like EFBD 152R BUT different size",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05176",
@@ -168,7 +441,20 @@
       "client": "Mme Murielle Mario COCHARD",
       "montantHT": 1465.44,
       "dateCommande": "2025-05-30T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFCB 136ER",
+          "desc": "Colonne Sdb Suspendu Zig Zag 1p 1t softclose 40x35x160cm Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Wastafel Zig-Zag 4DRW hanged 150x50x60cm WW",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.67
     },
     {
       "bcdi": "BCDI-05134",
@@ -176,7 +462,15 @@
       "client": "M Jospeh Henri PAYET",
       "montantHT": 589.86,
       "dateCommande": "2025-05-16T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Bar chair Colonial Hight seat 65cm",
+          "qty": 4
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05106",
@@ -184,7 +478,15 @@
       "client": "SAS SUPERETTE DU 15eme",
       "montantHT": 1006.45,
       "dateCommande": "2025-05-11T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Chaises d'îlot 65cm sur-mesure dossier JUNE canage BRUT",
+          "qty": 4
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05145",
@@ -192,7 +494,15 @@
       "client": "Mme Laetitia HOARAU",
       "montantHT": 1474.65,
       "dateCommande": "2025-05-17T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Bar Chair canned June style w/white cushion according to picture RAW",
+          "qty": 5
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05078",
@@ -200,7 +510,15 @@
       "client": "Mme Sylvie nallet",
       "montantHT": 488.48,
       "dateCommande": "2025-05-10T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Table de nuit à suspendre sur-mesure L350 - H350 - P340 (identique à la photo sans trou) BRUT EFNB 109RAW",
+          "qty": 2
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05150",
@@ -208,7 +526,20 @@
       "client": "M Salima AKHOUN",
       "montantHT": 1410.14,
       "dateCommande": "2025-05-17T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFCI 182",
+          "desc": "Chaise JUNE Miel : cannage miel Chaise JUNE Miel : (BCDI3920)",
+          "qty": 6
+        },
+        {
+          "ref": "SPC1900",
+          "desc": "FORFAIT LIVRAISON AVEC 1 LIVREUR",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05190",
@@ -216,7 +547,15 @@
       "client": "M Tatiana Adrien FONTAINE INFANTE",
       "montantHT": 645.16,
       "dateCommande": "2025-06-05T00:00:00.000Z",
-      "bdoBcNumber": "BC-11745-23052025"
+      "bdoBcNumber": "BC-11745-23052025",
+      "lignes": [
+        {
+          "ref": "EFWS 158ER",
+          "desc": "Meuble de salle de bains OASIS - A suspendre - 2P SOFT - 100x50x60 cm - Cérusé blanc",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.3
     },
     {
       "bcdi": "BCDI-05107",
@@ -224,7 +563,25 @@
       "client": "Mme Evelyne Parvedy",
       "montantHT": 3686.64,
       "dateCommande": "2025-05-11T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Meuble à chaussures sur-mesure 80x45x90cm Cérusé blanc étagères coulissantes 2 portes UBUD avec grille",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de rangement sur-mesure 80x45x170cm Cérusé blanc 1 Rangement haut 80x45x40cm 2 portes UBUD vitré 2 Rangements 40x45x30cm portes UBUD vitré 1 Rangement pour coffre de banque 80x45x35cm avec charnières à bras façade BLOC avec un sécure à clé. 2 tiroirs ouverture à pression 40x45x20cm façade BLOC 1 tiroirs ouverture à pression 80x45x20cm façade BLOC",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Bibliothèque sur-mesure 120x30x180 cm Cérusé blanc 2 portes hautes vitrées avec étagère bois 2 tiroirs bloc poignées identiques aux commandes précédentes 2 portes bloc coulissantes avec étagères bois",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 1.58
     },
     {
       "bcdi": "BCDI-05232",
@@ -232,7 +589,60 @@
       "client": "Frederic RAMELET",
       "montantHT": 7834.1,
       "dateCommande": "2025-06-27T00:00:00.000Z",
-      "bdoBcNumber": "BC-11727-11052025"
+      "bdoBcNumber": "BC-11727-11052025",
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Element A : Storage unit 1DR according to plan 50x60x88cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Element B : Storage unit for oven according to plan 63x60x88cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Element C : Storage unit angle 1DR according to plan 112x66x88cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Element D : Storage unit 2DR according to plan 98x60x88cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Element E : Storage unit angle 1DR according to plan 112x66x88cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Element F : Storage unit 3DRW according to plan 80x60x88cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Element G : Storage for spice/bottle according to plan 25x60x88cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Element H : Plank according to plan 60x25x2,5cm RAW",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "Element I : Plank according to plan 230x40x2,5cm RAW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Element J : Table Top according to plan 60/220/60x220/180 RAW",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 2.97
     },
     {
       "bcdi": "BCDI-05218",
@@ -240,7 +650,15 @@
       "client": "M Jean Daniel GRONDIN",
       "montantHT": 994.47,
       "dateCommande": "2025-06-24T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFCB 135ER",
+          "desc": "Colonne Sdb 2 portes SLATS 1 tiroir 50x35x190cm softclose Cérusé blanc ATTENTION : CHARNIÈRES A GAUCHE",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.33
     },
     {
       "bcdi": "BCDI-05224",
@@ -248,7 +666,15 @@
       "client": "Mme Mathilde GOUMANE",
       "montantHT": 331.8,
       "dateCommande": "2025-06-26T00:00:00.000Z",
-      "bdoBcNumber": "BC-11763-20062025"
+      "bdoBcNumber": "BC-11763-20062025",
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Nackhas hanged 1DRW according to plan 45x30x15cm RAW",
+          "qty": 2
+        }
+      ],
+      "volumeM3": 0.04
     },
     {
       "bcdi": "BCDI-05225",
@@ -256,7 +682,15 @@
       "client": "Mme Nadia BERROUACHDI",
       "montantHT": 1290.32,
       "dateCommande": "2025-06-26T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Armoire Rosa 2DR 4DRW Zig-Zag 100x45x180cm BW",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.81
     },
     {
       "bcdi": "BCDI-05251",
@@ -264,7 +698,15 @@
       "client": "Mme Clémencia GERARD",
       "montantHT": 395.39,
       "dateCommande": "2025-07-11T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Table Gigogne 40cm et 30cm BRUT",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05253",
@@ -272,7 +714,15 @@
       "client": "M Stephane INFANTE",
       "montantHT": 4792.63,
       "dateCommande": "2025-07-11T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFWS 238",
+          "desc": "Wardrobe 3DR Evolia 1 central mirror 200x60x205cm",
+          "qty": 2
+        }
+      ],
+      "volumeM3": 4.92
     },
     {
       "bcdi": "BCDI-05256",
@@ -280,7 +730,25 @@
       "client": "Mme Amethyste CAZAL",
       "montantHT": 1686.64,
       "dateCommande": "2025-07-11T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFSW 002W",
+          "desc": "Vasque en marbre BLANC rond",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "Lave main 1DR canned 1 porte serviette 40x30x35cm RAW Like EFWS 308-1 BUT different size AND canned door",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 440RAW",
+          "desc": "Meuble de salle de bains LUMYA - 2 portes - 150x55x60 cm - Brut",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.54
     },
     {
       "bcdi": "BCDI-05260",
@@ -288,7 +756,15 @@
       "client": "Mme Alice Victor Vincenot VERDIER",
       "montantHT": 875.58,
       "dateCommande": "2025-07-12T00:00:00.000Z",
-      "bdoBcNumber": "BC-11782-11072025"
+      "bdoBcNumber": "BC-11782-11072025",
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Coffee table minimalis square 120x120cm RAW",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05491",
@@ -296,7 +772,15 @@
       "client": "Mme Sophie LALLEMAND",
       "montantHT": 0,
       "dateCommande": "2025-10-23T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Table de nuit CORDOBA 1 tiroir 1 porte 40x35x60cm Cérusé blanc ouverture vers la gauche",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.08
     },
     {
       "bcdi": "BCDI-05209",
@@ -304,7 +788,30 @@
       "client": "M Claude GONTHIER",
       "montantHT": 3999.08,
       "dateCommande": "2025-06-14T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "élément A : meuble de rangement chaussures 2 portes à serrures 100x60x95cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Elément B : meuble de rangement machine à laver à encastrer sans fond avec 2 portes 70x60x95cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Elément C : meuble de rangement placard à balai 45x60x180cm",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Lot de 2 étagères murales 170x35cm",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 1.46
     },
     {
       "bcdi": "BCDI-05036",
@@ -312,7 +819,35 @@
       "client": "Mme Sabrina NARAYANIN",
       "montantHT": 6632.26,
       "dateCommande": "2025-05-08T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Cuisine sur-mesure à suspendre portes et tiroirs Evolia (sauf partie lave-vaisselle) 200x60x78cm BRUT",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Cuisine sur-mesure à suspendre portes et tiroirs Evolia 220x60x78cm BRUT",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Métrage et installation",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "LIVRAISON",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Plan de travail quartz fortuna",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 1.97
     },
     {
       "bcdi": "BCDI-05196",
@@ -320,7 +855,15 @@
       "client": "Mme Karine DESILES",
       "montantHT": 0,
       "dateCommande": "2025-06-06T00:00:00.000Z",
-      "bdoBcNumber": "BC-11752-03062025"
+      "bdoBcNumber": "BC-11752-03062025",
+      "lignes": [
+        {
+          "ref": "EFCB 158E",
+          "desc": "Colonne SHERRY - A suspendre - 1P - 1T - 40x35x160 cm - Miel : Colonne SHERRY - A suspendre - 1P - 1T - 40x35x160 cm - Miel",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.22
     },
     {
       "bcdi": "BCDI-05198",
@@ -328,7 +871,30 @@
       "client": "M Regis MOREL",
       "montantHT": 4599.08,
       "dateCommande": "2025-06-10T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "table a manger sur mesure selon plan dimensions : 220x90x75cm , épaisseur plateau 4cm brut",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "banc sur mesure selon plan brut 190x40x58cm",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "meuble de salle de bain style sherry sur mesure 4 tiroirs",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "cache wc",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 2.37
     },
     {
       "bcdi": "BCDI-05269",
@@ -336,7 +902,15 @@
       "client": "Mme Presila SAVRIMOUTOU",
       "montantHT": 1382.49,
       "dateCommande": "2025-07-18T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFCI 034RAW",
+          "desc": "Chaise Kondé Brut",
+          "qty": 8
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05278",
@@ -344,7 +918,15 @@
       "client": "M Pierre CLERTE",
       "montantHT": 902.3,
       "dateCommande": "2025-07-25T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFGB 039RAW",
+          "desc": "Daybed Balinais 70x190cm Brut Cushion Color : C 0116",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05309",
@@ -352,7 +934,15 @@
       "client": "Mme Marie Noelle PERRIN",
       "montantHT": 0,
       "dateCommande": "2025-08-12T00:00:00.000Z",
-      "bdoBcNumber": "BC-11801-08082025"
+      "bdoBcNumber": "BC-11801-08082025",
+      "lignes": [
+        {
+          "ref": "EFBF 502",
+          "desc": "Meuble chaussure 4 portes 200x50x110cm Miel : Meuble chaussure 4 portes 200x50x110cm Miel : (BCDI4642)",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 1.1
     },
     {
       "bcdi": "BCDI-05365",
@@ -360,7 +950,15 @@
       "client": "Mme Virginie LE ROUX",
       "montantHT": 233.18,
       "dateCommande": "2025-09-04T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFGC 001",
+          "desc": "Chaise de jardin pliante Miel (BCDI4039)",
+          "qty": 2
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05366",
@@ -368,7 +966,20 @@
       "client": "Mme Delphine NEHOUA",
       "montantHT": 1221.2,
       "dateCommande": "2025-09-05T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Meuble à chaussures 3 portes Krepyak étagères sur rails 130x45x90cm Miel",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Livraison 2 livreurs",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.53
     },
     {
       "bcdi": "BCDI-05368",
@@ -376,7 +987,15 @@
       "client": "Mme Anne leclerc",
       "montantHT": 474.88,
       "dateCommande": "2025-09-05T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFCI 010SRAW",
+          "desc": "Chaise de Bar Colombo BLOCK H= 65cm Brut (profondeur assise = 44cm)",
+          "qty": 3
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05388",
@@ -384,7 +1003,20 @@
       "client": "Mme Francoise VINCENT",
       "montantHT": 935.48,
       "dateCommande": "2025-09-13T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFBD 124RAW",
+          "desc": "Lit Evolia 140x190cm Brut",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "FORFAIT DE LIVRAISON",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05403",
@@ -392,7 +1024,465 @@
       "client": "ORDER DIMEXOI",
       "montantHT": 0,
       "dateCommande": "2025-09-20T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFWS 271",
+          "desc": "Meuble de salle de bains GOA - 1P Krepyak - 60x50x85 cm - Miel",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 271R",
+          "desc": "Meuble de salle de bains GOA - 1P Krepyak - 60x50x85 cm - Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 271RAW",
+          "desc": "Meuble de salle de bains GOA - 1P Krepyak - 60x50x85 cm - Brut",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 249",
+          "desc": "Meuble de salle de bains ULUWATU - 2 étagères - 60x45x85 cm - Miel : BCDI-03158",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 249R",
+          "desc": "Meuble de salle de bains ULUWATU - 2 étagères - 60x45x85 cm - Cérusé blanc : BCDI-03158",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 249RAW",
+          "desc": "Meuble de salle de bains ULUWATU - 2 étagères - 60x45x85 cm - Brut : BCDI-03158",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 248",
+          "desc": "Meuble de salle de bains Cassandre suspendu 2 tiroirs 80x50x55cm Miel",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 248R",
+          "desc": "Meuble de salle de bains CASSANDRE - A suspendre - 2T - 80x50x55cm - Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 248RAW",
+          "desc": "Meuble de salle de bains Cassandre suspendu 2 tiroirs 80x50x55cm Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 346",
+          "desc": "Meuble de salle de bains TOLITOLI - 2T - 80x50x60 cm - Miel : (BCDI3775)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 346R",
+          "desc": "Meuble de salle de bains TOLITOLI - 2T - 80x50x60 cm Cérusé blanc : (BCDI3775)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 346RAW",
+          "desc": "Meuble de salle de bains TOLITOLI - 2T - 80x50x60 cm Brut : (BCDI3775)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 348",
+          "desc": "Meuble de salle de bains PADODA - 2T ROTIN - 90x50x60 cm - Miel : Meuble de salle de bains PADODA - 2T ROTIN - 90x50x60 cm - Miel : (BCDI3775)",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 348RAW",
+          "desc": "Meuble de salle de bains PADODA - 2T ROTIN - 90x50x60 cm Brut : Meuble de salle de bains PADODA - 2T ROTIN - 90x50x60 cm Brut : (BCDI3775)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 256",
+          "desc": "Meuble de salle de bains suspendu 2 tiroirs Zig-Zag Vitre déco 90x50x50cm Miel",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 256R",
+          "desc": "Meuble de salle de bains suspendu 2 tiroirs Zig-Zag Vitre déco 90x50x50cm Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 256RAW",
+          "desc": "Meuble de salle de bains suspendu 2 tiroirs Zig-Zag Vitre déco 90x50x50cm Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 162E",
+          "desc": "Meuble de salle de bains SHERRY - A suspendre - 2T - 90x50x60 cm - Miel : Meuble de salle de bains SHERRY - A suspendre - 2T - 90x50x60 cm - Miel : (BCDI3938)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 162ERAW",
+          "desc": "Meuble de salle de bains SHERRY - A suspendre - 2T - 90x50x60 cm Brut : Meuble de salle de bains SHERRY - A suspendre - 2T - 90x50x60 cm Brut : (BCDI3938)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 162R",
+          "desc": "Meuble Salle de Bains Sherry suspendu 090x50x60cm Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 433RAW",
+          "desc": "Meuble de salle de bains NUSA - 2 portes push-pull - 90x50x85 cm - Brut",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 433",
+          "desc": "Meuble de salle de bains NUSA - 2 portes push-pull - 90x50x85 cm - Miel",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 180E",
+          "desc": "Meuble de salle de bains PALU - A suspendre - 100x50x60 cm - Miel : 1 porte ; 1 tiroir ; vitres déco",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 180ER",
+          "desc": "Meuble de salle de bains PALU - A suspendre - 100x50x60 cm - Cérusé blanc : 1 porte ; 1 tiroir ; vitres déco",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 180ERAW",
+          "desc": "Meuble de salle de bains PALU - A suspendre - 100x50x60 cm - Brut : 1 porte - 1 tiroir - vitres déco",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 171E",
+          "desc": "Meuble de salle de bains CASSANDRE - 2T SOFT - 100x55x85 cm - Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 171ER",
+          "desc": "Meuble de salle de bains CASSANDRE - 2T SOFT - 100x55x85 cm -Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 171ERAW",
+          "desc": "Meuble de salle de bains CASSANDRE - 2T SOFT - 100x55x85 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 211",
+          "desc": "Meuble salle de bains 2 tiroirs Zigzag 100x50x50cm Miel : Sans niche centrale",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 211R",
+          "desc": "Meuble salle de bains 2 tiroirs Zigzag 100x50x50cm Cérusé blanc : Sans niche centrale",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 211RAW",
+          "desc": "Meuble salle de bains 2 tiroirs Zigzag 100x50x50cm Brut : Sans niche centrale",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 090E",
+          "desc": "Meuble de salle de bains CASSANDRE - 2T - 120x55x85 cm - Miel",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 090ER",
+          "desc": "Meuble de salle de bains CASSANDRE - 2T - 120x55x85 cm - Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 090ERAW",
+          "desc": "Meuble de salle de bains CASSANDRE - 2T - 120x55x85 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 095E",
+          "desc": "Meuble de salle de bains CASSANDRE - A suspendre - 2T - 120x50x60cm - Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 095ER",
+          "desc": "Meuble de salle de bains CASSANDRE - A suspendre - 2T - 120x50x60cm - Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 095ERAW",
+          "desc": "Meuble de salle de bains CASSANDRE - A suspendre - 2T - 120x50x60cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 131E",
+          "desc": "Meuble de salle de bains SHERRY - A suspendre - 2T - 120x50x60 cm - Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 131ER",
+          "desc": "Meuble de salle de bains SHERRY - A suspendre - 2T - 120x50x60 cm - Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 131ERAW",
+          "desc": "Meuble de salle de bains SHERRY - A suspendre - 2T - 120x50x60 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 169E",
+          "desc": "Meuble salle de bains Sherry 2 portes 1 tiroir 120x55x85cm Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 169ER",
+          "desc": "Meuble salle de bains Sherry 2 portes 1 tiroir 120x55x85cm Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 169ERAW",
+          "desc": "Meuble salle de bains Sherry 2 portes 1 tiroir 120x55x85cm Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 345",
+          "desc": "Meuble de salle de bains TOLITOLI - 4T - 120x50x60 cm - Miel",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 345R",
+          "desc": "Meuble de salle de bains TOLITOLI - 4T - 120x50x60 cm - Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 345RAW",
+          "desc": "Meuble de salle de bains TOLITOLI - 4T - 120x50x60 cm Brut",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 077-3Z",
+          "desc": "Meuble de salle de bains OASIS - 3P ZIGZAG - 140x60x85 cm - Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 077-3ZBLACK",
+          "desc": "Meuble de salle de bains OASIS - 3P ZIGZAG - 140x60x85 cm - Cérusé noir",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 077-3ZR",
+          "desc": "Meuble de salle de bains OASIS - 3P ZIGZAG - 140x60x85 cm - Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 077-3ZRAW",
+          "desc": "Meuble de salle de bains OASIS - 3P ZIGZAG - 140x60x85 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 118ERAW",
+          "desc": "Meuble de salle de bains OASIS - A suspendre - 140x50x60 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 118ER",
+          "desc": "Meuble de salle de bains OASIS - A suspendre - 140x50x60 cm - Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": "EFWS 097E-1",
+          "desc": "Meuble sous vasque Zigzag 4T 150x50x60 cm",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 097E-1R",
+          "desc": "Meuble sous vasque Zigzag 4T 150x50x60 cm Cérusé Blanc",
+          "qty": 3
+        },
+        {
+          "ref": "EFWS 097E-1RAW",
+          "desc": "Meuble sous vasque Zigzag 4T 150x50x60 cm Brut",
+          "qty": 3
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de salle de bains LUMYA - 2 portes - 150x50x60 cm - Miel",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de salle de bains LUMYA - 2 portes - 150x50x60 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de salle de bains LUMYA - 2 portes - 150x55x60 cm - cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de salle de bains MAHIRA - A suspendre - 2 portes - 150x50x60 cm - Miel",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de salle de bains MAHIRA - A suspendre - 2 portes - 150x50x60 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de salle de bains MAHIRA - A suspendre - 2 portes - 150x50x60 cm - cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 283",
+          "desc": "Meuble de salle de bains BAYA SPC - 3T EVOLIA - 160x60x85 cm - Miel : (BCDI3466)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 283R",
+          "desc": "Meuble de salle de bains BAYA SPC - 3T EVOLIA - 160x60x85 cm - Cérusé blanc : (BCDI3466)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 283RAW",
+          "desc": "Meuble de salle de bains BAYA SPC - 3T EVOLIA - 160x60x85 cm Brut : (BCDI3466)",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 135E",
+          "desc": "Meuble de salle de bains SEVILLE KREPYAK - 2P - 3T - 160x60x85 cm - Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 135ER",
+          "desc": "Meuble de salle de bains SEVILLE KREPYAK - 2P - 3T - 160x60x85 cm - Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFWS 135ERAW",
+          "desc": "Meuble de salle de bains SEVILLE KREPYAK - 2P - 3T - 160x60x85 cm - Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 136E",
+          "desc": "Colonne Sdb Suspendu Zig Zag 1p 1t softclose 40x35x160cm Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 136ER",
+          "desc": "Colonne Sdb Suspendu Zig Zag 1p 1t softclose 40x35x160cm Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 136ERAW",
+          "desc": "Colonne Sdb Suspendu Zig Zag 1p 1t softclose 40x35x160cm Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 158ZR",
+          "desc": "Colonne sherry suspendue ZIG ZAG 1 porte 1 tiroir 40x35x160cm Cérusé blanc : (BCDI3542)",
+          "qty": 1
+        },
+        {
+          "ref": "EFCB 161",
+          "desc": "Colonne Sdb 2 portes Zig-Zag 1 tiroir 50x30x200cm Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 161BLACK",
+          "desc": "Colonne Sdb 2 portes Zig-Zag 1 tiroir 50x30x200cm Cérusé noir",
+          "qty": 1
+        },
+        {
+          "ref": "EFCB 161R",
+          "desc": "Colonne Sdb 2 portes Zig-Zag 1 tiroir 50x30x200cm Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 161RAW",
+          "desc": "Colonne Sdb 2 portes Zig-Zag 1 tiroir 50x30x200cm Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 220",
+          "desc": "Colonne Sherry 1 porte 1 tiroir 35x35x180cm Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 220R",
+          "desc": "Colonne Sherry 1 porte 1 tiroir 35x35x180cm Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 220RAW",
+          "desc": "Colonne Sherry 1 porte 1 tiroir 35x35x180cm Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 278RAW",
+          "desc": "Colonne SHERRY - à suspendre - 2 portes - 1 tiroir 40x35x160 cm - Brut : Colonne SHERRY - à suspendre - 2 portes - 1 tiroir 40x35x160 cm - Brut : (BCDI3997)",
+          "qty": 1
+        },
+        {
+          "ref": "EFCB 133E",
+          "desc": "Colonne Sdb Laura Slats 1 porte 2 tiroirs 40x35x180cm softclose Miel",
+          "qty": 1
+        },
+        {
+          "ref": "EFCB 133ER",
+          "desc": "Colonne Sdb Laura Slats 1 porte 2 tiroirs 40x35x180cm softclose Cérusé blanc",
+          "qty": 1
+        },
+        {
+          "ref": "EFCB 133ERAW",
+          "desc": "Colonne Sdb Laura Slats 1 porte 2 tiroirs 40x35x180cm softclose Brut",
+          "qty": 1
+        },
+        {
+          "ref": "EFCB 135ER",
+          "desc": "Colonne Sdb 2 portes SLATS 1 tiroir 50x35x190cm softclose Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 135ERAW",
+          "desc": "Colonne Sdb 2 portes SLATS 1 tiroir 50x35x190cm softclose Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 076E",
+          "desc": "Colonne 1 porte Krepyak 2 tiroirs 40x35x180cm softclose Miel",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 076ER",
+          "desc": "Colonne 1 porte Krepyak 2 tiroirs 40x35x180cm softclose Cérusé blanc",
+          "qty": 2
+        },
+        {
+          "ref": "EFCB 076ERAW",
+          "desc": "Colonne 1 porte Krepyak 2 tiroirs 40x35x180cm softclose Brut",
+          "qty": 2
+        },
+        {
+          "ref": "EFSW 001M",
+          "desc": "Vasque en pierre taille M",
+          "qty": 10
+        },
+        {
+          "ref": "EFSW 002W",
+          "desc": "Vasque en marbre BLANC rond",
+          "qty": 20
+        },
+        {
+          "ref": "EFSW 006W",
+          "desc": "Vasque en marbre BLANC poli intérieur extérieur",
+          "qty": 20
+        },
+        {
+          "ref": "EFSW 009W",
+          "desc": "Vasque en marbre BLANC poli intérieur Erosion",
+          "qty": 20
+        }
+      ],
+      "volumeM3": 59.23
     },
     {
       "bcdi": "BCDI-05441",
@@ -400,7 +1490,20 @@
       "client": "Mme Monique Nicole BENARD",
       "montantHT": 1741.94,
       "dateCommande": "2025-10-07T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Wardrobe 1DR according to plan 75x40x213cm WW",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Nackhas 1DRW according to plan 40x40x60cm WW",
+          "qty": 2
+        }
+      ],
+      "volumeM3": 0.83
     },
     {
       "bcdi": "BCDI-05475",
@@ -408,7 +1511,15 @@
       "client": "M Nelson MOREL",
       "montantHT": 0,
       "dateCommande": "2025-10-18T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFBD 007",
+          "desc": "Lit BATEAU - 140x190 cm - Miel",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05492",
@@ -416,7 +1527,30 @@
       "client": "M Thierry Et Brigitte GOUTORBE",
       "montantHT": 3031.34,
       "dateCommande": "2025-10-24T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Colonne à suspendre avec étagères 1 porteBLOCK poignée EVOLIA 55x40x200cm MIEL Charnières à droite",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de rangement à suspendre avec étagères 1 porte BLOCK poignée EVOLIA 55x20x90cm MIEL Charnières à droite",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de rangement à suspendre 3 tiroirs 55x40x90cm MIEL",
+          "qty": 1
+        },
+        {
+          "ref": null,
+          "desc": "Meuble de Salle de bain à suspendre 2 tiroirs 1 niche 100x50x60cm MIEL",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 1.04
     },
     {
       "bcdi": "BCDI-05511",
@@ -424,7 +1558,15 @@
       "client": "Valabjee ZAGJRAN",
       "montantHT": 1004.61,
       "dateCommande": "2025-11-15T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Bed SPC according to plan 140x190cm NATURAL",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05553",
@@ -432,7 +1574,15 @@
       "client": "M Philippe TAFA",
       "montantHT": 903.26,
       "dateCommande": "2025-12-04T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFCI 110",
+          "desc": "Chaise Jaya Miel",
+          "qty": 6
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05562",
@@ -440,7 +1590,15 @@
       "client": "M Maximilien ANAMOUTOU",
       "montantHT": 1198.16,
       "dateCommande": "2025-12-12T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Bookcase Lounge 2DR Block at the bottom no door in the top, w/shelves removable 100x40x205cm Natural Like EFBC 091E BUT without the top big door",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.82
     },
     {
       "bcdi": "BCDI-05598",
@@ -448,7 +1606,15 @@
       "client": "M Sarl META -FORGE",
       "montantHT": 1152.07,
       "dateCommande": "2026-01-14T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Bookcase Loudge 2DR Block 2DR Glass 100x45x205 NATURAL",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.92
     },
     {
       "bcdi": "STOCK",
@@ -464,7 +1630,20 @@
       "client": "M Annabelle Zettor",
       "montantHT": 903.87,
       "dateCommande": "2025-05-06T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFCI 182",
+          "desc": "Chaise JUNE Miel",
+          "qty": 4
+        },
+        {
+          "ref": null,
+          "desc": "Coussins déhoussables pour chaise June C091 C039 C034",
+          "qty": 4
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05349",
@@ -472,7 +1651,20 @@
       "client": "M Claude GONTHIER",
       "montantHT": 409.22,
       "dateCommande": "2025-08-30T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Coussin de chaise déhoussable (nagazaki ) Epaisseur de 8 cm RIVOLI : OASIS 307 RIVOLI : LINEN 301 RIVOLI : DENIN 308",
+          "qty": 4
+        },
+        {
+          "ref": null,
+          "desc": "Housse de chaise déhoussable (nagasaki) Epaisseur de 8 cm RIVOLI : LINEN 301 RIVOLI : DENIN 308 RIVOLI : OASIS 307",
+          "qty": 4
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05205",
@@ -480,7 +1672,15 @@
       "client": "Sebastien Et Ingrid LEGALLAIS",
       "montantHT": 0,
       "dateCommande": "2025-06-14T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Miroir MAJA 120x20x65 cm céruse blanc miroir ( sans encadrement miroir)",
+          "qty": 1
+        }
+      ],
+      "volumeM3": 0.16
     },
     {
       "bcdi": "BCDI-05294",
@@ -488,7 +1688,15 @@
       "client": "M Sébastien Gourama",
       "montantHT": 0,
       "dateCommande": "2025-08-05T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": "EFMF 097BLACK",
+          "desc": "Miroir - 150x70 cm - Cérusé noir",
+          "qty": 1
+        }
+      ],
+      "volumeM3": null
     },
     {
       "bcdi": "BCDI-05808",
@@ -496,7 +1704,15 @@
       "client": "Mme Léa HOARAU",
       "montantHT": 0,
       "dateCommande": "2026-05-30T00:00:00.000Z",
-      "bdoBcNumber": null
+      "bdoBcNumber": null,
+      "lignes": [
+        {
+          "ref": null,
+          "desc": "Shelve for WARDROBE FLORES UBUD 116.5x 50.50 cm W/ notch 6 / 8 mm RAW",
+          "qty": 2
+        }
+      ],
+      "volumeM3": null
     }
   ]
 }
