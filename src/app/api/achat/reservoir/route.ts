@@ -141,6 +141,10 @@ export async function GET(req: NextRequest) {
   });
   const resteByBcdi = new Map(snaps.map((s) => [s.bcdi, s.restePayerHT != null ? Number(s.restePayerHT) : null]));
 
+  // Commandes sélectionnées pour la prépa du prochain container (→ épinglées au 1er départ non parti)
+  const prepRows = await prisma.prepContainerItem.findMany({ where: { impCode: "IMP-619" }, select: { bcdi: true } });
+  const prepSet = new Set(prepRows.map((p) => p.bcdi.toUpperCase()));
+
   const now = new Date();
 
   // 1) Items du réservoir (calendrier vs stock magasin)
@@ -209,18 +213,34 @@ export async function GET(req: NextRequest) {
     slots.push({ date: nd, capacite: last.capacite || capacite, estime: true, items: [], meubles: 0 });
   };
 
-  let si = 1;
-  for (const it of calendarItems) {
+  const setRetard = (it: ResItem, slotDate: Date) => {
+    if (it.dateCommande) it.retard = slotDate.getTime() > dateChargement(new Date(it.dateCommande), params).getTime();
+  };
+
+  // Premier départ NON parti (date ≥ aujourd'hui) — on n'affecte rien à un container déjà en mer.
+  const startOfToday = new Date(now); startOfToday.setUTCHours(0, 0, 0, 0);
+  const isFuture = (s: Slot, i: number) => i >= 1 && s.date.getTime() >= startOfToday.getTime();
+  let firstFutureIdx = slots.findIndex(isFuture);
+  while (firstFutureIdx === -1) { genNext(); firstFutureIdx = slots.findIndex(isFuture); }
+
+  // Épinglage : les commandes sélectionnées pour la prépa vont directement dans ce 1er départ.
+  const prepped = calendarItems.filter((i) => prepSet.has(i.bcdi.toUpperCase()));
+  const autres = calendarItems.filter((i) => !prepSet.has(i.bcdi.toUpperCase()));
+  for (const it of prepped) {
+    setRetard(it, slots[firstFutureIdx].date);
+    slots[firstFutureIdx].items.push(it);
+    slots[firstFutureIdx].meubles += it.nbMeubles;
+  }
+
+  // FIFO du reste, à partir du 1er départ non parti (la place déjà prise par la prépa est respectée).
+  let si = firstFutureIdx;
+  for (const it of autres) {
     while (true) {
       if (!slots[si]) genNext();
       if (slots[si].items.length > 0 && slots[si].meubles + it.nbMeubles > slots[si].capacite) { si++; continue; }
       break;
     }
-    // Retard projeté : la commande sera-t-elle chargée APRÈS sa date limite ?
-    if (it.dateCommande) {
-      const limite = dateChargement(new Date(it.dateCommande), params);
-      it.retard = slots[si].date.getTime() > limite.getTime();
-    }
+    setRetard(it, slots[si].date);
     slots[si].items.push(it);
     slots[si].meubles += it.nbMeubles;
   }
