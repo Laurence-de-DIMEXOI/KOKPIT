@@ -19,6 +19,12 @@ import { classifyLignes } from "@/lib/reservoir-lignes";
 
 export const dynamic = "force-dynamic";
 
+/** Commande interne / stock magasin d'après le nom du client (ex "ORDER DIMEXOI"). */
+function isStockClient(client: string | null): boolean {
+  if (!client) return false;
+  return /^(STOCK|ORDER\s*(FOR\s*SHOP|DIMEXOI)|DIMEXOI|EXHIBITION)/i.test(client.trim());
+}
+
 interface ResItem {
   bcdi: string;
   client: string | null;
@@ -127,7 +133,7 @@ export async function GET(req: NextRequest) {
     // Filet de sécurité : déjà parti dans un IMP (reçu) et pas un SAV → exclu
     if (!isSav && shipped.has(r.bcdi.toUpperCase())) { dejaExpedies++; continue; }
     const forcedStock = r.forcedType === "stock";
-    const isStock = etat === "COMMANDE MAGASIN" || forcedStock;
+    const isStock = etat === "COMMANDE MAGASIN" || forcedStock || isStockClient(r.client);
     const moisTheorique = r.dateCommande ? moisChargementKey(r.dateCommande, params) : null;
     const lignesArr = Array.isArray(r.lignes) ? (r.lignes as { ref: string | null; desc: string; qty: number }[]) : [];
     const cls = classifyLignes(lignesArr);
