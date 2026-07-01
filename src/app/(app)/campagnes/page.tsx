@@ -232,14 +232,13 @@ function CampagnesContent() {
     finally { setGoogleLoading(false); }
   };
 
-  const handleGoogleSync = async (period?: string, since?: string, until?: string) => {
-    const p = period || selectedPeriod;
+  const handleGoogleSync = async (..._args: unknown[]) => {
     setGoogleSyncing(true);
     setGoogleError("");
     try {
-      let url = `/api/google-ads/sync?period=${p}`;
-      if (p === "custom" && since && until) url += `&since=${since}&until=${until}`;
-      const res = await fetch(url);
+      // Source unique : import du Google Sheet (rempli par le script Google Ads).
+      // La période est celle configurée dans le script, pas côté Kokpit.
+      const res = await fetch(`/api/google-ads/import`);
       const data = await res.json();
       if (res.ok) {
         setGoogleCampaigns(data.campaigns || []);
