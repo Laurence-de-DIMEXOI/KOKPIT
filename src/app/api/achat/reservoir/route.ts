@@ -137,9 +137,11 @@ export async function GET(req: NextRequest) {
   // Reste à payer par BCDI (snapshot Sellsy calculé par le pipeline prévisionnel)
   const snaps = await prisma.bcdiSellsySnapshot.findMany({
     where: { bcdi: { in: rows.map((r) => r.bcdi) } },
-    select: { bcdi: true, restePayerHT: true },
+    select: { bcdi: true, restePayerHT: true, etatProduit: true, isSav: true },
   });
   const resteByBcdi = new Map(snaps.map((s) => [s.bcdi, s.restePayerHT != null ? Number(s.restePayerHT) : null]));
+  // Repli d'état via le snapshot Sellsy (Vente locale parfois incomplète, ex tag SAV manquant)
+  const snapByBcdi = new Map(snaps.map((s) => [s.bcdi, { etat: s.etatProduit, isSav: s.isSav }]));
 
   // Commandes sélectionnées pour la prépa du prochain container (→ épinglées au 1er départ non parti)
   const prepRows = await prisma.prepContainerItem.findMany({ where: { impCode: "IMP-619" }, select: { bcdi: true } });
@@ -154,8 +156,9 @@ export async function GET(req: NextRequest) {
   let dejaExpedies = 0;
 
   for (const r of rows) {
-    const etat = (r.etatProduit || "").trim().toUpperCase();
-    const isSav = etat === "SAV";
+    const snap = snapByBcdi.get(r.bcdi);
+    const etat = (r.etatProduit || snap?.etat || "").trim().toUpperCase();
+    const isSav = etat === "SAV" || !!snap?.isSav;
     // Filet de sécurité : déjà parti dans un IMP (reçu) et pas un SAV → exclu
     if (!isSav && shipped.has(r.bcdi.toUpperCase())) { dejaExpedies++; continue; }
     const forcedStock = r.forcedType === "stock";
@@ -172,7 +175,7 @@ export async function GET(req: NextRequest) {
       trelloStatut: r.trelloStatut,
       pret: r.trelloStatut ? TRELLO_READY_LISTS.includes(r.trelloStatut) : false,
       found: r.found,
-      etatProduit: r.etatProduit,
+      etatProduit: r.etatProduit ?? snap?.etat ?? null,
       isStock,
       forcedStock,
       isSav,
