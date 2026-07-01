@@ -179,6 +179,7 @@ function CampagnesContent() {
   const [googleSyncing, setGoogleSyncing] = useState(false);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [googleSyncedAt, setGoogleSyncedAt] = useState<string | null>(null);
+  const [googleExportDate, setGoogleExportDate] = useState<string | null>(null);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
@@ -196,7 +197,9 @@ function CampagnesContent() {
     loadFromCache().then(() => {
       handleSync("this_month");
     });
-    loadGoogleFromCache();
+    loadGoogleFromCache().then(() => {
+      handleGoogleSync();
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -243,6 +246,7 @@ function CampagnesContent() {
       if (res.ok) {
         setGoogleCampaigns(data.campaigns || []);
         setGoogleSyncedAt(new Date().toISOString());
+        if (data.exportDate) setGoogleExportDate(data.exportDate);
       } else {
         setGoogleError(data.error || "Erreur sync Google Ads");
       }
@@ -368,6 +372,9 @@ function CampagnesContent() {
             <p className="text-cockpit-secondary text-[10px] flex items-center gap-1 mt-0.5">
               <Clock className="w-3 h-3" />
               Sync : {new Date(activeSyncedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              {platform === "GOOGLE" && googleExportDate && (
+                <span className="ml-1 text-cockpit-secondary/70">· Sheet maj {googleExportDate}</span>
+              )}
             </p>
           )}
         </div>

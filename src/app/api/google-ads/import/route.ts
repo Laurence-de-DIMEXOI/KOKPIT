@@ -213,6 +213,13 @@ export async function GET(request: NextRequest) {
         };
 
         const googleCampaignId = `google_${camp.campaignId}`;
+        // Le script Google Ads n'exporte pas les dates de campagne → on rattache la
+        // dépense au mois de l'export du Sheet (pour que le ROI mensuel la comptabilise).
+        const dateDebut = camp.startDate
+          ? new Date(camp.startDate)
+          : camp.exportDate
+          ? new Date(camp.exportDate.slice(0, 10))
+          : undefined;
         const existing = await prisma.campagne.findFirst({
           where: { metaCampaignId: googleCampaignId },
         });
@@ -223,7 +230,7 @@ export async function GET(request: NextRequest) {
             data: {
               nom: camp.name,
               coutTotal: camp.cost,
-              dateDebut: camp.startDate ? new Date(camp.startDate) : undefined,
+              dateDebut,
               dateFin: camp.endDate ? new Date(camp.endDate) : undefined,
               actif: camp.status === "ENABLED",
               metaInsights,
@@ -235,7 +242,7 @@ export async function GET(request: NextRequest) {
               nom: camp.name,
               plateforme: "GOOGLE",
               coutTotal: camp.cost,
-              dateDebut: camp.startDate ? new Date(camp.startDate) : undefined,
+              dateDebut,
               dateFin: camp.endDate ? new Date(camp.endDate) : undefined,
               metaCampaignId: googleCampaignId,
               actif: camp.status === "ENABLED",
