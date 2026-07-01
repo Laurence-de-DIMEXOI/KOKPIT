@@ -136,6 +136,9 @@ async function fetchGoogleMonthlySpend(annee: string): Promise<Record<string, nu
     const campaigns = await prisma.campagne.findMany({
       where: {
         plateforme: "GOOGLE",
+        // Historique mensuel uniquement (1 ligne par campagne/mois, cf import Sheet).
+        // Exclut les lignes "snapshot" de la page Campagnes → pas de double comptage.
+        metaCampaignId: { startsWith: "google_m_" },
         coutTotal: { gt: 0 },
         dateDebut: {
           gte: new Date(`${annee}-01-01`),

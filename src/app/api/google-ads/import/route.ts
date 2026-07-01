@@ -66,11 +66,12 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Fetch all 3 tabs
-    const [campaignsData, groupsData, adsData] = await Promise.all([
+    // Fetch all tabs (Mensuel = historique par mois pour le ROI)
+    const [campaignsData, groupsData, adsData, monthlyData] = await Promise.all([
       fetchSheetCSV(sheetId, "Campagnes").catch(() => []),
       fetchSheetCSV(sheetId, "Groupes").catch(() => []),
       fetchSheetCSV(sheetId, "Annonces").catch(() => []),
+      fetchSheetCSV(sheetId, "Mensuel").catch(() => []),
     ]);
 
     // Parse campaigns (skip header row)
@@ -256,6 +257,42 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ─── Historique mensuel (onglet "Mensuel") → 1 ligne Campagne par campagne/mois ───
+    // Sert au ROI mensuel (comme Meta). Clé metaCampaignId = google_m_{id}_{YYYY-MM}.
+    const monthly = monthlyData.slice(1).map((row) => ({
+      month: (row[0] || "").slice(0, 7), // YYYY-MM
+      campaignId: row[1] || "",
+      name: row[2] || "",
+      cost: parseFloat(row[3] || "0"),
+      impressions: parseInt(row[4] || "0", 10),
+      clicks: parseInt(row[5] || "0", 10),
+      conversions: parseFloat(row[6] || "0"),
+    })).filter((m) => /^\d{4}-\d{2}$/.test(m.month) && m.campaignId && m.cost > 0);
+
+    let syncedMonthly = 0;
+    for (const m of monthly) {
+      const key = `google_m_${m.campaignId}_${m.month}`;
+      try {
+        const data = {
+          nom: m.name,
+          coutTotal: m.cost,
+          dateDebut: new Date(`${m.month}-01T00:00:00Z`),
+          actif: false,
+          metaInsights: {
+            spend: m.cost, impressions: m.impressions, clicks: m.clicks,
+            conversions: m.conversions, mois: m.month,
+            source: "google_ads_monthly", syncedAt: new Date().toISOString(),
+          },
+        };
+        const ex = await prisma.campagne.findFirst({ where: { metaCampaignId: key } });
+        if (ex) await prisma.campagne.update({ where: { id: ex.id }, data });
+        else await prisma.campagne.create({ data: { ...data, plateforme: "GOOGLE", metaCampaignId: key } });
+        syncedMonthly++;
+      } catch (err) {
+        console.error(`Sync Google mensuel ${key}:`, err);
+      }
+    }
+
     // KPIs
     const totalSpend = campaigns.reduce((s, c) => s + c.cost, 0);
     const totalImpressions = campaigns.reduce((s, c) => s + c.impressions, 0);
@@ -275,6 +312,7 @@ export async function GET(request: NextRequest) {
         totalConversions: Math.round(totalConversions * 10) / 10,
       },
       synced,
+      syncedMonthly,
       exportDate: campaigns[0]?.exportDate || null,
     });
   } catch (error: any) {

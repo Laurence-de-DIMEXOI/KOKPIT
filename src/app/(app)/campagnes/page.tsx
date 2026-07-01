@@ -226,9 +226,11 @@ function CampagnesContent() {
       const res = await fetch("/api/campagnes?limit=100&plateforme=GOOGLE");
       if (res.ok) {
         const data = await res.json();
-        const mapped: MetaCampaign[] = (data.campagnes || []).map(parseCachedCampaign);
+        // Exclut les lignes d'historique mensuel (google_m_*) → seulement le snapshot courant.
+        const rows = (data.campagnes || []).filter((c: any) => !(c.metaCampaignId || "").startsWith("google_m_"));
+        const mapped: MetaCampaign[] = rows.map(parseCachedCampaign);
         setGoogleCampaigns(mapped);
-        const firstWithSync = (data.campagnes || []).find((c: any) => c.metaInsights?.syncedAt);
+        const firstWithSync = rows.find((c: any) => c.metaInsights?.syncedAt);
         if (firstWithSync) setGoogleSyncedAt(firstWithSync.metaInsights.syncedAt);
       }
     } catch (err: any) { setGoogleError(err.message); }
