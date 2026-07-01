@@ -5,1522 +5,1500 @@
     "capacityM3": 76.4,
     "origine": "Indonésie",
     "destination": "La Réunion",
-    "source": "Elaury",
+    "source": "Assemblage IMP-619 (mise à jour)",
     "statut": "Prévisionnel — fichier demandé à l'Indonésie, non final",
     "note": "Réfs vides = à créer (n'existent pas encore). Volumes = estimation."
   },
   "items": [
     {
-      "order": 0,
-      "section": "command",
-      "bcdi": "BCDI-05181",
-      "ref": "",
-      "description": "WASTAFEL CASSANDRA 2 DRW DOWN 80X60X55 CM (BCDI5181) RAW",
-      "qty": 1,
-      "volumeM3": 0.264,
-      "urgent": true
-    },
-    {
       "order": 1,
       "section": "command",
-      "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element A : Storage unit 2DR according to plan 86x60x88cm RAW",
+      "bcdi": "BCDI-05181",
+      "ref": "EFWS 496",
+      "description": "WASTAFEL CASSANDRA 2 DRW DOWN 80X60X55 CM (BCDI5181) RAW",
       "qty": 1,
-      "volumeM3": 0.454,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 2,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element B : Storage unit angle 1DR according to plan 100x66x88cm RAW",
+      "ref": null,
+      "description": "Element A Storage unit 2DR 86x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.581,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 3,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element C : Storage unit 4DRW according to plan 98x60x88cm RAW",
+      "ref": null,
+      "description": "Element B Storage unit angle 1DR 100x66x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.517,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 4,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element D : Door for dishwasher according to plan 64x60x88cm RAW",
+      "ref": null,
+      "description": "Element C Storage unit 4DRW 98x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.338,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 5,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element E : Storage unit 2DR according to plan 132x50/56x88cm RAW",
+      "ref": null,
+      "description": "Element D Door for dishwasher 64x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.65,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 6,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element F : Storage unit for oven according to plan 63x60x88cm RAW",
+      "ref": null,
+      "description": "Element E Storage unit 2DR 132x50/56x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.333,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 7,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element G : Plank according to plan 136x40cm RAW",
+      "ref": null,
+      "description": "Element F Storage unit for oven 63x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.022,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 8,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element H : Storage unit hanged 1DR according to plan 105x40x30cm RAW",
+      "ref": null,
+      "description": "Element G Plank 136x40cm RAW",
       "qty": 1,
-      "volumeM3": 0.126,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 9,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element I : Storage unit hanged 2DR according to plan 91x40x65cm RAW",
+      "ref": null,
+      "description": "Element H Storage unit hanged 1DR 105x40x30cm RAW",
       "qty": 1,
-      "volumeM3": 0.237,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 10,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element J : Storage unit hanged 2DR according to plan 101x40x65cm RAW",
+      "ref": null,
+      "description": "Element I Storage unit hanged 2DR 91x40x65cm RAW",
       "qty": 1,
-      "volumeM3": 0.263,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 11,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element K : Colonne 1DR according to plan 42x40x134cm RAW",
+      "ref": null,
+      "description": "Element J Storage unit hanged 2DR 101x40x65cm RAW",
       "qty": 1,
-      "volumeM3": 0.225,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 12,
       "section": "command",
       "bcdi": "BCDI-05055",
-      "ref": "",
-      "description": "Element L : Storage unit hanged 1DR w/space for microwave according to plan 95x40x75cm RAW",
+      "ref": null,
+      "description": "Element K Colonne 1DR 42x40x134cm RAW",
       "qty": 1,
-      "volumeM3": 0.285,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 13,
       "section": "command",
-      "bcdi": "BCDI-05097",
-      "ref": "",
-      "description": "Element A : Storage unit 1DRW 1DR + space for oven according to plan 147x72x74cm WW",
+      "bcdi": "BCDI-05055",
+      "ref": null,
+      "description": "Element L Storage unit hanged 1DR w/space microwave 95x40x75cm RAW",
       "qty": 1,
-      "volumeM3": 0.783,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 14,
       "section": "command",
       "bcdi": "BCDI-05097",
-      "ref": "",
-      "description": "Element B : Storage unit 2DR according to plan 130x72x75cm WW",
+      "ref": null,
+      "description": "Element A Storage unit 1DRW 1DR + space oven 147x72x74cm WW",
       "qty": 1,
-      "volumeM3": 0.702,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 15,
       "section": "command",
       "bcdi": "BCDI-05097",
-      "ref": "",
-      "description": "Element C : Storage unit angle 1DR 3DRW according to plan 137x74x75cm WW",
+      "ref": null,
+      "description": "Element B Storage unit 2DR 130x72x75cm WW",
       "qty": 1,
-      "volumeM3": 0.76,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 16,
       "section": "command",
       "bcdi": "BCDI-05097",
-      "ref": "",
-      "description": "Element D : Storage unit angle 3DR according to plan 120x79x60cm WW",
+      "ref": null,
+      "description": "Element C Storage unit angle 1DR 3DRW 137x74x75cm WW",
       "qty": 1,
-      "volumeM3": 0.569,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 17,
       "section": "command",
       "bcdi": "BCDI-05097",
-      "ref": "",
-      "description": "Element E : Storage 2DR according to plan 60x40x60cm WW",
+      "ref": null,
+      "description": "Element D Storage unit angle 3DR 120x79x60cm WW",
       "qty": 1,
-      "volumeM3": 0.144,
-      "urgent": true
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 18,
+      "section": "command",
+      "bcdi": "BCDI-05097",
+      "ref": null,
+      "description": "Element E Storage 2DR 60x40x60cm WW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 19,
       "section": "command",
       "bcdi": "BCDI-04687",
       "ref": "EFCI 147R",
       "description": "NAGASAKI CHAIR (BCDI4687) WW",
       "qty": 4,
-      "volumeM3": 0.248
-    },
-    {
-      "order": 19,
-      "section": "command",
-      "bcdi": "BCDI-05183",
-      "ref": "EFCT 901RAW",
-      "description": "CONSOLE LAURA 140x35x80 cm FINISHING RAW ATTENTION NO DRW",
-      "qty": 1,
-      "volumeM3": 0.392
+      "volumeM3": 0.248,
+      "urgent": false
     },
     {
       "order": 20,
       "section": "command",
       "bcdi": "BCDI-05183",
-      "ref": "EFBF 238ERAW",
-      "description": "TV Buffet Sueb S 2 DRW 160x45x55cm softclose RAW",
+      "ref": "EFCT 901RAW",
+      "description": "CONSOLE LAURA 140x35x80 cm RAW",
       "qty": 1,
-      "volumeM3": 0.396
+      "volumeM3": 0.392,
+      "urgent": false
     },
     {
       "order": 21,
       "section": "command",
-      "bcdi": "BCDI-05257",
-      "ref": "",
-      "description": "CHAIR SPC LEGROS BUT with block seat RAW",
-      "qty": 6,
-      "volumeM3": 0.248
+      "bcdi": "BCDI-05183",
+      "ref": "EFBF 238ERAW",
+      "description": "TV Buffet Sueb S 2 DRW 160x45x55cm softclose RAW",
+      "qty": 1,
+      "volumeM3": 0.396,
+      "urgent": false
     },
     {
       "order": 22,
       "section": "command",
       "bcdi": "BCDI-05257",
-      "ref": "EFDT 153RAW",
-      "description": "DINING TABLE Y STYLE FEET 150 X 100 X 76 CM (BCDI3777) RAW",
-      "qty": 1,
-      "volumeM3": 1.14
+      "ref": null,
+      "description": "CHAIR SPC LEGROS with block seat RAW",
+      "qty": 6,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 23,
       "section": "command",
-      "bcdi": "BCDI-05177",
-      "ref": "",
-      "description": "Living Sofia according to picture 195x55x210cm Natural",
+      "bcdi": "BCDI-05257",
+      "ref": "EFDT 153RAW",
+      "description": "DINING TABLE Y STYLE FEET 150 X 100 X 76 CM RAW",
       "qty": 1,
-      "volumeM3": 2.252
+      "volumeM3": 1.14,
+      "urgent": false
     },
     {
       "order": 24,
       "section": "command",
-      "bcdi": "BCDI-05195",
-      "ref": "",
-      "description": "Living Badung 3DR sliding glass 2DR Block 6DRW, like picture 150x50x210cm RAW",
+      "bcdi": "BCDI-05177",
+      "ref": null,
+      "description": "Living Sofia 195x55x210cm Natural",
       "qty": 1,
-      "volumeM3": 1.575
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 25,
       "section": "command",
-      "bcdi": "BCDI-05213",
-      "ref": "",
-      "description": "WASTAFEL SHERRY HANGED 2 DRW 80 X 40 X 60 CM (BCDI3775) TOLITOLI : Like EFWS 346RAW BUT different dimensions",
+      "bcdi": "BCDI-05195",
+      "ref": null,
+      "description": "Living Badung 3DR sliding glass 2DR Block 6DRW 150x50x210cm RAW",
       "qty": 1,
-      "volumeM3": 0.192
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 26,
       "section": "command",
       "bcdi": "BCDI-05213",
-      "ref": "",
-      "description": "WASTAFEL SHERRY HANGED 2 DRW 60 X 50 X 60 CM (BCDI3775) TOLITOLI : Like EFWS 346RAW BUT different dimensions",
+      "ref": null,
+      "description": "WASTAFEL SHERRY HANGED 2 DRW 80 X 40 X 60 CM TOLITOLI",
       "qty": 1,
-      "volumeM3": 0.18
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 27,
+      "section": "command",
+      "bcdi": "BCDI-05213",
+      "ref": null,
+      "description": "WASTAFEL SHERRY HANGED 2 DRW 60 X 50 X 60 CM TOLITOLI",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 28,
       "section": "command",
       "bcdi": "BCDI-05208",
       "ref": "EFCB 076E",
       "description": "Colonne Krepyak 1 dr 2 drw 40x35x180CM NATURAL",
       "qty": 1,
-      "volumeM3": 0.252
-    },
-    {
-      "order": 28,
-      "section": "command",
-      "bcdi": "BCDI-05201",
-      "ref": "",
-      "description": "Mirror Sherry 145x80cm Finishing :",
-      "qty": 1,
-      "volumeM3": 0.058
+      "volumeM3": 0.252,
+      "urgent": false
     },
     {
       "order": 29,
       "section": "command",
-      "bcdi": "BCDI-05214",
-      "ref": "",
-      "description": "WASTAFEL SIDE ANGLE 1 DR 55x55x27x12 cm Natural : Like EFWS 412 BUT different dimensions",
+      "bcdi": "BCDI-05201",
+      "ref": null,
+      "description": "Mirror Sherry 145x80cm Finishing",
       "qty": 1,
-      "volumeM3": 0.082
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 30,
       "section": "command",
       "bcdi": "BCDI-05214",
-      "ref": "EFCB 136E",
-      "description": "COLONNE HANGED 1 DR ZIG ZAG 1 DRW 160x40x35cm softclose Finishing natural",
+      "ref": null,
+      "description": "WASTAFEL SIDE ANGLE 1 DR 55x55x27x12 cm Natural",
       "qty": 1,
-      "volumeM3": 0.224
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 31,
       "section": "command",
-      "bcdi": "BCDI-05256",
-      "ref": "",
-      "description": "HAND WASHING UNIT 1DR canned 35x30x30cm RAW Like EFWS 308-1 BUT different size AND canned door",
+      "bcdi": "BCDI-05214",
+      "ref": "EFCB 136E",
+      "description": "COLONNE HANGED 1 DR ZIG ZAG 1 DRW 160x40x35cm Finishing natural",
       "qty": 1,
-      "volumeM3": 0.032
+      "volumeM3": 0.224,
+      "urgent": false
     },
     {
       "order": 32,
       "section": "command",
-      "bcdi": "BCDI-05256",
-      "ref": "EFSW 002W",
-      "description": "ZINK PRIX HAMMERING WHITE ROUND",
-      "qty": 2,
-      "volumeM3": 0.041
+      "bcdi": "BCDI-05276",
+      "ref": null,
+      "description": "Wardrobe Ubud 3DR 6DRW Shelves 180x60x180cm Natural",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 33,
       "section": "command",
-      "bcdi": "BCDI-05256",
-      "ref": "",
-      "description": "WASTAFEL 2 DR PUSH PULL SALUR STYLE \"LUMYA\" 160x55x60cm RAW Like EFWS 440RAW BUT different size",
+      "bcdi": "BCDI-05310",
+      "ref": null,
+      "description": "Mirror with shelve 140x70cm Natural",
       "qty": 1,
-      "volumeM3": 0.528
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 34,
       "section": "command",
-      "bcdi": "BCDI-05260",
-      "ref": "",
-      "description": "Coffee table minimalis square 120x120cm RAW",
+      "bcdi": "BCDI-05316",
+      "ref": null,
+      "description": "TV Buffet Nature 1DR 1DRW 150x50x55cm Natural",
       "qty": 1,
-      "volumeM3": 0.648
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 35,
-      "section": "command",
-      "bcdi": "BCDI-05036",
-      "ref": "",
-      "description": "Element A : Storage unit 3DRW according to plan 75x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.396
-    },
-    {
-      "order": 36,
-      "section": "command",
-      "bcdi": "BCDI-05036",
-      "ref": "",
-      "description": "Element B : Door for dishwasher according to plan 61x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.021
-    },
-    {
-      "order": 37,
-      "section": "command",
-      "bcdi": "BCDI-05036",
-      "ref": "",
-      "description": "Element C : Storage unit 2DR 1DRW according to plan 90x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.475
-    },
-    {
-      "order": 38,
-      "section": "command",
-      "bcdi": "BCDI-05036",
-      "ref": "",
-      "description": "Element D : Storage unit 3DRW according to plan 50x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.264
-    },
-    {
-      "order": 39,
-      "section": "command",
-      "bcdi": "BCDI-05036",
-      "ref": "",
-      "description": "Element E : Storage unit 1DR according to plan 60x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.317
-    },
-    {
-      "order": 40,
-      "section": "command",
-      "bcdi": "BCDI-05036",
-      "ref": "",
-      "description": "Element F : Storage unit 1DRW for spice according to plan 75x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.396
-    },
-    {
-      "order": 41,
-      "section": "command",
-      "bcdi": "BCDI-05036",
-      "ref": "",
-      "description": "Element G : Storage unit 3DRW according to plan 80x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.422
-    },
-    {
-      "order": 42,
-      "section": "command",
-      "bcdi": "BCDI-05276",
-      "ref": "",
-      "description": "Wardrobe Ubud 3DR 6DRW Shelves 180x60x180cm Natural",
-      "qty": 1,
-      "volumeM3": 1.944
-    },
-    {
-      "order": 43,
-      "section": "command",
-      "bcdi": "BCDI-05310",
-      "ref": "",
-      "description": "Mirror with shelve of 15cm under the mirror 140x70cm Natural",
-      "qty": 1,
-      "volumeM3": 0.147
-    },
-    {
-      "order": 44,
-      "section": "command",
-      "bcdi": "BCDI-05316",
-      "ref": "",
-      "description": "TV Buffet Nature 1DR 1DRW 150x50x55cm Natural",
-      "qty": 1,
-      "volumeM3": 0.413
-    },
-    {
-      "order": 45,
       "section": "command",
       "bcdi": "BCDI-05318",
       "ref": "EFBD 125",
       "description": "Bed Evolia 160x200cm FINISHING NATURAL",
       "qty": 1,
-      "volumeM3": 0.307
+      "volumeM3": 0.307,
+      "urgent": false
+    },
+    {
+      "order": 36,
+      "section": "command",
+      "bcdi": "BCDI-05324",
+      "ref": null,
+      "description": "Chiffonnier 3DRW Evolia 50x50x75cm RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 37,
+      "section": "command",
+      "bcdi": "BCDI-05333",
+      "ref": null,
+      "description": "Wardrobe Rosa 1DR Mirror 1DR block 4 DRW 130x45x185cm RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 38,
+      "section": "command",
+      "bcdi": "BCDI-05354",
+      "ref": null,
+      "description": "Storage unit Evolia 1DR 2DRW 2 shelves 120x55x78cm RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 39,
+      "section": "command",
+      "bcdi": "BCDI-05356",
+      "ref": "EFCT 145",
+      "description": "COFFEE TABLE MINIMALIS SPC 2 DRW 80x80x25 NATURAL",
+      "qty": 1,
+      "volumeM3": 0.16,
+      "urgent": false
+    },
+    {
+      "order": 40,
+      "section": "command",
+      "bcdi": "BCDI-05357",
+      "ref": null,
+      "description": "Lit Canopy SPC 160x200cm WW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 41,
+      "section": "command",
+      "bcdi": "BCDI-05362",
+      "ref": null,
+      "description": "Kitchen Buffet 5DR 4DRW and shelves 250x50x95cm RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 42,
+      "section": "command",
+      "bcdi": "BCDI-05382",
+      "ref": null,
+      "description": "Wastafel Oasis hanged 3 DR Evolia 150x50x60cm RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 43,
+      "section": "command",
+      "bcdi": "BCDI-05382",
+      "ref": "EFMF 097RAW",
+      "description": "MIROR FRAME 150x70cm RAW",
+      "qty": 1,
+      "volumeM3": 0.052,
+      "urgent": false
+    },
+    {
+      "order": 44,
+      "section": "command",
+      "bcdi": "BCDI-05397",
+      "ref": null,
+      "description": "Living Loundge 4DR glass 4DR 4DRW 180x40x210cm RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 45,
+      "section": "command",
+      "bcdi": "BCDI-05399",
+      "ref": "EFDT 151R",
+      "description": "HIGH TABLE 100 X 100 X 100 CM WW",
+      "qty": 1,
+      "volumeM3": 1.0,
+      "urgent": false
     },
     {
       "order": 46,
       "section": "command",
-      "bcdi": "BCDI-05324",
-      "ref": "",
-      "description": "Chiffonnier 3DRW Evolia 50x50x75cm RAW",
-      "qty": 1,
-      "volumeM3": 0.188
+      "bcdi": "BCDI-05399",
+      "ref": "EFCI 179R",
+      "description": "CHAIR STOOL 40 X 33 X 70 CM WW",
+      "qty": 4,
+      "volumeM3": 0.092,
+      "urgent": false
     },
     {
       "order": 47,
       "section": "command",
-      "bcdi": "BCDI-05333",
-      "ref": "",
-      "description": "Wardrobe Rosa 1DR Mirror (right) 1DR block 4 DRW Handle like Buffet EFBF 427 130x45x185cm RAW",
-      "qty": 1,
-      "volumeM3": 1.082
+      "bcdi": "BCDI-05443",
+      "ref": null,
+      "description": "CHAIR JUNE Without armrest RAW",
+      "qty": 6,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 48,
       "section": "command",
-      "bcdi": "BCDI-05341",
-      "ref": "EFCI 196RAW",
-      "description": "CHAIR SPC COGOHR 63 X 57 X 83 CM (BCDI3994) RAW",
-      "qty": 12,
-      "volumeM3": 0.298
+      "bcdi": "BCDI-05446",
+      "ref": null,
+      "description": "Living 8DR 4DRW 220x40/55x205cm NATURAL",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 49,
       "section": "command",
-      "bcdi": "BCDI-05341",
-      "ref": "EFCT 250RAW",
-      "description": "OUTDOOR TABLE DIAMETER 80 CM HIGH 76 CM (BCDI3994) RAW",
-      "qty": 6,
-      "volumeM3": 0.486
+      "bcdi": "BCDI-05424",
+      "ref": null,
+      "description": "BOOKCASE FAVORITA 3 BARS WW 105 X 37 X 190 CM",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 50,
       "section": "command",
-      "bcdi": "BCDI-05354",
-      "ref": "",
-      "description": "Storage unit Evolia 1DR 2DRW 2 shelves according to plan 120x55x78cm RAW",
+      "bcdi": "BCDI-05427",
+      "ref": null,
+      "description": "Coffee table 100x63x47cm RAW",
       "qty": 1,
-      "volumeM3": 0.515
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 51,
       "section": "command",
-      "bcdi": "BCDI-05356",
-      "ref": "EFCT 145",
-      "description": "COFFEE TABLE MINIMALIS SPC 2 DRW 80x80x25 (BCDI2706) NATURAL",
+      "bcdi": "BCDI-05440",
+      "ref": null,
+      "description": "Storage unit hanged 3DR 188 X 50 X 60 CM RAW",
       "qty": 1,
-      "volumeM3": 0.16
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 52,
       "section": "command",
-      "bcdi": "BCDI-05357",
-      "ref": "",
-      "description": "Lit Canopy SPC 160x200cm WW : Like EFBD 177RAW but WW",
+      "bcdi": "BCDI-05440",
+      "ref": null,
+      "description": "Storage unit for bottle 1DR 1DRW 60 X 57 X 230 CM RAW",
       "qty": 1,
-      "volumeM3": 0.487
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 53,
       "section": "command",
-      "bcdi": "BCDI-05362",
-      "ref": "",
-      "description": "Kitchen Buffet 5DR 4DRW and shelves according to plan 250x50x95cm RAW",
+      "bcdi": "BCDI-05440",
+      "ref": null,
+      "description": "Storage unit 2DR 6DRW 128 X 57 X 230 CM RAW",
       "qty": 1,
-      "volumeM3": 1.188
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 54,
       "section": "command",
-      "bcdi": "BCDI-05344",
-      "ref": "",
-      "description": "Mirror SPC 200x100cm RAW",
+      "bcdi": "BCDI-04248",
+      "ref": null,
+      "description": "Wastafel ZigZag 4 DRW 197x050x060 RAW",
       "qty": 1,
-      "volumeM3": 0.1
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 55,
       "section": "command",
-      "bcdi": "BCDI-05382",
-      "ref": "",
-      "description": "Wastafel Oasis hanged 3 DR Evolia (without zig-zag design) 150x50x60cm RAW",
+      "bcdi": "BCDI-04248",
+      "ref": null,
+      "description": "Wastafel 6 DRW 1 DR slat 120x050x080cm RAW",
       "qty": 1,
-      "volumeM3": 0.45
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 56,
       "section": "command",
-      "bcdi": "BCDI-05382",
-      "ref": "EFMF 097RAW",
-      "description": "MIROR FRAME 150x70cm FINISHING RAW",
+      "bcdi": "BCDI-04248",
+      "ref": null,
+      "description": "Colonne 2 DR slat 90x025x109cm RAW",
       "qty": 1,
-      "volumeM3": 0.052
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 57,
       "section": "command",
-      "bcdi": "BCDI-05397",
-      "ref": "",
-      "description": "Living Loundge 4DR glass 4DR 4DRW 180x40x210cm RAW",
+      "bcdi": "BCDI-04248",
+      "ref": null,
+      "description": "Case for lighting 332x026x026cm RAW",
       "qty": 1,
-      "volumeM3": 1.512
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 58,
       "section": "command",
-      "bcdi": "BCDI-05399",
-      "ref": "EFDT 151R",
-      "description": "HIGH TABLE 100 X 100 X 100 CM (BCDI3777) WW",
+      "bcdi": "BCDI-05451",
+      "ref": null,
+      "description": "Colonne 4 DR 2 DRW 80x45x220cm WW",
       "qty": 1,
-      "volumeM3": 1.0
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 59,
       "section": "command",
-      "bcdi": "BCDI-05399",
-      "ref": "EFCI 179R",
-      "description": "CHAIR STOOL 40 X 33 X 70 CM (BCDI3777) WW",
-      "qty": 4,
-      "volumeM3": 0.092
+      "bcdi": "BCDI-05455",
+      "ref": "EFWS 091ESR",
+      "description": "WASTAFEL SLATS TOP DEKOK 120 X 55 X 85 CM 2 DR 3 DRW SC",
+      "qty": 1,
+      "volumeM3": 0.561,
+      "urgent": false
     },
     {
       "order": 60,
       "section": "command",
-      "bcdi": "BCDI-05443",
-      "ref": "",
-      "description": "CHAIR JUNE Without armrest RAW Like EFCI 207 BUT different finishing",
-      "qty": 6,
-      "volumeM3": 0.248
+      "bcdi": "BCDI-05455",
+      "ref": null,
+      "description": "Wastafel Sherry 2 DR WW 80x55x85 cm",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 61,
       "section": "command",
-      "bcdi": "BCDI-05446",
-      "ref": "",
-      "description": "Living 8DR 4DRW according to plan 220x40/55x205cm NATURAL",
+      "bcdi": "BCDI-05465",
+      "ref": null,
+      "description": "Colonne Zig-Zag 2DRW 1DR 40x35x105 WW",
       "qty": 1,
-      "volumeM3": 2.481
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 62,
       "section": "command",
-      "bcdi": "BCDI-05424",
-      "ref": "",
-      "description": "BOOKCASE FAVORITA 3 BARS WW 105 X 37 X 190 CM",
+      "bcdi": "BCDI-05452",
+      "ref": null,
+      "description": "Wastafel 2DRW 1DR 160x55x85cm RAW",
       "qty": 1,
-      "volumeM3": 0.738
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 63,
       "section": "command",
-      "bcdi": "BCDI-05427",
-      "ref": "",
-      "description": "Coffee table according to plan 100x63x47cm RAW",
+      "bcdi": "BCDI-05503",
+      "ref": null,
+      "description": "Wastafel 4DRW hanged 120x50x60cm RAW",
       "qty": 1,
-      "volumeM3": 0.296
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 64,
       "section": "command",
-      "bcdi": "BCDI-05440",
-      "ref": "",
-      "description": "Storage unit hanged 3DR according to plan 188 X 50 X 60 CM RAW",
-      "qty": 1,
-      "volumeM3": 0.564
+      "bcdi": "BCDI-05504",
+      "ref": "EFWS 348BW",
+      "description": "WASTAFEL SHERRY HANGED 2 DRW RATTAN 90 X 50 X 60 CM BW",
+      "qty": 3,
+      "volumeM3": 0.27,
+      "urgent": false
     },
     {
       "order": 65,
       "section": "command",
-      "bcdi": "BCDI-05440",
-      "ref": "",
-      "description": "Storage unit for bottle 1DR 1DRW according to plan 60 X 57 X 230 CM RAW",
+      "bcdi": "BCDI-05518",
+      "ref": null,
+      "description": "Buffet Evolia 5DR ZIG ZAG 5 DRW BLOCK 230x55x85cm NATURAL",
       "qty": 1,
-      "volumeM3": 0.787
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 66,
       "section": "command",
-      "bcdi": "BCDI-05440",
-      "ref": "",
-      "description": "Storage unit 2DR 6DRW according to plan 128 X 57 X 230 CM RAW",
+      "bcdi": "BCDI-05518",
+      "ref": null,
+      "description": "Bookcase 3DR ZIG ZAG 3 DRW BLOCK 120x30x213cm NATURAL",
       "qty": 1,
-      "volumeM3": 1.678
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 67,
       "section": "command",
-      "bcdi": "BCDI-04248",
-      "ref": "",
-      "description": "Wastafel ZigZag Style 4 DRW according to plan 197x050x060 Finishing RAW",
+      "bcdi": "BCDI-05518",
+      "ref": null,
+      "description": "Desk 1 DRW 80x55x78cm NATURAL",
       "qty": 1,
-      "volumeM3": 0.591
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 68,
       "section": "command",
-      "bcdi": "BCDI-04248",
-      "ref": "",
-      "description": "Wastafel 6 DRW 1 DR slat according to plan 120x050x080cm Finishing RAW",
+      "bcdi": "BCDI-05518",
+      "ref": null,
+      "description": "Stool on wheel w/ cushion 2DRW 60x38x47cm NATURAL",
       "qty": 1,
-      "volumeM3": 0.48
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 69,
       "section": "command",
-      "bcdi": "BCDI-04248",
-      "ref": "",
-      "description": "Colonne 2 DR slat according to plan 90x025x109cm Finishing RAW",
+      "bcdi": "BCDI-05524",
+      "ref": null,
+      "description": "TV Buffet on wheels 2DR 1DRW 130x45x57cm RAW",
       "qty": 1,
-      "volumeM3": 0.245
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 70,
-      "section": "command",
-      "bcdi": "BCDI-04248",
-      "ref": "",
-      "description": "Case for lighting according to plan 332x026x026cm Finishing RAW",
-      "qty": 1,
-      "volumeM3": 0.224
-    },
-    {
-      "order": 71,
-      "section": "command",
-      "bcdi": "BCDI-05451",
-      "ref": "",
-      "description": "Colonne 4 DR 2 DRW according to plan 80x45x220cm WW",
-      "qty": 1,
-      "volumeM3": 0.792
-    },
-    {
-      "order": 72,
-      "section": "command",
-      "bcdi": "BCDI-05455",
-      "ref": "EFWS 091ESR",
-      "description": "WASTAFEL SLATS TOP DEKOK 120 X 55 X 85 CM 2 DR 3 DRW SC (BCDI3886)",
-      "qty": 1,
-      "volumeM3": 0.561
-    },
-    {
-      "order": 73,
-      "section": "command",
-      "bcdi": "BCDI-05455",
-      "ref": "",
-      "description": "Wastafel Sherry - 2 DR WW 80x55x85 cm",
-      "qty": 1,
-      "volumeM3": 0.374
-    },
-    {
-      "order": 74,
-      "section": "command",
-      "bcdi": "BCDI-05465",
-      "ref": "",
-      "description": "Colonne Zig-Zag 2DRW 1DR 40x35x105 WW",
-      "qty": 1,
-      "volumeM3": 0.147
-    },
-    {
-      "order": 75,
-      "section": "command",
-      "bcdi": "BCDI-05452",
-      "ref": "",
-      "description": "Wastafel 2DRW 1DR according to plan 160x55x85cm RAW",
-      "qty": 1,
-      "volumeM3": 0.748
-    },
-    {
-      "order": 76,
-      "section": "command",
-      "bcdi": "BCDI-05503",
-      "ref": "",
-      "description": "Wastafel 4DRW hanged according to plan 120x50x60cm RAW",
-      "qty": 1,
-      "volumeM3": 0.36
-    },
-    {
-      "order": 77,
-      "section": "command",
-      "bcdi": "BCDI-05504",
-      "ref": "EFWS 348BW",
-      "description": "WASTAFEL SHERRY HANGED 2 DRW RATTAN 90 X 50 X 60 CM (BCDI3775) BW",
-      "qty": 3,
-      "volumeM3": 0.27
-    },
-    {
-      "order": 78,
-      "section": "command",
-      "bcdi": "BCDI-05518",
-      "ref": "",
-      "description": "Buffet Evolia 5DR ZIG ZAG 5 DRW BLOCK according to plan 230x55x85cm NATURAL",
-      "qty": 1,
-      "volumeM3": 1.075
-    },
-    {
-      "order": 79,
-      "section": "command",
-      "bcdi": "BCDI-05518",
-      "ref": "",
-      "description": "Bookcase 3DR ZIG ZAG 3 DRW BLOCK according to plan 120x30x213cm NATURAL",
-      "qty": 1,
-      "volumeM3": 0.767
-    },
-    {
-      "order": 80,
-      "section": "command",
-      "bcdi": "BCDI-05518",
-      "ref": "",
-      "description": "Desk 1 DRW according to plan 80x55x78cm NATURAL",
-      "qty": 1,
-      "volumeM3": 0.343
-    },
-    {
-      "order": 81,
-      "section": "command",
-      "bcdi": "BCDI-05518",
-      "ref": "",
-      "description": "Stool on wheel w/ cushion 2DRW according to plan 60x38x47cm NATURAL",
-      "qty": 1,
-      "volumeM3": 0.107
-    },
-    {
-      "order": 82,
-      "section": "command",
-      "bcdi": "BCDI-05524",
-      "ref": "",
-      "description": "TV Buffet on wheels 2DR 1DRW according to plan 130x45x57cm RAW",
-      "qty": 1,
-      "volumeM3": 0.333
-    },
-    {
-      "order": 83,
       "section": "command",
       "bcdi": "BCDI-05543",
       "ref": "EFWS 095EZR",
       "description": "WASTAFEL CASSANDRA HANGED ZIG ZAG 2 DRW 120 X 50 X 60 CM WW",
       "qty": 1,
-      "volumeM3": 0.36
+      "volumeM3": 0.36,
+      "urgent": false
+    },
+    {
+      "order": 71,
+      "section": "command",
+      "bcdi": "BCDI-05550",
+      "ref": null,
+      "description": "Commode 6DRW canned 140x50x100cm Natural",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 72,
+      "section": "command",
+      "bcdi": "BCDI-05552",
+      "ref": null,
+      "description": "TV BUFFET NATURE 2 DR 1DRW 150x50x50 cm NATURAL",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 73,
+      "section": "command",
+      "bcdi": "BCDI-05546",
+      "ref": null,
+      "description": "COMMODE 3 DRW 090x050x080cm ANTIQUE",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 74,
+      "section": "command",
+      "bcdi": "BCDI-05549",
+      "ref": null,
+      "description": "Ben canned 180x200cm Natural",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 75,
+      "section": "command",
+      "bcdi": "BCDI-05158",
+      "ref": null,
+      "description": "Wastafel DEWI Style 50x25x30cm RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 76,
+      "section": "command",
+      "bcdi": "BCDI-05078",
+      "ref": "EFNB 109RAW",
+      "description": "NACKHAS HANGED 35 X 34 X 35 CM RAW",
+      "qty": 2,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 77,
+      "section": "command",
+      "bcdi": "BCDI-05231",
+      "ref": "EFKS 068ARAW",
+      "description": "ELEMENT A COLONNE 1 DR 1 DRW SPACE OVEN 63X60X220 CM RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 78,
+      "section": "command",
+      "bcdi": "BCDI-05231",
+      "ref": "EFKS 068BRAW",
+      "description": "ELEMENT B STORAGE UNIT 1 DR 60 X 60 X 88 CM RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 79,
+      "section": "command",
+      "bcdi": "BCDI-05231",
+      "ref": "EFKS 068C",
+      "description": "ELEMENT C STORAGE UNIT 3 DRW 70 X 60 X 88 CM RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 80,
+      "section": "command",
+      "bcdi": "BCDI-05231",
+      "ref": "EFKS 068DRAW",
+      "description": "ELEMENT D STORAGE UNIT 2 DR 85 X 60 X 88 CM RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 81,
+      "section": "command",
+      "bcdi": "BCDI-05231",
+      "ref": "EFKS 068ERAW",
+      "description": "ELEMENT E STORAGE UNIT 2 DR 90 X 60 X 88 CM RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 82,
+      "section": "command",
+      "bcdi": "BCDI-05231",
+      "ref": "EFKS 068FRAW",
+      "description": "ELEMENT F STORAGE UNIT 2 DR 2 DRW 170 X 60 X 88 CM RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
+    },
+    {
+      "order": 83,
+      "section": "command",
+      "bcdi": "BCDI-05231",
+      "ref": "EFKS 068GRAW",
+      "description": "ELEMENT G STORAGE UNIT HANGED 2 DR 225X40X60 CM RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 84,
       "section": "command",
-      "bcdi": "BCDI-05550",
-      "ref": "",
-      "description": "Commode 6DRW canned according to plan 140x50x100cm Natural",
+      "bcdi": "BCDI-05222",
+      "ref": "EFWS 095ER",
+      "description": "WASTAFEL CASSANDRA HANGED 2 DRW 120 X 50 X 60 CM WW",
       "qty": 1,
-      "volumeM3": 0.7
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 85,
       "section": "command",
-      "bcdi": "BCDI-05552",
-      "ref": "",
-      "description": "TV BUFFET NATURE 2 DR 1DRW 150x50x50 cm FINISHING NATURAL",
+      "bcdi": "BCDI-05064",
+      "ref": "EFWS 479BLACK",
+      "description": "WASTAFEL OASIS 3 DR ZIG ZAG WITHOUT TOP 160 X 60 X 60 CM BW",
       "qty": 1,
-      "volumeM3": 0.375
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 86,
       "section": "command",
-      "bcdi": "BCDI-05546",
-      "ref": "",
-      "description": "COMMODE 3 DRW 090x050x080cm FINISHING ANTIQUE",
+      "bcdi": "BCDI-05117",
+      "ref": "EFWS 500",
+      "description": "WASTAFEL SHERRY 3 DRW UP 3 DRW DOWN 180X45X85 CM NAT",
       "qty": 1,
-      "volumeM3": 0.36
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 87,
       "section": "command",
-      "bcdi": "BCDI-05549",
-      "ref": "",
-      "description": "Ben canned according to plan 180x200cm Natural",
+      "bcdi": "BCDI-05129",
+      "ref": "EFWS 346RAW",
+      "description": "WASTAFEL SHERRY HANGED 2 DRW TOLI TOLI 80 X 50 X 60 CM RAW",
       "qty": 1,
-      "volumeM3": 0.372
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 88,
       "section": "command",
-      "bcdi": "BCDI-04975",
-      "ref": "",
-      "description": "Element A : Storage unit 2DRW according to plan 80x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.422
+      "bcdi": "BCDI-05200",
+      "ref": "EFCI 010-1",
+      "description": "BAR CHAIR COLOMBO BLOCK H = 60 CM NAT",
+      "qty": 4,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 89,
       "section": "command",
-      "bcdi": "BCDI-04975",
-      "ref": "",
-      "description": "Element B : Storage unit 2DR according to plan 97x60x88cm RAW",
+      "bcdi": "BCDI-05216",
+      "ref": "EFWS 478",
+      "description": "WASTAFEL 1 DRW 2 DR 80 X 45 X 85 CM LEGS 10 CM NAT",
       "qty": 1,
-      "volumeM3": 0.512
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 90,
       "section": "command",
-      "bcdi": "BCDI-04975",
-      "ref": "",
-      "description": "Element C : Storage unit for sink 2DR according to plan 80x60x88cm RAW",
+      "bcdi": "BCDI-05216",
+      "ref": "EFCB 331",
+      "description": "COLONNE 2 DR 1 DRW 35 X 35 X 180 CM NAT",
       "qty": 1,
-      "volumeM3": 0.422
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 91,
       "section": "command",
-      "bcdi": "BCDI-04975",
-      "ref": "",
-      "description": "Element D : DR for dishwasher according to plan 61x88cm RAW",
+      "bcdi": "BCDI-05267",
+      "ref": "EFWS 495",
+      "description": "WASTAFEL 4 DR WITHOUT TOP 230X50X60 CM NAT",
       "qty": 1,
-      "volumeM3": 0.021
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 92,
       "section": "command",
-      "bcdi": "BCDI-04975",
-      "ref": "",
-      "description": "Element D : Colonne 2DR w/ space for oven and microwave according to plan 80x60x88cm RAW",
+      "bcdi": "BCDI-05367",
+      "ref": "EFWS 497RAW",
+      "description": "WASTAFEL 2 DRW WITHOUT TOP 90X50X83 CM NAT",
       "qty": 1,
-      "volumeM3": 0.422
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 93,
       "section": "command",
-      "bcdi": "BCDI-04975",
-      "ref": "",
-      "description": "Element F : Kitchen island 4DRW 1DR according to plan 160x60x88cm RAW",
+      "bcdi": "BCDI-05389",
+      "ref": "EFBF 540RAW",
+      "description": "BUFFET EVOLIA 3 DR 3 DRW 150X50X90 CM RAW",
       "qty": 1,
-      "volumeM3": 0.845
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 94,
       "section": "command",
-      "bcdi": "BCDI-04975",
-      "ref": "",
-      "description": "Element G : Table for kitchen island according to plan 180x90x75cm RAW",
+      "bcdi": "BCDI-05395",
+      "ref": "EFWR 242",
+      "description": "WARDROBE 2 DR BLOCK 1 DR MIRROR MIDDLE 180X60X205 CM NAT",
       "qty": 1,
-      "volumeM3": 1.215
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 95,
       "section": "command",
-      "bcdi": "BCDI-04975",
-      "ref": "",
-      "description": "Element H : Storage unit hanged 3DR according to plan 130x40x60cm RAW",
+      "bcdi": "BCDI-05449",
+      "ref": "EFWR 247",
+      "description": "LIVING KASTURIN 2 DR SLIDING 2 DR 4 DRW 120X45/50X220 CM NAT",
       "qty": 1,
-      "volumeM3": 0.312
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 96,
       "section": "command",
-      "bcdi": "BCDI-05158",
-      "ref": "",
-      "description": "Wastafel DEWI Style 50x25x30cm RAW Like EFWS 308 BUT different size",
+      "bcdi": "BCDI-05526",
+      "ref": "EFWR 249ANTQ",
+      "description": "WARDROBE 3 DR BLOCK 170X60X180 CM ANTIQUE",
       "qty": 1,
-      "volumeM3": 0.037
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 97,
       "section": "command",
-      "bcdi": "BCDI-05147",
-      "ref": "",
-      "description": "Jalousie door on the whole height folding according to picture Hight 205 Width 160 RAW",
-      "qty": 1,
-      "volumeM3": 0.328
+      "bcdi": "BCDI-05530",
+      "ref": "EFNB 053",
+      "description": "NACKHAS BEDSIDE SHERRY SQUARE 45 X 40 X 60 CM NAT",
+      "qty": 2,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 98,
       "section": "command",
-      "bcdi": "BCDI-05161",
-      "ref": "",
-      "description": "Element A : Door according to plan 60x70cm RAW",
-      "qty": 4,
-      "volumeM3": 0.017
+      "bcdi": "BCDI-05535",
+      "ref": "EFBF 191ERAW",
+      "description": "BUFFET EVOLIA 3 DR 3 DRW 150X50X85 CM RAW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 99,
       "section": "command",
-      "bcdi": "BCDI-05161",
-      "ref": "",
-      "description": "Element B : Door according to plan 44,5x70cm RAW",
-      "qty": 2,
-      "volumeM3": 0.012
+      "bcdi": "BCDI-05551",
+      "ref": "EFWR 176-1",
+      "description": "WARDROBE 2 DR BLOCK 1 DR MIRROR MIDDLE 180X60X205 CM NAT",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 100,
       "section": "command",
-      "bcdi": "BCDI-05161",
-      "ref": "",
-      "description": "Element C : Door according to plan 45x70cm RAW",
-      "qty": 2,
-      "volumeM3": 0.013
+      "bcdi": "BCDI-05560",
+      "ref": "EFWS 512",
+      "description": "WASTAFEL 3 DRW 100X50X60 CM NAT",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 101,
       "section": "command",
-      "bcdi": "BCDI-05161",
-      "ref": "",
-      "description": "Element D : DRW according to plan 67x40x35cm RAW",
-      "qty": 2,
-      "volumeM3": 0.094
+      "bcdi": "BCDI-05581",
+      "ref": "EFBD 190",
+      "description": "BED EVOLIA 120X190 CM WW",
+      "qty": 1,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 102,
-      "section": "stock",
-      "bcdi": "BCDI-04913",
-      "ref": "EFBD 130R",
-      "description": "BED UBUD DELTA 140 X 190 CM (BCDI4913) WW — 4 PART",
+      "section": "command",
+      "bcdi": "BCDI-05596",
+      "ref": "EFWD 050RAW",
+      "description": "WRITING DESK INFORMATIQUE 136 X 66 X 78 CM RAW",
       "qty": 1,
-      "volumeM3": 0.274
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 103,
-      "section": "stock",
-      "bcdi": "BCDI-04913",
-      "ref": "EFWR 110",
-      "description": "WARDROBE ISABELLE MINIMALIS 2 DR SLATS 2 DRW INSIDE 90 X 45 X 180 CM (BCDI4913)",
+      "section": "command",
+      "bcdi": "BCDI-05602",
+      "ref": "EFCB 076E",
+      "description": "COLONNE 1 DR KREPYAK 2 DRW 40 X 35 X 180 CM NAT",
       "qty": 1,
-      "volumeM3": 0.729
+      "volumeM3": 0.252,
+      "urgent": false
     },
     {
       "order": 104,
-      "section": "stock",
-      "bcdi": "BCDI-04913",
-      "ref": "EFCM 002RAW",
-      "description": "COMMODE 3 DRW 90 X 50 X 80 CM (BCDI4913) RAW",
+      "section": "command",
+      "bcdi": "BCDI-05608",
+      "ref": "EFBF 246",
+      "description": "BUFFET SHOES 3 DR KREPYAK 150 X 40 X 95 CM NAT",
       "qty": 1,
-      "volumeM3": 0.36
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 105,
-      "section": "stock",
-      "bcdi": "BCDI-04913",
-      "ref": "EFCM 052E",
-      "description": "COMMODE NEW 4 DRW ROUND LEGS 90 X 50 X 105 CM (BCDI4913) NAT",
+      "section": "command",
+      "bcdi": "BCDI-05626",
+      "ref": "EFCB 345",
+      "description": "SET COLONNE ZIG ZAG 1 DR 1 DRW 40X35X175 CM NAT",
       "qty": 1,
-      "volumeM3": 0.473
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 106,
-      "section": "stock",
-      "bcdi": "BCDI-04913",
-      "ref": "EFCM 052ERAW",
-      "description": "COMMODE NEW 4 DRW ROUND LEGS 90 X 50 X 105 CM (BCDI4913) RAW",
+      "section": "command",
+      "bcdi": "BCDI-05626",
+      "ref": "EFBF 564",
+      "description": "SET TV BUFFET 2 DR ZIG ZAG 140X35X30 CM NAT",
       "qty": 1,
-      "volumeM3": 0.473
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 107,
-      "section": "stock",
-      "bcdi": "BCDI-04914",
-      "ref": "EFBC 034",
-      "description": "SEMINYAK SHOWCASE 24 GLASS 4 DRW 105X45X200 CM (BCDI4914) NAT",
+      "section": "command",
+      "bcdi": "BCDI-05656",
+      "ref": "EFCB 134E",
+      "description": "COLONNE HANGED 1 DR ZIG ZAG 1 DRW 40 X 35 X 160 CM NAT",
       "qty": 1,
-      "volumeM3": 0.945
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 108,
       "section": "stock",
-      "bcdi": "BCDI-04914",
-      "ref": "EFBF 191ER",
-      "description": "BUFFET EVOLIA 3 DR 3 DRW 150X50X85 CM (BCDI4914) WW",
+      "bcdi": "BCDI-04975",
+      "ref": null,
+      "description": "Element A Storage unit 2DRW 80x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.637
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 109,
       "section": "stock",
-      "bcdi": "BCDI-05181",
-      "ref": "EFCB 334RAW",
-      "description": "COLONNE HANGED 1 DR BLOCK EVOLIA 1 DRW 50 X 35 X 160 CM (BCDI5181) RAW",
+      "bcdi": "BCDI-04975",
+      "ref": null,
+      "description": "Element B Storage unit 2DR 97x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.28
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 110,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFCB 220R",
-      "description": "COLONNE SHERRY 1 DR 1 DRW 35 X 35 X 180 CM (BCDI5403) WW",
+      "bcdi": "BCDI-04975",
+      "ref": null,
+      "description": "Element C Storage unit for sink 2DR 80x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.22
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 111,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 248",
-      "description": "WASTAFEL CASSANDRA 2 DRW 80 X 50 X 55 CM (BCDI5403) NAT",
+      "bcdi": "BCDI-04975",
+      "ref": null,
+      "description": "Element D DR for dishwasher 61x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.22
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 112,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 346",
-      "description": "WASTAFEL SHERRY HANGED 2 DRW TOLI TOLI 80 X 50 X 60 CM (BCDI5403) NAT",
+      "bcdi": "BCDI-04975",
+      "ref": null,
+      "description": "Element D Colonne 2DR w/ space oven microwave 80x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.24
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 113,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 162E",
-      "description": "WASTAFEL SHERRY HANGED 2 DRW 90 X 50 X 60 CM (BCDI5403) NAT",
+      "bcdi": "BCDI-04975",
+      "ref": null,
+      "description": "Element F Kitchen island 4DRW 1DR 160x60x88cm RAW",
       "qty": 1,
-      "volumeM3": 0.27
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 114,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 077-3Z",
-      "description": "WASTAFEL OASIS 3 DR ZIG ZAG 140 X 60 X 85 CM SC (BCDI5403) NAT",
+      "bcdi": "BCDI-04975",
+      "ref": null,
+      "description": "Element G Table for kitchen island 180x90x75cm RAW",
       "qty": 1,
-      "volumeM3": 0.714
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 115,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 180E-1",
-      "description": "WASTAFEL OBLIQUE 1 DR 1 DRW 100X50X60 CM (BCDI5403) NAT",
+      "bcdi": "BCDI-04975",
+      "ref": null,
+      "description": "Element H Storage unit hanged 3DR 130x40x60cm RAW",
       "qty": 1,
-      "volumeM3": 0.3
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 116,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 180E-1R",
-      "description": "WASTAFEL OBLIQUE 1 DR 1 DRW 100X50X60 CM (BCDI5403) WW",
+      "bcdi": "BCDI-04049",
+      "ref": "EFDT 169",
+      "description": "DINING TABLE SQUARE 80 X 80 X 76 CM METAL FEET NAT",
       "qty": 1,
-      "volumeM3": 0.3
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 117,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 171E",
-      "description": "WASTAFEL CASSANDRA 2 DRW 100X55X85 CM (BCDI5403) NAT",
+      "bcdi": "BCDI-04049",
+      "ref": "EFDT 169RAW",
+      "description": "DINING TABLE SQUARE 80 X 80 X 76 CM METAL FEET RAW",
       "qty": 1,
-      "volumeM3": 0.468
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 118,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 090E",
-      "description": "WASTAFEL CASSANDRA 2 DRW 120X55X85 CM (BCDI5403) NAT",
+      "bcdi": "BCDI-04913",
+      "ref": "EFCM 002R",
+      "description": "COMMODE 3 DRW 90 X 50 X 80 CM WW",
       "qty": 1,
-      "volumeM3": 0.561
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 119,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 095E",
-      "description": "WASTAFEL CASSANDRA HANGED 2 DRW 120 X 50 X 60 CM EXHIBITION (BCDI5403) NAT",
+      "bcdi": "BCDI-04913",
+      "ref": "EFCM 052ERAW",
+      "description": "COMMODE NEW 4 DRW ROUND LEGS 90 X 50 X 105 CM RAW",
       "qty": 1,
-      "volumeM3": 0.36
+      "volumeM3": 0.473,
+      "urgent": false
     },
     {
       "order": 120,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 077-3ZRAW",
-      "description": "WASTAFEL OASIS 3 DR ZIG ZAG 140 X 60 X 85 CM SC (BCDI5403) RAW",
+      "bcdi": "BCDI-04914",
+      "ref": "EFBC 034",
+      "description": "SEMINYAK SHOWCASE 24 GLASS 4 DRW 105X45X200 CM NAT",
       "qty": 1,
-      "volumeM3": 0.714
+      "volumeM3": 0.945,
+      "urgent": false
     },
     {
       "order": 121,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 118ERAW",
-      "description": "WASTAFEL OASIS HANGED 3 DR 140 X 50 X 60 CM EXHIBITION (BCDI5403) RAW",
+      "bcdi": "BCDI-04914",
+      "ref": "EFBC 034R",
+      "description": "SEMINYAK SHOWCASE 24 GLASS 4 DRW 105X45X200 CM WW",
       "qty": 1,
-      "volumeM3": 0.42
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 122,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 283",
-      "description": "WASTAFEL BAYA SPC 3 DRW EVOLIA STYLE 160X60X85 CM (BCDI5403) NAT",
+      "bcdi": "BCDI-04914",
+      "ref": "EFBF 191ER",
+      "description": "BUFFET EVOLIA 3 DR 3 DRW 150X50X85 CM WW",
       "qty": 1,
-      "volumeM3": 0.816
+      "volumeM3": 0.637,
+      "urgent": false
     },
     {
       "order": 123,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 283RAW",
-      "description": "WASTAFEL BAYA SPC 3 DRW EVOLIA STYLE 160X60X85 CM (BCDI5403) RAW",
-      "qty": 1,
-      "volumeM3": 0.816
+      "ref": "EFWS 180E-1R",
+      "description": "WASTAFEL OBLIQUE 1 DR 1 DRW 100X50X60 CM WW DECO",
+      "qty": 2,
+      "volumeM3": 0.3,
+      "urgent": false
     },
     {
       "order": 124,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 271",
-      "description": "WASTAFEL 1 DR KREPYAK 60 X 50 X 85 CM 1 SHELF INSIDE (BCDI5403) NAT",
+      "ref": "EFWS 090ERAW",
+      "description": "WASTAFEL CASSANDRA 2 DRW 120X55X85 CM RAW",
       "qty": 1,
-      "volumeM3": 0.255
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 125,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 271RAW",
-      "description": "WASTAFEL 1 DR KREPYAK 60X50X85 CM SHELF INSIDE (BCDI5403) RAW",
+      "ref": "EFWS 090ER",
+      "description": "WASTAFEL CASSANDRA 2 DRW 120X55X85 CM WW",
       "qty": 1,
-      "volumeM3": 0.255
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 126,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 348",
-      "description": "WASTAFEL SHERRY 2 DRW RATTAN 90X50X60 CM (BCDI5403) NAT",
+      "ref": "EFWS 095ER",
+      "description": "WASTAFEL CASSANDRA HANGED 2 DRW 120 X 50 X 60 CM WW",
       "qty": 1,
-      "volumeM3": 0.27
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 127,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 348RAW",
-      "description": "WASTAFEL SHERRY 2 DRW RATTAN 90X50X60 CM (BCDI5403) RAW",
-      "qty": 1,
-      "volumeM3": 0.27
+      "ref": "EFWS 077-3ZRAW",
+      "description": "WASTAFEL OASIS 3 DR ZIG ZAG 140 X 60 X 85 CM SC RAW",
+      "qty": 2,
+      "volumeM3": 0.714,
+      "urgent": false
     },
     {
       "order": 128,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 256RAW",
-      "description": "WASTAFEL HANGED 2 DRW ZIG ZAG W/ DECO 90 X 50 X 50 CM (BCDI5403) RAW",
+      "ref": "EFWS 348",
+      "description": "WASTAFEL SHERRY 2 DRW RATTAN 90X50X60 CM NAT",
       "qty": 1,
-      "volumeM3": 0.225
+      "volumeM3": 0.27,
+      "urgent": false
     },
     {
       "order": 129,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 097E-1",
-      "description": "WASTAFEL HANGED ZIG ZAG 4 DRW 150 X 50 X 60 CM (BCDI5403) NAT",
-      "qty": 1,
-      "volumeM3": 0.45
+      "ref": "EFWS 348RAW",
+      "description": "WASTAFEL SHERRY 2 DRW RATTAN 90X50X60 CM RAW",
+      "qty": 2,
+      "volumeM3": 0.27,
+      "urgent": false
     },
     {
       "order": 130,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 097E-1R",
-      "description": "WASTAFEL HANGED ZIG ZAG 4 DRW 150 X 50 X 60 CM (BCDI5403) WW",
+      "ref": "EFWS 256R",
+      "description": "WASTAFEL HANGED 2 DRW ZIG ZAG W/ DECO 90 X 50 X 50 CM WW",
       "qty": 1,
-      "volumeM3": 0.45
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 131,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 433RAW",
-      "description": "WASTAFEL 2 DR PUSH PULL FLUTED STYLE 90 X 50 X 85 CM (BCDI5403) RAW",
+      "ref": "EFWS 256RAW",
+      "description": "WASTAFEL HANGED 2 DRW ZIG ZAG W/ DECO 90 X 50 X 50 CM RAW",
       "qty": 1,
-      "volumeM3": 0.383
+      "volumeM3": 0.225,
+      "urgent": false
     },
     {
       "order": 132,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 135E",
-      "description": "WASTAFEL SEVILLA KREPYAK 2 DR 3 DRW 160X60X85 CM (BCDI5403) NAT",
+      "ref": "EFWS 097E-1",
+      "description": "WASTAFEL HANGED ZIG ZAG 4 DRW 150 X 50 X 60 CM NAT",
       "qty": 1,
-      "volumeM3": 0.816
+      "volumeM3": 0.45,
+      "urgent": false
     },
     {
       "order": 133,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFCB 278RAW",
-      "description": "COLONNE HANGED SHERRY 2 DR 1 DRW 40 X 35 X 160 CM (BCDI5403) RAW",
+      "ref": "EFWS 097E-1R",
+      "description": "WASTAFEL HANGED ZIG ZAG 4 DRW 150 X 50 X 60 CM WW",
       "qty": 1,
-      "volumeM3": 0.224
+      "volumeM3": 0.45,
+      "urgent": false
     },
     {
       "order": 134,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFCB 076E",
-      "description": "COLONNE 1 DR KREPYAK 2 DRW 40 X 35 X 180 CM (BCDI5403) NAT",
+      "ref": "EFWS 097E-1RAW",
+      "description": "WASTAFEL HANGED ZIG ZAG 4 DRW 150 X 50 X 60 CM RAW",
       "qty": 1,
-      "volumeM3": 0.252
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 135,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFCB 076ER",
-      "description": "COLONNE 1 DR KREPYAK 2 DRW 40 X 35 X 180 CM (BCDI5403) WW",
+      "ref": "EFWS 440-1RAW",
+      "description": "WASTAFEL HANGED 2 DR PUSH PULL SALUR LUMYA 150X50X60 CM RAW",
       "qty": 1,
-      "volumeM3": 0.252
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 136,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFCB 076ERAW",
-      "description": "COLONNE 1 DR KREPYAK 2 DRW 40 X 35 X 180 CM (BCDI5403) RAW",
+      "ref": "EFWS 131ER",
+      "description": "WASTAFEL SHERRY HANGED 2 DRW 120 X 50 X 60 CM WW",
       "qty": 1,
-      "volumeM3": 0.252
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 137,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFCB 133E",
-      "description": "CABINET COLONNE 1 DR SLATS 2 DRW 40 X 35 X 180 CM (BCDI5403) NAT",
+      "ref": "EFWS 345",
+      "description": "WASTAFEL SHERRY HANGED TOLI TOLI 4 DRW 120 X 50 X 60 CM NAT",
       "qty": 1,
-      "volumeM3": 0.252
+      "volumeM3": 0.36,
+      "urgent": false
     },
     {
       "order": 138,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFCB 133ER",
-      "description": "CABINET COLONNE 1 DR SLATS 2 DRW 40 X 35 X 180 CM (BCDI5403) WW",
+      "ref": "EFWS 434",
+      "description": "WASTAFEL HANGED 2 DR CROSS LINE 150 X 55 X 60 CM NAT",
       "qty": 1,
-      "volumeM3": 0.252
+      "volumeM3": 0.495,
+      "urgent": false
     },
     {
       "order": 139,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFCB 133ERAW",
-      "description": "CABINET COLONNE 1 DR SLATS 2 DRW 40 X 35 X 180 CM (BCDI5403) RAW",
+      "ref": "EFWS 434R",
+      "description": "WASTAFEL HANGED 2 DR CROSS LINE 150 X 55 X 60 CM WW",
       "qty": 1,
-      "volumeM3": 0.252
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 140,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 131E",
-      "description": "WASTAFEL SHERRY HANGED 2 DRW 120 X 50 X 60 CM (BCDI5403) NAT",
+      "ref": "EFWS 434RAW",
+      "description": "WASTAFEL HANGED 2 DR CROSS LINE 150 X 55 X 60 CM RAW",
       "qty": 1,
-      "volumeM3": 0.36
+      "volumeM3": 0.495,
+      "urgent": false
     },
     {
       "order": 141,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 345",
-      "description": "WASTAFEL SHERRY HANGED (TOLI TOLI) 4 DRW 120 X 50 X 60 CM (BCDI5403) NAT",
+      "ref": "EFWS 211",
+      "description": "WASTAFEL 2 DRW ZIG ZAG 100X50X50 CM NAT",
       "qty": 1,
-      "volumeM3": 0.36
+      "volumeM3": 0.25,
+      "urgent": false
     },
     {
       "order": 142,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 434",
-      "description": "WASTAFEL HANGED 2 DR CROSS LINE 150 X 55 X 60 CM (BCDI5403) NAT",
+      "ref": "EFWS 211RAW",
+      "description": "WASTAFEL 2 DRW ZIG ZAG 100X50X50 CM RAW",
       "qty": 1,
-      "volumeM3": 0.495
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 143,
       "section": "stock",
       "bcdi": "BCDI-05403",
-      "ref": "EFWS 434RAW",
-      "description": "WASTAFEL HANGED 2 DR CROSS LINE 150 X 55 X 60 CM (BCDI5403) RAW",
+      "ref": "EFWS 211R",
+      "description": "WASTAFEL 2 DRW ZIG ZAG 100X50X50 CM WW",
       "qty": 1,
-      "volumeM3": 0.495
+      "volumeM3": 0.25,
+      "urgent": false
     },
     {
       "order": 144,
       "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 211",
-      "description": "WASTAFEL 2 DRW ZIG ZAG 100X50X50 CM (BCDI5403) NAT",
+      "bcdi": "STOCK",
+      "ref": "EFWS 402-1",
+      "description": "WASTAFEL SHERRY 2 DRW UP DOWN 80 X 50 X 85 CM WW",
       "qty": 1,
-      "volumeM3": 0.25
+      "volumeM3": 0.34,
+      "urgent": false
     },
     {
       "order": 145,
-      "section": "stock",
-      "bcdi": "BCDI-05403",
-      "ref": "EFWS 211R",
-      "description": "WASTAFEL 2 DRW ZIG ZAG 100X50X50 CM (BCDI5403) WW",
+      "section": "bonus",
+      "bcdi": "BCDI-05147",
+      "ref": null,
+      "description": "Jalousie door folding H205 W160 RAW",
       "qty": 1,
-      "volumeM3": 0.25
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 146,
-      "section": "stock",
-      "bcdi": "STOCK",
-      "ref": "EFNB 098RAW",
-      "description": "NACKHAS SIDE TABLE 40 X 35 X 55 CM RAW",
-      "qty": 1,
-      "volumeM3": 0.077
+      "section": "bonus",
+      "bcdi": "BCDI-05161",
+      "ref": null,
+      "description": "Element A Door 60x70cm RAW",
+      "qty": 4,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 147,
-      "section": "stock",
-      "bcdi": "STOCK",
-      "ref": "EFWS 402-1",
-      "description": "WASTAFEL SHERRY 2 DRW (UP & DOWN) 80 X 50 X 85 CM VERSI HEIGHT LEGS 16 CM (BCDI4206) WW",
-      "qty": 1,
-      "volumeM3": 0.34
+      "section": "bonus",
+      "bcdi": "BCDI-05161",
+      "ref": null,
+      "description": "Element B Door 44,5x70cm RAW",
+      "qty": 2,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 148,
-      "section": "stock",
-      "bcdi": "STOCK",
-      "ref": "EFBF 529",
-      "description": "TV BUFFET ANGLE 2 DR CANNED 85 X 85 X 125 CM (STOCK)",
-      "qty": 1,
-      "volumeM3": 0.903
+      "section": "bonus",
+      "bcdi": "BCDI-05161",
+      "ref": null,
+      "description": "Element C Door 45x70cm RAW",
+      "qty": 2,
+      "volumeM3": null,
+      "urgent": false
     },
     {
       "order": 149,
-      "section": "stock",
-      "bcdi": "STOCK",
-      "ref": "EFCB 134ERAW",
-      "description": "COLONNE SLATS HANGED 1 DR 1 DRW 40 X 35 X 160 CM EVOLIA STYLE (STOCK) RAW",
-      "qty": 1,
-      "volumeM3": 0.224
-    },
-    {
-      "order": 150,
-      "section": "stock",
-      "bcdi": "BC11007",
-      "ref": "EFNB 010L",
-      "description": "NACKHAS 1 DR KREPYAK 1 DRW 45 X 35 X 60 CM LEFT",
-      "qty": 1,
-      "volumeM3": 0.095
-    },
-    {
-      "order": 151,
       "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément A : Storage unit above fridge 85x60x30cm RAW",
-      "qty": 1,
-      "volumeM3": 0.153
-    },
-    {
-      "order": 152,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément B : Colonne with space oven and microwave 2DR 63x60x215cm RAW",
-      "qty": 1,
-      "volumeM3": 0.813
-    },
-    {
-      "order": 153,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément C : Storage unit 1DRW for spice/bottles 30x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.158
-    },
-    {
-      "order": 154,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément D : Storage unit 3DRW 75x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.396
-    },
-    {
-      "order": 155,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément E : Storage unit 2DR 75x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.396
-    },
-    {
-      "order": 156,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément F : Storage unit hanged 4DR 180x50x50cm RAW",
-      "qty": 1,
-      "volumeM3": 0.45
-    },
-    {
-      "order": 157,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément G : Storage unit 2DRW 98x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.517
-    },
-    {
-      "order": 158,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément H : Storage unit 1DR 55x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.29
-    },
-    {
-      "order": 159,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément I : Storage unit 2DR 110x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 0.581
-    },
-    {
-      "order": 160,
-      "section": "bonus",
-      "bcdi": "BCDI-05343",
-      "ref": "",
-      "description": "Elément J : Kitchen island 2DR 2DRW 210x60x88cm RAW",
-      "qty": 1,
-      "volumeM3": 1.109
-    },
-    {
-      "order": 161,
-      "section": "bonus",
-      "bcdi": "BCDI-05163",
-      "ref": "",
-      "description": "Storage unit according to plan 120x40x75cm Natural",
-      "qty": 1,
-      "volumeM3": 0.36
-    },
-    {
-      "order": 162,
-      "section": "bonus",
-      "bcdi": "BCDI-05195",
-      "ref": "",
-      "description": "Angle storage unit 2DR like picture 100x65x65cm NATURAL",
-      "qty": 1,
-      "volumeM3": 0.423
-    },
-    {
-      "order": 163,
-      "section": "bonus",
-      "bcdi": "BCDI-05197",
-      "ref": "",
-      "description": "Meuble de salle de bains SEVILLE KREPYAK - 2P - 3T without shevles on both side 140x55x85cm Raw",
-      "qty": 1,
-      "volumeM3": 0.654
-    },
-    {
-      "order": 164,
-      "section": "bonus",
-      "bcdi": "BCDI-05197",
-      "ref": "",
-      "description": "Colonne 2 tiroirs 1 porte Krepyak 50x40x200cm RAW",
-      "qty": 1,
-      "volumeM3": 0.4
-    },
-    {
-      "order": 165,
-      "section": "bonus",
-      "bcdi": "BCDI-05197",
-      "ref": "",
-      "description": "Oval mirror 75cm Raw",
+      "bcdi": "BCDI-05161",
+      "ref": null,
+      "description": "Element D DRW 67x40x35cm RAW",
       "qty": 2,
-      "volumeM3": 0.028
+      "volumeM3": null,
+      "urgent": false
     }
   ]
 }
