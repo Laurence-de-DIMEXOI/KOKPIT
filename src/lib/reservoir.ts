@@ -98,6 +98,53 @@ export function dateChargement(
   return d;
 }
 
+/** Arrivée cible = date commande + délai total (ex. 8 mois) → date à laquelle
+ *  la commande doit être arrivée en Réunion pour tenir le délai promis. */
+export function dateArriveeCible(
+  dateCommande: Date,
+  p: ReservoirParams = DEFAULT_RESERVOIR_PARAMS
+): Date {
+  const whole = Math.floor(p.delaiTotalMois);
+  const fracDays = Math.round((p.delaiTotalMois - whole) * 30);
+  const d = new Date(dateCommande);
+  d.setMonth(d.getMonth() + whole);
+  d.setDate(d.getDate() + fracDays);
+  return d;
+}
+
+/** Arrivée estimée d'un départ quand l'arrivée réelle MSC est inconnue
+ *  = date de départ + délai bateau. */
+export function dateArriveeEstimee(
+  dateDepart: Date,
+  p: ReservoirParams = DEFAULT_RESERVOIR_PARAMS
+): Date {
+  const whole = Math.floor(p.delaiBateauMois);
+  const fracDays = Math.round((p.delaiBateauMois - whole) * 30);
+  const d = new Date(dateDepart);
+  d.setMonth(d.getMonth() + whole);
+  d.setDate(d.getDate() + fracDays);
+  return d;
+}
+
+export type RetardStatut = "ok" | "attention" | "retard";
+
+/** Compare l'arrivée du container à l'arrivée cible, avec une marge tolérée :
+ *  - arrivée ≤ cible            → "ok"        (à l'heure ou en avance)
+ *  - arrivée dans le mois cible
+ *    OU ≤ cible + 15 jours      → "attention" (léger dépassement, acceptable)
+ *  - au-delà                    → "retard"    (vrai retard). */
+export const MARGE_RETARD_JOURS = 15;
+export function classerRetard(arrivee: Date, cible: Date): RetardStatut {
+  if (arrivee.getTime() <= cible.getTime()) return "ok";
+  const limite = new Date(cible);
+  limite.setDate(limite.getDate() + MARGE_RETARD_JOURS);
+  const memeMois =
+    arrivee.getUTCFullYear() === cible.getUTCFullYear() &&
+    arrivee.getUTCMonth() === cible.getUTCMonth();
+  if (memeMois || arrivee.getTime() <= limite.getTime()) return "attention";
+  return "retard";
+}
+
 /** Clé "YYYY-MM" du mois de chargement. */
 export function moisChargementKey(
   dateCommande: Date,

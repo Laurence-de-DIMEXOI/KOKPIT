@@ -7,7 +7,10 @@ import { prisma } from "@/lib/prisma";
 import {
   DEFAULT_RESERVOIR_PARAMS,
   moisChargementKey,
-  dateChargement,
+  dateArriveeCible,
+  dateArriveeEstimee,
+  classerRetard,
+  type RetardStatut,
   TRELLO_READY_LISTS,
   departureKey,
   CONTAINER_CAPACITY_MEUBLES,
@@ -41,6 +44,7 @@ interface ResItem {
   bdoBcNumber: string | null;
   moisTheorique: string | null;
   retard: boolean;
+  retardStatut: RetardStatut;
   nbMeubles: number;
   isCuisine: boolean;
   isDressing: boolean;
@@ -62,7 +66,7 @@ async function loadImp618(origin: string): Promise<ResItem[]> {
   const mk = (o: Partial<ResItem> & { bcdi: string; nbMeubles: number }): ResItem => ({
     client: null, dateCommande: null, montantHT: null, restePayer: null, trelloStatut: "Sent", pret: true,
     found: true, etatProduit: null, isStock: false, forcedStock: false, isSav: false,
-    bdoBcNumber: null, moisTheorique: null, retard: false, isCuisine: false, isDressing: false, volumeM3: null, lignes: [], ...o,
+    bdoBcNumber: null, moisTheorique: null, retard: false, retardStatut: "ok", isCuisine: false, isDressing: false, volumeM3: null, lignes: [], ...o,
   });
 
   // Lignes (ref/desc/qty) depuis le packing JSON brut → cubage + cuisine/dressing
@@ -182,6 +186,7 @@ export async function GET(req: NextRequest) {
       bdoBcNumber: r.bdoBcNumber,
       moisTheorique,
       retard: false, // calculé après affectation au départ (retard projeté)
+      retardStatut: "ok" as RetardStatut,
       nbMeubles: r.nbMeubles != null && r.nbMeubles > 0 ? r.nbMeubles : 1,
       isCuisine: cls.isCuisine,
       isDressing: cls.isDressing,
@@ -216,8 +221,13 @@ export async function GET(req: NextRequest) {
     slots.push({ date: nd, capacite: last.capacite || capacite, estime: true, items: [], meubles: 0 });
   };
 
-  const setRetard = (it: ResItem, slotDate: Date) => {
-    if (it.dateCommande) it.retard = slotDate.getTime() > dateChargement(new Date(it.dateCommande), params).getTime();
+  // Arrivée du container : réelle (MSC) si connue, sinon estimée (départ + bateau).
+  const arriveeSlot = (s: Slot): Date => s.dateArrivee ?? dateArriveeEstimee(s.date, params);
+  const setRetard = (it: ResItem, s: Slot) => {
+    if (!it.dateCommande) { it.retardStatut = "ok"; it.retard = false; return; }
+    const cible = dateArriveeCible(new Date(it.dateCommande), params);
+    it.retardStatut = classerRetard(arriveeSlot(s), cible);
+    it.retard = it.retardStatut === "retard";
   };
 
   // Premier départ NON parti (date ≥ aujourd'hui) — on n'affecte rien à un container déjà en mer.
@@ -230,7 +240,7 @@ export async function GET(req: NextRequest) {
   const prepped = calendarItems.filter((i) => prepSet.has(i.bcdi.toUpperCase()));
   const autres = calendarItems.filter((i) => !prepSet.has(i.bcdi.toUpperCase()));
   for (const it of prepped) {
-    setRetard(it, slots[firstFutureIdx].date);
+    setRetard(it, slots[firstFutureIdx]);
     slots[firstFutureIdx].items.push(it);
     slots[firstFutureIdx].meubles += it.nbMeubles;
   }
@@ -243,7 +253,7 @@ export async function GET(req: NextRequest) {
       if (slots[si].items.length > 0 && slots[si].meubles + it.nbMeubles > slots[si].capacite) { si++; continue; }
       break;
     }
-    setRetard(it, slots[si].date);
+    setRetard(it, slots[si]);
     slots[si].items.push(it);
     slots[si].meubles += it.nbMeubles;
   }
@@ -264,7 +274,8 @@ export async function GET(req: NextRequest) {
       nbMeubles: s.meubles,
       nb: s.items.length,
       prets: s.items.filter((i) => i.pret).length,
-      retards: s.items.filter((i) => i.retard).length,
+      retards: s.items.filter((i) => i.retardStatut === "retard").length,
+      attentions: s.items.filter((i) => i.retardStatut === "attention").length,
       totalHT: Number(s.items.reduce((sum, i) => sum + (i.montantHT || 0), 0).toFixed(2)),
       totalRestePayer: Number(s.items.reduce((sum, i) => sum + (i.restePayer || 0), 0).toFixed(2)),
       totalVolume: Number(s.items.reduce((sum, i) => sum + (i.volumeM3 || 0), 0).toFixed(2)),

@@ -30,6 +30,7 @@ interface ResItem {
   bdoBcNumber: string | null;
   moisTheorique: string | null;
   retard: boolean;
+  retardStatut: "ok" | "attention" | "retard";
   nbMeubles: number;
   isCuisine: boolean;
   isDressing: boolean;
@@ -50,6 +51,7 @@ interface Depart {
   nb: number;
   prets: number;
   retards: number;
+  attentions: number;
   totalHT: number;
   totalRestePayer: number;
   totalVolume: number;
@@ -260,10 +262,10 @@ export function ReservoirPlanning() {
   const showStock = activeKey === STOCK_KEY;
 
   const totaux = useMemo(() => {
-    if (!data) return { nb: 0, readyToSent: 0, ht: 0, retards: 0 };
-    const acc = { nb: 0, readyToSent: 0, ht: 0, retards: 0 };
+    if (!data) return { nb: 0, readyToSent: 0, ht: 0, retards: 0, attentions: 0 };
+    const acc = { nb: 0, readyToSent: 0, ht: 0, retards: 0, attentions: 0 };
     for (const d of data.departs) {
-      acc.nb += d.nb; acc.ht += d.totalHT; acc.retards += d.retards;
+      acc.nb += d.nb; acc.ht += d.totalHT; acc.retards += d.retards; acc.attentions += d.attentions;
       acc.readyToSent += d.items.filter((i) => i.trelloStatut === "Ready to Sent").length;
     }
     return acc;
@@ -306,7 +308,8 @@ export function ReservoirPlanning() {
       <td className="px-3 py-2 text-cockpit-heading">{it.client || <span className="text-cockpit-secondary/60">—</span>}</td>
       <td className="px-3 py-2 text-cockpit-primary text-xs whitespace-nowrap">
         <span className="inline-flex items-center gap-1">
-          {it.retard && <AlertTriangle className="w-3 h-3 text-red-500 flex-shrink-0" aria-label="En retard, non chargée" />}
+          {it.retardStatut === "retard" && <AlertTriangle className="w-3 h-3 text-red-500 flex-shrink-0" aria-label="En retard vs date cible" />}
+          {it.retardStatut === "attention" && <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" aria-label="Léger dépassement (≤15j / mois cible) — acceptable" />}
           {dateCourt(it.dateCommande)}
         </span>
       </td>
@@ -409,7 +412,7 @@ export function ReservoirPlanning() {
             onChange={(e) => { setDelaiTotal(Number(e.target.value)); setActiveKey(null); }}
             className="ml-2 w-16 px-2 py-1 border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
         </label>
-        <span className="text-[11px] text-cockpit-secondary">(retard = vs date cible)</span>
+        <span className="text-[11px] text-cockpit-secondary">(retard = arrivée &gt; cible + 15j ; ⚠ orange = léger dépassement toléré)</span>
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => setDepartsOpen((o) => !o)}
             className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-cockpit-primary border border-cockpit-input rounded-input hover:bg-cockpit-card">
@@ -522,6 +525,7 @@ export function ReservoirPlanning() {
             <CheckCircle2 className="w-4 h-4" /> {totaux.readyToSent} prêts à charger
           </span>
           <span className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700"><b>{totaux.retards}</b> en retard</span>
+          {totaux.attentions > 0 && <span className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700"><b>{totaux.attentions}</b> à surveiller (≤15j)</span>}
           <span className="px-3 py-1.5 rounded-lg bg-cockpit-card border border-cockpit">{eur(totaux.ht)} HT</span>
           {data.stock.length > 0 && (
             <span className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700"><b>{data.stock.length}</b> stock magasin ({data.stockMeubles} meubles)</span>
@@ -577,6 +581,7 @@ export function ReservoirPlanning() {
                     act ? "bg-[var(--color-active)]/10 text-[var(--color-active)] border-b-2 border-[var(--color-active)] -mb-px" : "text-cockpit-secondary hover:text-cockpit-primary"
                   }`}>
                   {d.retards > 0 && !d.isImp618 && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                  {d.retards === 0 && d.attentions > 0 && !d.isImp618 && <AlertTriangle className="w-3 h-3 text-amber-500" />}
                   <span className={d.estime ? "italic opacity-90" : ""}>{d.isImp618 ? "IMP-618 (juin)" : (d.estime ? "~ " : "") + departLabel(d.date)}</span>
                   <span className={`text-[10px] ${over ? "text-red-600 font-bold" : "opacity-70"}`}>({d.nbMeubles}/{d.capacite})</span>
                 </button>
@@ -635,7 +640,8 @@ export function ReservoirPlanning() {
               )}
               <div className="text-xs text-cockpit-secondary">
                 <b className={!activeDepart.parti && activeDepart.nbMeubles > activeDepart.capacite ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.nbMeubles}</b>/{activeDepart.capacite} meubles · <span title="Cubage estimé vs 76 m³ pour un 40ft HC">≈ <b className={!activeDepart.parti && activeDepart.totalVolume > 76 ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.totalVolume.toFixed(1)}</b>/76 m³</span> · {activeDepart.nb} commandes · <span className="text-emerald-700 font-medium">{activeDepart.prets} prêtes</span>
-                {activeDepart.retards > 0 && <> · <span className="text-red-600 font-semibold">⚠ {activeDepart.retards} en retard</span></>} · {eur(activeDepart.totalHT)} HT
+                {activeDepart.retards > 0 && <> · <span className="text-red-600 font-semibold">⚠ {activeDepart.retards} en retard</span></>}
+                {activeDepart.attentions > 0 && <> · <span className="text-amber-600 font-semibold">⚠ {activeDepart.attentions} à surveiller</span></>} · {eur(activeDepart.totalHT)} HT
               </div>
               {/* Jauge remplissage */}
               <div className="h-2 w-full rounded-full bg-cockpit-input overflow-hidden">
