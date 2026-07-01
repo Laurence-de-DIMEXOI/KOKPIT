@@ -198,9 +198,9 @@ function CampagnesContent() {
     loadFromCache().then(() => {
       handleSync("this_month");
     });
-    loadGoogleFromCache().then(() => {
-      handleGoogleSync();
-    });
+    // Google : lecture base uniquement (rapide). L'import du Sheet tourne via le cron
+    // quotidien /api/google-ads/import ; le bouton « Actualiser » force un import.
+    loadGoogleFromCache();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
