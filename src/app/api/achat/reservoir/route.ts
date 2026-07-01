@@ -112,6 +112,11 @@ export async function GET(req: NextRequest) {
   ]);
   const shipped = new Set(expeditions.map((e) => e.bcdi.toUpperCase()));
 
+  // Même règle stock pour l'IMP-618 : les "ORDER DIMEXOI" / stock partent en stock
+  for (const i of imp618Items) if (isStockClient(i.client)) i.isStock = true;
+  const imp618Client = imp618Items.filter((i) => !i.isStock);
+  const imp618Stock = imp618Items.filter((i) => i.isStock);
+
   // Reste à payer par BCDI (snapshot Sellsy calculé par le pipeline prévisionnel)
   const snaps = await prisma.bcdiSellsySnapshot.findMany({
     where: { bcdi: { in: rows.map((r) => r.bcdi) } },
@@ -174,7 +179,7 @@ export async function GET(req: NextRequest) {
   const slots: Slot[] = [{
     date: new Date(`${DEPART_BASE_ISO}T00:00:00Z`),
     capacite, estime: false, isImp618: true,
-    items: imp618Items, meubles: imp618Items.reduce((s, i) => s + i.nbMeubles, 0),
+    items: imp618Client, meubles: imp618Client.reduce((s, i) => s + i.nbMeubles, 0),
   }];
   for (const d of departsPrevus) {
     slots.push({ id: d.id, date: d.dateDepart, dateArrivee: d.dateArrivee, navire: d.navire, capacite: d.capaciteMeubles, estime: false, items: [], meubles: 0 });
@@ -226,6 +231,7 @@ export async function GET(req: NextRequest) {
       items: s.items,
     }));
 
+  stockItems.push(...imp618Stock);
   stockItems.sort((a, b) => (a.dateCommande || "9999").localeCompare(b.dateCommande || "9999"));
 
   return NextResponse.json({
