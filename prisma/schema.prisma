@@ -1444,6 +1444,9 @@ model ReservoirBcdi {
   dateCommande  DateTime?
   montantHT     Decimal?  @db.Decimal(12, 2)
   nbMeubles     Int?      // somme des quantités des lignes de la commande Sellsy
+  lignes        Json?     // lignes de la commande Sellsy [{ref, desc, qty}]
+  volumeM3      Float?    // cubage estimé (Σ qty × dimensions du libellé)
+  isCuisine     Boolean   @default(false) // au moins une ligne "kitchen"/"cuisine" ou réf EFKS
   statutSellsy  String?
   etatProduit   String?   // custom field Sellsy "Etat des produit" : SUR COMMANDE / SAV / COMMANDE MAGASIN…
   bdoBcNumber   String?   // n° BC Bois d'Orient si le BCDI est un BC BO (montant DIMEXOI 0)

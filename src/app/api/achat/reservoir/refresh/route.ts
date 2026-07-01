@@ -9,6 +9,7 @@ import {
   parseTrelloCard,
 } from "@/lib/reservoir";
 import { extractBcNumber, getOrderBcMap, lookupBoAmountsLocal, refreshBcdiSnapshots } from "@/lib/previsionnel-fetch";
+import { cleanLigne, estimateVolumeM3, isCuisineLignes, type LigneCommande } from "@/lib/reservoir-lignes";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
@@ -101,8 +102,12 @@ async function run(req: NextRequest) {
         let bdoBcNumber: string | null = null;
         let nbMeubles: number | null = null;
         let etatProduit: string | null = null;
+        let lignes: LigneCommande[] = [];
+        let volumeM3: number | null = null;
+        let isCuisine = false;
         try {
-          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; subject?: string; company_name?: string; amounts?: { total_excl_tax?: string }; rows?: Array<{ quantity?: string | number }> }> }>(
+          type Row = { type?: string; reference?: string; description?: string; quantity?: string | number };
+          const search = await sellsyFetch<{ data: Array<{ id: number; date?: string; created?: string; status?: string; subject?: string; company_name?: string; amounts?: { total_excl_tax?: string }; rows?: Row[] }> }>(
             `/orders/search?limit=1`,
             { method: "POST", body: JSON.stringify({ filters: { number: c.bcdi } }) }
           );
@@ -119,8 +124,16 @@ async function run(req: NextRequest) {
             statutSellsy = o.status || null;
             try {
               let rows = o.rows;
-              if (!rows) rows = (await sellsyFetch<{ rows?: Array<{ quantity?: string | number }> }>(`/orders/${o.id}`)).rows;
-              if (rows) nbMeubles = rows.reduce((s, r) => s + (Number(r.quantity ?? 0) || 0), 0);
+              if (!rows) rows = (await sellsyFetch<{ rows?: Row[] }>(`/orders/${o.id}`)).rows;
+              if (rows) {
+                nbMeubles = rows.reduce((s, r) => s + (Number(r.quantity ?? 0) || 0), 0);
+                lignes = rows
+                  .filter((r) => r.type !== "title" && r.type !== "comment")
+                  .map((r) => ({ ref: (r.reference || "").trim() || null, desc: cleanLigne(r.description), qty: Number(r.quantity ?? 0) || 0 }))
+                  .filter((l) => l.desc);
+                volumeM3 = estimateVolumeM3(lignes);
+                isCuisine = isCuisineLignes(lignes);
+              }
             } catch { /* tolère */ }
             if (montantHT == null || montantHT <= 0) {
               let bc = extractBcNumber(o.subject);
@@ -153,6 +166,9 @@ async function run(req: NextRequest) {
           dateCommande,
           montantHT,
           nbMeubles,
+          lignes: lignes.length ? (lignes as unknown as object[]) : undefined,
+          volumeM3,
+          isCuisine,
           statutSellsy,
           etatProduit,
           bdoBcNumber,

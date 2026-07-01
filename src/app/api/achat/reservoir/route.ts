@@ -35,6 +35,9 @@ interface ResItem {
   moisTheorique: string | null;
   retard: boolean;
   nbMeubles: number;
+  isCuisine: boolean;
+  volumeM3: number | null;
+  lignes: { ref: string | null; desc: string; qty: number }[];
 }
 
 // Contenu de l'IMP-618 (parti le 14 juin 2026) — lu depuis le packing JSON
@@ -51,7 +54,7 @@ async function loadImp618(origin: string): Promise<ResItem[]> {
   const mk = (o: Partial<ResItem> & { bcdi: string; nbMeubles: number }): ResItem => ({
     client: null, dateCommande: null, montantHT: null, restePayer: null, trelloStatut: "Sent", pret: true,
     found: true, etatProduit: null, isStock: false, forcedStock: false, isSav: false,
-    bdoBcNumber: null, moisTheorique: null, retard: false, ...o,
+    bdoBcNumber: null, moisTheorique: null, retard: false, isCuisine: false, volumeM3: null, lignes: [], ...o,
   });
 
   const enr = await readJson("container-caau9910103-enriched.json");
@@ -141,6 +144,9 @@ export async function GET(req: NextRequest) {
       moisTheorique,
       retard: false, // calculé après affectation au départ (retard projeté)
       nbMeubles: r.nbMeubles != null && r.nbMeubles > 0 ? r.nbMeubles : 1,
+      isCuisine: r.isCuisine,
+      volumeM3: r.volumeM3 != null ? Number(r.volumeM3) : null,
+      lignes: Array.isArray(r.lignes) ? (r.lignes as { ref: string | null; desc: string; qty: number }[]) : [],
     };
     if (isStock) { stockItems.push(item); continue; }
     if (!r.dateCommande) { sansDate.push(item); }
@@ -205,6 +211,7 @@ export async function GET(req: NextRequest) {
       retards: s.items.filter((i) => i.retard).length,
       totalHT: Number(s.items.reduce((sum, i) => sum + (i.montantHT || 0), 0).toFixed(2)),
       totalRestePayer: Number(s.items.reduce((sum, i) => sum + (i.restePayer || 0), 0).toFixed(2)),
+      totalVolume: Number(s.items.reduce((sum, i) => sum + (i.volumeM3 || 0), 0).toFixed(2)),
       items: s.items,
     }));
 
@@ -217,6 +224,7 @@ export async function GET(req: NextRequest) {
     stock: stockItems,
     stockMeubles: stockItems.reduce((s, i) => s + i.nbMeubles, 0),
     stockTotalHT: Number(stockItems.reduce((s, i) => s + (i.montantHT || 0), 0).toFixed(2)),
+    stockVolume: Number(stockItems.reduce((s, i) => s + (i.volumeM3 || 0), 0).toFixed(2)),
     sansDate,
     horsScopeCount: 0,
     dejaExpedies,

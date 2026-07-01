@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw, AlertTriangle, CheckCircle2, Ship, Plus, X, PackageCheck, ChevronDown, ChevronRight, Warehouse, Upload } from "lucide-react";
 
 const PREP_IMP = "IMP-619";
@@ -31,6 +31,9 @@ interface ResItem {
   moisTheorique: string | null;
   retard: boolean;
   nbMeubles: number;
+  isCuisine: boolean;
+  volumeM3: number | null;
+  lignes: { ref: string | null; desc: string; qty: number }[];
 }
 interface Depart {
   key: string;
@@ -48,6 +51,7 @@ interface Depart {
   retards: number;
   totalHT: number;
   totalRestePayer: number;
+  totalVolume: number;
   items: ResItem[];
 }
 interface DepartConfig {
@@ -65,6 +69,7 @@ interface ResPayload {
   stock: ResItem[];
   stockMeubles: number;
   stockTotalHT: number;
+  stockVolume: number;
   sansDate: ResItem[];
   horsScopeCount: number;
   dejaExpedies: number;
@@ -112,6 +117,10 @@ export function ReservoirPlanning() {
   const [impCode, setImpCode] = useState("");
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (bcdi: string) => setExpanded((prev) => {
+    const n = new Set(prev); n.has(bcdi) ? n.delete(bcdi) : n.add(bcdi); return n;
+  });
   const [departsOpen, setDepartsOpen] = useState(false);
   const [departsList, setDepartsList] = useState<DepartConfig[]>([]);
   const [departsBusy, setDepartsBusy] = useState(false);
@@ -259,8 +268,12 @@ export function ReservoirPlanning() {
     return acc;
   }, [data]);
 
-  const renderRow = (it: ResItem) => (
-    <tr key={it.bcdi} className={`border-b border-cockpit/50 ${
+  const renderRow = (it: ResItem) => {
+   const isOpen = expanded.has(it.bcdi);
+   const hasLignes = it.lignes && it.lignes.length > 0;
+   return (
+    <Fragment key={it.bcdi}>
+    <tr className={`border-b border-cockpit/50 ${
       prepSet.has(it.bcdi) ? "bg-[var(--color-active)]/10" : it.isStock ? "bg-amber-50/30 opacity-80" : it.pret ? "bg-emerald-50/30" : ""
     }`}>
       <td className="px-2 py-2">
@@ -275,8 +288,14 @@ export function ReservoirPlanning() {
       </td>
       <td className="px-3 py-2 font-mono text-xs font-semibold text-[var(--color-active)] whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-          {it.bcdi}
+          {hasLignes ? (
+            <button onClick={() => toggleExpand(it.bcdi)} title="Voir les produits de la commande" className="text-cockpit-secondary hover:text-[var(--color-active)]">
+              {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+          ) : <span className="inline-block w-3.5" />}
+          <span className={hasLignes ? "cursor-pointer" : ""} onClick={hasLignes ? () => toggleExpand(it.bcdi) : undefined}>{it.bcdi}</span>
           {prepSet.has(it.bcdi) && <span title={`Sélectionnée pour la préparation ${PREP_IMP}`} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--color-active)] text-white whitespace-nowrap">{PREP_IMP}</span>}
+          {it.isCuisine && <span title="Contient des éléments de cuisine" className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 whitespace-nowrap">Cuisine</span>}
           {it.bdoBcNumber && <span title={`Bois d'Orient — ${it.bdoBcNumber}`} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 whitespace-nowrap">BO {it.bdoBcNumber}</span>}
           {it.isSav && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 whitespace-nowrap">SAV</span>}
           {it.isStock && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">Stock magasin{it.forcedStock ? " (manuel)" : ""}</span>}
@@ -290,6 +309,7 @@ export function ReservoirPlanning() {
         </span>
       </td>
       <td className="px-3 py-2 text-right font-mono text-cockpit-heading">{it.nbMeubles}</td>
+      <td className="px-3 py-2 text-right font-mono text-cockpit-secondary text-xs whitespace-nowrap">{it.volumeM3 ? `${it.volumeM3.toFixed(2)} m³` : "—"}</td>
       <td className="px-3 py-2 text-right font-mono text-cockpit-primary">{eur(it.montantHT)}</td>
       <td className={`px-3 py-2 text-right font-mono ${it.restePayer && it.restePayer > 0 ? "text-red-600" : "text-emerald-700"}`}>{it.isStock ? "—" : eur(it.restePayer)}</td>
       <td className="px-3 py-2">
@@ -309,15 +329,39 @@ export function ReservoirPlanning() {
         </div>
       </td>
     </tr>
-  );
+    {isOpen && hasLignes && (
+      <tr className="bg-cockpit/20">
+        <td />
+        <td colSpan={8} className="px-3 pb-3 pt-0">
+          <div className="rounded-lg border border-cockpit bg-cockpit-card p-2">
+            <div className="text-[11px] text-cockpit-secondary mb-1.5">{it.lignes.length} lignes · cubage estimé ≈ <b>{it.volumeM3 ? it.volumeM3.toFixed(2) : "—"} m³</b></div>
+            <table className="w-full text-xs">
+              <tbody>
+                {it.lignes.map((l, idx) => (
+                  <tr key={idx} className="border-b border-cockpit/30 last:border-0 align-top">
+                    <td className="py-1 pr-2 text-right font-mono text-cockpit-secondary w-10">{l.qty}×</td>
+                    <td className="py-1 pr-2 font-mono text-[var(--color-active)] whitespace-nowrap">{l.ref || ""}</td>
+                    <td className="py-1 text-cockpit-primary">{l.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+    )}
+    </Fragment>
+   );
+  };
 
-  const totalRow = (o: { nb: number; meubles: number; totalHT: number; restePayer: number | null }) => (
+  const totalRow = (o: { nb: number; meubles: number; volume: number; totalHT: number; restePayer: number | null }) => (
     <tr className="border-t-2 border-cockpit bg-cockpit/40 font-semibold">
       <td className="px-2 py-2" />
       <td className="px-3 py-2 text-cockpit-heading">TOTAL</td>
       <td className="px-3 py-2 text-cockpit-secondary text-xs">{o.nb} commande{o.nb > 1 ? "s" : ""}</td>
       <td />
       <td className="px-3 py-2 text-right font-mono text-cockpit-heading">{o.meubles}</td>
+      <td className="px-3 py-2 text-right font-mono text-cockpit-secondary text-xs whitespace-nowrap">≈ {o.volume.toFixed(2)} m³</td>
       <td className="px-3 py-2 text-right font-mono text-cockpit-heading">{eur(o.totalHT)}</td>
       <td className="px-3 py-2 text-right font-mono text-red-600">{o.restePayer == null ? "" : eur(o.restePayer)}</td>
       <td />
@@ -332,6 +376,7 @@ export function ReservoirPlanning() {
         <th className="px-3 py-2 text-left font-semibold">Client</th>
         <th className="px-3 py-2 text-left font-semibold w-24">Commande</th>
         <th className="px-3 py-2 text-right font-semibold w-20">Meubles</th>
+        <th className="px-3 py-2 text-right font-semibold w-24 whitespace-nowrap">Volume ≈</th>
         <th className="px-3 py-2 text-right font-semibold w-24">Montant HT</th>
         <th className="px-3 py-2 text-right font-semibold w-24 whitespace-nowrap">Reste à payer</th>
         <th className="px-3 py-2 text-left font-semibold w-56 whitespace-nowrap">Statut prod (Trello)</th>
@@ -587,7 +632,7 @@ export function ReservoirPlanning() {
                 </div>
               )}
               <div className="text-xs text-cockpit-secondary">
-                <b className={activeDepart.nbMeubles > activeDepart.capacite ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.nbMeubles}</b>/{activeDepart.capacite} meubles · {activeDepart.nb} commandes · <span className="text-emerald-700 font-medium">{activeDepart.prets} prêtes</span>
+                <b className={activeDepart.nbMeubles > activeDepart.capacite ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.nbMeubles}</b>/{activeDepart.capacite} meubles · <span title="Cubage estimé vs 76 m³ pour un 40ft HC">≈ <b className={activeDepart.totalVolume > 76 ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.totalVolume.toFixed(1)}</b>/76 m³</span> · {activeDepart.nb} commandes · <span className="text-emerald-700 font-medium">{activeDepart.prets} prêtes</span>
                 {activeDepart.retards > 0 && <> · <span className="text-red-600 font-semibold">⚠ {activeDepart.retards} en retard</span></>} · {eur(activeDepart.totalHT)} HT
               </div>
               {/* Jauge remplissage */}
@@ -597,7 +642,7 @@ export function ReservoirPlanning() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">{tableHead}<tbody>{activeDepart.items.map(renderRow)}</tbody>
-                  <tfoot>{totalRow({ nb: activeDepart.nb, meubles: activeDepart.nbMeubles, totalHT: activeDepart.totalHT, restePayer: activeDepart.totalRestePayer })}</tfoot>
+                  <tfoot>{totalRow({ nb: activeDepart.nb, meubles: activeDepart.nbMeubles, volume: activeDepart.totalVolume, totalHT: activeDepart.totalHT, restePayer: activeDepart.totalRestePayer })}</tfoot>
                 </table>
               </div>
             </div>
@@ -612,7 +657,7 @@ export function ReservoirPlanning() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">{tableHead}<tbody>{data.stock.map(renderRow)}</tbody>
-                  <tfoot>{totalRow({ nb: data.stock.length, meubles: data.stockMeubles, totalHT: data.stockTotalHT, restePayer: null })}</tfoot>
+                  <tfoot>{totalRow({ nb: data.stock.length, meubles: data.stockMeubles, volume: data.stockVolume, totalHT: data.stockTotalHT, restePayer: null })}</tfoot>
                 </table>
               </div>
             </div>
