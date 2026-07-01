@@ -246,16 +246,28 @@ export async function GET(req: NextRequest) {
   }
 
   // FIFO du reste, à partir du 1er départ non parti (la place déjà prise par la prépa est respectée).
+  // Règle de remplissage : on garde l'ordre FIFO, mais si la prochaine commande dépasse
+  // le quota du container, on ne bloque pas — on la reporte au container suivant et on
+  // continue à remplir le container courant avec les commandes suivantes qui rentrent
+  // (ex : BCDI-05629 ne rentre pas → on prend BCDI-05638, et 05629 part au départ d'après).
+  let pending = autres;
   let si = firstFutureIdx;
-  for (const it of autres) {
-    while (true) {
-      if (!slots[si]) genNext();
-      if (slots[si].items.length > 0 && slots[si].meubles + it.nbMeubles > slots[si].capacite) { si++; continue; }
-      break;
+  while (pending.length > 0) {
+    if (!slots[si]) genNext();
+    const slot = slots[si];
+    const reste: ResItem[] = [];
+    for (const it of pending) {
+      const fits = slot.items.length === 0 || slot.meubles + it.nbMeubles <= slot.capacite;
+      if (fits) {
+        setRetard(it, slot);
+        slot.items.push(it);
+        slot.meubles += it.nbMeubles;
+      } else {
+        reste.push(it); // reporté au(x) container(s) suivant(s)
+      }
     }
-    setRetard(it, slots[si]);
-    slots[si].items.push(it);
-    slots[si].meubles += it.nbMeubles;
+    pending = reste;
+    si++;
   }
 
   const nowTime = now.getTime();
