@@ -62,13 +62,17 @@ export async function GET(request: NextRequest) {
       : [];
     const converted = new Set(liaisons.map((l) => l.estimateId));
 
+    // Un devis Accepté / Acompte / Facturé = engagé → a (aura) un BCDI. La liaison
+    // locale devis→commande étant incomplète, on se fie au statut Sellsy.
+    const CONVERTI = new Set(["accepted", "advanced", "invoiced", "partialinvoiced"]);
     const enriched = items.map((it) => {
       const d = devisByNum.get((it.refDevis || "").toUpperCase());
+      const converti = d
+        ? CONVERTI.has((d.statutSellsy || "").toLowerCase()) || (d.sellsyQuoteId ? converted.has(Number(d.sellsyQuoteId)) : false)
+        : false;
       return {
         ...it,
-        sellsy: d
-          ? { statut: d.statutSellsy ?? null, montant: d.montant ?? null, converti: d.sellsyQuoteId ? converted.has(Number(d.sellsyQuoteId)) : false }
-          : null,
+        sellsy: d ? { statut: d.statutSellsy ?? null, montant: d.montant ?? null, converti } : null,
       };
     });
 
