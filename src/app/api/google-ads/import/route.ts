@@ -46,6 +46,22 @@ function parseCSV(text: string): string[][] {
   return rows;
 }
 
+// Le Sheet exporte les nombres selon la locale (FR : virgule décimale, espace pour
+// les milliers → "1 234,56"). parseFloat casse là-dessus, on normalise d'abord.
+function parseNum(v: string): number {
+  if (!v) return 0;
+  let s = String(v).replace(/[\s ]/g, "");
+  if (s.includes(",") && s.includes(".")) {
+    // le dernier séparateur rencontré est le décimal
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g, "").replace(",", ".");
+    else s = s.replace(/,/g, "");
+  } else if (s.includes(",")) {
+    s = s.replace(",", ".");
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
 async function fetchSheetCSV(sheetId: string, tabName: string): Promise<string[][]> {
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
   const res = await fetch(url);
@@ -82,15 +98,15 @@ export async function GET(request: NextRequest) {
       type: row[3] || "",
       startDate: row[4] || null,
       endDate: row[5] || null,
-      dailyBudget: parseFloat(row[6] || "0"),
-      impressions: parseInt(row[7] || "0", 10),
-      clicks: parseInt(row[8] || "0", 10),
-      cost: parseFloat(row[9] || "0"),
-      conversions: parseFloat(row[10] || "0"),
-      conversionValue: parseFloat(row[11] || "0"),
-      ctr: parseFloat(row[12] || "0"),
-      cpc: parseFloat(row[13] || "0"),
-      costPerConversion: parseFloat(row[14] || "0"),
+      dailyBudget: parseNum(row[6] || "0"),
+      impressions: parseNum(row[7] || "0"),
+      clicks: parseNum(row[8] || "0"),
+      cost: parseNum(row[9] || "0"),
+      conversions: parseNum(row[10] || "0"),
+      conversionValue: parseNum(row[11] || "0"),
+      ctr: parseNum(row[12] || "0"),
+      cpc: parseNum(row[13] || "0"),
+      costPerConversion: parseNum(row[14] || "0"),
       exportDate: row[15] || "",
     }));
 
@@ -101,12 +117,12 @@ export async function GET(request: NextRequest) {
       campaignId: row[2] || "",
       campaignName: row[3] || "",
       status: row[4] || "",
-      impressions: parseInt(row[5] || "0", 10),
-      clicks: parseInt(row[6] || "0", 10),
-      cost: parseFloat(row[7] || "0"),
-      conversions: parseFloat(row[8] || "0"),
-      ctr: parseFloat(row[9] || "0"),
-      cpc: parseFloat(row[10] || "0"),
+      impressions: parseNum(row[5] || "0"),
+      clicks: parseNum(row[6] || "0"),
+      cost: parseNum(row[7] || "0"),
+      conversions: parseNum(row[8] || "0"),
+      ctr: parseNum(row[9] || "0"),
+      cpc: parseNum(row[10] || "0"),
     }));
 
     // Parse ads
@@ -121,12 +137,12 @@ export async function GET(request: NextRequest) {
       headline: row[7] || "",
       description: row[9] || "",
       finalUrl: row[10] || "",
-      impressions: parseInt(row[11] || "0", 10),
-      clicks: parseInt(row[12] || "0", 10),
-      cost: parseFloat(row[13] || "0"),
-      conversions: parseFloat(row[14] || "0"),
-      ctr: parseFloat(row[15] || "0"),
-      cpc: parseFloat(row[16] || "0"),
+      impressions: parseNum(row[11] || "0"),
+      clicks: parseNum(row[12] || "0"),
+      cost: parseNum(row[13] || "0"),
+      conversions: parseNum(row[14] || "0"),
+      ctr: parseNum(row[15] || "0"),
+      cpc: parseNum(row[16] || "0"),
     }));
 
     // Index ad groups by campaign
@@ -263,10 +279,10 @@ export async function GET(request: NextRequest) {
       month: (row[0] || "").slice(0, 7), // YYYY-MM
       campaignId: row[1] || "",
       name: row[2] || "",
-      cost: parseFloat(row[3] || "0"),
-      impressions: parseInt(row[4] || "0", 10),
-      clicks: parseInt(row[5] || "0", 10),
-      conversions: parseFloat(row[6] || "0"),
+      cost: parseNum(row[3] || "0"),
+      impressions: parseNum(row[4] || "0"),
+      clicks: parseNum(row[5] || "0"),
+      conversions: parseNum(row[6] || "0"),
     })).filter((m) => /^\d{4}-\d{2}$/.test(m.month) && m.campaignId && m.cost > 0);
 
     let syncedMonthly = 0;
