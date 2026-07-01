@@ -23,6 +23,7 @@ interface ResItem {
   client: string | null;
   dateCommande: string | null;
   montantHT: number | null;
+  restePayer: number | null;
   trelloStatut: string | null;
   pret: boolean;
   found: boolean;
@@ -48,7 +49,7 @@ async function loadImp618(origin: string): Promise<ResItem[]> {
     } catch { return null; }
   };
   const mk = (o: Partial<ResItem> & { bcdi: string; nbMeubles: number }): ResItem => ({
-    client: null, dateCommande: null, montantHT: null, trelloStatut: "Sent", pret: true,
+    client: null, dateCommande: null, montantHT: null, restePayer: null, trelloStatut: "Sent", pret: true,
     found: true, etatProduit: null, isStock: false, forcedStock: false, isSav: false,
     bdoBcNumber: null, moisTheorique: null, retard: false, ...o,
   });
@@ -100,6 +101,13 @@ export async function GET(req: NextRequest) {
   ]);
   const shipped = new Set(expeditions.map((e) => e.bcdi.toUpperCase()));
 
+  // Reste à payer par BCDI (snapshot Sellsy calculé par le pipeline prévisionnel)
+  const snaps = await prisma.bcdiSellsySnapshot.findMany({
+    where: { bcdi: { in: rows.map((r) => r.bcdi) } },
+    select: { bcdi: true, restePayerHT: true },
+  });
+  const resteByBcdi = new Map(snaps.map((s) => [s.bcdi, s.restePayerHT != null ? Number(s.restePayerHT) : null]));
+
   const now = new Date();
 
   // 1) Items du réservoir (calendrier vs stock magasin)
@@ -121,6 +129,7 @@ export async function GET(req: NextRequest) {
       client: r.client,
       dateCommande: r.dateCommande ? r.dateCommande.toISOString() : null,
       montantHT: r.montantHT != null ? Number(r.montantHT) : null,
+      restePayer: isStock ? null : (resteByBcdi.get(r.bcdi) ?? null),
       trelloStatut: r.trelloStatut,
       pret: r.trelloStatut ? TRELLO_READY_LISTS.includes(r.trelloStatut) : false,
       found: r.found,
@@ -195,6 +204,7 @@ export async function GET(req: NextRequest) {
       prets: s.items.filter((i) => i.pret).length,
       retards: s.items.filter((i) => i.retard).length,
       totalHT: Number(s.items.reduce((sum, i) => sum + (i.montantHT || 0), 0).toFixed(2)),
+      totalRestePayer: Number(s.items.reduce((sum, i) => sum + (i.restePayer || 0), 0).toFixed(2)),
       items: s.items,
     }));
 
@@ -206,6 +216,7 @@ export async function GET(req: NextRequest) {
     departs: departsOut,
     stock: stockItems,
     stockMeubles: stockItems.reduce((s, i) => s + i.nbMeubles, 0),
+    stockTotalHT: Number(stockItems.reduce((s, i) => s + (i.montantHT || 0), 0).toFixed(2)),
     sansDate,
     horsScopeCount: 0,
     dejaExpedies,

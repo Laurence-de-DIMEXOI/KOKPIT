@@ -19,6 +19,7 @@ interface ResItem {
   client: string | null;
   dateCommande: string | null;
   montantHT: number | null;
+  restePayer: number | null;
   trelloStatut: string | null;
   pret: boolean;
   found: boolean;
@@ -46,6 +47,7 @@ interface Depart {
   prets: number;
   retards: number;
   totalHT: number;
+  totalRestePayer: number;
   items: ResItem[];
 }
 interface DepartConfig {
@@ -62,6 +64,7 @@ interface ResPayload {
   departs: Depart[];
   stock: ResItem[];
   stockMeubles: number;
+  stockTotalHT: number;
   sansDate: ResItem[];
   horsScopeCount: number;
   dejaExpedies: number;
@@ -288,6 +291,7 @@ export function ReservoirPlanning() {
       </td>
       <td className="px-3 py-2 text-right font-mono text-cockpit-heading">{it.nbMeubles}</td>
       <td className="px-3 py-2 text-right font-mono text-cockpit-primary">{eur(it.montantHT)}</td>
+      <td className={`px-3 py-2 text-right font-mono ${it.restePayer && it.restePayer > 0 ? "text-red-600" : "text-emerald-700"}`}>{it.isStock ? "—" : eur(it.restePayer)}</td>
       <td className="px-3 py-2">
         <div className="flex items-center gap-2 whitespace-nowrap">
           <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUT_STYLE[it.trelloStatut || ""] || "bg-gray-100 text-gray-600"}`}>
@@ -307,6 +311,19 @@ export function ReservoirPlanning() {
     </tr>
   );
 
+  const totalRow = (o: { nb: number; meubles: number; totalHT: number; restePayer: number | null }) => (
+    <tr className="border-t-2 border-cockpit bg-cockpit/40 font-semibold">
+      <td className="px-2 py-2" />
+      <td className="px-3 py-2 text-cockpit-heading">TOTAL</td>
+      <td className="px-3 py-2 text-cockpit-secondary text-xs">{o.nb} commande{o.nb > 1 ? "s" : ""}</td>
+      <td />
+      <td className="px-3 py-2 text-right font-mono text-cockpit-heading">{o.meubles}</td>
+      <td className="px-3 py-2 text-right font-mono text-cockpit-heading">{eur(o.totalHT)}</td>
+      <td className="px-3 py-2 text-right font-mono text-red-600">{o.restePayer == null ? "" : eur(o.restePayer)}</td>
+      <td />
+    </tr>
+  );
+
   const tableHead = (
     <thead className="text-[11px] uppercase tracking-wider text-cockpit-secondary border-b border-cockpit">
       <tr>
@@ -316,6 +333,7 @@ export function ReservoirPlanning() {
         <th className="px-3 py-2 text-left font-semibold w-24">Commande</th>
         <th className="px-3 py-2 text-right font-semibold w-20">Meubles</th>
         <th className="px-3 py-2 text-right font-semibold w-24">Montant HT</th>
+        <th className="px-3 py-2 text-right font-semibold w-24 whitespace-nowrap">Reste à payer</th>
         <th className="px-3 py-2 text-left font-semibold w-56 whitespace-nowrap">Statut prod (Trello)</th>
       </tr>
     </thead>
@@ -578,7 +596,9 @@ export function ReservoirPlanning() {
                   style={{ width: `${Math.min(100, (activeDepart.nbMeubles / activeDepart.capacite) * 100)}%` }} />
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">{tableHead}<tbody>{activeDepart.items.map(renderRow)}</tbody></table>
+                <table className="w-full text-sm">{tableHead}<tbody>{activeDepart.items.map(renderRow)}</tbody>
+                  <tfoot>{totalRow({ nb: activeDepart.nb, meubles: activeDepart.nbMeubles, totalHT: activeDepart.totalHT, restePayer: activeDepart.totalRestePayer })}</tfoot>
+                </table>
               </div>
             </div>
           )}
@@ -591,7 +611,9 @@ export function ReservoirPlanning() {
                 <span className="text-xs text-cockpit-secondary">{data.stock.length} commandes · {data.stockMeubles} meubles — hors quota client, à caser dans la place restante</span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">{tableHead}<tbody>{data.stock.map(renderRow)}</tbody></table>
+                <table className="w-full text-sm">{tableHead}<tbody>{data.stock.map(renderRow)}</tbody>
+                  <tfoot>{totalRow({ nb: data.stock.length, meubles: data.stockMeubles, totalHT: data.stockTotalHT, restePayer: null })}</tfoot>
+                </table>
               </div>
             </div>
           )}

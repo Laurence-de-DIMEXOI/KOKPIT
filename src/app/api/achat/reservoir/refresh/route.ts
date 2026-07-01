@@ -8,7 +8,7 @@ import {
   TRELLO_EXCLUDED_LISTS,
   parseTrelloCard,
 } from "@/lib/reservoir";
-import { extractBcNumber, getOrderBcMap, lookupBoAmountsLocal } from "@/lib/previsionnel-fetch";
+import { extractBcNumber, getOrderBcMap, lookupBoAmountsLocal, refreshBcdiSnapshots } from "@/lib/previsionnel-fetch";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
@@ -172,6 +172,18 @@ async function run(req: NextRequest) {
     where: { bcdi: { notIn: seen.length ? seen : ["__none__"] } },
   });
 
+  // 5) Reste à payer : complète les snapshots manquants (nouvelles commandes,
+  //    hors stock magasin). maxAge très long → ne fetch que les BCDI sans snapshot.
+  let snapshotsRemplis = 0;
+  try {
+    const nonStock = await prisma.reservoirBcdi.findMany({
+      where: { bcdi: { in: seen }, NOT: { etatProduit: { equals: "COMMANDE MAGASIN", mode: "insensitive" } } },
+      select: { bcdi: true },
+    });
+    const snap = await refreshBcdiSnapshots(nonStock.map((r) => r.bcdi), { maxAgeMs: 365 * 24 * 3600 * 1000, concurrency: 6 });
+    snapshotsRemplis = snap.refreshed;
+  } catch { /* tolère */ }
+
   return NextResponse.json({
     ok: true,
     source: "trello:pipeline",
@@ -181,6 +193,7 @@ async function run(req: NextRequest) {
     exclusDejaExpedies,
     exclusVieux,
     exclusSansSellsy,
+    snapshotsRemplis,
     purges: deleted.count,
   });
 }
