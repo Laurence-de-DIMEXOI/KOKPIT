@@ -183,6 +183,7 @@ function CampagnesContent() {
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<"defaut" | "date_desc" | "date_asc">("defaut");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("this_month");
   const [customSince, setCustomSince] = useState<string>("");
   const [customUntil, setCustomUntil] = useState<string>("");
@@ -347,7 +348,10 @@ function CampagnesContent() {
   };
 
   const statusOrder: Record<string, number> = { ACTIVE: 0, PAUSED: 1, ARCHIVED: 2, DELETED: 3 };
+  const ts = (d?: string) => (d ? new Date(d).getTime() || 0 : 0);
   const sortedCampaigns = [...filteredCampaigns].sort((a, b) => {
+    if (sortBy === "date_desc") return ts(b.startDate) - ts(a.startDate);
+    if (sortBy === "date_asc") return ts(a.startDate) - ts(b.startDate);
     const statusDiff = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
     if (statusDiff !== 0) return statusDiff;
     return b.insights.spend - a.insights.spend;
@@ -472,6 +476,16 @@ function CampagnesContent() {
             <option value="ACTIVE">Active</option>
             <option value="PAUSED">En pause</option>
             <option value="ARCHIVED">Archivée</option>
+          </select>
+          <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
+        </div>
+        {/* Sort */}
+        <div className="relative inline-block">
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="appearance-none bg-cockpit-card border border-cockpit px-3 py-2 rounded-lg text-xs text-cockpit-primary cursor-pointer pr-7">
+            <option value="defaut">Tri : statut & dépense</option>
+            <option value="date_desc">Date ↓ (récent → ancien)</option>
+            <option value="date_asc">Date ↑ (ancien → récent)</option>
           </select>
           <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-cockpit-secondary pointer-events-none" />
         </div>
