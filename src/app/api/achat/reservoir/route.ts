@@ -15,7 +15,7 @@ import {
   DEPART_FIRST_GAP_DAYS,
   DEPART_INTERVAL_DAYS,
 } from "@/lib/reservoir";
-import { classifyLignes } from "@/lib/reservoir-lignes";
+import { classifyLignes, cleanLigne, estimateVolumeM3 } from "@/lib/reservoir-lignes";
 
 export const dynamic = "force-dynamic";
 
@@ -65,20 +65,35 @@ async function loadImp618(origin: string): Promise<ResItem[]> {
     bdoBcNumber: null, moisTheorique: null, retard: false, isCuisine: false, isDressing: false, volumeM3: null, lignes: [], ...o,
   });
 
-  const enr = await readJson("container-caau9910103-enriched.json");
-  if (enr?.items?.length) {
-    return enr.items.map((it: { bcdi: string; nbMeubles?: number; client?: string | null; montantHT?: number | null; dateCommande?: string | null; bdoBcNumber?: string | null }) =>
-      mk({ bcdi: it.bcdi, nbMeubles: it.nbMeubles && it.nbMeubles > 0 ? it.nbMeubles : 1, client: it.client ?? null, montantHT: it.montantHT ?? null, dateCommande: it.dateCommande ?? null, bdoBcNumber: it.bdoBcNumber ?? null }));
-  }
-  // Repli : JSON brut agrégé par BCDI
-  const json = await readJson("container-caau9910103.json");
-  if (!json?.items) return [];
-  const byBcdi = new Map<string, number>();
-  for (const it of json.items as Array<{ bcdi?: string; qty?: number }>) {
+  // Lignes (ref/desc/qty) depuis le packing JSON brut → cubage + cuisine/dressing
+  const raw = await readJson("container-caau9910103.json");
+  const lignesByBcdi = new Map<string, { ref: string | null; desc: string; qty: number }[]>();
+  for (const it of (raw?.items || []) as Array<{ bcdi?: string; ref?: string; description?: string; qty?: number }>) {
     if (!it.bcdi) continue;
-    byBcdi.set(it.bcdi.toUpperCase(), (byBcdi.get(it.bcdi.toUpperCase()) || 0) + (Number(it.qty ?? 1) || 1));
+    const k = it.bcdi.toUpperCase();
+    const arr = lignesByBcdi.get(k) || [];
+    arr.push({ ref: (it.ref || "").trim() || null, desc: cleanLigne(it.description) || (it.ref || ""), qty: Number(it.qty ?? 1) || 1 });
+    lignesByBcdi.set(k, arr);
   }
-  return [...byBcdi.entries()].map(([bcdi, nb]) => mk({ bcdi, nbMeubles: nb }));
+
+  const enr = await readJson("container-caau9910103-enriched.json");
+  type Base = { bcdi: string; nbMeubles?: number; client?: string | null; montantHT?: number | null; dateCommande?: string | null; bdoBcNumber?: string | null };
+  const base: Base[] = enr?.items?.length
+    ? enr.items
+    : [...lignesByBcdi.keys()].map((bcdi) => ({ bcdi }));
+  if (!base.length) return [];
+
+  return base.map((b) => {
+    const lignes = lignesByBcdi.get(b.bcdi.toUpperCase()) || [];
+    const cls = classifyLignes(lignes);
+    const nbFromLignes = lignes.reduce((s, l) => s + l.qty, 0);
+    return mk({
+      bcdi: b.bcdi,
+      nbMeubles: b.nbMeubles && b.nbMeubles > 0 ? b.nbMeubles : nbFromLignes || 1,
+      client: b.client ?? null, montantHT: b.montantHT ?? null, dateCommande: b.dateCommande ?? null, bdoBcNumber: b.bdoBcNumber ?? null,
+      lignes, volumeM3: estimateVolumeM3(lignes) || null, isCuisine: cls.isCuisine, isDressing: cls.isDressing,
+    });
+  });
 }
 
 /**
