@@ -20,13 +20,38 @@ export function cleanLigne(html: string | null | undefined): string {
     .trim();
 }
 
-/** Une commande est "Cuisine" si une ligne mentionne kitchen/cuisine ou a une réf EFKS. */
+const CUISINE_KW = /kitchen|cuisine|\boven\b|\bfour\b|dishwasher|lave.?vaisselle|microwave|micro.?ondes|\bsink\b|[ée]vier|\bspice\b|\bhoven\b/i;
+const DRESSING_KW = /wardrobe|dressing|penderie|armoire|hanging|closet/i;
+
+/** Nombre d'éléments distincts "Element A/B/C…" (meuble modulaire = cuisine ou dressing). */
+export function countElements(lignes: LigneCommande[]): number {
+  const set = new Set<string>();
+  for (const l of lignes) {
+    const m = l.desc.match(/\bELEMENT\s+([A-Z])\b/i);
+    if (m) set.add(m[1].toUpperCase());
+  }
+  return set.size;
+}
+
+/**
+ * Classe une commande : cuisine et/ou dressing.
+ * - cuisine : mot clé cuisine (oven, dishwasher, sink…) ou réf EFKS.
+ * - dressing : mot clé dressing/wardrobe, réf EFWR, ou meuble modulaire
+ *   (≥2 "Element A/B/C…") qui n'est pas une cuisine.
+ */
+export function classifyLignes(lignes: LigneCommande[]): { isCuisine: boolean; isDressing: boolean } {
+  const text = lignes.map((l) => `${l.ref || ""} ${l.desc}`).join(" ");
+  const isCuisine = CUISINE_KW.test(text) || lignes.some((l) => /^EFKS/i.test((l.ref || "").trim()));
+  const modular = countElements(lignes) >= 2;
+  const isDressing =
+    !isCuisine &&
+    (DRESSING_KW.test(text) || lignes.some((l) => /^EFWR/i.test((l.ref || "").trim())) || modular);
+  return { isCuisine, isDressing };
+}
+
+/** Compat : une commande est "Cuisine". */
 export function isCuisineLignes(lignes: LigneCommande[]): boolean {
-  return lignes.some(
-    (l) =>
-      /kitchen|cuisine/i.test(l.desc) ||
-      /^EFKS/i.test((l.ref || "").trim())
-  );
+  return classifyLignes(lignes).isCuisine;
 }
 
 /**

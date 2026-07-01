@@ -15,6 +15,7 @@ import {
   DEPART_FIRST_GAP_DAYS,
   DEPART_INTERVAL_DAYS,
 } from "@/lib/reservoir";
+import { classifyLignes } from "@/lib/reservoir-lignes";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ interface ResItem {
   retard: boolean;
   nbMeubles: number;
   isCuisine: boolean;
+  isDressing: boolean;
   volumeM3: number | null;
   lignes: { ref: string | null; desc: string; qty: number }[];
 }
@@ -54,7 +56,7 @@ async function loadImp618(origin: string): Promise<ResItem[]> {
   const mk = (o: Partial<ResItem> & { bcdi: string; nbMeubles: number }): ResItem => ({
     client: null, dateCommande: null, montantHT: null, restePayer: null, trelloStatut: "Sent", pret: true,
     found: true, etatProduit: null, isStock: false, forcedStock: false, isSav: false,
-    bdoBcNumber: null, moisTheorique: null, retard: false, isCuisine: false, volumeM3: null, lignes: [], ...o,
+    bdoBcNumber: null, moisTheorique: null, retard: false, isCuisine: false, isDressing: false, volumeM3: null, lignes: [], ...o,
   });
 
   const enr = await readJson("container-caau9910103-enriched.json");
@@ -127,6 +129,8 @@ export async function GET(req: NextRequest) {
     const forcedStock = r.forcedType === "stock";
     const isStock = etat === "COMMANDE MAGASIN" || forcedStock;
     const moisTheorique = r.dateCommande ? moisChargementKey(r.dateCommande, params) : null;
+    const lignesArr = Array.isArray(r.lignes) ? (r.lignes as { ref: string | null; desc: string; qty: number }[]) : [];
+    const cls = classifyLignes(lignesArr);
     const item: ResItem = {
       bcdi: r.bcdi,
       client: r.client,
@@ -144,9 +148,10 @@ export async function GET(req: NextRequest) {
       moisTheorique,
       retard: false, // calculé après affectation au départ (retard projeté)
       nbMeubles: r.nbMeubles != null && r.nbMeubles > 0 ? r.nbMeubles : 1,
-      isCuisine: r.isCuisine,
+      isCuisine: cls.isCuisine,
+      isDressing: cls.isDressing,
       volumeM3: r.volumeM3 != null ? Number(r.volumeM3) : null,
-      lignes: Array.isArray(r.lignes) ? (r.lignes as { ref: string | null; desc: string; qty: number }[]) : [],
+      lignes: lignesArr,
     };
     if (isStock) { stockItems.push(item); continue; }
     if (!r.dateCommande) { sansDate.push(item); }

@@ -45,8 +45,35 @@ export async function GET(request: NextRequest) {
       prisma.needPrice.count({ where }),
     ]);
 
+    // Enrichit chaque ligne avec le statut Sellsy du DEPI (table Devis, sync 2h)
+    const refs = Array.from(new Set(items.map((i) => (i.refDevis || "").trim()).filter(Boolean)));
+    const devisList = refs.length
+      ? await prisma.devis.findMany({
+          where: { numero: { in: refs } },
+          select: { numero: true, statutSellsy: true, montant: true, sellsyQuoteId: true },
+        })
+      : [];
+    const devisByNum = new Map(devisList.map((d) => [(d.numero || "").toUpperCase(), d]));
+    const quoteIds = devisList
+      .map((d) => (d.sellsyQuoteId ? Number(d.sellsyQuoteId) : null))
+      .filter((x): x is number => x != null);
+    const liaisons = quoteIds.length
+      ? await prisma.liaisonDevisCommande.findMany({ where: { estimateId: { in: quoteIds } }, select: { estimateId: true } })
+      : [];
+    const converted = new Set(liaisons.map((l) => l.estimateId));
+
+    const enriched = items.map((it) => {
+      const d = devisByNum.get((it.refDevis || "").toUpperCase());
+      return {
+        ...it,
+        sellsy: d
+          ? { statut: d.statutSellsy ?? null, montant: d.montant ?? null, converti: d.sellsyQuoteId ? converted.has(Number(d.sellsyQuoteId)) : false }
+          : null,
+      };
+    });
+
     return NextResponse.json({
-      items,
+      items: enriched,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {

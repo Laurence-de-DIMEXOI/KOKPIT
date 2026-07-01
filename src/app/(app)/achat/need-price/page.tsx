@@ -19,6 +19,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { traduireStatut } from "@/lib/sellsy-statuts";
 
 // ============================================================================
 // CONSTANTS
@@ -74,6 +75,7 @@ interface NeedPrice {
   typePrix: string | null;
   createdBy: { nom: string; prenom: string };
   createdAt: string;
+  sellsy?: { statut: string | null; montant: number | null; converti: boolean } | null;
 }
 
 interface NeedPriceData {
@@ -320,6 +322,16 @@ function NeedPriceDrawer({
           {/* Infos générales */}
           <div className="space-y-3">
             <Field label="Référence DEPI" value={item.refDevis || "—"} />
+            <Field
+              label="Statut Sellsy (devis)"
+              value={
+                item.sellsy?.statut
+                  ? `${traduireStatut(item.sellsy.statut)}${item.sellsy.converti ? " · converti en commande" : ""}${item.sellsy.montant ? ` · ${item.sellsy.montant.toLocaleString("fr-FR")} €` : ""}`
+                  : item.refDevis
+                    ? "Non trouvé sur Sellsy"
+                    : "—"
+              }
+            />
             <Field label="Nom du client" value={item.nomClient || "—"} />
           </div>
 
@@ -1098,6 +1110,19 @@ export default function NeedPricePage() {
                       <p className="text-sm font-medium text-cockpit-primary">
                         {item.refDevis || "—"}
                       </p>
+                      {item.sellsy?.statut ? (
+                        <span
+                          className={`inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            item.sellsy.converti ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"
+                          }`}
+                          title="Statut du devis sur Sellsy"
+                        >
+                          Sellsy : {traduireStatut(item.sellsy.statut)}
+                          {item.sellsy.converti ? " · converti" : ""}
+                        </span>
+                      ) : item.refDevis ? (
+                        <span className="inline-block mt-1 text-[10px] text-cockpit-secondary">non trouvé sur Sellsy</span>
+                      ) : null}
                     </td>
                     <td className="p-4">
                       <p className="text-sm text-cockpit-primary font-medium">
