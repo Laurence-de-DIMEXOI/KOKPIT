@@ -570,7 +570,7 @@ export function ReservoirPlanning() {
           <div className="flex items-center gap-1 px-3 pt-2 border-b border-cockpit overflow-x-auto">
             {data.departs.map((d) => {
               const act = d.key === activeKey;
-              const over = d.nbMeubles > d.capacite;
+              const over = !d.parti && d.nbMeubles > d.capacite;
               return (
                 <button key={d.key} onClick={() => setActiveKey(d.key)}
                   className={`px-3 py-2 text-xs font-medium rounded-t-lg whitespace-nowrap transition-colors flex items-center gap-1.5 ${
@@ -634,12 +634,12 @@ export function ReservoirPlanning() {
                 </div>
               )}
               <div className="text-xs text-cockpit-secondary">
-                <b className={activeDepart.nbMeubles > activeDepart.capacite ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.nbMeubles}</b>/{activeDepart.capacite} meubles · <span title="Cubage estimé vs 76 m³ pour un 40ft HC">≈ <b className={activeDepart.totalVolume > 76 ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.totalVolume.toFixed(1)}</b>/76 m³</span> · {activeDepart.nb} commandes · <span className="text-emerald-700 font-medium">{activeDepart.prets} prêtes</span>
+                <b className={!activeDepart.parti && activeDepart.nbMeubles > activeDepart.capacite ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.nbMeubles}</b>/{activeDepart.capacite} meubles · <span title="Cubage estimé vs 76 m³ pour un 40ft HC">≈ <b className={!activeDepart.parti && activeDepart.totalVolume > 76 ? "text-red-600" : "text-cockpit-heading"}>{activeDepart.totalVolume.toFixed(1)}</b>/76 m³</span> · {activeDepart.nb} commandes · <span className="text-emerald-700 font-medium">{activeDepart.prets} prêtes</span>
                 {activeDepart.retards > 0 && <> · <span className="text-red-600 font-semibold">⚠ {activeDepart.retards} en retard</span></>} · {eur(activeDepart.totalHT)} HT
               </div>
               {/* Jauge remplissage */}
               <div className="h-2 w-full rounded-full bg-cockpit-input overflow-hidden">
-                <div className={`h-full ${activeDepart.nbMeubles > activeDepart.capacite ? "bg-red-500" : "bg-[var(--color-active)]"}`}
+                <div className={`h-full ${!activeDepart.parti && activeDepart.nbMeubles > activeDepart.capacite ? "bg-red-500" : "bg-[var(--color-active)]"}`}
                   style={{ width: `${Math.min(100, (activeDepart.nbMeubles / activeDepart.capacite) * 100)}%` }} />
               </div>
               <div className="overflow-x-auto">
