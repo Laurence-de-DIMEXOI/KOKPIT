@@ -20,7 +20,7 @@ export interface ReservoirParams {
 }
 
 export const DEFAULT_RESERVOIR_PARAMS: ReservoirParams = {
-  delaiTotalMois: 6,
+  delaiTotalMois: 8,
   delaiBateauMois: 1.5,
 };
 
