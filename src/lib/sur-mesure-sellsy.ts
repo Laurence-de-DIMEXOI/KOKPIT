@@ -72,6 +72,8 @@ export async function syncProjetSellsy(projetId: string): Promise<SyncResult> {
   // Colonne cible — sans régression
   let statutApres = projet.statut as string;
   if (projet.needPrice?.statut === "PRIX_RECU" && idx(statutApres) < idx("PRIX_RECU")) statutApres = "PRIX_RECU";
+  // Devis envoyé (sent) = présenté au client
+  if (st === "sent" && idx(statutApres) < idx("PRESENTE_CLIENT")) statutApres = "PRESENTE_CLIENT";
   if (lost) statutApres = "PERDU";
   else if (won) statutApres = "GAGNE";
 
