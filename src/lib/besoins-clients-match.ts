@@ -127,10 +127,14 @@ export async function computeBesoinMatches(): Promise<
         const nums = lineWidths(t);
         const widthMatch = bWidths.length > 0 && bWidths.some((w) => nums.includes(w));
         const modelHits = bTokens.filter((k) => t.includes(k)).length;
+        // Déclencheur = taille OU modèle en commun. Finition et pose ne sont que des
+        // bonus (une finition seule, ex. « brut » = « RAW » d'un miroir, ne suffit pas).
+        const trigger = (widthMatch ? 5 : 0) + modelHits * 3;
+        if (trigger === 0) continue;
         const lFin = detectFinishes(t);
         const finishHits = [...bFin].filter((f) => lFin.has(f)).length;
         const poseBonus = bPose && lPose === bPose ? 2 : 0;
-        const ligneScore = (widthMatch ? 5 : 0) + modelHits * 3 + finishHits * 2 + poseBonus;
+        const ligneScore = trigger + finishHits * 2 + poseBonus;
         if (ligneScore > best.score) best = { score: ligneScore, desc: cleanLigne(l.desc || "") };
       }
       // Si le besoin précise une largeur mais aucune ligne ne l'a → pas assez précis.
