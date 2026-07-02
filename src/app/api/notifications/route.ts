@@ -12,7 +12,8 @@ interface NotificationItem {
     | "sync_brevo"
     | "tache_retard"
     | "sla_48h"
-    | "demande_non_traitee";
+    | "demande_non_traitee"
+    | "besoin_client_match";
   message: string;
   severity: "danger" | "warning" | "info";
   href?: string;
@@ -226,6 +227,23 @@ export async function GET() {
       } catch {
         /* silent */
       }
+    }
+
+    // ===== 7. Besoins clients — meuble stock correspondant en mer =====
+    try {
+      const besoinsAvecMatch = await prisma.besoinClient.count({
+        where: { statut: "EN_ATTENTE", matches: { some: { statut: "SUGGERE" } } },
+      });
+      if (besoinsAvecMatch > 0) {
+        items.push({
+          type: "besoin_client_match",
+          message: `${besoinsAvecMatch} besoin${besoinsAvecMatch > 1 ? "s" : ""} client — un meuble stock correspondant arrive`,
+          severity: "warning",
+          href: "/commercial/besoins-clients",
+        });
+      }
+    } catch {
+      /* silent */
     }
 
     const result = { items, count: items.length, scope: isFullScope ? "global" : "perso" };

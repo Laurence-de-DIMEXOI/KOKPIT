@@ -38,6 +38,7 @@ export type Module =
   | "operations-marketing"
   | "daily-briefing"
   | "sur-mesure"
+  | "besoins-clients"
 ;
 
 /**
@@ -85,6 +86,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "parametres-achat",
     "operations-marketing",
     "daily-briefing",
+    "besoins-clients",
 
     "permissions",
   ],
@@ -119,6 +121,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "parametres-achat",
     "operations-marketing",
     "daily-briefing",
+    "besoins-clients",
   ],
   COMMERCIAL: [
     // Section commerciale
@@ -145,6 +148,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "previsionnel",
     "parametres-achat",
     "daily-briefing",
+    "besoins-clients",
   ],
   DIRECTION: [
     // Tout accès (comme ADMIN)
@@ -182,6 +186,7 @@ export const roleModuleAccess: Record<Role, Module[]> = {
     "parametres-achat",
     "operations-marketing",
     "daily-briefing",
+    "besoins-clients",
 
     "permissions",
   ],

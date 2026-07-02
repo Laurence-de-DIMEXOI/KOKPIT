@@ -55,6 +55,29 @@ function useDemandesNonTraitees() {
   return count;
 }
 
+function useBesoinsMatch() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/notifications");
+        if (res.ok && mounted) {
+          const data = await res.json();
+          const item = (data.items || []).find((n: { type: string }) => n.type === "besoin_client_match");
+          setCount(item ? parseInt(item.message) || 0 : 0);
+        }
+      } catch { /* silencieux */ }
+    };
+    poll();
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") poll();
+    }, 5 * 60 * 1000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+  return count;
+}
+
 // ===== PROPS =====
 
 interface SidebarProps {
@@ -69,6 +92,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const userOverrides = (session?.user as any)?.moduleAccessOverrides as Record<string, boolean> | null | undefined;
   const slaOverdue = useSlaOverdue();
   const demandesNonTraitees = useDemandesNonTraitees();
+  const besoinsMatch = useBesoinsMatch();
 
   // Catégories collapsed/expanded — défaut: toutes ouvertes sauf celles marquées defaultCollapsed
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
@@ -126,6 +150,11 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               {demandesNonTraitees > 0
                 ? (demandesNonTraitees > 99 ? "99+" : demandesNonTraitees)
                 : (slaOverdue > 99 ? "99+" : slaOverdue)}
+            </span>
+          )}
+          {item.href === "/commercial/besoins-clients" && besoinsMatch > 0 && (
+            <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-white text-[10px] font-bold px-1 bg-orange-500">
+              {besoinsMatch > 99 ? "99+" : besoinsMatch}
             </span>
           )}
         </Link>

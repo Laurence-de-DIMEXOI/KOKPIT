@@ -191,6 +191,7 @@ model User {
   messagesSent         MessageChat[]          @relation("MessageChatExpediteur")
   reactionsMessages    ReactionMessage[]      @relation("ReactionsUser")
   needPrices           NeedPrice[]            @relation("NeedPriceCreator")
+  besoinsClients       BesoinClient[]         @relation("BesoinClientCreator")
   projetsSurMesure     ProjetSurMesure[]      @relation("ProjetProprietaire")
   projetsAssignes      ProjetSurMesure[]      @relation("ProjetAssigne")
   docsProjetSurMesure  DocumentProjetSurMesure[] @relation("DocProjetUploader")
@@ -1482,11 +1483,61 @@ model DepartPrevu {
 // Alimenté hors cron (le connecteur SharePoint n'est pas dispo en headless) :
 // scan ponctuel des packing lists 2024+ → script.
 model ImpExpedition {
-  bcdi    String   @id
-  imp     String
-  addedAt DateTime @default(now())
+  bcdi        String    @id
+  imp         String
+  addedAt     DateTime  @default(now())
+  // Détail conservé à l'import (packing list) pour matcher les besoins clients.
+  client      String?
+  lignes      Json?
+  dateArrivee DateTime? @db.Date
 
   @@map("imp_expedition")
+}
+
+// Besoins clients : prospect passé en magasin qui attend un réapprovisionnement.
+// Relié aux arrivages stock (BesoinMatch) pour alerter quand le meuble arrive.
+model BesoinClient {
+  id          String         @id @default(cuid())
+  reference   String         @unique
+  nomClient   String
+  telephone   String?
+  email       String?
+  contactId   String?
+  recherche   String
+  motsCles    String?
+  categorie   String?
+  delai       String?
+  statut      String         @default("EN_ATTENTE")
+  notes       String?
+  createdById String
+  createdBy   User           @relation("BesoinClientCreator", fields: [createdById], references: [id])
+  matches     BesoinMatch[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([statut], map: "besoin_client_statut_idx")
+  @@index([createdAt], map: "besoin_client_created_idx")
+  @@map("besoin_client")
+}
+
+// Correspondance détectée entre un besoin et un meuble stock sur un IMP en mer.
+model BesoinMatch {
+  id          String       @id @default(cuid())
+  besoinId    String
+  besoin      BesoinClient @relation(fields: [besoinId], references: [id], onDelete: Cascade)
+  bcdi        String
+  imp         String
+  navire      String?
+  descMeuble  String
+  score       Int          @default(0)
+  dateArrivee DateTime?    @db.Date
+  statut      String       @default("SUGGERE")
+  notifiedAt  DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@unique([besoinId, bcdi], map: "besoin_match_besoin_bcdi_key")
+  @@index([statut], map: "besoin_match_statut_idx")
+  @@map("besoin_match")
 }
 
 // Container en préparation : BCDI sélectionnés depuis le réservoir pour composer

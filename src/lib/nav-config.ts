@@ -20,6 +20,7 @@ import {
   Truck,
   Sparkles,
   Ruler,
+  PackageSearch,
 } from "lucide-react";
 import type { Module } from "@/lib/auth-utils";
 
@@ -50,6 +51,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { label: "Tableau de bord", href: "/commercial", icon: TrendingUp, module: "dashboard-commercial" },
       { label: "Demandes", href: "/leads", icon: Inbox, module: "leads" },
+      { label: "Besoins clients", href: "/commercial/besoins-clients", icon: PackageSearch, module: "besoins-clients" },
       { label: "Contacts", href: "/contacts", icon: Users, module: "contacts" },
       { label: "Traçabilité", href: "/commercial/tracabilite", icon: GitCompareArrows, module: "commandes" },
       { label: "SAV — Litiges", href: "/commercial/sav", icon: AlertTriangle, module: "sav" },

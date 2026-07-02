@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
   }
   const imp = normImp(String(form.get("imp") || ""));
   if (!imp) return NextResponse.json({ error: "N° IMP manquant ou invalide" }, { status: 400 });
+  // Date d'arrivée optionnelle (yyyy-mm-dd) → sert aux alertes « besoins clients ».
+  const dateArriveeRaw = String(form.get("dateArrivee") || "").trim();
+  const dateArrivee = /^\d{4}-\d{2}-\d{2}$/.test(dateArriveeRaw) ? new Date(`${dateArriveeRaw}T00:00:00Z`) : null;
 
   const files = form.getAll("files").filter((f): f is File => f instanceof File);
   if (!files.length) return NextResponse.json({ error: "Aucun fichier" }, { status: 400 });
@@ -62,10 +65,25 @@ export async function POST(req: NextRequest) {
   }
 
   const list = [...bcdis];
-  const added = await prisma.impExpedition.createMany({
-    data: list.map((bcdi) => ({ bcdi, imp })),
-    skipDuplicates: true,
+
+  // Récupère client + lignes depuis le réservoir AVANT suppression : conservés sur
+  // imp_expedition pour matcher les « besoins clients » quand l'IMP est en mer.
+  const resRows = await prisma.reservoirBcdi.findMany({
+    where: { bcdi: { in: list } },
+    select: { bcdi: true, client: true, lignes: true },
   });
+  const detailByBcdi = new Map(resRows.map((r) => [r.bcdi, r]));
+
+  // Upsert (et non createMany) pour enrichir client/lignes/dateArrivee même sur ré-import.
+  for (const bcdi of list) {
+    const d = detailByBcdi.get(bcdi);
+    await prisma.impExpedition.upsert({
+      where: { bcdi },
+      update: { imp, client: d?.client ?? undefined, lignes: (d?.lignes as any) ?? undefined, dateArrivee: dateArrivee ?? undefined },
+      create: { bcdi, imp, client: d?.client ?? null, lignes: (d?.lignes as any) ?? undefined, dateArrivee },
+    });
+  }
+  const added = { count: list.length };
 
   // Retire immédiatement du réservoir les commandes expédiées (sauf SAV)
   const removed = await prisma.reservoirBcdi.deleteMany({

@@ -67,6 +67,10 @@
     {
       "path": "/api/google-ads/import",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/besoins-clients-match",
+      "schedule": "0 5 * * *"
     }
   ]
 }
