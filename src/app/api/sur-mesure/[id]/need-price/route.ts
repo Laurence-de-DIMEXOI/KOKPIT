@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/resend";
 import { notifierTransitionProjet } from "@/lib/sur-mesure-notifications";
+import { syncProjetSellsy } from "@/lib/sur-mesure-sellsy";
 
 /**
  * POST /api/sur-mesure/[id]/need-price
@@ -88,6 +89,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     where: { id },
     data: { needPriceId: needPrice.id, statut: "NEED_PRICE" },
   });
+
+  // Dès qu'un Need Price existe → lie/rafraîchit automatiquement Sellsy (montant + statut).
+  await syncProjetSellsy(id).catch(() => {});
 
   // Email Elaury + CC (lien vers le PDF plan 3D)
   if (process.env.BREVO_API_KEY) {

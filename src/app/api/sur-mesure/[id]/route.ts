@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notifierTransitionProjet } from "@/lib/sur-mesure-notifications";
+import { syncProjetSellsy } from "@/lib/sur-mesure-sellsy";
 import { z } from "zod";
 
 /**
@@ -139,6 +140,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         },
       }).catch(() => {});
     }
+  }
+
+  // Passage en « Présenté client » → rafraîchit automatiquement le montant Sellsy.
+  if (d.statut === "PRESENTE_CLIENT" && projet.numeroSellsy) {
+    await syncProjetSellsy(id).catch(() => {});
   }
 
   return NextResponse.json({ projet });
