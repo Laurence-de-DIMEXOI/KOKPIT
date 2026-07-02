@@ -105,6 +105,15 @@ export async function POST(req: NextRequest) {
     where: { bcdi: { in: list }, NOT: { etatProduit: { equals: "SAV", mode: "insensitive" } } },
   });
 
+  // Rafraîchit les correspondances « besoins clients » (le stock de cet IMP est en mer).
+  let nouveauxTags = 0;
+  try {
+    const { computeBesoinMatches } = await import("@/lib/besoins-clients-match");
+    nouveauxTags = (await computeBesoinMatches()).length;
+  } catch (e) {
+    console.error("besoins-clients match après import IMP:", e);
+  }
+
   return NextResponse.json({
     ok: true,
     imp,
@@ -112,5 +121,6 @@ export async function POST(req: NextRequest) {
     bcdiTrouves: list.length,
     ajoutes: added.count,
     retiresDuReservoir: removed.count,
+    nouveauxTags,
   });
 }

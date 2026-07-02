@@ -226,7 +226,7 @@ export function ReservoirPlanning() {
       const res = await fetch("/api/achat/reservoir/imp-import", { method: "POST", body: fd });
       const j = await res.json();
       if (res.ok) {
-        setImportMsg(`✓ ${j.imp} : ${j.bcdiTrouves} BCDI lus, ${j.retiresDuReservoir} retirés du réservoir`);
+        setImportMsg(`✓ ${j.imp} : ${j.bcdiTrouves} BCDI lus, ${j.retiresDuReservoir} retirés du réservoir${j.nouveauxTags ? ` · ${j.nouveauxTags} besoin(s) client alerté(s)` : ""}`);
         setImpCode(""); formEl.reset();
         await fetchData();
       } else {
@@ -436,6 +436,11 @@ export function ReservoirPlanning() {
             <label className="block text-[11px] text-cockpit-secondary mb-1">N° du container parti</label>
             <input name="imp" value={impCode} onChange={(e) => setImpCode(e.target.value)} placeholder="ex : 619"
               className="w-28 px-2 py-1.5 text-sm border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
+          </div>
+          <div>
+            <label className="block text-[11px] text-cockpit-secondary mb-1">Arrivée prévue</label>
+            <input name="dateArrivee" type="date"
+              className="px-2 py-1.5 text-sm border border-cockpit-input rounded-input bg-cockpit-input text-cockpit-primary" />
           </div>
           <div className="flex-1 min-w-[220px]">
             <label className="block text-[11px] text-cockpit-secondary mb-1">Packing list(s) .xlsx</label>
