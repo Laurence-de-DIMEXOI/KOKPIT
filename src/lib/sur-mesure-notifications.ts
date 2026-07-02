@@ -13,11 +13,19 @@ import { sendEmail } from "@/lib/resend";
  * Chaque envoi est aussi loggé en Evenement sur le contact du projet (si présent).
  */
 
-// Emails fixes de l'équipe sur-mesure (hors propriétaire dynamique)
-const EQUIPE_FIXE = [
-  "michelle.perrot@dimexoi.fr", // Michelle (Direction)
-  "laurent@dimexoi.fr", // Laurent (dessinateur)
-];
+const MICHELLE = "michelle.perrot@dimexoi.fr"; // Direction
+const LAURENT = "laurent@dimexoi.fr"; // Dessinateur
+
+// Destinataires par transition (le propriétaire = commercial qui a fait la demande).
+// Le dédoublonnage gère le « si différent de Michelle ».
+const DESTINATAIRES: Record<TransitionProjet, (proprietaire?: string | null) => Array<string | null | undefined>> = {
+  DESSIN_DEMANDE: () => [MICHELLE, LAURENT],
+  PLANS_AJOUTES: (p) => [MICHELLE, p],
+  NEED_PRICE_ENVOYE: (p) => [MICHELLE, p],
+  PRIX_RECU: (p) => [MICHELLE, p],
+  DEVIS_ENVOYE: () => [MICHELLE, LAURENT],
+  VENTE_CONCLUE: () => [MICHELLE, LAURENT],
+};
 
 export type TransitionProjet =
   | "DESSIN_DEMANDE"
@@ -61,7 +69,7 @@ function buildHtml(numero: string, titre: string, transition: TransitionProjet, 
       <p style="margin:0 0 8px"><strong>Projet :</strong> ${numero} — ${titre}</p>
       <p style="margin:0 0 16px;color:#475569">${MESSAGES[transition]}</p>
       <p style="margin-top:20px">
-        <a href="${lien}" style="background:linear-gradient(135deg,#0E6973,#FEEB9C);color:#0E6973;padding:10px 18px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Ouvrir le projet dans KOKPIT</a>
+        <a href="${lien}" style="background:#0E6973;color:#ffffff;padding:11px 20px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:700;">Ouvrir le projet dans KOKPIT</a>
       </p>
       <p style="color:#94a3b8;font-size:12px;margin-top:24px">Module Sur-Mesure KOKPIT — notification automatique.</p>
     </div>`;
@@ -74,10 +82,10 @@ function buildHtml(numero: string, titre: string, transition: TransitionProjet, 
 export async function notifierTransitionProjet(params: NotifyParams): Promise<void> {
   const { projetId, numero, titre, transition, proprietaireEmail } = params;
 
-  // Liste destinataires dédupliquée
+  // Destinataires selon la transition (dédupliqués → « si différent de Michelle »)
   const destinataires = Array.from(
     new Set(
-      [...EQUIPE_FIXE, proprietaireEmail]
+      DESTINATAIRES[transition](proprietaireEmail)
         .filter(Boolean)
         .map((e) => (e as string).toLowerCase().trim())
     )
