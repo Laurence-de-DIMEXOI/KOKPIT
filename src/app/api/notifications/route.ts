@@ -124,7 +124,7 @@ export async function GET() {
       const SLA_LEGACY_CUTOFF = new Date("2026-03-07T00:00:00+04:00");
       const slaLeads = await prisma.lead.count({
         where: {
-          statut: { in: ["NOUVEAU", "EN_COURS"] },
+          statut: "NOUVEAU", // une demande passée En cours/Devis a déjà reçu une action
           createdAt: { lt: slaDate, gte: SLA_LEGACY_CUTOFF },
           premiereActionAt: null,
           ...(isFullScope ? {} : { commercialId: userId }),
