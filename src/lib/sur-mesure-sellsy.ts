@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifierTransitionProjet } from "@/lib/sur-mesure-notifications";
 
 // Statuts Sellsy → issue du projet
 const WON = new Set(["accepted", "advanced", "invoiced", "partialinvoiced"]);
@@ -30,7 +31,7 @@ export type SyncResult = {
 export async function syncProjetSellsy(projetId: string): Promise<SyncResult> {
   const projet = await prisma.projetSurMesure.findFirst({
     where: { id: projetId, deletedAt: null },
-    select: { id: true, numeroSellsy: true, statut: true, needPrice: { select: { statut: true } } },
+    select: { id: true, numero: true, titre: true, numeroSellsy: true, statut: true, needPrice: { select: { statut: true } } },
   });
   if (!projet) return { ok: false, reason: "introuvable" };
 
@@ -87,6 +88,16 @@ export async function syncProjetSellsy(projetId: string): Promise<SyncResult> {
   }
   if (Object.keys(data).length > 0) {
     await prisma.projetSurMesure.update({ where: { id: projet.id }, data: data as never });
+  }
+
+  // Emails (Michelle + Laurent) au moment où la colonne change réellement.
+  if (statutApres !== projet.statut && (statutApres === "GAGNE" || statutApres === "PRESENTE_CLIENT")) {
+    notifierTransitionProjet({
+      projetId: projet.id,
+      numero: projet.numero,
+      titre: projet.titre,
+      transition: statutApres === "GAGNE" ? "VENTE_CONCLUE" : "DEVIS_ENVOYE",
+    }).catch(() => {});
   }
 
   return { ok: true, montant, statutSellsy, statutAvant: projet.statut, statutApres };

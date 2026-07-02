@@ -24,6 +24,7 @@ export type TransitionProjet =
   | "PLANS_AJOUTES"
   | "NEED_PRICE_ENVOYE"
   | "PRIX_RECU"
+  | "DEVIS_ENVOYE"
   | "VENTE_CONCLUE";
 
 const SUJETS: Record<TransitionProjet, (titre: string) => string> = {
@@ -31,6 +32,7 @@ const SUJETS: Record<TransitionProjet, (titre: string) => string> = {
   PLANS_AJOUTES: (t) => `📐 Les plans de ${t} ont été ajoutés`,
   NEED_PRICE_ENVOYE: (t) => `💰 Un Need Price a été envoyé : ${t}`,
   PRIX_RECU: (t) => `✅ Le prix de ${t} est disponible, devis à finaliser`,
+  DEVIS_ENVOYE: (t) => `📤 Devis envoyé — ${t} présenté au client`,
   VENTE_CONCLUE: (t) => `🎉 Le dessin de ${t} a abouti à une vente`,
 };
 
@@ -39,6 +41,7 @@ const MESSAGES: Record<TransitionProjet, string> = {
   PLANS_AJOUTES: "Les plans 3D du projet ont été ajoutés.",
   NEED_PRICE_ENVOYE: "Un Need Price a été envoyé à l'équipe achat.",
   PRIX_RECU: "Le prix est revenu. Le devis peut être finalisé.",
+  DEVIS_ENVOYE: "Le devis Sellsy a été envoyé au client — le projet est présenté.",
   VENTE_CONCLUE: "Bravo, le projet sur-mesure a abouti à une vente.",
 };
 
