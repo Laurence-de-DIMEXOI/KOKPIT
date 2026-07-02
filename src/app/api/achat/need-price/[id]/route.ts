@@ -239,6 +239,19 @@ export async function PUT(
         console.error("Erreur envoi notif prix reçu:", emailErr);
         // Ne pas bloquer la réponse si l'email échoue
       }
+      // Fait avancer le(s) projet(s) sur-mesure lié(s) en colonne « Prix reçu »
+      try {
+        await prisma.projetSurMesure.updateMany({
+          where: {
+            needPriceId: id,
+            deletedAt: null,
+            statut: { in: ["DEMANDE", "DESSIN_DEMANDE", "RDV_CLIENT", "DESSIN_EN_COURS", "PLANS_PRETS", "NEED_PRICE"] as never },
+          },
+          data: { statut: "PRIX_RECU" as never },
+        });
+      } catch (projErr) {
+        console.error("Erreur passage projet sur-mesure en PRIX_RECU:", projErr);
+      }
     }
 
     return NextResponse.json(updated);

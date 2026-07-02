@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { syncProjetSellsy } from "@/lib/sur-mesure-sellsy";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -23,70 +24,33 @@ async function run(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const STATUTS_ACTIFS = [
-    "DEMANDE", "DESSIN_DEMANDE", "RDV_CLIENT", "DESSIN_EN_COURS",
-    "PLANS_PRETS", "NEED_PRICE", "PRIX_RECU", "PRESENTE_CLIENT",
-  ];
-
+  // Tous les projets avec un n° Sellsy OU un Need Price lié (y compris Gagné/Perdu :
+  // le montant final doit être capturé même une fois le projet gagné).
   const projets = await prisma.projetSurMesure.findMany({
     where: {
       deletedAt: null,
-      numeroSellsy: { not: null },
-      statut: { in: STATUTS_ACTIFS as never },
+      OR: [{ numeroSellsy: { not: null } }, { needPriceId: { not: null } }],
     },
-    select: { id: true, numeroSellsy: true },
+    select: { id: true },
   });
 
   let updated = 0;
-  let introuvables = 0;
+  let gagnes = 0;
+  let perdus = 0;
 
   for (const p of projets) {
-    const numero = (p.numeroSellsy || "").toUpperCase().trim();
-    let montant: number | null = null;
-    let statutConversion: string | null = null;
-    let typeSellsy: "DEVIS" | "BON_COMMANDE" | null = null;
-
-    if (numero.startsWith("BCDI")) {
-      typeSellsy = "BON_COMMANDE";
-      const vente = await prisma.vente.findFirst({
-        where: { numero: { equals: p.numeroSellsy!, mode: "insensitive" } },
-        select: { montant: true },
-      });
-      if (vente) { montant = vente.montant; statutConversion = "converti"; }
-    } else if (numero.startsWith("DEPI")) {
-      typeSellsy = "DEVIS";
-      const devis = await prisma.devis.findFirst({
-        where: { numero: { equals: p.numeroSellsy!, mode: "insensitive" } },
-        select: { montant: true, sellsyQuoteId: true },
-      });
-      if (devis) {
-        montant = devis.montant;
-        if (devis.sellsyQuoteId) {
-          const liaison = await prisma.liaisonDevisCommande.findFirst({
-            where: { estimateId: Number(devis.sellsyQuoteId) },
-          });
-          statutConversion = liaison ? "converti" : "non_converti";
-        } else {
-          statutConversion = "non_converti";
-        }
-      }
+    const r = await syncProjetSellsy(p.id);
+    if (!r.ok) continue;
+    if (r.statutApres !== r.statutAvant) {
+      updated++;
+      if (r.statutApres === "GAGNE") gagnes++;
+      else if (r.statutApres === "PERDU") perdus++;
+    } else if (r.montant != null) {
+      updated++;
     }
-
-    if (montant === null) { introuvables++; continue; }
-
-    await prisma.projetSurMesure.update({
-      where: { id: p.id },
-      data: { montantSellsy: montant, statutConversion, typeSellsy, montantSyncedAt: new Date() },
-    });
-    updated++;
   }
 
-  return NextResponse.json({
-    success: true,
-    scanned: projets.length,
-    updated,
-    introuvables,
-  });
+  return NextResponse.json({ success: true, scanned: projets.length, updated, gagnes, perdus });
 }
 
 export async function GET(req: NextRequest) { return run(req); }

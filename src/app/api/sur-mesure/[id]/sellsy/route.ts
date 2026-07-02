@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { syncProjetSellsy } from "@/lib/sur-mesure-sellsy";
 
 /**
  * POST /api/sur-mesure/[id]/sellsy — rafraîchit le montant + statut de conversion.
@@ -28,63 +29,22 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const numero = projet.numeroSellsy.toUpperCase().trim();
-  let montant: number | null = null;
-  let statutSellsy: string | null = null;
-  let statutConversion: string | null = null;
-  let typeSellsy: "DEVIS" | "BON_COMMANDE" | null = null;
-
-  if (numero.startsWith("BCDI")) {
-    typeSellsy = "BON_COMMANDE";
-    const vente = await prisma.vente.findFirst({
-      where: { numero: { equals: projet.numeroSellsy, mode: "insensitive" } },
-      select: { montant: true, statutSellsy: true },
-    });
-    if (vente) {
-      montant = vente.montant;
-      statutSellsy = vente.statutSellsy;
-      statutConversion = "converti"; // un BCDI est déjà une commande
-    }
-  } else if (numero.startsWith("DEPI")) {
-    typeSellsy = "DEVIS";
-    const devis = await prisma.devis.findFirst({
-      where: { numero: { equals: projet.numeroSellsy, mode: "insensitive" } },
-      select: { montant: true, statutSellsy: true, sellsyQuoteId: true },
-    });
-    if (devis) {
-      montant = devis.montant;
-      statutSellsy = devis.statutSellsy;
-      // Conversion : le devis a-t-il une liaison vers une commande ?
-      if (devis.sellsyQuoteId) {
-        const liaison = await prisma.liaisonDevisCommande.findFirst({
-          where: { estimateId: Number(devis.sellsyQuoteId) },
-        });
-        statutConversion = liaison ? "converti" : "non_converti";
-      } else {
-        statutConversion = "non_converti";
-      }
-    }
-  } else {
+  if (!numero.startsWith("BCDI") && !numero.startsWith("DEPI")) {
     return NextResponse.json({ error: "Préfixe Sellsy inconnu (attendu DEPI ou BCDI)" }, { status: 400 });
   }
 
-  if (montant === null) {
+  // Récupère montant + statut Sellsy ET fait avancer la colonne (Gagné/Perdu, Prix reçu).
+  const r = await syncProjetSellsy(id);
+  if (r.montant == null) {
     return NextResponse.json({
       error: `Document ${projet.numeroSellsy} introuvable en base locale. Il sera disponible après la prochaine sync Sellsy (toutes les 2h).`,
     }, { status: 404 });
   }
 
-  const updated = await prisma.projetSurMesure.update({
+  const updated = await prisma.projetSurMesure.findUnique({
     where: { id },
-    data: {
-      montantSellsy: montant,
-      statutConversion,
-      typeSellsy,
-      montantSyncedAt: new Date(),
-    },
-    select: {
-      montantSellsy: true, statutConversion: true, typeSellsy: true, montantSyncedAt: true,
-    },
+    select: { montantSellsy: true, statutConversion: true, typeSellsy: true, montantSyncedAt: true, statut: true },
   });
 
-  return NextResponse.json({ ...updated, statutSellsy });
+  return NextResponse.json({ ...updated, statutSellsy: r.statutSellsy });
 }
