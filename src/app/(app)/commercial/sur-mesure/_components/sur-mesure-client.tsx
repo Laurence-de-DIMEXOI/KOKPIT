@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { ProjetDrawer } from "./projet-drawer";
+import { PdfThumb } from "./pdf-thumb";
 
 const TEAL = "#0E6973";
 
@@ -219,13 +220,15 @@ function KpiCard({ icon, label, value }: { icon: React.ReactNode; label: string;
 }
 
 function ProjetCard({ projet, onClick, horizontal }: { projet: Projet; onClick: () => void; horizontal?: boolean }) {
-  // Couverture = une vraie image (jamais un plan 3D / PDF) : cover explicite sinon 1re image.
+  // Couverture = 1re page du plan 3D (PDF) en priorité ; sinon une vraie image.
+  const plan3d = projet.documents.find((d) => d.type === "plan_3d" || /\.pdf($|\?)/i.test(d.url));
   const images = projet.documents.filter((d) => d.type !== "plan_3d" && !/\.pdf($|\?)/i.test(d.url));
   const couverture = images.find((d) => d.estCouverture) || images[0];
   return (
     <button onClick={onClick} className={clsx("w-full text-left bg-cockpit-card rounded-lg border border-cockpit hover:border-cockpit-info/40 transition shadow-sm overflow-hidden", horizontal && "flex items-center gap-3 p-3")}>
-      {couverture && !horizontal && (
-        <div className="h-24 w-full bg-cockpit-dark/30" style={{ backgroundImage: `url(${couverture.url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+      {!horizontal && (plan3d
+        ? <PdfThumb url={plan3d.url} className="h-24 w-full bg-cockpit-dark/30" />
+        : couverture && <div className="h-24 w-full bg-cockpit-dark/30" style={{ backgroundImage: `url(${couverture.url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
       )}
       <div className={clsx(!horizontal && "p-3", "flex-1 min-w-0")}>
         <div className="flex items-center gap-1.5 mb-1">
