@@ -240,7 +240,7 @@ function ProjetCard({ projet, onClick, horizontal }: { projet: Projet; onClick: 
         <div className="flex items-center gap-2 mt-1 text-[11px] text-cockpit-secondary">
           <span className="px-1.5 py-0.5 rounded bg-cockpit-dark/30">{TYPE_LABELS[projet.typeProjet] || projet.typeProjet}</span>
           {projet.montantSellsy != null && <span className="font-semibold">{eur(projet.montantSellsy)}</span>}
-          {projet.assigne && <span>· {projet.assigne.prenom}</span>}
+          {projet.proprietaire && <span title="Demande de dessin">· {projet.proprietaire.prenom}</span>}
         </div>
       </div>
     </button>
@@ -253,7 +253,6 @@ function CreateModal({ users, onClose, onCreated }: { users: UserLite[]; onClose
   const [typeProjet, setTypeProjet] = useState("CUISINE");
   const [priorite, setPriorite] = useState("NORMAL");
   const [numeroSellsy, setNumeroSellsy] = useState("");
-  const [assigneId, setAssigneId] = useState("");
   const [brief, setBrief] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -270,7 +269,7 @@ function CreateModal({ users, onClose, onCreated }: { users: UserLite[]; onClose
         body: JSON.stringify({
           titre, typeProjet, priorite,
           numeroSellsy: numeroSellsy || null,
-          assigneId: assigneId || laurent?.id || null,
+          assigneId: laurent?.id || null, // dessin toujours assigné à Laurent
           briefTechnique: brief || null,
         }),
       });
@@ -291,10 +290,7 @@ function CreateModal({ users, onClose, onCreated }: { users: UserLite[]; onClose
             <Field label="Type"><select value={typeProjet} onChange={(e) => setTypeProjet(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm">{Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
             <Field label="Priorité"><select value={priorite} onChange={(e) => setPriorite(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm"><option value="NORMAL">Normal</option><option value="URGENT">Urgent</option></select></Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="N° Sellsy (DEPI/BCDI)"><input value={numeroSellsy} onChange={(e) => setNumeroSellsy(e.target.value)} placeholder="DEPI-08195" className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm" /></Field>
-            <Field label="Assigné dessin"><select value={assigneId} onChange={(e) => setAssigneId(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm"><option value="">{laurent ? `${laurent.prenom} (défaut)` : "—"}</option>{users.map((u) => <option key={u.id} value={u.id}>{u.prenom} {u.nom}</option>)}</select></Field>
-          </div>
+          <Field label="N° Sellsy (DEPI/BCDI)"><input value={numeroSellsy} onChange={(e) => setNumeroSellsy(e.target.value)} placeholder="DEPI-08195" className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm" /></Field>
           <Field label="Brief technique"><textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={4} placeholder="Mesures, dimensions, configuration, références..." className="w-full px-3 py-2 rounded-lg border border-cockpit bg-white text-sm" /></Field>
           {err && <p className="text-sm text-red-600">{err}</p>}
         </div>

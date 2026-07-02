@@ -2,8 +2,36 @@
 
 > Ce fichier est la mémoire du projet. Toute session Claude Code doit le lire en premier et le mettre à jour en fin de session. Il prime sur tout autre document.
 
-**Dernière mise à jour** : 19 juin 2026 (v35 — Nettoyage navigation)
-**Mis à jour par** : Session Claude Code (sprint juin — IMP-619 + Bois d'Orient + volume, puis allègement du menu)
+**Dernière mise à jour** : 2 juillet 2026 (v36 — Réservoir départs, Google Ads via Sheet, Besoins clients, Sur-Mesure×Sellsy)
+**Mis à jour par** : Session Claude Code (sprint fin juin → 2 juillet)
+
+### Sprint 30 juin → 2 juillet 2026 (v36)
+
+**Réservoir / Prévisionnel containers** (`achat/previsionnel`, `lib/reservoir.ts`, `api/achat/reservoir/*`)
+- **Départs MSC configurables** : table `depart_prevu` (date départ/arrivée, navire, capacité) + CRUD `/api/achat/reservoir/departs`, édition inline en haut de chaque onglet. Répartition FIFO par départ, queue estimée (6 sem) au-delà.
+- **Délai cible 6 → 8 mois** ; **retard PROJETÉ** = arrivée du container (réelle sinon départ+bateau) vs `dateArriveeCible` (commande + délai total), 3 états ok/attention(±15 j ou même mois)/retard, `classerRetard()`.
+- **Remplissage backfill** : si la prochaine commande dépasse la capacité, elle est reportée et on continue à remplir avec les suivantes (ordre FIFO conservé).
+- Colonne + total **reste à payer**, lignes de commande **dépliables** (Sellsy), tags **Cuisine/Dressing**, **cubage m³**. IMP-618 enrichi (lignes/cubage Sellsy). « ORDER DIMEXOI / stock / exhibition » → **section stock**. Pas de jauge rouge sur un départ déjà parti.
+- **Ajouter un IMP parti** (`imp-import`) : parse le **packing list** (réfs à bord + qty), conserve `client/lignes/dateArrivee` sur `imp_expedition`.
+
+**Google Ads → 100 % Google Sheet** (suppression de l'API OAuth)
+- Script Google Ads → Sheet (Campagnes/Groupes/Annonces + onglet **Mensuel** THIS_YEAR + dates via API objet). Import `/api/google-ads/import` (gviz, parse **format FR** virgule décimale), **cron quotidien 6h** → table `Campagne`, pages lisent la BDD. ROI mensuel Google lit les lignes `google_m_%`. Coût fantôme (0 impression + 0 clic) neutralisé. Tri par date + « Sheet maj » sur l'onglet Google. Vars OAuth Google supprimées de Vercel (garder `GOOGLE_ADS_SHEET_ID`).
+
+**Besoins clients** (nouvelle page `/commercial/besoins-clients`, module `besoins-clients`)
+- Waitlist prospects (coordonnées + recherche + mots-clés + catégorie + délai, réf `BES-NNN`), reliée aux **arrivages stock en mer**. Modèles `besoin_client` + `besoin_match`.
+- Moteur `lib/besoins-clients-match.ts` : match sur le **packing** (ce qui est à bord, pas la commande Sellsy entière), déclencheur = **largeur (1re dim) OU modèle**, finitions **FR↔EN** (RAW=Brut, NATURAL=Miel, WHITE/BLACK WASH=Cérusé blanc/noir) + **pose** (à suspendre/hanged vs sur pieds) + verrou de **catégorie**. Alertes : cron 5h + **email digest Brevo** + badge sidebar. Confirmation hybride (« C'est ça »/« Ignorer ») dans le drawer.
+
+**Sur-Mesure × Sellsy** (`lib/sur-mesure-sellsy.ts` `syncProjetSellsy`)
+- Statut Sellsy → colonne kanban **sans régression** : `sent`→Présenté client, `accepted`/converti→Gagné, `refused`/`cancelled`/`expired`→Perdu ; NeedPrice `PRIX_RECU`→colonne Prix reçu. **Montant final** capturé (devis/commande). Synchro déclenchée à : liaison DEPI, **cron 6h (tous les projets)**, **création d'un Need Price**, **passage Présenté client**.
+- Emails auto (Michelle + Laurent) : 📤 Devis envoyé (Présenté client) + 🎉 Vente conclue (Gagné).
+- Carte : vignette = **1re page du plan 3D** (PDF via pdfjs, sans crop), sinon photo. « Assigné dessin » retiré (toujours Laurent) → affiche le **prénom du demandeur** (propriétaire).
+
+**Accès / accueil**
+- Page d'accueil = **/commercial** pour tous (racine + post-login). Middleware : blocage par module des routes `/marketing`/`/campagnes`/`/emailing` → un rôle sans le module (COMMERCIAL) est redirigé vers `/commercial` (Club Tectona reste accessible).
+
+**Need Price** : statut du DEPI = statut Sellsy (accepté/facturé = converti), pas la liaison locale.
+
+---
 
 ### Nettoyage navigation (19 juin 2026, v35) — pages retirées du menu
 Demande Laurence : alléger le menu. Fichiers **supprimés** (pages + API/composants/hooks orphelins) :
