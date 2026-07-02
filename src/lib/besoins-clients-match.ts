@@ -21,16 +21,32 @@ function isStockClient(client: string | null): boolean {
 
 type Ligne = { ref?: string | null; desc?: string; qty?: number };
 
-/** Mots-clés d'un besoin → liste normalisée (minuscules, longueur ≥ 3). */
-function keywords(motsCles: string | null, recherche: string): string[] {
-  const raw = `${motsCles || ""} ${motsCles ? "" : recherche}`;
+// Mots trop génériques (présents dans quasiment tout un réappro) → non discriminants.
+const STOPWORDS = new Set([
+  "meuble", "meubles", "salle", "bain", "bains", "sdb", "avec", "sur", "sous", "pour",
+  "les", "des", "une", "del", "que", "tiroir", "tiroirs", "porte", "portes", "deco",
+  "déco", "max", "min", "pieds", "pied", "principalement", "avant", "voir", "commande",
+  "modele", "modèle", "preference", "préférence",
+]);
+const FINISHES = ["miel", "brut", "cérusé", "cerusé", "cérusée", "blanc", "noir"];
+
+/** Nombres 40–300 (largeurs plausibles) présents dans un texte. */
+function widths(text: string): number[] {
+  return Array.from(new Set((text.match(/\d{2,3}/g) || []).map(Number).filter((n) => n >= 40 && n <= 300)));
+}
+/** Largeur(s) d'une ligne produit = 1re dimension de chaque triplet NxNxN
+ *  (évite de confondre une hauteur de colonne, ex. 40x35x160, avec une largeur). */
+function lineWidths(text: string): number[] {
+  const trip = [...text.matchAll(/(\d{2,3})\s*[x×]\s*\d{2,3}\s*[x×]\s*\d{2,3}/gi)].map((m) => Number(m[1]));
+  const src = trip.length ? trip : (text.match(/\d{2,3}/g) || []).map(Number);
+  return Array.from(new Set(src.filter((n) => n >= 20 && n <= 300)));
+}
+/** Tokens discriminants d'un besoin : modèles/attributs (≥4 lettres, hors stopwords, sans chiffre). */
+function distinctiveTokens(text: string): string[] {
   return Array.from(
     new Set(
-      raw
-        .toLowerCase()
-        .split(/[,;\n]+|\s+/)
-        .map((w) => w.trim())
-        .filter((w) => w.length >= 3)
+      text.toLowerCase().split(/[^a-zàâäéèêëïîôöùûüç]+/i)
+        .filter((w) => w.length >= 4 && !STOPWORDS.has(w) && !FINISHES.includes(w))
     )
   );
 }
@@ -64,23 +80,37 @@ export async function computeBesoinMatches(): Promise<
   const fresh: Array<{ besoinId: string; nomClient: string; bcdi: string; imp: string; descMeuble: string; dateArrivee: Date | null; matchId: string }> = [];
 
   for (const b of besoins) {
-    const kws = keywords(b.motsCles, b.recherche);
-    if (kws.length === 0) continue;
-    const need = Math.max(1, Math.ceil(kws.length / 2));
+    const need = `${b.motsCles || ""} ${b.recherche}`;
+    const bWidths = widths(need);
+    const bTokens = distinctiveTokens(need);
+    const bFinishes = FINISHES.filter((f) => need.toLowerCase().includes(f));
 
     for (const s of stock) {
       const lignes = (Array.isArray(s.lignes) ? s.lignes : []) as Ligne[];
-      const text = lignes.map((l) => `${l.ref || ""} ${cleanLigne(l.desc || "")}`).join(" ").toLowerCase();
-      if (!text) continue;
+      const fullText = lignes.map((l) => `${l.ref || ""} ${cleanLigne(l.desc || "")}`).join(" ").toLowerCase();
+      if (!fullText) continue;
       // Verrou de catégorie : si les deux catégories sont connues et diffèrent, on saute.
-      const itemCat = inferItemCategorie(text, lignes);
+      const itemCat = inferItemCategorie(fullText, lignes);
       if (b.categorie && itemCat && b.categorie !== itemCat) continue;
-      const hits = kws.filter((k) => text.includes(k));
-      if (hits.length < need) continue;
 
-      const descMeuble = (lignes.find((l) => hits.some((h) => `${l.ref || ""} ${cleanLigne(l.desc || "")}`.toLowerCase().includes(h)))?.desc)
-        ? cleanLigne(lignes.find((l) => hits.some((h) => `${l.ref || ""} ${cleanLigne(l.desc || "")}`.toLowerCase().includes(h)))!.desc || "")
-        : cleanLigne(lignes[0]?.desc || s.bcdi);
+      // Cherche LA ligne la plus proche : largeur (fort) + modèle/attribut + finition.
+      let best = { score: 0, desc: "" };
+      for (const l of lignes) {
+        const t = `${l.ref || ""} ${cleanLigne(l.desc || "")}`.toLowerCase();
+        const nums = lineWidths(t);
+        const widthMatch = bWidths.length > 0 && bWidths.some((w) => nums.includes(w));
+        const modelHits = bTokens.filter((k) => t.includes(k)).length;
+        const finishHits = bFinishes.filter((f) => t.includes(f)).length;
+        const ligneScore = (widthMatch ? 5 : 0) + modelHits * 3 + finishHits;
+        if (ligneScore > best.score) best = { score: ligneScore, desc: cleanLigne(l.desc || "") };
+      }
+      // Si le besoin précise une largeur mais aucune ligne ne l'a → pas assez précis.
+      if (bWidths.length > 0 && !bWidths.some((w) => lineWidths(fullText).includes(w))) continue;
+      // Il faut au moins un signal discriminant (largeur, modèle ou finition).
+      if (best.score === 0) continue;
+
+      const total = best.score + 1; // +1 baseline (même catégorie)
+      const descMeuble = (best.desc || cleanLigne(lignes[0]?.desc || s.bcdi)).slice(0, 300);
 
       const existing = await prisma.besoinMatch.findUnique({
         where: { besoinId_bcdi: { besoinId: b.id, bcdi: s.bcdi } },
@@ -88,15 +118,7 @@ export async function computeBesoinMatches(): Promise<
       if (existing) continue; // déjà connu (suggéré/confirmé/ignoré) → on ne réécrase pas
 
       const created = await prisma.besoinMatch.create({
-        data: {
-          besoinId: b.id,
-          bcdi: s.bcdi,
-          imp: s.imp,
-          descMeuble: descMeuble.slice(0, 300),
-          score: hits.length,
-          dateArrivee: s.dateArrivee,
-          statut: "SUGGERE",
-        },
+        data: { besoinId: b.id, bcdi: s.bcdi, imp: s.imp, descMeuble, score: total, dateArrivee: s.dateArrivee, statut: "SUGGERE" },
       });
       fresh.push({ besoinId: b.id, nomClient: b.nomClient, bcdi: s.bcdi, imp: s.imp, descMeuble, dateArrivee: s.dateArrivee, matchId: created.id });
     }
