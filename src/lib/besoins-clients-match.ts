@@ -28,7 +28,23 @@ const STOPWORDS = new Set([
   "déco", "max", "min", "pieds", "pied", "principalement", "avant", "voir", "commande",
   "modele", "modèle", "preference", "préférence",
 ]);
-const FINISHES = ["miel", "brut", "cérusé", "cerusé", "cérusée", "blanc", "noir"];
+// Mots de finition (FR + EN) exclus des tokens « modèle » discriminants.
+const FINISH_WORDS = new Set([
+  "miel", "brut", "cérusé", "cerusé", "cérusée", "blanc", "noir",
+  "raw", "natural", "white", "black", "wash", "whitewash", "blackwash", "washed",
+]);
+
+/** Finitions normalisées d'un texte (produit ou besoin), FR ↔ EN.
+ *  RAW = Brut · NATURAL = Miel · WHITE WASH = Cérusé blanc · BLACK WASH = Cérusé noir. */
+function detectFinishes(text: string): Set<string> {
+  const t = text.toLowerCase();
+  const out = new Set<string>();
+  if (/\bbrut\b|\braw\b/.test(t)) out.add("brut");
+  if (/c[eé]rus[eé]\s*noir|black[\s-]*wash|blackwash|\bblack\b/.test(t)) out.add("ceruse_noir");
+  if (/c[eé]rus[eé]\s*blanc|white[\s-]*wash|whitewash|\bwhite\b/.test(t)) out.add("ceruse_blanc");
+  if (/\bmiel\b|\bnatural\b/.test(t)) out.add("miel");
+  return out;
+}
 
 /** Type de pose : 'sus' = à suspendre / mural (angl. "hanged"), 'pied' = sur pieds / à poser. */
 function poseType(text: string): "sus" | "pied" | null {
@@ -53,7 +69,7 @@ function distinctiveTokens(text: string): string[] {
   return Array.from(
     new Set(
       text.toLowerCase().split(/[^a-zàâäéèêëïîôöùûüç]+/i)
-        .filter((w) => w.length >= 4 && !STOPWORDS.has(w) && !FINISHES.includes(w))
+        .filter((w) => w.length >= 4 && !STOPWORDS.has(w) && !FINISH_WORDS.has(w))
     )
   );
 }
@@ -90,7 +106,7 @@ export async function computeBesoinMatches(): Promise<
     const need = `${b.motsCles || ""} ${b.recherche}`;
     const bWidths = widths(need);
     const bTokens = distinctiveTokens(need);
-    const bFinishes = FINISHES.filter((f) => need.toLowerCase().includes(f));
+    const bFin = detectFinishes(need);
     const bPose = poseType(need);
 
     for (const s of stock) {
@@ -111,9 +127,10 @@ export async function computeBesoinMatches(): Promise<
         const nums = lineWidths(t);
         const widthMatch = bWidths.length > 0 && bWidths.some((w) => nums.includes(w));
         const modelHits = bTokens.filter((k) => t.includes(k)).length;
-        const finishHits = bFinishes.filter((f) => t.includes(f)).length;
+        const lFin = detectFinishes(t);
+        const finishHits = [...bFin].filter((f) => lFin.has(f)).length;
         const poseBonus = bPose && lPose === bPose ? 2 : 0;
-        const ligneScore = (widthMatch ? 5 : 0) + modelHits * 3 + finishHits + poseBonus;
+        const ligneScore = (widthMatch ? 5 : 0) + modelHits * 3 + finishHits * 2 + poseBonus;
         if (ligneScore > best.score) best = { score: ligneScore, desc: cleanLigne(l.desc || "") };
       }
       // Si le besoin précise une largeur mais aucune ligne ne l'a → pas assez précis.
