@@ -219,7 +219,9 @@ function KpiCard({ icon, label, value }: { icon: React.ReactNode; label: string;
 }
 
 function ProjetCard({ projet, onClick, horizontal }: { projet: Projet; onClick: () => void; horizontal?: boolean }) {
-  const couverture = projet.documents.find((d) => d.estCouverture) || projet.documents[0];
+  // Couverture = une vraie image (jamais un plan 3D / PDF) : cover explicite sinon 1re image.
+  const images = projet.documents.filter((d) => d.type !== "plan_3d" && !/\.pdf($|\?)/i.test(d.url));
+  const couverture = images.find((d) => d.estCouverture) || images[0];
   return (
     <button onClick={onClick} className={clsx("w-full text-left bg-cockpit-card rounded-lg border border-cockpit hover:border-cockpit-info/40 transition shadow-sm overflow-hidden", horizontal && "flex items-center gap-3 p-3")}>
       {couverture && !horizontal && (
