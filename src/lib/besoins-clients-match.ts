@@ -8,6 +8,8 @@ function inferItemCategorie(text: string, lignes: any[]): string | null {
   const cls = classifyLignes(lignes as any);
   if (cls.isCuisine) return "CUISINE";
   if (cls.isDressing) return "DRESSING";
+  if (/outdoor|ext[eé]rieur|jardin|transat|bain de soleil/i.test(text)) return "EXTERIEUR";
+  if (/\blit\b|matelas|sommier|t[eê]te de lit|chevet/i.test(text)) return "CHAMBRE";
   return null;
 }
 

@@ -27,7 +27,7 @@ const STATUT_BADGE: Record<string, { label: string; cls: string }> = {
   ANNULE: { label: "Plus intéressé", cls: "bg-gray-100 text-gray-500" },
 };
 const STATUTS = ["EN_ATTENTE", "CONTACTE", "SATISFAIT", "ANNULE"];
-const CATEGORIES = ["CUISINE", "DRESSING", "SALON", "SDB", "AUTRE"];
+const CATEGORIES = ["CUISINE", "DRESSING", "SDB", "SALON", "CHAMBRE", "EXTERIEUR", "AUTRE"];
 
 interface BesoinMatch {
   id: string;

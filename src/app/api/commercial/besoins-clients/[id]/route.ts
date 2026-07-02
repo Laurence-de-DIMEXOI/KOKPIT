@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 const WRITE_ROLES = ["ADMIN", "DIRECTION", "MARKETING", "COMMERCIAL"];
 const STATUTS = ["EN_ATTENTE", "CONTACTE", "SATISFAIT", "ANNULE"];
-const CATEGORIES = ["CUISINE", "DRESSING", "SALON", "SDB", "AUTRE"];
+const CATEGORIES = ["CUISINE", "DRESSING", "SDB", "SALON", "CHAMBRE", "EXTERIEUR", "AUTRE"];
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);

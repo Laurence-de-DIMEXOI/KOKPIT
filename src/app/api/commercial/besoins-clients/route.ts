@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const CATEGORIES = ["CUISINE", "DRESSING", "SALON", "SDB", "AUTRE"];
+const CATEGORIES = ["CUISINE", "DRESSING", "SDB", "SALON", "CHAMBRE", "EXTERIEUR", "AUTRE"];
 const WRITE_ROLES = ["ADMIN", "DIRECTION", "MARKETING", "COMMERCIAL"];
 
 // GET — liste des besoins clients (filtres statut/search + pagination)
