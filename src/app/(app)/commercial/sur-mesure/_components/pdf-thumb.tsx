@@ -43,7 +43,7 @@ export function PdfThumb({ url, className }: { url: string; className?: string }
   return (
     <div
       className={className}
-      style={img ? { backgroundImage: `url(${img})`, backgroundSize: "cover", backgroundPosition: "center top" } : undefined}
+      style={img ? { backgroundImage: `url(${img})`, backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center" } : undefined}
     />
   );
 }
