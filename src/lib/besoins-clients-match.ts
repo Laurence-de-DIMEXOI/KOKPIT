@@ -1,5 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { cleanLigne } from "@/lib/reservoir-lignes";
+import { cleanLigne, classifyLignes } from "@/lib/reservoir-lignes";
+
+// Catégorie déduite d'un item d'après ses lignes (évite qu'un arrivage SDB
+// taggue un besoin « lit »/« buffet » via des mots de finition partagés).
+function inferItemCategorie(text: string, lignes: any[]): string | null {
+  if (/salle de bain|\bsdb\b|vasque|colonne sdb/i.test(text)) return "SDB";
+  const cls = classifyLignes(lignes as any);
+  if (cls.isCuisine) return "CUISINE";
+  if (cls.isDressing) return "DRESSING";
+  return null;
+}
 
 // Commande interne / stock magasin d'après le nom du client (aligné sur le réservoir).
 function isStockClient(client: string | null): boolean {
@@ -60,6 +70,9 @@ export async function computeBesoinMatches(): Promise<
       const lignes = (Array.isArray(s.lignes) ? s.lignes : []) as Ligne[];
       const text = lignes.map((l) => `${l.ref || ""} ${cleanLigne(l.desc || "")}`).join(" ").toLowerCase();
       if (!text) continue;
+      // Verrou de catégorie : si les deux catégories sont connues et diffèrent, on saute.
+      const itemCat = inferItemCategorie(text, lignes);
+      if (b.categorie && itemCat && b.categorie !== itemCat) continue;
       const hits = kws.filter((k) => text.includes(k));
       if (hits.length < need) continue;
 
