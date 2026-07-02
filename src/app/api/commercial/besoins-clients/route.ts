@@ -78,18 +78,17 @@ export async function POST(request: NextRequest) {
       ? (body.categorie as string).toUpperCase()
       : null;
 
-    // Référence auto BC-YYYY-NNN
-    const year = new Date().getFullYear();
+    // Référence auto BES-NNN (séquentielle, sans année → pas un « bon de commande »)
     const last = await prisma.besoinClient.findFirst({
-      where: { reference: { startsWith: `BC-${year}-` } },
+      where: { reference: { startsWith: "BES-" } },
       orderBy: { reference: "desc" },
     });
     let next = 1;
     if (last) {
-      const n = parseInt(last.reference.split("-")[2], 10);
+      const n = parseInt(last.reference.split("-")[1], 10);
       if (!isNaN(n)) next = n + 1;
     }
-    const reference = `BC-${year}-${String(next).padStart(3, "0")}`;
+    const reference = `BES-${String(next).padStart(3, "0")}`;
 
     const created = await prisma.besoinClient.create({
       data: {

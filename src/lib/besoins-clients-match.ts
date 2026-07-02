@@ -30,6 +30,13 @@ const STOPWORDS = new Set([
 ]);
 const FINISHES = ["miel", "brut", "cérusé", "cerusé", "cérusée", "blanc", "noir"];
 
+/** Type de pose : 'sus' = à suspendre / mural (angl. "hanged"), 'pied' = sur pieds / à poser. */
+function poseType(text: string): "sus" | "pied" | null {
+  if (/(?:à |a )?suspend|suspendu|hanged|wall.?hung|mural/i.test(text)) return "sus";
+  if (/sur pieds?|à poser|a poser|free.?standing|standing|sur pattes/i.test(text)) return "pied";
+  return null;
+}
+
 /** Nombres 40–300 (largeurs plausibles) présents dans un texte. */
 function widths(text: string): number[] {
   return Array.from(new Set((text.match(/\d{2,3}/g) || []).map(Number).filter((n) => n >= 40 && n <= 300)));
@@ -84,6 +91,7 @@ export async function computeBesoinMatches(): Promise<
     const bWidths = widths(need);
     const bTokens = distinctiveTokens(need);
     const bFinishes = FINISHES.filter((f) => need.toLowerCase().includes(f));
+    const bPose = poseType(need);
 
     for (const s of stock) {
       const lignes = (Array.isArray(s.lignes) ? s.lignes : []) as Ligne[];
@@ -97,11 +105,15 @@ export async function computeBesoinMatches(): Promise<
       let best = { score: 0, desc: "" };
       for (const l of lignes) {
         const t = `${l.ref || ""} ${cleanLigne(l.desc || "")}`.toLowerCase();
+        // Pose incompatible (client veut « à suspendre » mais meuble « sur pieds », ou l'inverse) → on écarte.
+        const lPose = poseType(t);
+        if (bPose && lPose && bPose !== lPose) continue;
         const nums = lineWidths(t);
         const widthMatch = bWidths.length > 0 && bWidths.some((w) => nums.includes(w));
         const modelHits = bTokens.filter((k) => t.includes(k)).length;
         const finishHits = bFinishes.filter((f) => t.includes(f)).length;
-        const ligneScore = (widthMatch ? 5 : 0) + modelHits * 3 + finishHits;
+        const poseBonus = bPose && lPose === bPose ? 2 : 0;
+        const ligneScore = (widthMatch ? 5 : 0) + modelHits * 3 + finishHits + poseBonus;
         if (ligneScore > best.score) best = { score: ligneScore, desc: cleanLigne(l.desc || "") };
       }
       // Si le besoin précise une largeur mais aucune ligne ne l'a → pas assez précis.

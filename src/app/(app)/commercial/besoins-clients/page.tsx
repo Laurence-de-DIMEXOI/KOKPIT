@@ -278,16 +278,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── Drawer détail + matches ──────────────────────────────────────────
 function BesoinDrawer({ besoin, onClose, onChanged }: { besoin: Besoin; onClose: () => void; onChanged: () => void }) {
   const { addToast } = useToast();
-  const [statut, setStatut] = useState(besoin.statut);
-  const [notes, setNotes] = useState(besoin.notes || "");
+  const [f, setF] = useState({
+    nomClient: besoin.nomClient, telephone: besoin.telephone || "", email: besoin.email || "",
+    recherche: besoin.recherche, motsCles: besoin.motsCles || "", categorie: besoin.categorie || "",
+    delai: besoin.delai || "", statut: besoin.statut, notes: besoin.notes || "",
+  });
+  const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
   const [matches, setMatches] = useState<BesoinMatch[]>(besoin.matches);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
+    if (!f.nomClient.trim() || !f.recherche.trim()) { addToast("Nom et recherche obligatoires", "error"); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/commercial/besoins-clients/${besoin.id}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ statut, notes }),
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f),
       });
       if (res.ok) { addToast("Mis à jour", "success"); onChanged(); onClose(); }
       else addToast("Erreur", "error");
@@ -315,23 +320,31 @@ function BesoinDrawer({ besoin, onClose, onChanged }: { besoin: Besoin; onClose:
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md bg-cockpit-card border-l border-cockpit shadow-xl overflow-y-auto p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-cockpit-heading">{besoin.nomClient}</h2>
-            <div className="text-[11px] text-cockpit-secondary">{besoin.reference}</div>
-          </div>
+          <div className="text-[11px] text-cockpit-secondary font-semibold">{besoin.reference}</div>
           <button onClick={onClose}><X className="w-5 h-5 text-cockpit-secondary" /></button>
         </div>
 
-        <div className="flex flex-wrap gap-3 text-sm text-cockpit-primary">
-          {besoin.telephone && <a href={`tel:${besoin.telephone}`} className="inline-flex items-center gap-1 text-[#4C9DB0]"><Phone className="w-3.5 h-3.5" />{besoin.telephone}</a>}
-          {besoin.email && <a href={`mailto:${besoin.email}`} className="inline-flex items-center gap-1 text-[#4C9DB0]"><Mail className="w-3.5 h-3.5" />{besoin.email}</a>}
+        <Field label="Nom du client *"><input className="inp2" value={f.nomClient} onChange={(e) => set("nomClient", e.target.value)} /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Téléphone"><input className="inp2" value={f.telephone} onChange={(e) => set("telephone", e.target.value)} /></Field>
+          <Field label="Email"><input className="inp2" value={f.email} onChange={(e) => set("email", e.target.value)} /></Field>
         </div>
-
-        <div className="text-sm text-cockpit-primary bg-cockpit-dark/20 rounded-lg p-3">
-          <div className="font-medium mb-1">Recherche</div>
-          {besoin.recherche}
-          {besoin.motsCles && <div className="mt-1 text-xs text-cockpit-secondary">Mots-clés : {besoin.motsCles}</div>}
-          {besoin.delai && <div className="mt-1 text-xs text-cockpit-secondary">Délai : {besoin.delai}</div>}
+        {(f.telephone || f.email) && (
+          <div className="flex flex-wrap gap-3 text-sm -mt-1">
+            {f.telephone && <a href={`tel:${f.telephone}`} className="inline-flex items-center gap-1 text-[#4C9DB0]"><Phone className="w-3.5 h-3.5" />Appeler</a>}
+            {f.email && <a href={`mailto:${f.email}`} className="inline-flex items-center gap-1 text-[#4C9DB0]"><Mail className="w-3.5 h-3.5" />Écrire</a>}
+          </div>
+        )}
+        <Field label="Ce que cherche le client *"><textarea className="inp2" rows={2} value={f.recherche} onChange={(e) => set("recherche", e.target.value)} /></Field>
+        <Field label="Mots-clés (pour l'alerte)"><input className="inp2" value={f.motsCles} onChange={(e) => set("motsCles", e.target.value)} /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Catégorie">
+            <select className="inp2" value={f.categorie} onChange={(e) => set("categorie", e.target.value)}>
+              <option value="">—</option>
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Délai souhaité"><input className="inp2" value={f.delai} onChange={(e) => set("delai", e.target.value)} /></Field>
         </div>
 
         {/* Matches / arrivages */}
@@ -360,12 +373,12 @@ function BesoinDrawer({ besoin, onClose, onChanged }: { besoin: Besoin; onClose:
         </div>
 
         <Field label="Statut">
-          <select className="w-full px-2.5 py-2 border border-cockpit rounded-lg bg-cockpit-input text-sm" value={statut} onChange={(e) => setStatut(e.target.value)}>
+          <select className="inp2" value={f.statut} onChange={(e) => set("statut", e.target.value)}>
             {STATUTS.map((s) => <option key={s} value={s}>{STATUT_BADGE[s].label}</option>)}
           </select>
         </Field>
         <Field label="Notes">
-          <textarea className="w-full px-2.5 py-2 border border-cockpit rounded-lg bg-cockpit-input text-sm" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <textarea className="inp2" rows={3} value={f.notes} onChange={(e) => set("notes", e.target.value)} />
         </Field>
 
         <div className="flex gap-2">
@@ -375,6 +388,7 @@ function BesoinDrawer({ besoin, onClose, onChanged }: { besoin: Besoin; onClose:
           <button onClick={del} className="px-3 py-2.5 rounded-lg border border-red-200 text-red-600"><Trash2 className="w-4 h-4" /></button>
         </div>
       </div>
+      <style jsx>{`.inp2{width:100%;padding:0.5rem 0.65rem;border:1px solid var(--color-cockpit-border,#d8dee9);border-radius:0.5rem;background:var(--color-cockpit-input,#fff);font-size:0.875rem;color:inherit}`}</style>
     </div>,
     document.body
   );
