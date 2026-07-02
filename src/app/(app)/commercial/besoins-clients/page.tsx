@@ -22,9 +22,9 @@ const PAGE_SIZE = 20;
 
 const STATUT_BADGE: Record<string, { label: string; cls: string }> = {
   EN_ATTENTE: { label: "En attente", cls: "bg-amber-100 text-amber-800" },
-  CONTACTE: { label: "Contacté", cls: "bg-blue-100 text-blue-800" },
-  SATISFAIT: { label: "Satisfait", cls: "bg-green-100 text-green-800" },
-  ANNULE: { label: "Annulé", cls: "bg-gray-100 text-gray-500" },
+  CONTACTE: { label: "Contacté / informé", cls: "bg-blue-100 text-blue-800" },
+  SATISFAIT: { label: "Servi", cls: "bg-green-100 text-green-800" },
+  ANNULE: { label: "Plus intéressé", cls: "bg-gray-100 text-gray-500" },
 };
 const STATUTS = ["EN_ATTENTE", "CONTACTE", "SATISFAIT", "ANNULE"];
 const CATEGORIES = ["CUISINE", "DRESSING", "SALON", "SDB", "AUTRE"];
